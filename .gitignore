@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------
+# Entorno
+# El .env real NO se versiona: cada integrante lo deriva de .env.example.
+# Contiene la estrategia de lectura de la corrida y credenciales locales.
+# ---------------------------------------------------------------
+.env
+.env.local
+*.env
+!.env.example
+
+# ---------------------------------------------------------------
+# Resultados de experimentos
+# Las salidas crudas de k6 y los volcados de metricas son pesados y
+# se regeneran en cada corrida. Solo se versionan los consolidados
+# que se citan en el informe.
+# ---------------------------------------------------------------
+experiments/*/results/raw/*
+!experiments/*/results/raw/.gitkeep
+*.ndjson
+k6-summary-*.json
+
+# ---------------------------------------------------------------
+# Datos y volumenes de contenedores
+# Nunca deben caer dentro del repo (OneDrive los sincronizaria y
+# contaminaria la medicion). Se declaran aqui como red de seguridad.
+# ---------------------------------------------------------------
+data/
+pgdata/
+redis-data/
+observability/grafana/data/
+
+# ---------------------------------------------------------------
+# Logs y temporales
+# ---------------------------------------------------------------
+*.log
+tmp/
+.cache/
+
+# ---------------------------------------------------------------
+# Editores y sistema operativo
+# ---------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
