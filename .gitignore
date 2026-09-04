@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Android
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.cxx/
+build/
+captures/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Experimentos
+experiments/**/results/raw/*
+!experiments/**/results/raw/.gitkeep
+
+# OS / editores
+.DS_Store
+*.swp
+.vscode/
