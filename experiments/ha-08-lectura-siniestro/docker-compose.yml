@@ -1,0 +1,199 @@
+name: solventa-ha08
+
+x-limits-small: &limits-small
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 512M
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ha08-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command: >
+      postgres
+      -c shared_buffers=${PG_SHARED_BUFFERS}
+      -c effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE}
+      -c max_connections=100
+      -c random_page_cost=1.1
+      -c track_io_timing=on
+      -c log_min_duration_statement=500
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  redis:
+    image: redis:7-alpine
+    container_name: ha08-redis
+    command: >
+      redis-server
+      --save ""
+      --appendonly no
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    <<: *limits-small
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: ha08-redpanda
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --overprovisioned
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  api:
+    build: ./api
+    container_name: ha08-api
+    environment:
+      READ_STRATEGY: ${READ_STRATEGY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      DB_POOL_MIN: ${DB_POOL_MIN}
+      DB_POOL_MAX: ${DB_POOL_MAX}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      UVICORN_WORKERS: ${UVICORN_WORKERS}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  projector:
+    build: ./projector
+    container_name: ha08-projector
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP: redpanda:9092
+      TOPIC: siniestros.eventos
+      CONSUMER_GROUP: proyector-estado
+    depends_on:
+      postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports:
+      - "8001:8001"     # /metrics
+    <<: *limits-small
+
+  simulator:
+    build: ./simulator
+    container_name: ha08-simulator
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      KAFKA_BOOTSTRAP: redpanda:9092
+      TOPIC: siniestros.eventos
+      EVENTS_PER_SECOND: ${EVENTS_PER_SECOND}
+      HOT_SET_SIZE: ${HOT_SET_SIZE}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+    <<: *limits-small
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ha08-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+    <<: *limits-small
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ha08-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    <<: *limits-small
+
+  k6:
+    image: grafana/k6:0.53.0
+    container_name: ha08-k6
+    profiles: ["load"]
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: "p(50),p(95),p(99),avg,max"
+      BASE_URL: http://api:8000
+      ARM: ${READ_STRATEGY}
+      RUN_ID: ${RUN_ID}
+    volumes:
+      - ./load/k6:/scripts:ro
+      - ./results/raw:/results
+    entrypoint:
+      - k6
+      - run
+      - --out
+      - experimental-prometheus-rw
+      - --summary-export=/results/summary_${READ_STRATEGY}_${RUN_ID}.json
+      - /scripts/read_estado.js
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  pgdata:
+  promdata:
