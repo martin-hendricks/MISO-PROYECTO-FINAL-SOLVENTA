@@ -1,0 +1,159 @@
+name: solventa-ha01
+
+x-limits-small: &limits-small
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 512M
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ha01-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    <<: *limits-small
+
+  redis:
+    image: redis:7-alpine
+    container_name: ha01-redis
+    command: >
+      redis-server
+      --save ""
+      --appendonly no
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    <<: *limits-small
+
+  provider_double:
+    build: ./provider_double
+    container_name: ha01-provider-double
+    environment:
+      PROVIDER_STATE: ${PROVIDER_STATE}
+      PROVIDER_LATENCY_MEDIAN_MS: ${PROVIDER_LATENCY_MEDIAN_MS}
+      PROVIDER_LATENCY_SIGMA: ${PROVIDER_LATENCY_SIGMA}
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:9000/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    <<: *limits-small
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    container_name: ha01-toxiproxy
+    ports:
+      - "8474:8474"   # API de administración
+      - "9001:9001"   # Puerto proxied hacia provider_double:9000
+    depends_on:
+      provider_double: { condition: service_healthy }
+    <<: *limits-small
+
+  api:
+    build: ./api
+    container_name: ha01-api
+    environment:
+      READ_STRATEGY: ${READ_STRATEGY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      PROVIDER_URL: http://toxiproxy:9001
+      DEPENDENCY_BUDGET_MS: ${DEPENDENCY_BUDGET_MS}
+      HARD_TIMEOUT_MS: ${HARD_TIMEOUT_MS}
+      CIRCUIT_BREAKER_POLICY: ${CIRCUIT_BREAKER_POLICY}
+      CIRCUIT_BREAKER_THRESHOLD: ${CIRCUIT_BREAKER_THRESHOLD}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      UVICORN_WORKERS: ${UVICORN_WORKERS}
+    ports:
+      - "8100:8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      toxiproxy: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ha01-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9091:9090"
+    <<: *limits-small
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ha01-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "3001:3000"
+    <<: *limits-small
+
+  k6:
+    image: grafana/k6:0.53.0
+    container_name: ha01-k6
+    profiles: ["load"]
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: "p(50),p(95),p(99),avg,max"
+      BASE_URL: http://api:8000
+      ARM: ${READ_STRATEGY}
+      RUN_ID: ${RUN_ID}
+    volumes:
+      - ./load/k6:/scripts:ro
+      - ./results/raw:/results
+    entrypoint:
+      - k6
+      - run
+      - --out
+      - experimental-prometheus-rw
+      - --summary-export=/results/summary_${READ_STRATEGY}_${RUN_ID}.json
+      - /scripts/cotizar.js
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  pgdata:
+  promdata:
