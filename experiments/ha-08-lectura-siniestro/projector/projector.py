@@ -1,4 +1,5 @@
 import asyncio, os, orjson
+from datetime import datetime, timezone
 import asyncpg
 from aiokafka import AIOKafkaConsumer
 from redis.asyncio import Redis
@@ -46,11 +47,12 @@ async def main() -> None:
     try:
         async for msg in consumer:
             ev = orjson.loads(msg.value)
+            ocurrido_en = datetime.fromisoformat(ev["ocurrido_en"].replace("Z", "+00:00"))
             async with pool.acquire() as conn:
                 applied = await conn.fetchval(
                     UPSERT,
                     ev["siniestro_id"], ev["payload"]["cliente_id"],
-                    ev["version"], ev["ocurrido_en"],
+                    ev["version"], ocurrido_en,
                     orjson.dumps(ev["payload"]).decode(),
                 )
             if applied is None:

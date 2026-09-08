@@ -1,5 +1,5 @@
 import orjson
-from ..db import pool
+from .. import db
 
 SQL = """
 SELECT
@@ -39,7 +39,7 @@ WHERE s.id = $1
 """
 
 async def get_estado(siniestro_id: int) -> dict | None:
-    async with pool.acquire() as conn:
+    async with db.pool.acquire() as conn:
         row = await conn.fetchrow(SQL, siniestro_id)
     if row is None:
         return None

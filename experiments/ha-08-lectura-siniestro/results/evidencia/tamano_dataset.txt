@@ -1,0 +1,15 @@
+ siniestro |  hito  |  total  
+-----------+--------+---------
+ 154 MB    | 660 MB | 3000 MB
+(1 row)
+
+             tabla             |  count  
+-------------------------------+---------
+ poliza                        | 1000000
+ peritaje                      | 1000000
+ siniestro                     | 1000000
+ documento                     | 3000000
+ siniestro_estado (proyeccion) | 1000000
+ hito                          | 5002556
+(6 rows)
+
