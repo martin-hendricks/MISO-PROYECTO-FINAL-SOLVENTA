@@ -1,0 +1,420 @@
+{
+  "title": "HA-01 — presupuesto de latencia de la cotizacion embebida",
+  "uid": "ha01",
+  "tags": [
+    "ha01",
+    "solventa",
+    "experimento"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latencia de la cotizacion (p50 / p95 / p99) vs umbral del servicio",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(ha01_quote_latency_seconds_bucket[30s])))",
+          "legendFormat": "p50",
+          "refId": "A",
+          "interval": "1s"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ha01_quote_latency_seconds_bucket[30s])))",
+          "legendFormat": "p95",
+          "refId": "B",
+          "interval": "1s"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ha01_quote_latency_seconds_bucket[30s])))",
+          "legendFormat": "p99",
+          "refId": "C",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.225
+              },
+              {
+                "color": "red",
+                "value": 0.475
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Estado del interruptor  0 cerrado / 1 semiabierto / 2 abierto",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "expr": "ha01_breaker_state",
+          "legendFormat": "estado",
+          "refId": "A",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "lineInterpolation": "stepAfter"
+          },
+          "min": 0,
+          "max": 2
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "p95 por camino — HD-01.3: el degradado debe ser mas rapido que el frio",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, origen) (rate(ha01_quote_latency_seconds_bucket[30s])))",
+          "legendFormat": "{{origen}}",
+          "refId": "A",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Origen del perfil (proporcion) — trade-off cuantificado",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (origen) (rate(ha01_perfil_origen_total[30s])) / ignoring(origen) group_left sum(rate(ha01_perfil_origen_total[30s]))",
+          "legendFormat": "{{origen}}",
+          "refId": "A",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Conexiones en vuelo del adaptador vs tamano del pool — HD-01.7",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "ha01_adapter_inflight",
+          "legendFormat": "en vuelo",
+          "refId": "A",
+          "interval": "1s"
+        },
+        {
+          "expr": "ha01_refrescos_fondo_activos",
+          "legendFormat": "refrescos de fondo vivos",
+          "refId": "B",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Invocaciones al proveedor por resultado",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (resultado) (rate(ha01_adapter_calls_total[30s]))",
+          "legendFormat": "{{resultado}}",
+          "refId": "A",
+          "interval": "1s"
+        },
+        {
+          "expr": "rate(ha01_llamadas_fallidas_proveedor_total[30s])",
+          "legendFormat": "fallidas (timeout duro)",
+          "refId": "B",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "title": "Cotizaciones con respaldo — criterio de negocio (< 5 % en estado sano)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ha01_cotizaciones_degradadas_total[30s]) / rate(ha01_cotizaciones_total[30s])",
+          "legendFormat": "% con respaldo",
+          "refId": "A",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "title": "Edad del dato con que se tarifica (p50 / p95)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(ha01_perfil_edad_seconds_bucket[30s])))",
+          "legendFormat": "p50",
+          "refId": "A",
+          "interval": "1s"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ha01_perfil_edad_seconds_bucket[30s])))",
+          "legendFormat": "p95",
+          "refId": "B",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "title": "Tasa de acierto de :CacheOF (debe permanecer PLANA durante la ventana)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ha01_cache_hits_total[30s]) / (rate(ha01_cache_hits_total[30s]) + rate(ha01_cache_misses_total[30s]))",
+          "legendFormat": "acierto",
+          "refId": "A",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "title": "Coalescencia y refrescos (C vs C')",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(ha01_coalescidas_total[30s])",
+          "legendFormat": "coalescidas",
+          "refId": "A",
+          "interval": "1s"
+        },
+        {
+          "expr": "sum by (resultado) (rate(ha01_refrescos_total[30s]))",
+          "legendFormat": "{{resultado}}",
+          "refId": "B",
+          "interval": "1s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

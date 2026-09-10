@@ -1,0 +1,16 @@
+global:
+  # 1 s: la ventana de medicion es corta y las transiciones del interruptor
+  # duran segundos. Con el scrape por defecto de 15 s la apertura y el cierre
+  # caerian entre muestras y HD-01.5, 01.6 y 01.8 no se podrian medir.
+  scrape_interval: 1s
+  scrape_timeout: 900ms
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: api
+    static_configs: [{ targets: ["api:8000"] }]
+    metrics_path: /metrics
+
+  - job_name: provider
+    static_configs: [{ targets: ["provider:9000"] }]
+    metrics_path: /metrics

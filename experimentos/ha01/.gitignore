@@ -1,0 +1,7 @@
+results/raw/*
+results/analysis/*
+!results/raw/.gitkeep
+!results/analysis/.gitkeep
+__pycache__/
+*.pyc
+.env.local

@@ -1,0 +1,174 @@
+# Experimento HA-01 — montaje reproducible.
+# Los limites de CPU y memoria son variables CONTROLADAS: sin ellos las
+# corridas no son comparables entre si ni entre brazos.
+
+x-limits-small: &limits-small
+  deploy:
+    resources:
+      limits: { cpus: "0.5", memory: 512M }
+
+services:
+  api:                          # :MsCotizacion + :MotorRaiting + :AdaptadorOF
+    build: ./api
+    container_name: ha01-api
+    environment:
+      QUOTE_STRATEGY: ${QUOTE_STRATEGY}
+      DEPENDENCY_BUDGET_MS: ${DEPENDENCY_BUDGET_MS}
+      ADAPTER_HARD_TIMEOUT_MS: ${ADAPTER_HARD_TIMEOUT_MS}
+      ADAPTER_CONNECT_TIMEOUT_MS: ${ADAPTER_CONNECT_TIMEOUT_MS}
+      BREAKER_POLICY: ${BREAKER_POLICY}
+      BREAKER_FAILURE_THRESHOLD: ${BREAKER_FAILURE_THRESHOLD}
+      BREAKER_FAILURE_RATE: ${BREAKER_FAILURE_RATE}
+      BREAKER_WINDOW_SECONDS: ${BREAKER_WINDOW_SECONDS}
+      BREAKER_MIN_SAMPLES: ${BREAKER_MIN_SAMPLES}
+      BREAKER_OPEN_SECONDS: ${BREAKER_OPEN_SECONDS}
+      BREAKER_HALF_OPEN_PROBES: ${BREAKER_HALF_OPEN_PROBES}
+      ADAPTER_MAX_CONNECTIONS: ${ADAPTER_MAX_CONNECTIONS}
+      ADAPTER_MAX_KEEPALIVE: ${ADAPTER_MAX_KEEPALIVE}
+      REFRESH_MAX_INFLIGHT: ${REFRESH_MAX_INFLIGHT}
+      REDIS_URL: redis://redis:6379/0
+      PROFILE_TTL_SECONDS: ${PROFILE_TTL_SECONDS}
+      PROFILE_MAX_AGE_SECONDS: ${PROFILE_MAX_AGE_SECONDS}
+      RATING_COST_MS: ${RATING_COST_MS}
+      RATING_CPU_ITERS: ${RATING_CPU_ITERS}
+      SLO_P95_MS: ${SLO_P95_MS}
+      SLO_P99_MS: ${SLO_P99_MS}
+      UVICORN_WORKERS: ${UVICORN_WORKERS}
+      LOG_LEVEL: ${LOG_LEVEL}
+      # El adaptador apunta a Toxiproxy, NUNCA al doble directamente.
+      PROVIDER_BASE_URL: http://toxiproxy:19000
+      DATABASE_URL: postgresql://solventa:solventa@postgres:5432/solventa
+    ports: ["8000:8000"]
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      toxiproxy: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=2).status==200 else 1)\""]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1G }
+
+  provider:                     # sustituye al «External» :OpenFinance
+    build: ./provider
+    container_name: ha01-provider
+    environment:
+      PROVIDER_LATENCY_P50_MS: ${PROVIDER_LATENCY_P50_MS}
+      PROVIDER_LATENCY_P95_MS: ${PROVIDER_LATENCY_P95_MS}
+      PROVIDER_LATENCY_P99_MS: ${PROVIDER_LATENCY_P99_MS}
+      PROVIDER_ERROR_RATE: ${PROVIDER_ERROR_RATE}
+      PROVIDER_SEED: ${PROVIDER_SEED}
+      PROVIDER_WORKERS: 1
+    ports: ["9000:9000"]
+    # Deliberadamente holgado: el doble NO puede ser el cuello de botella.
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 512M }
+
+  toxiproxy:                    # inyector de fallas de RED (instrumentacion)
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    container_name: ha01-toxiproxy
+    command: ["-host=0.0.0.0", "-config=/config/config.json"]
+    volumes:
+      - ./infra/toxiproxy:/config:ro
+    ports:
+      - "8474:8474"    # API de administracion
+      - "19000:19000"  # proxy hacia el doble
+    depends_on: [provider]
+
+  redis:                        # :CacheOF
+    image: redis:7-alpine
+    container_name: ha01-redis
+    # 512M y no 256M: con tres pools de claves el dataset ronda los 80 MB y
+    # una eviccion por LRU cambiaria la tasa de acierto en silencio, que es
+    # justo la variable independiente del bloque 2.
+    command: ["redis-server", "--maxmemory", "512mb",
+              "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1G }
+
+  postgres:                     # reglas de tarifa, solo al arranque
+    image: postgres:16-alpine
+    container_name: ha01-postgres
+    environment:
+      POSTGRES_USER: solventa
+      POSTGRES_PASSWORD: solventa
+      POSTGRES_DB: solventa
+    volumes:
+      - ./infra/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solventa"]
+      interval: 3s
+      retries: 20
+    <<: *limits-small
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: ha01-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: ha01-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+
+  tools:
+    # Misma imagen que la API, para no exigir dependencias en la maquina del
+    # analista: la precarga de :CacheOF corre dentro de la red de compose.
+    image: ha01-api
+    profiles: ["tools"]
+    entrypoint: ["python"]
+    volumes:
+      - ./scripts:/app/scripts:ro
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CACHE_KEY_PREFIX: ${CACHE_KEY_PREFIX:-of:perfil:}
+      UNIVERSO_CLIENTES: ${UNIVERSO_CLIENTES}
+      POOL_STALE: ${POOL_STALE}
+      POOL_COLD: ${POOL_COLD}
+      TARGET_HIT_RATE: ${TARGET_HIT_RATE}
+      MISS_STALE_FRACTION: ${MISS_STALE_FRACTION}
+      PROFILE_TTL_SECONDS: ${PROFILE_TTL_SECONDS}
+      PROFILE_MAX_AGE_SECONDS: ${PROFILE_MAX_AGE_SECONDS}
+    depends_on:
+      redis: { condition: service_healthy }
+
+  k6:
+    # Version fijada: en k6 >= 1.0 el output pasa a llamarse `prometheus-rw`
+    # y el script de corrida dejaria de exportar sin avisar.
+    image: grafana/k6:0.55.0
+    container_name: ha01-k6
+    profiles: ["load"]
+    volumes:
+      - ./load/k6:/scripts:ro
+      - ./results/raw:/results
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: "p(50),p(95),p(99),max"
+
+volumes:
+  prom-data:

@@ -1,0 +1,12 @@
+# Los scripts se ejecutan en bash y dentro de contenedores Linux: con CRLF
+# fallan con "$'\r': command not found". Se fuerza LF pase lo que pase en
+# la configuracion local de core.autocrlf.
+*.sh      text eol=lf
+*.py      text eol=lf
+*.js      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.sql     text eol=lf
+.env      text eol=lf
+Dockerfile text eol=lf
