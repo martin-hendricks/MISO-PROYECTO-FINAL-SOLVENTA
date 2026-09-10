@@ -79,6 +79,14 @@ corrida() {
   "${RAIZ}/infra/toxiproxy/states.sh" sano >/dev/null
 
   # -- 2. Arrancar con el brazo y precargar la cache ----------------------
+  # El pool vencido se dimensiona con la aritmetica de la corrida: las fases
+  # SANAS son las que repueblan claves vencidas y hacen derivar el acierto.
+  # La degradada no cuenta, porque ahi el refresco falla.
+  export RATE_ESPERADA="${RATE}"
+  export SEGUNDOS_SANOS=$((ESTAB + F_SANA + F_REC))
+  POOL_STALE="$(pool_vencido "${RATE}" "${SEGUNDOS_SANOS}")"
+  export POOL_STALE
+
   QUOTE_STRATEGY="${ARM}" docker compose up -d api >/dev/null
   esperar_api
   precargar --verificar
@@ -168,6 +176,16 @@ corrida_escalones() {
   docker compose exec -T redis redis-cli FLUSHALL >/dev/null
   docker compose exec -T redis redis-cli CONFIG RESETSTAT >/dev/null
   "${RAIZ}/infra/toxiproxy/states.sh" sano >/dev/null
+
+  # Con el proveedor SANO todos los escalones repueblan; se dimensiona con el
+  # escalon mas alto y la corrida entera, que es el peor caso.
+  local n_esc; n_esc=$(echo "${ESCALONES}" | tr ',' ' ' | wc -w)
+  local rate_max; rate_max=$(echo "${ESCALONES}" | tr ',' '
+' | sort -n | tail -1)
+  export RATE_ESPERADA="${rate_max}"
+  export SEGUNDOS_SANOS=$((ESTAB + n_esc * ESCALON_S))
+  POOL_STALE="$(pool_vencido "${rate_max}" "${SEGUNDOS_SANOS}")"
+  export POOL_STALE
 
   QUOTE_STRATEGY="${ARM}" docker compose up -d api >/dev/null
   esperar_api

@@ -32,10 +32,41 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 PREFIJO = os.environ.get("CACHE_KEY_PREFIX", "of:perfil:")
 
 N_HOT = int(os.environ.get("UNIVERSO_CLIENTES", "50000"))
-N_STALE = int(os.environ.get("POOL_STALE", "100000"))
-N_COLD = int(os.environ.get("POOL_COLD", "100000"))
+N_STALE_CFG = int(os.environ.get("POOL_STALE", "100000"))
 HIT = float(os.environ.get("TARGET_HIT_RATE", "0.96"))
 STALE_FRACTION = float(os.environ.get("MISS_STALE_FRACTION", "0.5"))
+
+# --- dimensionamiento del pool VENCIDO --------------------------------
+#
+# El pool frio es infinito por construccion (ids aleatorios sobre 10^12), asi
+# que no aporta deriva. El vencido no puede serlo: necesita un valor previo
+# realmente precargado.
+#
+# La deriva aparece en las fases SANAS: un refresco con exito convierte una
+# clave vencida en fresca, y la proxima vez que salga sorteada sera un acierto
+# en vez de un fallo. En puntos porcentuales:
+#
+#   deriva = (1 - acierto) * fraccion_vencida * (repobladas / POOL_STALE)
+#
+# Con 100 000 claves, acierto 50 % y 200 sol/s durante los 240 s sanos del
+# protocolo real, eso da 3 puntos: el doble de la tolerancia de
+# verify_hitrate.sh. Con las fases cortas del piloto daba 1,5 y pasaba, que es
+# como se colo hasta aqui.
+RATE_ESPERADA = float(os.environ.get("RATE_ESPERADA", "200"))
+SEGUNDOS_SANOS = float(os.environ.get("SEGUNDOS_SANOS", "240"))
+DERIVA_ADMISIBLE = float(os.environ.get("DERIVA_ADMISIBLE", "0.005"))
+
+
+def pool_vencido_requerido() -> tuple[int, float]:
+    """Tamano minimo del pool vencido y claves que se repoblaran."""
+    repobladas = RATE_ESPERADA * (1 - HIT) * STALE_FRACTION * SEGUNDOS_SANOS
+    if repobladas <= 0:
+        return N_STALE_CFG, 0.0
+    minimo = (1 - HIT) * STALE_FRACTION * repobladas / DERIVA_ADMISIBLE
+    return int(max(N_STALE_CFG, minimo)), repobladas
+
+
+N_STALE, REPOBLADAS = pool_vencido_requerido()
 
 TTL = int(os.environ.get("PROFILE_TTL_SECONDS", "900"))
 MAX_AGE = int(os.environ.get("PROFILE_MAX_AGE_SECONDS", "86400"))
@@ -116,7 +147,7 @@ async def precargar() -> dict:
         return {
             "calientes": calientes,
             "vencidas": vencidas,
-            "frias_no_precargadas": N_COLD,
+            "vencidas_esperadas_repobladas": int(REPOBLADAS),
             "claves_en_redis": await r.dbsize(),
             "memoria": info.get("used_memory_human"),
             "dispersion_edad_caliente_s": HOT_AGE_SPREAD_S,
@@ -138,6 +169,13 @@ async def verificar(res: dict) -> int:
             f"claves en Redis {res['claves_en_redis']} != esperadas "
             f"{N_HOT + N_STALE}"
         )
+    deriva = (1 - HIT) * STALE_FRACTION * REPOBLADAS / N_STALE
+    if deriva > 0.02:
+        problemas.append(
+            f"el pool vencido produce una deriva de {deriva * 100:.2f} puntos "
+            "en la tasa de acierto, por encima de la tolerancia de 2 puntos "
+            "de verify_hitrate.sh. Subir POOL_STALE."
+        )
     for p in problemas:
         print(f"ERROR: {p}", file=sys.stderr)
     return 1 if problemas else 0
@@ -152,7 +190,14 @@ async def main() -> int:
     print(
         f"precarga: {res['calientes']} calientes + {res['vencidas']} vencidas "
         f"= {res['claves_en_redis']} claves ({res['memoria']}); "
-        f"pool frio de {res['frias_no_precargadas']} ids sin precargar"
+        "pool frio no acotado (ids aleatorios, cero deriva)"
+    )
+    deriva = ((1 - HIT) * STALE_FRACTION * REPOBLADAS / N_STALE * 100
+              if N_STALE else 0)
+    print(
+        f"pool vencido: {N_STALE} claves (configurado {N_STALE_CFG}); a "
+        f"{RATE_ESPERADA:.0f} sol/s se repoblaran ~{REPOBLADAS:.0f} durante "
+        f"los {SEGUNDOS_SANOS:.0f} s sanos -> deriva {deriva:+.2f} puntos"
     )
     print(
         f"objetivo: acierto {HIT:.0%} | de los fallos, "

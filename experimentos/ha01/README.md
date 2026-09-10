@@ -246,6 +246,44 @@ carga, que es lo que sostiene `EC-LAT-02` (horario pico, "alta concurrencia").
 Los tramos a analizar viven ahora en `fases.json`, común a los cuatro bloques:
 tres fases en el 1–3, un tramo por escalón en el 4, un solo camino de análisis.
 
+### 14. Los pools de fallo se dimensionan desde la deriva admisible
+
+Los tres pools de la desviación 2 resuelven la deriva de la tasa de acierto a
+96 %, pero **no a 50 %**, y eso solo se vio al correr esa celda. La deriva
+aparece en las fases sanas: un refresco con éxito convierte una clave vencida
+en fresca, y la próxima vez que salga sorteada será un acierto en vez de un
+fallo. En puntos porcentuales:
+
+```
+deriva = (1 - acierto) × fracción_vencida × (repobladas / POOL_STALE)
+```
+
+Con 100 000 claves, acierto 50 % y 200 sol/s durante los 240 s sanos del
+protocolo real, eso da **3 puntos**: el doble de la tolerancia de
+`verify_hitrate.sh`. Con las fases cortas de un piloto daba 1,5 y pasaba, que
+es exactamente cómo se coló.
+
+Dos correcciones:
+
+- **El pool frío deja de ser finito.** Los ids se sortean sobre 10¹², así que
+  una clave fría repoblada no vuelve a salir nunca y su aporte a la deriva es
+  cero. El pool vencido no puede hacer lo mismo: necesita un valor previo
+  realmente precargado, luego es finito por fuerza.
+- **El pool vencido se dimensiona desde la aritmética de cada corrida**
+  (`pool_vencido()` en `_comun.sh`), con la deriva admisible como parámetro.
+  A 96 % se queda en 100 000; a 50 % y 200 sol/s sube a 600 000 (~168 MB, por
+  lo que `maxmemory` de Redis pasa a 1 GB).
+
+El tamaño se calcula **una sola vez en bash** y se pasa tanto a `warm_cache.py`
+como a k6: si los dos números no coincidieran, k6 sortearía sobre un rango
+distinto del precargado y la tasa de acierto observada no sería la configurada.
+Es el fallo más silencioso que admite este montaje.
+
+Verificado con las fases reales, acierto 50 % a 200 sol/s: deriva predicha
++0,50 puntos, **observada +0,38**. Y con el pool ya bien dimensionado, HD-01.7
+por fin es observable — `inflight_max` llega a **80 sobre un pool de 40**, o
+sea 40 conexiones activas y 40 encoladas.
+
 ---
 
 ## Amenaza a la validez que el montaje no resuelve

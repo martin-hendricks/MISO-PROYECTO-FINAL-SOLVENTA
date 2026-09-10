@@ -61,10 +61,26 @@ fallar() { echo "ERROR: $*" >&2; exit 1; }
 ok()     { echo "  OK   $*"; }
 aviso()  { echo "  AVISO $*"; }
 
+# Tamano del pool VENCIDO, calculado UNA sola vez y pasado tanto a la precarga
+# como a k6. Si los dos numeros no coincidieran, k6 sortearia sobre un rango
+# distinto del precargado y la tasa de acierto observada no seria la
+# configurada: el fallo mas silencioso posible en este montaje.
+#
+#   pool_vencido <rate> <segundos_sanos>
+pool_vencido() {
+  "${PY}" - "$1" "$2" "${TARGET_HIT_RATE}" "${MISS_STALE_FRACTION}"           "${POOL_STALE:-100000}" "${DERIVA_ADMISIBLE:-0.005}" <<'PY'
+import sys
+rate, seg, hit, frac, cfg, adm = (float(x) for x in sys.argv[1:7])
+repobladas = rate * (1 - hit) * frac * seg
+minimo = (1 - hit) * frac * repobladas / adm if repobladas else 0
+print(int(max(cfg, minimo)))
+PY
+}
+
 # Precarga de :CacheOF dentro de la red de compose. Se ejecuta en el
 # contenedor `tools` para que la maquina del analista no necesite redis-py.
 precargar() {  # precargar [--verificar]
   # MSYS_NO_PATHCONV: Git Bash convierte /app/... a una ruta de Windows antes
   # de que llegue al contenedor. Sin esto la ruta llega mutilada.
-  MSYS_NO_PATHCONV=1 docker compose --profile tools run --rm     -e TARGET_HIT_RATE="${TARGET_HIT_RATE}"     -e MISS_STALE_FRACTION="${MISS_STALE_FRACTION}"     tools /app/scripts/warm_cache.py "$@"
+  MSYS_NO_PATHCONV=1 docker compose --profile tools run --rm     -e TARGET_HIT_RATE="${TARGET_HIT_RATE}"     -e MISS_STALE_FRACTION="${MISS_STALE_FRACTION}"     -e POOL_STALE="${POOL_STALE}"     -e RATE_ESPERADA="${RATE_ESPERADA:-200}"     -e SEGUNDOS_SANOS="${SEGUNDOS_SANOS:-240}"     -e DERIVA_ADMISIBLE="${DERIVA_ADMISIBLE:-0.005}"     tools /app/scripts/warm_cache.py "$@"
 }

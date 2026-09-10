@@ -93,10 +93,11 @@ services:
   redis:                        # :CacheOF
     image: redis:7-alpine
     container_name: ha01-redis
-    # 512M y no 256M: con tres pools de claves el dataset ronda los 80 MB y
-    # una eviccion por LRU cambiaria la tasa de acierto en silencio, que es
-    # justo la variable independiente del bloque 2.
-    command: ["redis-server", "--maxmemory", "512mb",
+    # 1 GB y no 256 MB: el pool vencido se dimensiona segun la deriva
+    # admisible y llega a 600 000 claves (~163 MB) con acierto 50 % a
+    # 200 sol/s. Una eviccion por LRU cambiaria la tasa de acierto en
+    # silencio, que es justo la variable independiente del bloque 2.
+    command: ["redis-server", "--maxmemory", "1gb",
               "--maxmemory-policy", "allkeys-lru", "--save", ""]
     ports: ["6379:6379"]
     healthcheck:
@@ -105,7 +106,7 @@ services:
       retries: 20
     deploy:
       resources:
-        limits: { cpus: "1.0", memory: 1G }
+        limits: { cpus: "1.0", memory: 2G }
 
   postgres:                     # reglas de tarifa, solo al arranque
     image: postgres:16-alpine
