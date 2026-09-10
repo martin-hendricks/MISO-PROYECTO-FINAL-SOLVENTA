@@ -6,11 +6,41 @@ Diseño completo: `Diseno_Experimento_HA-08.md` (wiki, `files/`). Guía técnica
 
 **Fecha de ejecución:** 2026-09-08
 **Ambiente:** Docker Compose local (`experiments/ha-08-lectura-siniestro/`)
-**Dataset:** 1.000.000 siniestros, 1.000.000 pólizas, 5.000.000 hitos, 3.000.000 documentos, 1.000.000 peritajes — verificado que supera `shared_buffers + effective_cache_size` (1.376 MB vs. 768 MB configurados)
+**Dataset:** 1.000.000 siniestros, 1.000.000 pólizas, 5.000.000 hitos, 3.000.000 documentos, 1.000.000 peritajes — verificado que supera `shared_buffers + effective_cache_size` (3.000 MB vs. 768 MB configurados)
+
+---
+
+## 0. Invalidación de las 12 corridas del 2026-09-08 y corrección aplicada
+
+Una evaluación externa (`EVALUACION_EJECUCION_HA-08.md`, 2026-09-10) detectó un defecto que **invalida las secciones 1 y 2 de este informe tal como fueron redactadas originalmente**: `scripts/verify_parity.sh` recorre `for ARM in A B C` recreando el contenedor `api` en cada iteración para comparar payloads, y quedaba arrancado con el **último** brazo del bucle (**C**). `run_experiment.sh` invocaba esa verificación *dentro de cada corrida* (paso 3), después de levantar el brazo correcto (paso 2) y sin volver a levantarlo antes de medir con k6 (paso 4). Consecuencia verificada: **las 12 corridas del protocolo formal midieron todas el brazo C**, sin importar la etiqueta A/B/C del archivo de resultados. El único resultado real de esa sesión es una medición válida de C (cumple `EC-LAT-11` con ~30× de margen); A y B nunca se ejecutaron.
+
+**Verificación de la causa raíz** (no solo se aceptó el reporte externo, se reprodujo):
+- `results/evidencia/verify_parity_20260907_205420.log` muestra el patrón `Recreate → Recreated → Started` ×3 dentro de cada corrida — la huella del bug.
+- Se reprodujo manualmente: tras correr `verify_parity.sh` una vez, `curl localhost:8000/health` devuelve `{"arm":"C"}` sin importar qué brazo se pretendía medir a continuación.
+- `main.py:36` confirma que el endpoint de estado lee `settings.read_strategy` del proceso en ejecución en cada request — no una copia fijada al inicio del script — así que el binario servía genuinamente C, no era un error de etiquetado posterior.
+
+**Corrección aplicada** (`scripts/run_experiment.sh`, `scripts/run_experiment_alta_carga.sh`, `scripts/verify_parity.sh`):
+1. `verify_parity.sh` ya no se invoca dentro de cada corrida — se documenta que debe correrse **una sola vez antes de toda la serie**.
+2. Se añadió una aserción dura en el paso 3 de ambos scripts de orquestación: `ARM_ACTIVO=$(curl -s localhost:8000/health | jq -r .arm)` seguido de `[ "$ARM_ACTIVO" = "$ARM" ] || exit 1`. Cualquier corrida futura donde la API no esté sirviendo el brazo esperado corta inmediatamente con un mensaje explícito, en vez de producir datos silenciosamente inválidos.
+3. Validado con pruebas reales: (a) se reprodujo el escenario roto exacto y se confirmó que la aserción lo detecta y corta; (b) se confirmó el camino feliz — tras levantar la API en A, `/health` reporta `A` y un `GET` directo a Redis confirma que esa key nunca fue escrita (coherente con que `arm_a.py` no importa `cache`).
+
+**Mejoras adicionales aplicadas antes de repetir la serie** (hallazgos §3.1 y §3.3 de la evaluación externa):
+- `load/k6/read_estado.js` ahora taggea cada request con su **escalón** (`warmup`/`r10`/`r25`/r50`/`r80`, vía `k6/execution` y el tiempo transcurrido del escenario) y con **`calor`** (`caliente`/`frio`, según si el ID cae en el *hot set* de 10K o no). Como el output `experimental-prometheus-rw` de k6 exporta todos los tags de un `Trend` como labels de Prometheus, esto permite recuperar el p95 por escalón y segregado caliente/frío con PromQL, sin rehacer el pipeline de corridas:
+  ```promql
+  histogram_quantile(0.95, sum(rate(k6_ha08_estado_duration_bucket[1m])) by (le, escalon, arm, run_id))
+  histogram_quantile(0.95, sum(rate(k6_ha08_estado_duration_bucket[1m])) by (le, calor, arm, run_id))
+  ```
+- Las duraciones de los escalones (1m + 3m×4) **no cambiaron** — se verificó con `k6 inspect` que el JSON de `scenarios` generado es idéntico al original.
+
+**La iteración de alta carga (§2.4) también quedó invalidada por el mismo defecto.** `scripts/run_experiment_alta_carga.sh` es una copia de `run_experiment.sh` con el mismo paso 3 (`./scripts/verify_parity.sh` dentro de la corrida, sin aserción); su log (`results/raw/log_alta_carga_A.txt`) muestra la misma secuencia `Recreate`×2 (B, C — la primera iteración del bucle, A, no recrea porque coincide con el brazo que el paso 2 ya había levantado) inmediatamente antes de k6. La única señal que sugería lo contrario —CPU de `ha08-api` en 16.8% para "A" contra 0.7% para "B"/"C"— **no es prueba suficiente**: no se capturó el hit-rate de Redis en el momento de esa corrida (dato no recuperable retroactivamente), y esa diferencia de CPU podría deberse igual a un transitorio de arranque en frío del contenedor recién recreado. Ante la duda, se trata como inválida por el mismo mecanismo verificado en el protocolo formal, no se asume una excepción sin evidencia directa.
+
+**Pendiente:** repetir las 9 corridas contrabalanceadas (+ TTL con n=3 en vez de n=1, hallazgo §3.7) **y la iteración de alta carga**, todas con el script corregido, y solo entonces re-redactar §1/§2/§2.4 con datos donde A y B realmente se ejecutaron. Ver checklist actualizado en §5.
 
 ---
 
 ## 1. Resultados consolidados
+
+> ⚠️ **Los datos de esta sección corresponden a la sesión del 2026-09-08 e incluyen el defecto descrito en §0: las columnas "A" y "B" son en realidad mediciones del brazo C.** Se conservan por trazabilidad del proceso, no como evidencia válida para las conclusiones de §2. Serán reemplazadas cuando termine la repetición de la serie.
 
 | Brazo | Corrida | p50 (ms) | p95 (ms) | Error (%) | Lag proyección p95 aprox. (s) |
 |---|---|---:|---:|---:|---:|
@@ -43,6 +73,8 @@ CSV crudo: [`results/consolidado.csv`](results/consolidado.csv). Fuente por corr
 
 ## 2. Conclusiones
 
+> ⚠️ **Ver §0.** Las conclusiones 2.1 y 2.2 comparan A/B/C entre sí, pero A y B nunca se ejecutaron en esta sesión — la comparación es en realidad C contra C. Se conservan tal como se redactaron originalmente por trazabilidad, pero **no son válidas como evidencia para HD-08** hasta repetir la serie con el script corregido. 2.3 (hit-rate) y 2.4 (punto de quiebre) siguen siendo válidas como caracterización del brazo C específicamente (ver tabla de correspondencia en `EVALUACION_EJECUCION_HA-08.md` §2).
+
 ### 2.1 Sobre la hipótesis HD-08
 
 **No se puede aceptar ni refutar formalmente la hipótesis en los términos en que fue planteada**, porque el diseño esperaba que el brazo A (línea base sin CQRS) **incumpliera** el umbral de p95 ≤ 150ms bajo carga, y eso no ocurrió: los tres brazos cumplen el umbral con enorme margen (p95 entre 4.76-5.61ms, es decir, **entre 27× y 32× por debajo del límite de 150ms**).
@@ -63,6 +95,8 @@ Esto no invalida la arquitectura CQRS como decisión general de Solventa (sigue 
 El hit-rate acumulado del caché en el brazo C fue de **~7.1%** (269 aciertos / 3.791 consultas), frente al 96% que HD-08.4 identificaba como el mínimo necesario para que el caché aporte valor. Esto **no contradice los resultados de latencia** (el p95 se cumplió igual, con o sin caché — TTL=0 dio 5.60ms, prácticamente igual a TTL=300 con 5.27ms), pero sí es evidencia de que **el modelo de conjunto caliente/frío 80/20 asumido en el diseño no se reprodujo en esta ejecución**: cada corrida dura solo 13 minutos y selecciona uniformemente sobre las 10.000 claves del *hot set*, lo que no da tiempo suficiente de calentamiento para un TTL de 30s-300s. Un hit-rate bajo con latencia igualmente buena es, en sí mismo, información: en este dataset y a esta escala, **el camino "frío" (proyección sin caché) ya es tan rápido que el hit-rate deja de ser la variable relevante** — reforzando la conclusión de la sección 2.2.
 
 ### 2.4 Punto de quiebre no alcanzado (confirmado también a 150/300/600 req/s)
+
+> ⚠️ **Ver §0.** `run_experiment_alta_carga.sh` tiene el mismo defecto que invalidó el protocolo formal — las 3 filas de la tabla siguiente probablemente midieron todas el brazo C. Pendiente de repetir.
 
 El punto de sensibilidad 3 del diseño (localizar dónde cada brazo deja de cumplir el umbral subiendo la tasa de llegada) **no se pudo observar** dentro del rango de carga del protocolo formal (10→80 req/s): ningún brazo mostró degradación hacia el límite de 150ms en ese rango.
 
@@ -224,6 +258,10 @@ docker run --rm -v solventa-ha08_promdata:/data -v $(pwd):/backup \
 - [x] Capturar eventos proyectados/descartados — **5134 proyectados, 21 descartados por versión** (acumulado de toda la sesión, no por corrida individual). Ver `results/evidencia/eventos_proyector_final.txt`.
 - [x] Capturar el dashboard de Grafana por corrida y brazo — 9 imágenes (`results/evidencia/r{1,2,3}-{a,b,c}.png`), ver tabla en §4.2.
 - [x] Exportar el dashboard de Grafana como JSON reproducible — `observability/grafana/provisioning/dashboards/ha08-dashboard.json` (6 paneles, uid `ffxlg3f0y1qtcc`), ver §4.5.
-- [x] Ejecutar la iteración de carga alta (150/300/600 req/s) para los 3 brazos — punto de quiebre **sigue sin alcanzarse** (p95 2.4–2.5ms en los 3 brazos, 0% error, throughput sostenido). Ver §2.4 y `results/raw/*_alta_carga.*`.
+- [x] Detectado y corregido el defecto que invalidaba las 12 corridas del protocolo formal + las 3 de alta carga: `verify_parity.sh` dejaba la API en el brazo C antes de que k6 midiera (ver §0). Corrección validada con corrida de humo real (`results/raw/summary_A_smoke_fix.json`, `/health` → `A`, contadores de caché en 0/0).
+- [ ] Repetir las 9 corridas contrabalanceadas A/B/C con el script corregido
+- [ ] Repetir las variantes de sensibilidad TTL con n=3 cada una (antes n=1, hallazgo §3.7 de la evaluación externa)
+- [ ] Repetir la iteración de carga alta (150/300/600 req/s) para los 3 brazos con el script corregido
+- [ ] Extraer p95 por escalón y segregado caliente/frío desde Prometheus (instrumentación ya lista en `read_estado.js`, ver §0 para las queries PromQL)
 - [ ] Exportar volumen de Prometheus si el equipo necesita explorar datos crudos (§4.6)
 - [ ] Trasladar estas conclusiones al informe final del curso, con el formato de los Anexos B/C/D de `Diseno_Experimento_HA-08.md`

@@ -27,7 +27,20 @@ sleep 20   # estabilización de pools y consumer group
 ARM_ACTIVO=$(curl -s localhost:8000/health | jq -r .arm)
 [ "$ARM_ACTIVO" = "$ARM" ] || { echo "ERROR: la API sirve ${ARM_ACTIVO}, se esperaba ${ARM}"; exit 1; }
 
-# 4. Ejecutar la carga de alta intensidad
+# 4. Ejecutar la carga de alta intensidad, capturando docker stats en serie
+# durante toda la corrida (ver comentario extenso en run_experiment.sh).
+STATS_FILE="results/raw/stats_${ARM}_${RUN_ID}.csv"
+echo "timestamp,name,cpu_perc,mem_usage" > "${STATS_FILE}"
+(
+  while true; do
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    docker stats --no-stream --format "{{.Name}},{{.CPUPerc}},{{.MemUsage}}" \
+      | grep "^ha08-" | sed "s/^/${ts},/" >> "${STATS_FILE}"
+    sleep 10
+  done
+) &
+STATS_PID=$!
+
 docker run --rm --network "${NETWORK}" \
   -e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
   -e K6_PROMETHEUS_RW_TREND_STATS="p(50),p(95),p(99),avg,max" \
@@ -41,9 +54,12 @@ docker run --rm --network "${NETWORK}" \
   --summary-export="/results/summary_${ARM}_${RUN_ID}.json" \
   /scripts/read_estado_alta_carga.js
 
-# 5. Recolectar métricas de recursos y del proyector
-docker stats --no-stream --format \
-  "{{.Name}},{{.CPUPerc}},{{.MemUsage}}" > "results/raw/stats_${ARM}_${RUN_ID}.csv"
+# pkill -P mata también al "docker stats" hijo que quedaría huérfano con
+# solo kill "$STATS_PID" (verificado en run_experiment.sh).
+pkill -P "${STATS_PID}" 2>/dev/null || true
+kill "${STATS_PID}" 2>/dev/null || true
+
+# 5. Recolectar métricas del proyector
 curl -s localhost:8001/metrics | grep ha08_projection_lag \
   > "results/raw/lag_${ARM}_${RUN_ID}.txt"
 
