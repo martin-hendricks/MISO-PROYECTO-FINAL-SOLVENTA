@@ -219,8 +219,10 @@ tasa de llegada, y hasta ahora nadie lo miraba.
 El Anexo A declara los límites de CPU y memoria como **variable controlada**,
 pero `toxiproxy`, `prometheus`, `grafana` y `k6` corrían sin ninguno
 (verificado con `docker inspect`: `NanoCpus=0`). El grave era k6, por lo
-descrito arriba. Ahora los siete servicios los declaran y suman 8 CPU, que es
-justo lo que la VM ofrece.
+descrito arriba. Ahora los ocho servicios los declaran. Suman **9,5 CPU** (API 2, k6 2,
+doble 1,5, Redis 1, Toxiproxy 1, Prometheus 1, Postgres 0,5, Grafana 0,5)
+frente a los 8 de la VM: son topes, no reservas, y el consumo real a
+200 sol/s queda muy por debajo, así que la sobresuscripción no se materializa.
 
 ### 12. Las marcas de fase se toman del reloj de Prometheus
 
@@ -458,6 +460,25 @@ estados" cuando el modelo define cinco, y el Anexo F lista "HD-01.1 a HD-01.7"
 habiendo ocho sub-hipótesis.
 
 ## Nota de entorno (Windows)
+
+- **`C:\Users\<usuario>\.wslconfig`** acota la VM de WSL2 en la que corre Docker:
+
+  ```ini
+  [wsl2]
+  memory=6GB
+  swap=0
+
+  [experimental]
+  autoMemoryReclaim=gradual
+  ```
+
+  Sin techo, WSL puede crecer hasta el 50 % de la RAM y, junto con Windows,
+  no cabe en un equipo de 16 GB: paginación durante la campaña. `swap=0` es
+  deliberado en un experimento de latencia: paginar metería pausas en silencio
+  en los percentiles, mientras que quedarse sin memoria hace fallar la corrida
+  de forma visible. Verificado: la VM pasa de 8,24 a 6,22 GB, conserva los 8
+  CPU, y el montaje en marcha usa ~0,9 GB. Para deshacerlo: borrar el archivo,
+  `wsl --shutdown` y reabrir Docker Desktop.
 
 - Docker Desktop debe estar corriendo antes de `docker compose up`.
 - Los scripts son bash: ejecutarlos desde Git Bash, no desde PowerShell.
