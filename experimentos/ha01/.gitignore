@@ -5,3 +5,5 @@ results/analysis/*
 __pycache__/
 *.pyc
 .env.local
+results/*.lock
+results/prueba_tarea.log

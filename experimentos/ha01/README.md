@@ -37,6 +37,36 @@ Una corrida completa:
 > máquina no puede estar haciendo otra cosa, o los percentiles dejan de ser
 > comparables entre corridas.
 
+## Campaña desatendida (recomendado)
+
+```powershell
+.\scripts\programar_campana.ps1 -Prueba   # comprueba que la tarea ve Docker, Python y la API
+.\scripts\programar_campana.ps1          # registra y lanza la campaña completa
+```
+
+La campaña se registra en el **Programador de tareas de Windows** (`HA01-campana`)
+para que no dependa de ninguna terminal, de VS Code ni de una sesión de Claude
+Code: sigue corriendo aunque se cierre todo lo demás. Encadena los bloques en el
+orden **3 → 1 → 2 → 4** y consolida la evidencia (CSV y figuras) al terminar cada
+uno, así que si se corta a mitad de la noche lo ya medido queda analizado.
+
+El bloque 3 va primero porque funciona como **compuerta**: ejercita los dos
+extremos de tráfico, las dos políticas del interruptor y los dos niveles de
+acierto. Si alguna de sus corridas falla, la campaña se detiene y espera a una
+persona en vez de gastar nueve horas más sobre un montaje con problemas.
+
+| Qué | Dónde |
+| --- | --- |
+| Estado en vivo | `results/campana_estado.txt` |
+| Traza completa | `Get-Content results\campana.log -Wait -Tail 20` |
+| Corridas a repetir | `results/corridas_fallidas.txt` |
+| Detenerla | `Stop-ScheduledTask -TaskName HA01-campana` |
+| Borrar las tareas | `.\scripts\programar_campana.ps1 -Quitar` |
+
+Antes de lanzarla: portátil **enchufado**, hibernación y suspensión con corriente
+en *nunca* (`powercfg /change hibernate-timeout-ac 0`) y el equipo sin otro uso
+durante ~10 h.
+
 ## Umbral
 
 **225 ms (p95) y 475 ms (p99) medidos en el servicio.** No 250/500. El montaje
