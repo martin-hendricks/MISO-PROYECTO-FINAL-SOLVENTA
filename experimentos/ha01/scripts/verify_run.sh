@@ -60,6 +60,26 @@ d, t = float(sys.argv[1]), float(sys.argv[2])
 print("  con respaldo={:.0f} de {:.0f} = {:.2f}%".format(d, t, (d / t * 100) if t else 0))
 PY
 
+# 7. k6 sostuvo la tasa de llegada.
+#    Es la razon entera por la que el diseno elige el ejecutor de tasa de
+#    llegada: si k6 no puede emitir a la tasa fijada, la carga cae sola y el
+#    percentil se ve mejor de lo que es. k6 lo llama `dropped_iterations` y
+#    hasta ahora nadie lo miraba.
+if [ -n "${CORRIDA_DIR:-}" ] && [ -f "${CORRIDA_DIR}/k6_summary.json" ]; then
+  "${PY}" - "${CORRIDA_DIR}/k6_summary.json" <<'PY' || marca "k6 no sostuvo la tasa de llegada"
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+m = d.get("metrics", {})
+drop = m.get("dropped_iterations", {}).get("count", 0)
+iters = m.get("iterations", {}).get("count", 0)
+frac = drop / (drop + iters) if (drop + iters) else 0.0
+print("  k6 iteraciones={:.0f} descartadas={:.0f} ({:.3f}%)".format(iters, drop, frac * 100))
+sys.exit(1 if frac > 0.005 else 0)
+PY
+else
+  echo "  AVISO no hay k6_summary.json: no se pudo comprobar dropped_iterations"
+fi
+
 echo
 if [ "$fallos" -gt 0 ]; then
   echo "RESULTADO: ${fallos} verificacion(es) fallaron - la corrida NO es valida"

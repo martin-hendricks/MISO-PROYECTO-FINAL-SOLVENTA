@@ -2,6 +2,11 @@
 # Los limites de CPU y memoria son variables CONTROLADAS: sin ellos las
 # corridas no son comparables entre si ni entre brazos.
 
+# Nombre de proyecto FIJO. Sin el, Compose lo deriva del directorio y el
+# servicio `tools`, que reutiliza `image: ha01-api`, dejaria de encontrarla
+# en cuanto alguien clone el repo con otro nombre o use `-p`.
+name: ha01
+
 x-limits-small: &limits-small
   deploy:
     resources:
@@ -78,6 +83,12 @@ services:
       - "8474:8474"    # API de administracion
       - "19000:19000"  # proxy hacia el doble
     depends_on: [provider]
+    # Holgado pero DECLARADO: el inyector esta en el camino critico de cada
+    # invocacion al proveedor, asi que no puede quedar estrangulado; pero el
+    # Anexo A exige que los limites sean variables controladas y declaradas.
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 256M }
 
   redis:                        # :CacheOF
     image: redis:7-alpine
@@ -122,6 +133,9 @@ services:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prom-data:/prometheus
     ports: ["9090:9090"]
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1G }
 
   grafana:
     image: grafana/grafana:11.4.0
@@ -135,6 +149,9 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports: ["3000:3000"]
     depends_on: [prometheus]
+    # Un tablero abierto con refresco de 5 s durante una corrida consume CPU
+    # que le quita al sistema bajo prueba. Se acota para que no pueda.
+    <<: *limits-small
 
   tools:
     # Misma imagen que la API, para no exigir dependencias en la maquina del
@@ -162,7 +179,8 @@ services:
     # Version fijada: en k6 >= 1.0 el output pasa a llamarse `prometheus-rw`
     # y el script de corrida dejaria de exportar sin avisar.
     image: grafana/k6:0.55.0
-    container_name: ha01-k6
+    # Sin container_name: se invoca con `docker compose run`, que crea un
+    # contenedor efimero por corrida; un nombre fijo provoca colisiones.
     profiles: ["load"]
     volumes:
       - ./load/k6:/scripts:ro
@@ -170,6 +188,14 @@ services:
     environment:
       K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
       K6_PROMETHEUS_RW_TREND_STATS: "p(50),p(95),p(99),max"
+    # EL LIMITE MAS IMPORTANTE DEL MONTAJE. Sin el, el generador de carga
+    # compite sin restriccion con el sistema bajo prueba en la misma caja: a
+    # 200 sol/s la asignacion de VUs de k6 saturaba el event loop de la API
+    # durante los primeros 12 s y producia un p95 de 5 s que no era del
+    # diseno sino del instrumento.
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2G }
 
 volumes:
   prom-data:

@@ -24,13 +24,14 @@ Una corrida completa:
 ```bash
 ./scripts/run_block1.sh 3     # 45 corridas — HD-01.1, 01.2, 01.3
 ./scripts/run_block2.sh 3     # 24 corridas — HD-01.4
-./scripts/run_block3.sh       #  5 corridas — HD-01.5 a 01.8
+./scripts/run_block3.sh       #  8 corridas — HD-01.5 a 01.8
+./scripts/run_block4.sh       #  4 corridas — tasa de llegada / EC-LAT-02
 ./scripts/collect_results.sh  # tablas del Anexo C en results/analysis/
 ```
 
-> El bloque 1 tarda del orden de **6 horas** y los tres juntos **10–12**. Es una
-> ejecución desatendida: la máquina no puede estar haciendo otra cosa, o los
-> percentiles dejan de ser comparables entre corridas.
+> El bloque 1 tarda del orden de **6 horas** y los cuatro juntos **10–12**. Es
+> una ejecución desatendida: la máquina no puede estar haciendo otra cosa, o
+> los percentiles dejan de ser comparables entre corridas.
 
 ## Umbral
 
@@ -186,6 +187,64 @@ acierto sin sentido.
 - El adaptador no abre el interruptor ante un 4xx: un 429 por cuota es un
   error de negocio, y castigar al proveedor por nuestra propia tasa de llamada
   confundiría dos modos de falla distintos.
+
+### 10. Un solo proceso de k6 por corrida, con rodaje no contabilizado
+
+El protocolo original invocaba k6 dos veces: una de calentamiento y otra de
+medición. Eso calienta la API pero **no a k6**, cuyo arranque —asignar cientos
+de VUs, cada una con su runtime de JS— consume CPU en la misma caja que el
+sistema bajo prueba.
+
+Medido a 200 sol/s: k6 escaló a **913 VUs**, el *event loop* de la API estuvo
+al **99,8 %** (un núcleo entero, el techo de un worker) durante 12 s, con
+**p95 = 5,08 s** y **516 iteraciones descartadas**. A partir del segundo 12 se
+estabilizó en 12 VUs, 200/s exactos y mediana de 61 ms. El transitorio caía
+**dentro de la fase sana** de todas las corridas.
+
+Ahora hay un solo proceso de k6 cuyos primeros `ESTABILIZACION_S` segundos no
+se contabilizan: las marcas de fase se toman después. Tras el cambio, la misma
+corrida da **40 000 iteraciones, 0 descartadas** y p95 de 64,8 ms en fase sana.
+
+`maxVUs` bajó de `RATE*10` a `RATE*4` para que k6 descarte iteraciones en vez
+de entrar en la espiral, y **el descarte ahora se comprueba**
+(`verify_run.sh`): es la razón entera por la que el diseño elige el ejecutor de
+tasa de llegada, y hasta ahora nadie lo miraba.
+
+### 11. Límites de recursos en los cuatro servicios que no los tenían
+
+El Anexo A declara los límites de CPU y memoria como **variable controlada**,
+pero `toxiproxy`, `prometheus`, `grafana` y `k6` corrían sin ninguno
+(verificado con `docker inspect`: `NanoCpus=0`). El grave era k6, por lo
+descrito arriba. Ahora los siete servicios los declaran y suman 8 CPU, que es
+justo lo que la VM ofrece.
+
+### 12. Las marcas de fase se toman del reloj de Prometheus
+
+`analizar.py` corta las fases consultando a Prometheus, que sella sus muestras
+con el reloj de la VM. Tomarlas del reloj de Windows funciona mientras ambos
+coincidan —hoy el desfase es 0 s— pero el reloj de WSL2 deriva cuando el equipo
+suspende, y una corrida desatendida de nueve horas es justo ese escenario.
+
+### 13. Bloque 3 ampliado y bloque 4 nuevo
+
+**HD-01.7 no era observable como estaba planteado.** Con acierto 96 % a
+200 sol/s hay 8 fallos/s; a 700 ms de timeout duro eso son 5,6 invocaciones
+concurrentes sobre un pool de 40 —el 14 %— y el interruptor abre a los ~6 s,
+con lo que la ventana en que el pool podría llenarse dura esos 6 s. Medido:
+`inflight_max = 8`. Para saturar 40 conexiones hacen falta 57 invocaciones por
+segundo, o sea un 28,6 % de fallos. El bloque 3 corre ahora el contraste C
+contra C′ **también con acierto 50 %** (100 fallos/s → 70 concurrentes). Que a
+96 % el pool no se estrese es un resultado en sí mismo: el interruptor actúa
+antes que el aislamiento de recursos.
+
+**La tasa de llegada estaba declarada como variable independiente con niveles
+20/50/100/200 pero ningún bloque la variaba** —el 1 y el 2 la fijan en 100, el
+3 usa 200 y 10— así que dos de los cinco niveles no se ejecutaban nunca. El
+bloque 4 los recorre con `cotizacion.js` y da la curva de latencia contra
+carga, que es lo que sostiene `EC-LAT-02` (horario pico, "alta concurrencia").
+
+Los tramos a analizar viven ahora en `fases.json`, común a los cuatro bloques:
+tres fases en el 1–3, un tramo por escalón en el 4, un solo camino de análisis.
 
 ---
 

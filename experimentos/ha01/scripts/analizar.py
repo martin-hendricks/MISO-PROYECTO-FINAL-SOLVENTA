@@ -21,7 +21,8 @@ import urllib.request
 
 PROM = "http://localhost:9090"
 
-FASES = [
+# Tramos heredados, para corridas anteriores a fases.json.
+FASES_LEGADO = [
     ("sana", "t_inicio", "t_degradado"),
     ("degradada", "t_degradado", "t_recuperacion"),
     ("recuperacion", "t_recuperacion", "t_fin"),
@@ -85,13 +86,27 @@ def pico(expr, inicio, fin):
     return max((v for _, v in serie), default=None)
 
 
-def marcas(dir_corrida):
+def tramos(dir_corrida):
+    """Tramos a analizar: [(nombre, t_ini, t_fin), ...].
+
+    `fases.json` es la fuente: los bloques 1 a 3 escriben tres tramos
+    (sana / degradada / recuperacion) y el bloque 4 escribe uno por escalon
+    de carga. Un solo camino de analisis para ambos.
+    """
+    f = dir_corrida / "fases.json"
+    if f.exists():
+        d = json.loads(f.read_text(encoding="utf-8"))
+        return [(x["nombre"], float(x["ini"]), float(x["fin"]))
+                for x in d.get("fases", [])], d
+
     m = {}
     for nombre in ("t_inicio", "t_degradado", "t_recuperacion", "t_fin"):
-        f = dir_corrida / nombre
-        if f.exists():
-            m[nombre] = float(f.read_text().strip())
-    return m
+        g = dir_corrida / nombre
+        if g.exists():
+            m[nombre] = float(g.read_text().strip())
+    if len(m) < 4:
+        return [], {}
+    return [(n, m[a], m[b]) for n, a, b in FASES_LEGADO], {}
 
 
 def _ms(v):
@@ -107,11 +122,12 @@ def _r(v, n):
 
 
 def analizar_corrida(dir_corrida):
-    m = marcas(dir_corrida)
-    if len(m) < 4:
+    lista, meta = tramos(dir_corrida)
+    if not lista:
         print("  omitida " + dir_corrida.name + ": faltan marcas de tiempo",
               file=sys.stderr)
         return []
+    m = {n: (a, b) for n, a, b in lista}
 
     info = {}
     f_info = dir_corrida / "api_info.json"
@@ -123,8 +139,7 @@ def analizar_corrida(dir_corrida):
     brazo = info.get("brazo", "?")
 
     filas = []
-    for fase, ini, fin in FASES:
-        t0, t1 = m[ini], m[fin]
+    for fase, t0, t1 in lista:
         v = "[" + str(max(int(t1 - t0), 5)) + "s]"
 
         lat = "sum by (le) (rate(ha01_quote_latency_seconds_bucket" + v + "))"
@@ -178,8 +193,14 @@ def analizar_corrida(dir_corrida):
         filas.append(fila)
 
     # Transiciones del interruptor y dinamica de la recuperacion (HD-01.8).
-    t_ini, t_deg = m["t_inicio"], m["t_degradado"]
-    t_rec, t_fin = m["t_recuperacion"], m["t_fin"]
+    # Solo aplica a las corridas con fase degradada y de recuperacion: el
+    # bloque 4 varia la carga sin conmutar el estado del proveedor.
+    if "degradada" not in m or "recuperacion" not in m:
+        return filas
+
+    t_ini = m["sana"][0]
+    t_deg = m["degradada"][0]
+    t_rec, t_fin = m["recuperacion"]
     tasa_invocaciones = "sum(rate(ha01_adapter_calls_total[10s]))"
     filas.append({
         "corrida": dir_corrida.name,

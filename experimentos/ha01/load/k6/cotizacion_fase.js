@@ -26,8 +26,19 @@ export const options = {
       // Holgado a proposito: si k6 se queda sin VUs deja de emitir a la tasa
       // fijada y la carga cae sola, que es exactamente el sesgo que el
       // ejecutor de tasa de llegada existe para evitar.
-      preAllocatedVUs: Math.max(100, RATE * 2),
-      maxVUs: Math.max(400, RATE * 10),
+      //
+      // El peor caso real es el bloque 2 con acierto 50 % y proveedor
+      // degradado: la mitad de las peticiones esperan el timeout duro de
+      // 700 ms, luego RATE*0.5*0.7 VUs ocupadas. A 200 sol/s son ~70, mas
+      // las del camino caliente. RATE*2 cubre eso con holgura.
+      preAllocatedVUs: Math.max(200, RATE * 2),
+      // El techo se acota a 2x lo preasignado. Antes era RATE*10 (2000 a
+      // 200 sol/s) y permitia una espiral: peticiones lentas al arrancar ->
+      // k6 asigna mas VUs -> asignarlas consume CPU -> mas lentitud. Medido:
+      // 913 VUs, event loop de la API al 100 % y p95 de 5 s durante los
+      // primeros 12 s. Con el techo bajo, k6 descarta iteraciones en vez de
+      // entrar en la espiral, y el descarte AHORA se comprueba.
+      maxVUs: Math.max(400, RATE * 4),
     },
   },
   thresholds: {
