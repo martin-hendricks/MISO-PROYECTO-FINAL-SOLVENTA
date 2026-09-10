@@ -62,11 +62,23 @@ Esto no invalida la arquitectura CQRS como decisión general de Solventa (sigue 
 
 El hit-rate acumulado del caché en el brazo C fue de **~7.1%** (269 aciertos / 3.791 consultas), frente al 96% que HD-08.4 identificaba como el mínimo necesario para que el caché aporte valor. Esto **no contradice los resultados de latencia** (el p95 se cumplió igual, con o sin caché — TTL=0 dio 5.60ms, prácticamente igual a TTL=300 con 5.27ms), pero sí es evidencia de que **el modelo de conjunto caliente/frío 80/20 asumido en el diseño no se reprodujo en esta ejecución**: cada corrida dura solo 13 minutos y selecciona uniformemente sobre las 10.000 claves del *hot set*, lo que no da tiempo suficiente de calentamiento para un TTL de 30s-300s. Un hit-rate bajo con latencia igualmente buena es, en sí mismo, información: en este dataset y a esta escala, **el camino "frío" (proyección sin caché) ya es tan rápido que el hit-rate deja de ser la variable relevante** — reforzando la conclusión de la sección 2.2.
 
-### 2.4 Punto de quiebre no alcanzado
+### 2.4 Punto de quiebre no alcanzado (confirmado también a 150/300/600 req/s)
 
-El punto de sensibilidad 3 del diseño (localizar dónde cada brazo deja de cumplir el umbral subiendo la tasa de llegada) **no se pudo observar** dentro del rango de carga ensayado (10→80 req/s): ningún brazo mostró degradación hacia el límite de 150ms en ese rango. Esto sugiere que el punto de quiebre real está por **encima de 80 req/s**, y que el experimento, tal como se ejecutó, no lo alcanzó a evidenciar.
+El punto de sensibilidad 3 del diseño (localizar dónde cada brazo deja de cumplir el umbral subiendo la tasa de llegada) **no se pudo observar** dentro del rango de carga del protocolo formal (10→80 req/s): ningún brazo mostró degradación hacia el límite de 150ms en ese rango.
 
-**Recomendación de siguiente iteración:** repetir el barrido de carga con escalones más altos (p. ej. 150/300/600 req/s) para efectivamente diferenciar los brazos antes de descartar la necesidad de CQRS a mayor escala.
+Se ejecutó una iteración adicional de alta carga (`scripts/run_experiment_alta_carga.sh`, `load/k6/read_estado_alta_carga.js`) con escalones de **150 → 300 → 600 req/s** (3 min cada uno, tras 1 min de warm-up descartado) para los tres brazos, buscando específicamente el punto de quiebre. Resultado:
+
+| Brazo | p50 (ms) | p95 (ms) | max (ms) | Error (%) | Throughput real sostenido | CPU `ha08-api` (docker stats final) | Lag proyección (≤0.05s) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A | 1.07 | 2.51 | 576.4 | 0 | ✅ 600 req/s | 16.8% de 1 core | 99.6% |
+| B | 1.08 | 2.40 | 278.3 | 0 | ✅ 600 req/s | 0.7% de 1 core | 99.6% |
+| C | 1.10 | 2.54 | 994.7 | 0 | ✅ 600 req/s | 0.7% de 1 core | 99.5% |
+
+Incluso a **7.5× la tasa máxima del protocolo formal**, los tres brazos sostuvieron la tasa de arribo objetivo sin errores y con p95 de 2.4–2.5ms — **~60× por debajo** del umbral de 150ms, y sin diferenciación significativa entre brazos. El hit-rate del brazo C sí subió notablemente frente al protocolo formal (**34.0%**, 43238/(43238+84081) acumulado — contra 7.1% en las corridas de 13 min a baja carga), consistente con que a mayor tasa de llegada el *hot set* de 10K claves se "calienta" más rápido dentro de la ventana de TTL=30s; aun así, esa diferencia de hit-rate no se tradujo en diferencia de p95 observable.
+
+**Interpretación:** el cuello de botella no está en la ruta de lectura HTTP→API→Postgres/Redis en este dataset (1M filas, índices efectivos) ni en el pool de conexiones (`DB_POOL_MAX=10`, nunca saturado — CPU de `ha08-api` cayó de 16.8% en A a 0.7% en B/C, coherente con que A sí toca Postgres en cada request mientras B/C lo evitan la mayoría de las veces). El punto de quiebre real está por **encima de 600 req/s** en este montaje, o requeriría un dataset/joins más pesados, o un pool deliberadamente más pequeño para forzar contención — no se intentó llegar más alto por el costo de tiempo de correr escalones aún mayores sin garantía de encontrar el quiebre antes de agotar la capacidad de generación de carga de esta máquina (single-host k6).
+
+Evidencia: `results/raw/{summary,stats,lag}_{A,B,C}_alta_carga.{json,csv,txt}`, `results/raw/log_alta_carga_{A,B,C}.txt`.
 
 ### 2.5 Amenazas a la validez específicas de esta ejecución
 
@@ -212,6 +224,6 @@ docker run --rm -v solventa-ha08_promdata:/data -v $(pwd):/backup \
 - [x] Capturar eventos proyectados/descartados — **5134 proyectados, 21 descartados por versión** (acumulado de toda la sesión, no por corrida individual). Ver `results/evidencia/eventos_proyector_final.txt`.
 - [x] Capturar el dashboard de Grafana por corrida y brazo — 9 imágenes (`results/evidencia/r{1,2,3}-{a,b,c}.png`), ver tabla en §4.2.
 - [x] Exportar el dashboard de Grafana como JSON reproducible — `observability/grafana/provisioning/dashboards/ha08-dashboard.json` (6 paneles, uid `ffxlg3f0y1qtcc`), ver §4.5.
-- [ ] Decidir si se ejecuta la iteración de carga alta (150/300/600 req/s) sugerida en §2.3 para intentar localizar el punto de quiebre
+- [x] Ejecutar la iteración de carga alta (150/300/600 req/s) para los 3 brazos — punto de quiebre **sigue sin alcanzarse** (p95 2.4–2.5ms en los 3 brazos, 0% error, throughput sostenido). Ver §2.4 y `results/raw/*_alta_carga.*`.
 - [ ] Exportar volumen de Prometheus si el equipo necesita explorar datos crudos (§4.6)
 - [ ] Trasladar estas conclusiones al informe final del curso, con el formato de los Anexos B/C/D de `Diseno_Experimento_HA-08.md`
