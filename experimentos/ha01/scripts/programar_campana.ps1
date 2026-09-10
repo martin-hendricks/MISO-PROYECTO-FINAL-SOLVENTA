@@ -7,6 +7,8 @@
 #
 #   .\scripts\programar_campana.ps1            # registra y lanza la campana
 #   .\scripts\programar_campana.ps1 -Prueba    # solo comprueba el entorno
+#   .\scripts\programar_campana.ps1 -Bloques "3"        # solo la compuerta
+#   .\scripts\programar_campana.ps1 -Bloques "1 2 4"    # el resto
 #   .\scripts\programar_campana.ps1 -Quitar    # borra las tareas registradas
 #
 # Seguimiento:  Get-Content results\campana_estado.txt
@@ -14,7 +16,8 @@
 # Detener:      Stop-ScheduledTask -TaskName HA01-campana
 param(
     [switch]$Prueba,
-    [switch]$Quitar
+    [switch]$Quitar,
+    [string]$Bloques = "3 1 2 4"
 )
 
 $nombres = @("HA01-campana", "HA01-prueba")
@@ -31,7 +34,7 @@ $pwsh     = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwsh) { $pwsh = (Get-Command powershell).Source }
 $lanzador = Join-Path $PSScriptRoot "lanzar_campana.ps1"
 $argumentos = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$lanzador`""
-if ($Prueba) { $argumentos += " -Prueba" }
+if ($Prueba) { $argumentos += " -Prueba" } else { $argumentos += " -Bloques `"$Bloques`"" }
 
 $accion = New-ScheduledTaskAction -Execute $pwsh -Argument $argumentos
 # Sesion interactiva del propio usuario: es la que tiene acceso a Docker Desktop.
@@ -47,4 +50,4 @@ $ajustes = New-ScheduledTaskSettingsSet `
 Register-ScheduledTask -TaskName $nombre -Action $accion -Principal $quien `
     -Settings $ajustes -Description "Experimento HA-01 (Solventa)" -Force | Out-Null
 Start-ScheduledTask -TaskName $nombre
-"tarea '$nombre' registrada y lanzada"
+"tarea '$nombre' registrada y lanzada (bloques: $Bloques)"

@@ -7,7 +7,9 @@
 param(
     # En vez de la campana, comprueba que desde el contexto de la tarea se
     # ven Docker, Python, curl y la API. Escribe results/prueba_tarea.log.
-    [switch]$Prueba
+    [switch]$Prueba,
+    # Bloques a ejecutar y en que orden. Por defecto la campana completa.
+    [string]$Bloques = "3 1 2 4"
 )
 
 $raiz = Split-Path -Parent $PSScriptRoot
@@ -21,7 +23,7 @@ if ($Prueba) {
                "curl -s -o /dev/null -w 'api /health: %{http_code}\n' http://localhost:8000/health; " +
                "echo PRUEBA_OK; } > results/prueba_tarea.log 2>&1"
 } else {
-    $comando = "./scripts/run_campana.sh >> results/campana.log 2>&1"
+    $comando = "CAMPANA_BLOQUES='$Bloques' ./scripts/run_campana.sh >> results/campana.log 2>&1"
 }
 
 # Git Bash acepta rutas de Windows con barras normales.
