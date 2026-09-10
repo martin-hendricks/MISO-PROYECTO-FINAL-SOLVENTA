@@ -9,6 +9,7 @@
 #   .\scripts\programar_campana.ps1 -Prueba    # solo comprueba el entorno
 #   .\scripts\programar_campana.ps1 -Bloques "3"        # solo la compuerta
 #   .\scripts\programar_campana.ps1 -Bloques "1 2 4"    # el resto
+#   .\scripts\programar_campana.ps1 -Bloques "1 2 4" -Hora "22:00"   # a una hora
 #   .\scripts\programar_campana.ps1 -Quitar    # borra las tareas registradas
 #
 # Seguimiento:  Get-Content results\campana_estado.txt
@@ -17,7 +18,9 @@
 param(
     [switch]$Prueba,
     [switch]$Quitar,
-    [string]$Bloques = "3 1 2 4"
+    [string]$Bloques = "3 1 2 4",
+    # Hora de inicio (p. ej. "22:00"). Sin ella, la tarea arranca en el acto.
+    [string]$Hora
 )
 
 $nombres = @("HA01-campana", "HA01-prueba")
@@ -47,7 +50,20 @@ $ajustes = New-ScheduledTaskSettingsSet `
 # Un corte de corriente de unos segundos no debe matar diez horas de campana:
 # por defecto Windows detiene las tareas al pasar a bateria.
 
-Register-ScheduledTask -TaskName $nombre -Action $accion -Principal $quien `
-    -Settings $ajustes -Description "Experimento HA-01 (Solventa)" -Force | Out-Null
-Start-ScheduledTask -TaskName $nombre
-"tarea '$nombre' registrada y lanzada (bloques: $Bloques)"
+$registro = @{
+    TaskName = $nombre; Action = $accion; Principal = $quien; Settings = $ajustes
+    Description = "Experimento HA-01 (Solventa)"; Force = $true
+}
+if ($Hora) {
+    $inicio = [datetime]::ParseExact($Hora, "HH:mm", $null)
+    if ($inicio -lt (Get-Date)) { $inicio = $inicio.AddDays(1) }
+    $registro.Trigger = New-ScheduledTaskTrigger -Once -At $inicio
+}
+Register-ScheduledTask @registro | Out-Null
+
+if ($Hora) {
+    "tarea '$nombre' programada para el $($inicio.ToString('yyyy-MM-dd HH:mm')) (bloques: $Bloques)"
+} else {
+    Start-ScheduledTask -TaskName $nombre
+    "tarea '$nombre' registrada y lanzada (bloques: $Bloques)"
+}

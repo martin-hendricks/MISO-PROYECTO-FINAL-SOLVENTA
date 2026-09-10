@@ -158,9 +158,13 @@ def analizar_corrida(dir_corrida):
             "p95_ms": _ms(escalar("histogram_quantile(0.95, " + lat + ")", t1)),
             "p99_ms": _ms(escalar("histogram_quantile(0.99, " + lat + ")", t1)),
             "cotizaciones": _r(escalar(tot, t1), 0),
+            # `or vector(0)`: el contador de errores lleva la etiqueta `motivo`
+            # y no existe hasta el primer error. Sin esto una corrida sin
+            # errores salia con la celda vacia, que se lee como "sin dato" y
+            # no como el 0 % que es.
             "error_pct": _pct(escalar(
-                "sum(increase(ha01_cotizaciones_error_total" + v + ")) / " + tot,
-                t1)),
+                "(sum(increase(ha01_cotizaciones_error_total" + v + ")) "
+                "or vector(0)) / " + tot, t1)),
             # `sum(...)` en AMBOS lados: sin el, el lado izquierdo sin
             # agregar no casa con el derecho agregado y PromQL devuelve vacio.
             "respaldo_pct": _pct(escalar(
@@ -180,8 +184,10 @@ def analizar_corrida(dir_corrida):
                 "increase(ha01_llamadas_fallidas_proveedor_total" + v + ")", t1), 0),
             "coalescidas": _r(escalar(
                 "increase(ha01_coalescidas_total" + v + ")", t1), 0),
+            # `sum(...)` en AMBOS lados, por la misma razon que en respaldo_pct.
             "invocaciones_por_fallo": _r(escalar(
-                "sum(increase(ha01_adapter_calls_total" + v + ")) / " + misses, t1), 2),
+                "sum(increase(ha01_adapter_calls_total" + v + ")) / "
+                "sum(" + misses + ")", t1), 2),
         }
 
         # p95 por camino: es la tabla de HD-01.3, donde debe verse que el
