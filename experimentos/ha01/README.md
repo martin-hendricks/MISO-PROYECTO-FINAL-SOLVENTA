@@ -29,9 +29,12 @@ Una corrida completa:
 ./scripts/collect_results.sh  # tablas del Anexo C en results/analysis/
 ```
 
-> El bloque 1 tarda del orden de **6 horas** y los cuatro juntos **10–12**. Es
-> una ejecución desatendida: la máquina no puede estar haciendo otra cosa, o
-> los percentiles dejan de ser comparables entre corridas.
+> **9,1 horas** en total, medidas y no estimadas: 26 s de sobrecosto fijo por
+> corrida (37 s cuando el pool vencido es grande) más 360 s de carga en los
+> bloques 1–3 y 540 s en el 4. Bloque 1 ≈ 5,0 h, bloque 2 ≈ 2,7 h, bloque 3 ≈
+> 0,9 h, bloque 4 ≈ 0,6 h. Es una ejecución desatendida: la máquina no puede
+> estar haciendo otra cosa, o los percentiles dejan de ser comparables entre
+> corridas.
 
 ## Umbral
 
@@ -283,6 +286,41 @@ Verificado con las fases reales, acierto 50 % a 200 sol/s: deriva predicha
 +0,50 puntos, **observada +0,38**. Y con el pool ya bien dimensionado, HD-01.7
 por fin es observable — `inflight_max` llega a **80 sobre un pool de 40**, o
 sea 40 conexiones activas y 40 encoladas.
+
+### 15. La verificación de la línea base se mide pareada
+
+`verify_baseline.sh` comparaba `mediana(via_proxy)` contra `mediana(directo)`
+sobre dos bloques de 120 peticiones. **Ese estimador no resolvía la cantidad que
+decía medir.** Medido sobre 400 pares en este montaje:
+
+| n peticiones | estimador | IC 95 % | ancho |
+| ---: | --- | --- | ---: |
+| 60 | no pareado | [−5,94, +9,27] ms | 15,21 |
+| 120 | no pareado | [−4,00, +7,05] ms | 11,05 |
+| 480 | no pareado | [−1,40, +4,17] ms | 5,58 |
+| **60** | **pareado** | **[+0,39, +1,60] ms** | **1,21** |
+
+El intervalo del estimador no pareado es más ancho que el propio umbral de 3 ms
+con cualquier tamaño de muestra asumible. Se notaba en los resultados: cuatro
+ejecuciones dieron +0,5, −1,3, −2,0 y −1,3 ms, y Toxiproxy **no puede acelerar
+nada**. El 24 % de los pares sale negativo individualmente; ésa es la magnitud
+del ruido.
+
+La causa es que el montaje permite un diseño pareado y no se estaba usando: el
+doble deriva su latencia por hash del `customer_id`, así que la latencia de
+aplicación es idéntica para el mismo id en ambas series y al restar se cancela
+—y es la fuente de varianza dominante. Ahora se mide `mediana(via_proxy_i −
+directo_i)` sobre 30 pares, **alternando el orden petición a petición** para que
+una deriva de carga entre bloques no contamine la diferencia, y se reporta el
+intervalo de confianza por bootstrap.
+
+Tres ejecuciones consecutivas del script corregido: +0,85, +1,04 y +1,11 ms.
+Dispersión de 0,26 ms contra los 2,5 ms de antes, y todas del signo físicamente
+posible. De paso el chequeo baja de 21,4 s a 8,4 s, que sobre 81 corridas son
+18 minutos.
+
+**Menos muestras, más confianza.** Es el caso en que el tamaño de muestra no era
+el problema.
 
 ---
 
