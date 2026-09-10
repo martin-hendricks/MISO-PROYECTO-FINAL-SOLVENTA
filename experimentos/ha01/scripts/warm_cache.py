@@ -40,6 +40,18 @@ STALE_FRACTION = float(os.environ.get("MISS_STALE_FRACTION", "0.5"))
 TTL = int(os.environ.get("PROFILE_TTL_SECONDS", "900"))
 MAX_AGE = int(os.environ.get("PROFILE_MAX_AGE_SECONDS", "86400"))
 
+# Dispersion de la edad del pool CALIENTE. Precargar todas las entradas con
+# la misma marca de tiempo hace que "edad del dato servido" -una de las dos
+# variables dependientes que cuantifican el trade-off- sea degenerada: mide
+# cuanto hace que se corrio la precarga, no la frescura del diseno.
+#
+# El limite superior no puede acercarse al TTL: una entrada que lo cruce a
+# mitad de corrida se convertiria en fallo y la tasa de acierto derivaria,
+# que es justo lo que los tres pools existen para evitar. Con TTL de 900 s y
+# una corrida de ~380 s (60 de calentamiento + 300 de ventana), 450 s deja
+# margen de sobra.
+HOT_AGE_SPREAD_S = int(os.environ.get("HOT_AGE_SPREAD_S", "450"))
+
 LOTE = 5000
 
 
@@ -60,14 +72,18 @@ def _perfil(cid: str, obtenido_en: str) -> bytes:
     ).encode()
 
 
-async def _cargar(r, prefijo_id: str, n: int, obtenido_en: str) -> int:
+async def _cargar(r, prefijo_id: str, n: int, base, dispersion: int = 0) -> int:
+    """Carga n claves con edad `base` mas una dispersion deterministica."""
     pipe = r.pipeline(transaction=False)
     for i in range(n):
         cid = f"{prefijo_id}{i:06d}"
+        obtenido_en = base if not dispersion else (
+            base - timedelta(seconds=(i * 7919) % dispersion)
+        )
         # Sin EX: la edad se evalua en la aplicacion. Si Redis expirara la
         # entrada no quedaria ultimo valor conocido y el brazo C perderia
         # su degradacion elegante.
-        pipe.set(f"{PREFIJO}{cid}", _perfil(cid, obtenido_en))
+        pipe.set(f"{PREFIJO}{cid}", _perfil(cid, obtenido_en.isoformat()))
         if (i + 1) % LOTE == 0:
             await pipe.execute()
             pipe = r.pipeline(transaction=False)
@@ -86,8 +102,15 @@ async def precargar() -> dict:
         vencido_en = ahora - timedelta(seconds=TTL + 120)
         assert TTL + 120 < MAX_AGE, "el pool vencido debe seguir siendo utilizable"
 
-        calientes = await _cargar(r, "cli_h", N_HOT, ahora.isoformat())
-        vencidas = await _cargar(r, "cli_s", N_STALE, vencido_en.isoformat())
+        assert HOT_AGE_SPREAD_S < TTL, (
+            "la dispersion del pool caliente no puede alcanzar el TTL: las "
+            "entradas venceran a mitad de corrida y la tasa de acierto derivara"
+        )
+        # 7919 es primo y no divide al tamano de los pools, asi que el resto
+        # recorre toda la dispersion sin repetir patron: la edad queda
+        # repartida de forma uniforme y ademas reproducible entre corridas.
+        calientes = await _cargar(r, "cli_h", N_HOT, ahora, HOT_AGE_SPREAD_S)
+        vencidas = await _cargar(r, "cli_s", N_STALE, vencido_en)
         info = await r.info("memory")
         stats = await r.info("stats")
         return {
@@ -96,6 +119,7 @@ async def precargar() -> dict:
             "frias_no_precargadas": N_COLD,
             "claves_en_redis": await r.dbsize(),
             "memoria": info.get("used_memory_human"),
+            "dispersion_edad_caliente_s": HOT_AGE_SPREAD_S,
             "evicted_keys": int(stats.get("evicted_keys", 0)),
         }
     finally:
@@ -133,7 +157,8 @@ async def main() -> int:
     print(
         f"objetivo: acierto {HIT:.0%} | de los fallos, "
         f"{STALE_FRACTION:.0%} con valor de respaldo y "
-        f"{1 - STALE_FRACTION:.0%} sin el"
+        f"{1 - STALE_FRACTION:.0%} sin el | edad del pool caliente repartida "
+        f"en 0-{HOT_AGE_SPREAD_S} s (TTL {TTL} s)"
     )
     return await verificar(res) if args.verificar else 0
 

@@ -8,6 +8,13 @@ marca() { echo "  FALLA $*"; fallos=$((fallos + 1)); }
 
 echo "== verificaciones de sanidad de la corrida =="
 
+# 0. Hubo trafico. Sin esta comprobacion, una corrida en la que k6 ni siquiera
+#    arranco pasaria todas las demas verificaciones con ceros y se daria por
+#    valida: es el falso positivo mas peligroso del montaje.
+_total=$(metrica "ha01_cotizaciones_total")
+awk -v t="${_total:-0}" 'BEGIN { exit !(t > 0) }'   || fallar "la API no atendio ninguna cotizacion: la corrida no ocurrio"
+echo "  OK   hubo trafico (${_total} cotizaciones)"
+
 # 1. Coherencia entre las llamadas del adaptador y las servidas por el doble.
 #    Una diferencia grande delata reintentos no previstos en httpx.
 ok_calls=$(metrica 'ha01_adapter_calls_total{resultado="ok"}')

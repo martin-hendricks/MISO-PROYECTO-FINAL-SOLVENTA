@@ -146,9 +146,11 @@ def analizar_corrida(dir_corrida):
             "error_pct": _pct(escalar(
                 "sum(increase(ha01_cotizaciones_error_total" + v + ")) / " + tot,
                 t1)),
+            # `sum(...)` en AMBOS lados: sin el, el lado izquierdo sin
+            # agregar no casa con el derecho agregado y PromQL devuelve vacio.
             "respaldo_pct": _pct(escalar(
-                "increase(ha01_cotizaciones_degradadas_total" + v + ") / " + tot,
-                t1)),
+                "sum(increase(ha01_cotizaciones_degradadas_total" + v + ")) / "
+                + tot, t1)),
             "edad_p50_s": _r(escalar("histogram_quantile(0.50, " + edad + ")", t1), 1),
             "edad_p95_s": _r(escalar("histogram_quantile(0.95, " + edad + ")", t1), 1),
             "acierto": _r(escalar(

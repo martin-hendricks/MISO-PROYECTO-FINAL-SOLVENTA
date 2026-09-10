@@ -17,8 +17,13 @@ QUOTE_LAT = Histogram(
     "ha01_quote_latency_seconds",
     "Latencia de la cotizacion medida en el servicio",
     ["origen"],
-    buckets=(0.02, 0.05, 0.08, 0.11, 0.15, 0.2, 0.225, 0.3, 0.4, 0.475,
-             0.6, 0.8, 1.0, 1.5, 2.0),
+    # Reticula fina alrededor de los valores que el montaje produce de
+    # verdad: ~65 ms el camino caliente, ~125-145 ms el frio con proveedor
+    # sano, ~180 ms el acotado por el presupuesto (120 + 60 de tarifa), y los
+    # dos umbrales del servicio, 225 y 475 ms.
+    buckets=(0.02, 0.05, 0.065, 0.08, 0.10, 0.12, 0.14, 0.16, 0.175, 0.19,
+             0.205, 0.225, 0.25, 0.30, 0.40, 0.475, 0.55, 0.70, 0.80, 1.0,
+             1.5, 2.0),
 )
 
 # --- Resolucion del perfil -------------------------------------------

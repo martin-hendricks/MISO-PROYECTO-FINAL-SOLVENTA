@@ -8,7 +8,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/_comun.sh"
 
 corrida() {
   local ARM="${1:?brazo}" RUN_ID="${2:?run_id}" ESTADO="${3:-degradado}"
-  local RATE="${4:-${K6_RATE:-100}}" DUR="${5:-${K6_DURATION:-5m}}"
+  local RATE="${4:-${K6_RATE:-100}}"
+  # Duracion de cada fase. Los valores del protocolo son 120/120/60 s;
+  # se parametrizan para poder correr un piloto corto que valide la tuberia
+  # completa (k6 -> Prometheus -> analizar.py) sin gastar la ventana entera.
+  local F_SANA="${FASE_SANA_S:-120}"
+  local F_DEG="${FASE_DEGRADADA_S:-120}"
+  local F_REC="${FASE_RECUPERACION_S:-60}"
+  local DUR="${5:-$((F_SANA + F_DEG + F_REC))s}"
+  local WARMUP="${K6_WARMUP:-60s}"
   local ETIQUETA="${ARM}_${RUN_ID}"
   local DEST="${RAIZ}/results/raw/${ETIQUETA}"
   mkdir -p "${DEST}"
@@ -16,6 +24,7 @@ corrida() {
   echo "############################################################"
   echo "# corrida ${ETIQUETA} | brazo=${ARM} estado=${ESTADO}"
   echo "#   acierto=${TARGET_HIT_RATE:-0.96} breaker=${BREAKER_POLICY:-rate} rate=${RATE}"
+  echo "#   fases: sana ${F_SANA}s | degradada ${F_DEG}s | recuperacion ${F_REC}s"
   echo "############################################################"
 
   # -- 1. Reiniciar el estado volatil -------------------------------------
@@ -38,9 +47,9 @@ corrida() {
   # -- 4. Calentamiento NO contabilizado ---------------------------------
   # `--duration` no sobrescribe un escenario declarado en el script: la
   # duracion se pasa por -e DURATION, que el escenario si respeta.
-  echo "-- calentamiento ${K6_WARMUP:-60s} (no se contabiliza)"
-  docker compose --profile load run --rm \
-    -e RATE="${RATE}" -e DURATION="${K6_WARMUP:-60s}" \
+  echo "-- calentamiento ${WARMUP} (no se contabiliza)"
+  MSYS_NO_PATHCONV=1 docker compose --profile load run --rm \
+    -e RATE="${RATE}" -e DURATION="${WARMUP}" \
     -e ARM="${ARM}" -e PROVIDER_STATE=warmup \
     -e UNIVERSO_CLIENTES="${UNIVERSO_CLIENTES}" -e POOL_STALE="${POOL_STALE}" \
     -e POOL_COLD="${POOL_COLD}" -e TARGET_HIT_RATE="${TARGET_HIT_RATE}" \
@@ -53,7 +62,7 @@ corrida() {
 
   # -- 5. Ventana de medicion con conmutacion EN CALIENTE ----------------
   echo "-- ventana de medicion ${DUR} a ${RATE} sol/s"
-  docker compose --profile load run --rm \
+  MSYS_NO_PATHCONV=1 docker compose --profile load run --rm \
     -e RATE="${RATE}" -e DURATION="${DUR}" \
     -e ARM="${ARM}" -e RUN_ID="${RUN_ID}" -e PROVIDER_STATE="${ESTADO}" \
     -e UNIVERSO_CLIENTES="${UNIVERSO_CLIENTES}" -e POOL_STALE="${POOL_STALE}" \
@@ -68,10 +77,10 @@ corrida() {
   # Los percentiles se calculan POR FASE; agregarlas produciria un percentil
   # sin significado. Las marcas de tiempo se guardan para poder cortar.
   date +%s > "${DEST}/t_inicio"
-  sleep 120
+  sleep "${F_SANA}"
   date +%s > "${DEST}/t_degradado"
   "${RAIZ}/infra/toxiproxy/states.sh" "${ESTADO}"
-  sleep 120
+  sleep "${F_DEG}"
   date +%s > "${DEST}/t_recuperacion"
   "${RAIZ}/infra/toxiproxy/states.sh" sano
   wait "${K6}" || true
