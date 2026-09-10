@@ -57,6 +57,37 @@ esperar_api() {
   return 1
 }
 
+# Espera a que el generador de carga empiece a emitir de verdad, mirando el
+# contador de la API. Es lo unico que garantiza que la ventana de medicion cae
+# DENTRO de la carga.
+esperar_carga() {  # esperar_carga [timeout_s]
+  local limite="${1:-180}" previo actual seguidas=0
+  previo=$(metrica "ha01_cotizaciones_total"); previo="${previo:-0}"
+  for _ in $(seq 1 "${limite}"); do
+    sleep 1
+    actual=$(metrica "ha01_cotizaciones_total"); actual="${actual:-0}"
+    if awk -v a="${actual}" -v p="${previo}" 'BEGIN { exit !(a > p) }'; then
+      # Dos lecturas crecientes seguidas: una sola podria ser el rastro de un
+      # k6 anterior apagandose, no la carga de esta corrida arrancando.
+      seguidas=$((seguidas + 1))
+      [ "${seguidas}" -ge 2 ] && { echo "   carga sostenida detectada"; return 0; }
+    else
+      seguidas=0
+    fi
+    previo="${actual}"
+  done
+  return 1
+}
+
+# La carga sigue emitiendo AHORA MISMO.
+carga_viva() {
+  local a b
+  a=$(metrica "ha01_cotizaciones_total"); a="${a:-0}"
+  sleep 2
+  b=$(metrica "ha01_cotizaciones_total"); b="${b:-0}"
+  awk -v a="${a}" -v b="${b}" 'BEGIN { exit !(b > a) }'
+}
+
 fallar() { echo "ERROR: $*" >&2; exit 1; }
 ok()     { echo "  OK   $*"; }
 aviso()  { echo "  AVISO $*"; }

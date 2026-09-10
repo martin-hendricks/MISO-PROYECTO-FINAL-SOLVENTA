@@ -15,7 +15,9 @@ for rep in $(seq 1 "${REPS}"); do
   for hr in 0.99 0.96 0.90 0.50; do
     for arm in cache_blocking cache_opportunistic; do
       export TARGET_HIT_RATE="${hr}"
-      corrida "${arm}" "b2_r${rep}_hr${hr}" "degradado"
+      corrida_segura corrida "${arm}" "b2_r${rep}_hr${hr}" "degradado"
     done
   done
 done
+
+resumen_bloque

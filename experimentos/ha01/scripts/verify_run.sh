@@ -80,6 +80,39 @@ else
   echo "  AVISO no hay k6_summary.json: no se pudo comprobar dropped_iterations"
 fi
 
+# 8. LA VENTANA MEDIDA CONTIENE CARGA.
+#    Es la comprobacion que faltaba y la que habria cazado el fallo del reloj
+#    de fases: el contador acumulado decia 15 001 cotizaciones y todas las
+#    demas verificaciones pasaban, pero las tres fases habian caido FUERA de
+#    la carga y Prometheus no tenia una sola muestra dentro de la ventana.
+#    Un contador acumulado no dice NADA sobre si la ventana esta bien puesta.
+if [ -n "${CORRIDA_DIR:-}" ] && [ -f "${CORRIDA_DIR}/fases.json" ]; then
+  "${PY}" - "${CORRIDA_DIR}/fases.json" <<'PY' || marca "hay fases sin trafico: la ventana no coincide con la carga"
+import json, sys, urllib.parse, urllib.request
+
+fases = json.load(open(sys.argv[1], encoding="utf-8"))["fases"]
+malas = []
+for f in fases:
+    dur = max(int(f["fin"] - f["ini"]), 5)
+    expr = "sum(increase(ha01_cotizaciones_total[{}s]))".format(dur)
+    url = "http://localhost:9090/api/v1/query?" + urllib.parse.urlencode(
+        {"query": expr, "time": f["fin"]})
+    try:
+        r = json.load(urllib.request.urlopen(url, timeout=20))["data"]["result"]
+        n = float(r[0]["value"][1]) if r else 0.0
+    except Exception:
+        n = -1.0
+    estado = "ok" if n > 0 else "SIN TRAFICO"
+    print("  fase {:<14} {:>8.0f} cotizaciones  {}".format(
+        f["nombre"], n, estado))
+    if n <= 0:
+        malas.append(f["nombre"])
+sys.exit(1 if malas else 0)
+PY
+else
+  echo "  AVISO no hay fases.json: no se pudo comprobar que la ventana tenga carga"
+fi
+
 echo
 if [ "$fallos" -gt 0 ]; then
   echo "RESULTADO: ${fallos} verificacion(es) fallaron - la corrida NO es valida"

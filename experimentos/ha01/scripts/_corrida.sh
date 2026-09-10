@@ -58,7 +58,13 @@ corrida() {
   # proceso y las marcas tomadas despues del rodaje, el transitorio queda
   # fuera de toda ventana medida.
   local ESTAB="${ESTABILIZACION_S:-60}"
-  local DUR=$((ESTAB + F_SANA + F_DEG + F_REC))
+  # Margen: k6 corre mas de lo que duran las fases. El reloj de las fases
+  # arranca cuando la carga EMPIEZA A LLEGAR de verdad, no cuando se lanza el
+  # contenedor, y entre una cosa y otra pasa un tiempo variable.
+  # 20 s cubren la variabilidad de creacion del contenedor de k6 sin encarecer
+  # la campana: son 27 minutos sobre las 81 corridas.
+  local MARGEN="${MARGEN_CARGA_S:-20}"
+  local DUR=$((ESTAB + F_SANA + F_DEG + F_REC + MARGEN))
 
   local ETIQUETA="${ARM}_${RUN_ID}"
   local DEST="${RAIZ}/results/raw/${ETIQUETA}"
@@ -111,7 +117,23 @@ corrida() {
   # -- 5. Fases, con conmutacion EN CALIENTE ------------------------------
   # Los percentiles se calculan POR FASE; agregarlas produciria un percentil
   # sin significado. Las marcas delimitan cada una.
+  # Esperar a que la carga LLEGUE, no a que el contenedor se lance.
+  #
+  # Antes se hacia `sleep ESTAB` desde el lanzamiento. Entre lanzar
+  # `docker compose run` y que k6 empiece a emitir pasa un tiempo variable
+  # -crear el contenedor, contencion de la maquina-, y en una traza medida ese
+  # `sleep 10` tardo 62 s: la ventana entera quedo FUERA de la carga. Las tres
+  # fases sin una sola peticion, y todas las verificaciones diciendo que la
+  # corrida era valida.
+  esperar_carga || fallar "la carga no arranco: la corrida no es valida"
   sleep "${ESTAB}"
+
+  # Segunda comprobacion, ya con la ventana a punto de abrirse: la carga debe
+  # seguir viva. Si k6 termino durante el rodaje -porque su contenedor tardo
+  # en crearse y el margen no alcanzo- la ventana caeria fuera de la carga y
+  # las tres fases saldrian vacias. Vale mas abortar aqui que descubrirlo seis
+  # minutos despues.
+  carga_viva || fallar "la carga no sigue viva al abrir la ventana"
   ahora > "${DEST}/t_inicio"
   sleep "${F_SANA}"
   ahora > "${DEST}/t_degradado"
@@ -121,7 +143,18 @@ corrida() {
   "${RAIZ}/infra/toxiproxy/states.sh" sano
   sleep "${F_REC}"
   ahora > "${DEST}/t_fin"
+
+  # Se deja terminar a k6 en vez de matarlo. Matarlo ahorraba el margen pero
+  # costaba dos cosas: `--summary-export` no llegaba a escribirse -y con el se
+  # perdia la comprobacion de `dropped_iterations`- y quedaban peticiones en
+  # vuelo, que hacian fallar la deteccion de fugas del adaptador. La carga
+  # sobrante cae fuera de la ventana y no contamina ninguna fase.
   wait "${K6}" || true
+
+  # Drenaje: las invocaciones en curso pueden durar hasta el timeout duro.
+  # Sin esta espera, `ha01_adapter_inflight` se lee antes de que bajen y la
+  # comprobacion de fugas del brazo C daria un falso positivo.
+  sleep 3
 
   escribir_fases "${DEST}" "${ARM}" "${ESTADO}" "${RATE}"     "sana:$(cat "${DEST}/t_inicio"):$(cat "${DEST}/t_degradado")"     "degradada:$(cat "${DEST}/t_degradado"):$(cat "${DEST}/t_recuperacion")"     "recuperacion:$(cat "${DEST}/t_recuperacion"):$(cat "${DEST}/t_fin")"
 
@@ -225,4 +258,76 @@ corrida_escalones() {
 
   echo "corrida ${ETIQUETA} -> ${DEST}"
   echo
+}
+
+
+# ---------------------------------------------------------------------
+# Ejecuta una corrida SIN que su fallo tumbe el bloque entero.
+#
+# Los scripts de bloque llevan `set -e`, asi que un fallo en la corrida 40 de
+# 45 se llevaria por delante las cinco restantes -y a las cuatro horas y media
+# de una ejecucion desatendida nadie esta mirando-.
+#
+# La corrida se lanza en un PROCESO APARTE, no en un subshell. Bash desarma
+# `set -e` para todo lo que cuelga de la condicion de un `if` o del lado
+# izquierdo de un `||`, y ese desarme se HEREDA en los subshells: ni
+# `( f )`, ni `( set -e; f )`, ni `rc=0; ( set -e; f ) || rc=$?` detienen la
+# funcion en el punto que falla. Comprobado: las tres siguen ejecutando los
+# pasos posteriores al fallo, que es peor que abortar, porque la corrida
+# continuaria con la cache mal precargada o el proveedor en el estado que no es.
+#
+# Con `bash -c` el contexto no se hereda: dentro rige `set -e` y la corrida
+# aborta donde debe, mientras el bloque sigue vivo.
+#
+# La corrida siguiente reinicia el estado volatil en su paso 1 -para la API,
+# vacia Redis y quita las toxinas-, asi que la recuperacion es automatica.
+#
+# Si fallan tres seguidas se aborta: eso ya no es una corrida mala, es el
+# montaje caido, y seguir nueve horas contra un Docker muerto no sirve de nada.
+#
+#   corrida_segura <corrida|corrida_escalones> <args...>
+# ---------------------------------------------------------------------
+FALLOS_SEGUIDOS=0
+FALLOS_DEL_BLOQUE=()
+# Registro persistente de toda la campana; el resumen de cada bloque usa el
+# array, para no repetir los fallos de bloques anteriores.
+REGISTRO_FALLOS="${RAIZ}/results/corridas_fallidas.txt"
+
+corrida_segura() {
+  local fn="$1"; shift
+  local rc=0
+  bash -c 'set -euo pipefail; source "$1"; shift; "$@"'        _ "${RAIZ}/scripts/_corrida.sh" "${fn}" "$@" || rc=$?
+  if [ "${rc}" -eq 0 ]; then
+    FALLOS_SEGUIDOS=0
+    return 0
+  fi
+
+  FALLOS_SEGUIDOS=$((FALLOS_SEGUIDOS + 1))
+  local linea="$(date '+%Y-%m-%d %H:%M:%S')  ${fn} $*"
+  FALLOS_DEL_BLOQUE+=("${linea}")
+  echo "${linea}" >> "${REGISTRO_FALLOS}"
+  echo "!! CORRIDA FALLIDA: ${fn} $* — registrada, el bloque continua" >&2
+
+  if [ "${FALLOS_SEGUIDOS}" -ge 3 ]; then
+    echo >&2
+    echo "!! TRES CORRIDAS SEGUIDAS FALLIDAS — se aborta el bloque." >&2
+    echo "   Eso no es una corrida mala sino el montaje caido; revisar" >&2
+    echo "   'docker compose ps' y ${REGISTRO_FALLOS}" >&2
+    exit 1
+  fi
+  return 0
+}
+
+resumen_bloque() {
+  echo "============================================================"
+  if [ "${#FALLOS_DEL_BLOQUE[@]}" -eq 0 ]; then
+    echo "BLOQUE COMPLETO — ninguna corrida fallo"
+  else
+    echo "BLOQUE COMPLETO — ${#FALLOS_DEL_BLOQUE[@]} corrida(s) fallida(s):"
+    printf '  %s
+' "${FALLOS_DEL_BLOQUE[@]}"
+    echo
+    echo "Repetir esas corridas antes de dar el bloque por valido."
+  fi
+  echo "============================================================"
 }

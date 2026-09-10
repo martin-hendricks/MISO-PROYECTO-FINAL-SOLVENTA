@@ -27,6 +27,8 @@ export ESCALON_S="${ESCALON_S:-120}"
 
 for st in sano degradado; do
   for arm in cache_blocking cache_opportunistic; do
-    corrida_escalones "${arm}" "b4_${st}" "${st}"
+    corrida_segura corrida_escalones "${arm}" "b4_${st}" "${st}"
   done
 done
+
+resumen_bloque

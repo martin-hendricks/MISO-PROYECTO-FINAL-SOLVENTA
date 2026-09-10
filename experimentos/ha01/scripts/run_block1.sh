@@ -29,7 +29,9 @@ for rep in $(seq 1 "${REPS}"); do
 
   for arm in "${orden[@]}"; do
     for st in "${ESTADOS[@]}"; do
-      corrida "${arm}" "b1_r${rep}_${st}" "${st}"
+      corrida_segura corrida "${arm}" "b1_r${rep}_${st}" "${st}"
     done
   done
 done
+
+resumen_bloque

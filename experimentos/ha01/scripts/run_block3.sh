@@ -26,7 +26,7 @@ for pol in rate count; do
       bajo) RATE=10  ;;
     esac
     export BREAKER_POLICY="${pol}"
-    corrida cache_opportunistic "b3_${pol}_${traf}" "sin_respuesta" "${RATE}"
+    corrida_segura corrida cache_opportunistic "b3_${pol}_${traf}" "sin_respuesta" "${RATE}"
   done
 done
 
@@ -51,6 +51,8 @@ export BREAKER_POLICY=rate
 for hr in 0.96 0.50; do
   export TARGET_HIT_RATE="${hr}"
   for arm in cache_opportunistic cache_singleflight; do
-    corrida "${arm}" "b3_estampida_hr${hr}" "sin_respuesta" 200
+    corrida_segura corrida "${arm}" "b3_estampida_hr${hr}" "sin_respuesta" 200
   done
 done
+
+resumen_bloque

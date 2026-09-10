@@ -29,12 +29,13 @@ Una corrida completa:
 ./scripts/collect_results.sh  # tablas del Anexo C en results/analysis/
 ```
 
-> **9,1 horas** en total, medidas y no estimadas: 26 s de sobrecosto fijo por
-> corrida (37 s cuando el pool vencido es grande) más 360 s de carga en los
-> bloques 1–3 y 540 s en el 4. Bloque 1 ≈ 5,0 h, bloque 2 ≈ 2,7 h, bloque 3 ≈
-> 0,9 h, bloque 4 ≈ 0,6 h. Es una ejecución desatendida: la máquina no puede
-> estar haciendo otra cosa, o los percentiles dejan de ser comparables entre
-> corridas.
+> **9,8 horas** en total, medidas y no estimadas: 26 s de sobrecosto fijo por
+> corrida (37 s cuando el pool vencido es grande), más 380 s de carga en los
+> bloques 1–3 y 560 s en el 4 —360 y 540 s de fases más 20 s de margen para la
+> variabilidad de arranque de k6—, más el drenaje. Bloque 1 ≈ 5,3 h, bloque 2 ≈
+> 2,9 h, bloque 3 ≈ 1,0 h, bloque 4 ≈ 0,7 h. Es una ejecución desatendida: la
+> máquina no puede estar haciendo otra cosa, o los percentiles dejan de ser
+> comparables entre corridas.
 
 ## Umbral
 
@@ -321,6 +322,57 @@ posible. De paso el chequeo baja de 21,4 s a 8,4 s, que sobre 81 corridas son
 
 **Menos muestras, más confianza.** Es el caso en que el tamaño de muestra no era
 el problema.
+
+### 16. El reloj de las fases va atado a la carga real, no a `sleep`
+
+**Es el defecto más peligroso que apareció en todo el montaje**, y sólo se vio
+al ejercitar los caminos que ningún piloto había tocado.
+
+Las marcas de fase se tomaban con aritmética de `sleep` desde el momento de
+lanzar `docker compose run`. Pero entre lanzar el contenedor y que k6 empiece a
+emitir pasa un tiempo **variable**, y en una traza medida esa ventana entera
+quedó **fuera de la carga**: las tres fases sin una sola petición.
+
+Lo grave no es el desfase sino que **la corrida se dio por válida**. El volcado
+final decía 15 001 cotizaciones y las nueve verificaciones pasaban, porque
+todas miraban **contadores acumulados**, que no dicen nada sobre si la ventana
+está bien puesta. En una campaña desatendida de nueve horas eso son 81 corridas
+con tablas llenas de ceros y ningún aviso.
+
+Tres defensas, en capas:
+
+1. **`esperar_carga`** — la ventana no abre hasta que el contador de la API
+   crece en dos lecturas seguidas. Dos y no una: un solo incremento podría ser
+   el rastro de un k6 anterior apagándose.
+2. **`carga_viva`** — justo antes de abrir la ventana se vuelve a comprobar que
+   la carga sigue emitiendo. Si k6 terminó durante el rodaje, se aborta ahí en
+   vez de descubrirlo seis minutos después. k6 corre además con un margen
+   (`MARGEN_CARGA_S`, 45 s) por encima de lo que duran las fases.
+3. **`verify_run.sh` comprueba que cada fase contenga tráfico**, consultando a
+   Prometheus con los cortes de `fases.json`. Es la comprobación que faltaba y
+   la única que caza el caso ya consumado.
+
+Y un cambio de política: **una corrida que no pasa las verificaciones ahora
+falla**. Antes se imprimía un aviso y se seguía, con lo que una corrida
+inválida acababa igualmente en el CSV. Ahora `corrida_segura` la registra y
+`resumen_bloque` la lista al final como pendiente de repetir.
+
+### 17. Un fallo no se lleva por delante el resto del bloque
+
+Los scripts de bloque llevan `set -e`: un fallo en la corrida 40 de 45 perdía
+las cinco restantes, y a las cuatro horas y media de una ejecución desatendida
+nadie está mirando. Ahora cada corrida se lanza con `corrida_segura`, que la
+ejecuta en un **proceso aparte** y registra el fallo sin tumbar el bloque; si
+fallan tres seguidas se aborta, porque eso ya no es una corrida mala sino el
+montaje caído.
+
+Tiene que ser un proceso y no un subshell: bash desarma `set -e` para todo lo
+que cuelga de la condición de un `if` o del lado izquierdo de un `||`, y ese
+desarme **se hereda** en los subshells. Comprobado: ni `( f )`, ni
+`( set -e; f )`, ni `rc=0; ( set -e; f ) || rc=$?` detienen la función en el
+punto que falla — las tres siguen ejecutando los pasos posteriores, que es peor
+que abortar, porque la corrida continuaría con la caché mal precargada o el
+proveedor en el estado que no es.
 
 ---
 
