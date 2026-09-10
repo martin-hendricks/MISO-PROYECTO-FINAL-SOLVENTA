@@ -10,5 +10,15 @@ curl -sf -o /dev/null "http://localhost:9090/-/healthy" \
   "${RAIZ}/results/raw" -o "${RAIZ}/results/analysis"
 
 echo
-echo "Archivos en results/analysis:"
+echo "== figuras del informe =="
+MSYS_NO_PATHCONV=1 docker compose --profile tools run --rm   figuras /work/scripts/graficas.py
+
+echo
+echo "Evidencia consolidada en results/analysis:"
 ls -1 "${RAIZ}/results/analysis"
+echo
+echo "  resultados_por_fase.csv  todas las metricas, una fila por fase"
+echo "  figuras/                 PNG a 200 ppp para pegar en el informe"
+echo "  enlaces_grafana.md       un enlace por corrida, ya acotado a su ventana"
+echo
+echo "Evidencia cruda por corrida en results/raw/<brazo>_<run_id>/"

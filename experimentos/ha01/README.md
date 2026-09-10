@@ -286,6 +286,71 @@ sea 40 conexiones activas y 40 encoladas.
 
 ---
 
+## Evidencia para el informe
+
+### Por corrida — `results/raw/<brazo>_<run_id>/`
+
+| Archivo | Qué contiene |
+| --- | --- |
+| `api_metrics.txt` | volcado final de todas las métricas de `:MsCotización` y `:AdaptadorOF` |
+| `provider_metrics.txt` | métricas del doble; contrasta con las del adaptador |
+| `api_info.json` | **configuración efectiva**: brazo, presupuesto, timeout, política y estado del interruptor, tamaño del pool, TTL, claves en Redis, si las reglas vinieron de la BD |
+| `env.txt` | todas las variables de la corrida |
+| `fases.json` | los cortes temporales de cada fase o escalón |
+| `sanidad.txt` | resultado de las nueve verificaciones; si falla, la corrida no es válida |
+| `k6_summary.json` | medida **de cliente**, incluido `dropped_iterations` |
+| `k6_stdout.txt` | traza completa de k6 |
+| `stats.csv` | CPU y memoria de cada contenedor al terminar |
+| `toxiproxy.json` | toxinas activas, para confirmar el estado inyectado |
+
+`api_info.json` y `env.txt` son lo que hace **auditable** un resultado seis
+semanas después: sin ellos, un número en una tabla no se puede reproducir.
+
+### Consolidado — `results/analysis/`
+
+| Archivo | Qué contiene |
+| --- | --- |
+| `resultados_por_fase.csv` | una fila por fase de cada corrida: p50/p95/p99, error, % con respaldo, edad p50/p95, acierto observado, estado máximo del interruptor, invocaciones en vuelo, refrescos, coalescidas, p95 **por camino**; más una fila `transiciones` con los tiempos hasta abrir y hasta cerrar |
+| `figuras/*.png` | las figuras del informe, 200 ppp |
+| `enlaces_grafana.md` | un enlace por corrida al tablero, **ya acotado a su ventana** |
+
+### Las figuras
+
+`./scripts/collect_results.sh` las genera junto con el CSV. Cada una sale sólo
+si hay datos de su bloque, así que se puede ejecutar con los bloques a medio
+correr.
+
+| Figura | Qué sostiene |
+| --- | --- |
+| `fig1_brazo_x_estado.png` | Bloque 1: p95 y p99 por brazo × estado, con las líneas de 225 y 475 ms — **HD-01.1, HD-01.2** |
+| `fig2_camino.png` | p95 por camino de resolución (caché / open_finance / fallback / default) — **HD-01.3** |
+| `fig3_acierto.png` | p95 y p99 contra tasa de acierto; el cruce con el umbral da el mínimo — **HD-01.4** |
+| `fig4_serie_<corrida>.png` | serie temporal de una corrida: latencia, estado del interruptor y % con respaldo en tres paneles con eje de tiempo compartido — **HD-01.8** |
+| `fig5_carga.png` | latencia contra tasa de llegada — **EC-LAT-02** |
+| `fig6_frescura.png` | % con respaldo y edad del dato por fase y brazo — **el trade-off de §2.8** |
+| `fig7_pool.png` | invocaciones en vuelo contra el tamaño del pool — **HD-01.7** |
+
+La paleta está validada (banda de luminosidad, piso de croma, separación para
+daltonismo y contraste). Dos de las cuatro ranuras quedan por debajo de 3:1
+contra la superficie, así que **toda barra lleva su valor escrito** y el CSV
+sirve de vista de tabla equivalente.
+
+`fig4` usa tres paneles apilados y no dos escalas verticales: superponer
+latencia y estado del interruptor sobre ejes distintos es la forma más común de
+mentir con un gráfico.
+
+Las figuras se generan en un contenedor aparte (`analisis/Dockerfile`) para no
+meter matplotlib en la imagen que se mide, y para que la máquina del analista no
+necesite instalar nada.
+
+### Grafana en vivo
+
+<http://localhost:3000>, tablero *HA-01*, diez paneles. Prometheus conserva
+**30 días**, así que los enlaces de `enlaces_grafana.md` siguen sirviendo
+después de terminar las corridas.
+
+---
+
 ## Amenaza a la validez que el montaje no resuelve
 
 `RATING_COST_MS=60` con `RATING_CPU_ITERS=1200` es, en la práctica, casi todo

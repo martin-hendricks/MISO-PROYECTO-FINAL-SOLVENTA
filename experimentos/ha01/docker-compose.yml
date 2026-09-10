@@ -176,6 +176,17 @@ services:
     depends_on:
       redis: { condition: service_healthy }
 
+  figuras:
+    # Genera las figuras del informe. Perfil `tools` para que no arranque con
+    # el montaje: no participa de la medicion.
+    build: ./analisis
+    profiles: ["tools"]
+    entrypoint: ["python"]
+    volumes:
+      - ./scripts:/work/scripts:ro
+      - ./results:/work/results
+    network_mode: "host"
+
   k6:
     # Version fijada: en k6 >= 1.0 el output pasa a llamarse `prometheus-rw`
     # y el script de corrida dejaria de exportar sin avisar.
