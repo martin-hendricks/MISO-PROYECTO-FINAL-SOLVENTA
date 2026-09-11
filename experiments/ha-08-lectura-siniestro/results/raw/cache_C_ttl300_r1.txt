@@ -1,0 +1,12 @@
+# HELP ha08_cache_hits_total Aciertos de caché
+# TYPE ha08_cache_hits_total counter
+ha08_cache_hits_total 657.0
+# HELP ha08_cache_hits_created Aciertos de caché
+# TYPE ha08_cache_hits_created gauge
+ha08_cache_hits_created 1.7890256207441256e+09
+# HELP ha08_cache_misses_total Fallos de caché
+# TYPE ha08_cache_misses_total counter
+ha08_cache_misses_total 2064.0
+# HELP ha08_cache_misses_created Fallos de caché
+# TYPE ha08_cache_misses_created gauge
+ha08_cache_misses_created 1.789025620744134e+09

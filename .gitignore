@@ -26,8 +26,11 @@ captures/
 .terraform.lock.hcl
 
 # Experimentos
-experiments/**/results/raw/*
-!experiments/**/results/raw/.gitkeep
+# (results/raw/ SÍ se versiona — son JSON/CSV/TXT pequeños (~4MB) que el
+# INFORME.md de HA-08 cita como fuente auditable de cada cifra reportada;
+# excluirlos hacía que el informe no fuera verificable para quien clona el
+# repo sin haber corrido las corridas. El dataset generado y los exports
+# pesados de Prometheus siguen fuera del repo por su propio tamaño.)
 
 # OS / editores
 .DS_Store

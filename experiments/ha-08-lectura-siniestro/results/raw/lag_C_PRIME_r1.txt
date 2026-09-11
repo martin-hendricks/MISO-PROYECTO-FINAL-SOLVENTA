@@ -1,0 +1,17 @@
+# HELP ha08_projection_lag_seconds Lag entre ocurrencia del evento y proyección
+# TYPE ha08_projection_lag_seconds histogram
+ha08_projection_lag_seconds_bucket{le="0.05"} 4026.0
+ha08_projection_lag_seconds_bucket{le="0.1"} 4031.0
+ha08_projection_lag_seconds_bucket{le="0.25"} 4033.0
+ha08_projection_lag_seconds_bucket{le="0.5"} 4034.0
+ha08_projection_lag_seconds_bucket{le="1.0"} 4034.0
+ha08_projection_lag_seconds_bucket{le="2.0"} 4034.0
+ha08_projection_lag_seconds_bucket{le="5.0"} 4034.0
+ha08_projection_lag_seconds_bucket{le="10.0"} 4034.0
+ha08_projection_lag_seconds_bucket{le="30.0"} 4034.0
+ha08_projection_lag_seconds_bucket{le="+Inf"} 4034.0
+ha08_projection_lag_seconds_count 4034.0
+ha08_projection_lag_seconds_sum 27.78500300000003
+# HELP ha08_projection_lag_seconds_created Lag entre ocurrencia del evento y proyección
+# TYPE ha08_projection_lag_seconds_created gauge
+ha08_projection_lag_seconds_created 1.7889962249077399e+09

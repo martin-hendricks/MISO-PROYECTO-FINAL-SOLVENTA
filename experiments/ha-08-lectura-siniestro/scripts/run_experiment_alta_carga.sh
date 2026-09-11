@@ -57,6 +57,7 @@ docker run --rm --name ha08-k6-carga --network "${NETWORK}" \
   grafana/k6:0.53.0 run \
   --out experimental-prometheus-rw \
   --summary-export="/results/summary_${ARM}_${RUN_ID}.json" \
+  --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" \
   /scripts/read_estado_alta_carga.js
 
 # pkill -P mata también al "docker stats" hijo que quedaría huérfano con

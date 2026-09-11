@@ -45,6 +45,19 @@ export const options = {
   thresholds: {
     'http_req_failed': ['rate<0.01'],
     'ha08_estado_duration': ['p(95)<150'],
+    // Declarar thresholds por sub-métrica hace que k6 incluya cada una como
+    // entrada separada en --summary-export (verificado con k6 run real), con
+    // su propio p95 — así el p95 por escalón queda en el JSON directamente,
+    // sin depender de reconstruirlo vía PromQL sobre el output
+    // experimental-prometheus-rw (que expone gauges via TREND_STATS, no
+    // buckets, así que histogram_quantile() sobre "_bucket" no aplica aquí
+    // — feedback externo, 2026-09-11). El warm-up (nombre 'warmup') queda
+    // fuera a propósito, igual que en el análisis.
+    'ha08_estado_duration{escalon:r150}': ['p(95)<150'],
+    'ha08_estado_duration{escalon:r300}': ['p(95)<150'],
+    'ha08_estado_duration{escalon:r600}': ['p(95)<150'],
+    'ha08_estado_duration{calor:caliente}': ['p(95)<150'],
+    'ha08_estado_duration{calor:frio}': ['p(95)<150'],
   },
   tags: { arm: ARM, run_id: __ENV.RUN_ID || 'alta_carga' },
 };

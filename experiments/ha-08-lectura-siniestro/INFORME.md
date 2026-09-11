@@ -34,7 +34,7 @@ Una evaluación externa (`EVALUACION_EJECUCION_HA-08.md`, 2026-09-10) detectó u
 
 **La iteración de alta carga (§2.4) también quedó invalidada por el mismo defecto.** `scripts/run_experiment_alta_carga.sh` es una copia de `run_experiment.sh` con el mismo paso 3 (`./scripts/verify_parity.sh` dentro de la corrida, sin aserción); su log (`results/raw/log_alta_carga_A.txt`) muestra la misma secuencia `Recreate`×2 (B, C — la primera iteración del bucle, A, no recrea porque coincide con el brazo que el paso 2 ya había levantado) inmediatamente antes de k6. La única señal que sugería lo contrario —CPU de `ha08-api` en 16.8% para "A" contra 0.7% para "B"/"C"— **no es prueba suficiente**: no se capturó el hit-rate de Redis en el momento de esa corrida (dato no recuperable retroactivamente), y esa diferencia de CPU podría deberse igual a un transitorio de arranque en frío del contenedor recién recreado. Ante la duda, se trata como inválida por el mismo mecanismo verificado en el protocolo formal, no se asume una excepción sin evidencia directa.
 
-**Pendiente:** repetir las 9 corridas contrabalanceadas (+ TTL con n=3 en vez de n=1, hallazgo §3.7) **y la iteración de alta carga**, todas con el script corregido, y solo entonces re-redactar §1/§2/§2.4 con datos donde A y B realmente se ejecutaron. Ver checklist actualizado en §5.
+**Estado de la repetición:** las 9 corridas contrabalanceadas y las 6 de TTL (n=3 cada valor) ya se repitieron con el script corregido — resultados válidos en §1/§2/§2.3bis. **Solo queda pendiente la iteración de alta carga** (§2.4), en curso al momento de la última actualización de este informe. Ver checklist en §5.
 
 ---
 
@@ -87,7 +87,7 @@ Fuente por corrida: `results/raw/summary_<ARM>_<RUN_ID>.json`. Orden real de eje
 | C (TTL=300s) | ttl300 | 1.92 | 5.27 | 0 | 0.05 |
 | C' (coalescencia) | r1 | 2.19 | 4.76 | 0 | 0.05 |
 
-CSV crudo: [`results/consolidado.csv`](results/consolidado.csv) (contiene la mezcla de datos inválidos/válidos por timestamp — usar `results/raw/log_serie_completa.txt` para diferenciar).
+`results/consolidado.csv` ya **no** contiene estos datos inválidos — se regeneró con `scripts/collect_results.sh` (corregido para filtrar por patrón `summary_*_r[0-9]*.json` y excluir explícitamente `summary_C_PRIME_*` y los archivos sin sufijo de repetición de esta sesión) y solo tiene las 15 corridas válidas de §1/§2.3bis. Esta tabla se conserva únicamente en el cuerpo del informe, por trazabilidad del proceso de detección del bug.
 
 ---
 
@@ -101,7 +101,7 @@ CSV crudo: [`results/consolidado.csv`](results/consolidado.csv) (contiene la mez
 
 - **HD-08.1** (A no alcanza el umbral) — **refutada**. A cumple holgadamente (7.86ms vs. 150ms, 19× de margen). Esta es la refutación que importa para el dictamen (ver §2.2): el objetivo de la ficha es encontrar el **mínimo** de complejidad que satisface `EC-LAT-11`, y A —sin CQRS, sin proyección, sin caché— ya lo satisface.
 - **HD-08.2** (B reduce el p95 ≥60% vs. línea base) — **refutada en magnitud**. B es el más rápido de los tres (7.86→6.19ms, -21% vs. A), en la dirección esperada, pero muy por debajo del 60% planteado. Ver §2.1bis sobre por qué esta diferencia, aunque reproducible, no altera el dictamen de umbral.
-- **HD-08.3** (C mejora sobre B) — **refutada, y en la dirección contraria a la esperada**. C es *peor* que B (6.72ms vs. 6.19ms, +9%). Con el hit-rate real observado (7.6%, ver §2.3), la mayoría de las peticiones de C ejecutan el trabajo completo de B *más* un `GET` a Redis que falla — trabajo adicional sin ahorro correspondiente.
+- **HD-08.3** (C mejora sobre B) — **refutada, y en la dirección contraria a la esperada**. C es *peor* que B (6.72ms vs. 6.19ms, +9%). El costo no viene del `GET` a Redis que falla en cada miss (ese es prácticamente gratis — ver comparación con C a TTL=0 en §2.3bis punto 2), sino de la serialización (`orjson.dumps`) y el `SET` que escriben el resultado en caché tras cada miss, ejecutados en el ~92% de las peticiones dado el hit-rate real (7.6%, §2.3) — trabajo adicional sin ahorro correspondiente para la gran mayoría de las peticiones.
 - **HD-08.4** (lag de proyección p95 ≤ 2s) — **aceptada con margen amplio, pero solo mide la mitad del punto de sensibilidad 2**. El ~0.05s reportado es el lag *interno del proyector* (tiempo entre que ocurre el evento y que se aplica el UPSERT en `siniestros_r`), no el lag *que ve el cliente en el brazo C* (tiempo entre que el estado cambia y que una lectura vía caché refleja ese cambio). Ese segundo lag es lo que el diseño pide medir para el punto de sensibilidad 2, y no se instrumentó. Además, ese valor de ~0.05s es en realidad "≤50ms" (primer bucket del histograma de Prometheus, `ha08_projection_lag_seconds_bucket{le="0.05"}`), no una medición puntual exacta — con solo 5 eventos/s del simulador, hay pocas observaciones por corrida para una estimación fina.
 
 ### 2.1ter Riesgo de consistencia eventual no medido: carrera entre invalidación del proyector y escritura de `arm_c.py`
@@ -130,16 +130,18 @@ Esto no invalida la arquitectura CQRS de Solventa en general para otros puntos d
 
 El hit-rate medido en C r3 fue **7.6%** (1668/21948, ver nota en §1), consistente con el 7.1% de la sesión inválida del 08-09 — confirma que el patrón de hit-rate bajo **no era un artefacto del bug de brazo**.
 
-**No es un problema de "calentamiento insuficiente" — es el resultado matemático esperado de este diseño de carga.** Con tráfico uniforme sobre las 10.000 claves del *hot set* (80% del tráfico) y TTL fijo, el hit-rate en estado estacionario para una clave con tasa de llegada λ se aproxima por `λ·TTL / (1 + λ·TTL)`, con λ = 0.8·rps/10.000. Para los 4 escalones del protocolo formal (10/25/50/80 rps) con TTL=30s:
+**No es un problema de "calentamiento insuficiente" — es el resultado matemático esperado de este diseño de carga.** Con tráfico uniforme sobre las 10.000 claves del *hot set*, el hit-rate en estado estacionario para una clave con tasa de llegada λ=rps/10.000 (**dado que la petición cae en el *hot set***) se aproxima por `λ·TTL / (1 + λ·TTL)`. Para los 4 escalones del protocolo formal (10/25/50/80 rps) con TTL=30s:
 
-| rps | λ (llegadas/s por clave) | hit-rate teórico |
+| rps | λ (llegadas/s por clave, dentro del *hot set*) | hit-rate dado que es caliente |
 |---:|---:|---:|
-| 10 | 0.0008 | 2.3% |
-| 25 | 0.0020 | 5.7% |
-| 50 | 0.0040 | 10.7% |
-| 80 | 0.0064 | 16.1% |
+| 10 | 0.0010 | 2.9% |
+| 25 | 0.0025 | 7.0% |
+| 50 | 0.0050 | 13.0% |
+| 80 | 0.0080 | 19.4% |
 
-Promedio simple de los 4 escalones: **8.7%** — prácticamente idéntico al 7.6-7.1% medido. **Correr la corrida más tiempo no cambiaría este número**, porque ya está en su valor de estado estacionario; lo que sí lo cambiaría es la distribución de acceso. Este diseño usa selección **uniforme** dentro del *hot set*, pero el acceso real a un sistema de siniestros probablemente sigue una distribución sesgada (tipo Zipf, donde pocos siniestros concentran la mayoría de las consultas — por ejemplo, siniestros con actividad reciente o en disputa) — con esa distribución, el hit-rate real de producción podría ser sustancialmente más alto que el aquí medido, porque las claves más consultadas se re-visitan con mucha más frecuencia que 1/10.000 del tráfico.
+Este es el hit-rate *dado que la petición ya cayó en el hot set* — falta ponderar por el 80% de tráfico que efectivamente va ahí (el 20% frío prácticamente nunca acierta, con 990.000 claves y TTL de 30s) y por el volumen real de solicitudes de cada escalón (180s cada uno): ponderando así, el hit-rate global en estado estacionario es **11.66% × 0.8 ≈ 9.3%** — cercano al 7.6-7.1% medido, con la diferencia explicable por variación de muestreo entre corridas.
+
+**Correr la corrida más tiempo no cambiaría sustancialmente este número**, porque a TTL=30s con escalones de 180s el sistema sí alcanza su estado estacionario (a diferencia de TTL=300s, ver §2.3bis punto 1, donde el TTL es más largo que el escalón y el caché nunca termina de llenarse). Lo que sí cambiaría el hit-rate es la **distribución de acceso**: este diseño usa selección uniforme dentro del *hot set*, pero el acceso real a un sistema de siniestros probablemente sigue una distribución sesgada (tipo Zipf, donde pocos siniestros concentran la mayoría de las consultas — por ejemplo, los que tienen actividad reciente o están en disputa) — con esa distribución, el hit-rate real de producción podría ser sustancialmente más alto que el aquí medido, porque las claves más consultadas se re-visitan con mucha más frecuencia que 1/10.000 del tráfico caliente.
 
 Este hit-rate bajo es precisamente la causa mecánica de que C resulte más lento que B en §2.1 — no es una casualidad estadística, es la explicación del hallazgo. Pero también acota su alcance: **el resultado "C es peor que B" es válido para *este* patrón de acceso (uniforme), no necesariamente para un patrón sesgado con mayor hit-rate real** — es una amenaza a la validez externa que vale la pena señalar, no solo una curiosidad matemática.
 
@@ -160,8 +162,8 @@ Se repitió el punto de sensibilidad 2 del diseño (TTL=0s vs. TTL=300s, brazo C
 
 Dos hallazgos, ambos consistentes con §2.1:
 
-1. **El hit-rate con TTL=300 (24-33%) es sustancialmente más alto que con TTL=30 del protocolo formal (7.6%)** — coherente: un TTL 10× más largo retiene las entradas más tiempo dentro de una corrida de 13 minutos, dando más oportunidad de acierto sobre el *hot set* de 10K claves.
-2. **A pesar del hit-rate más alto, TTL=300 es *más lento* que TTL=0, no más rápido** (6.47ms vs. 6.21ms). Esto es contraintuitivo si se esperara que "más hits = más rápido", pero es exactamente la misma mecánica de §2.1: cada hit ahorra la consulta a Postgres, pero cada miss (que sigue siendo mayoría, 67-76%) paga el costo *adicional* del `GET` a Redis que falla, encima del trabajo de B. Con un hit-rate que nunca supera el ~33%, el costo agregado de los misses supera el ahorro de los hits.
+1. **El hit-rate medido con TTL=300 (24-33%) queda por debajo de lo que predice el estado estacionario, porque la corrida nunca llega a ese estado.** Con tráfico uniforme sobre el *hot set* de 10.000 claves, el hit-rate esperado en estado estacionario para una clave con tasa de llegada λ=rps/10.000 (dado que la petición cae en el *hot set*, que ocurre el 80% de las veces) es `λ·TTL / (1 + λ·TTL)`; ponderando por el 80% de tráfico caliente y por el número de solicitudes de cada escalón (10/25/50/80 rps × 180s cada uno), el hit-rate global teórico para TTL=300 en estado estacionario es **~48%**. El valor medido (24-33%) es sustancialmente menor porque cada corrida arranca con `FLUSHALL` (caché vacío) y cada escalón dura solo 180s — mucho menos que el TTL de 300s — así que el caché nunca termina de llenarse dentro de la ventana de medición: es un régimen transitorio, no estacionario. (Para TTL=30 del protocolo formal, la misma fórmula da ~9.3% en estado estacionario, consistente con el 7.6% medido — ahí sí se alcanza el estado estacionario porque el TTL es corto frente a la duración del escalón.)
+2. **A pesar del hit-rate más alto, TTL=300 es *más lento* que TTL=0, no más rápido** (6.47ms vs. 6.21ms). El costo no está en el `GET` a Redis que falla — comparando series (**nota: B, C-TTL0 y C-TTL30 corrieron en corridas distintas, no simultáneas; esta es una comparación indicativa, no un experimento controlado con la misma corrida**): B promedia 6.19ms, C-TTL0 (que hace el `GET` fallido pero nunca ejecuta el `SET`, por el guard de `settings.cache_ttl_seconds > 0`) promedia 6.21ms — una diferencia de 0.02ms, prácticamente cero. C con TTL=30 del protocolo formal (que sí ejecuta `orjson.dumps` + `SET` en cada miss) promedia 6.72ms — 0.51ms más que C-TTL0. **El costo real está en la serialización y escritura a Redis tras cada miss, no en el `GET` que falla.** Esto sugiere una mejora concreta no implementada en este experimento: escribir en caché de forma asíncrona (fire-and-forget), sin bloquear la respuesta al cliente con el `SET`.
 
 **Conclusión:** ni siquiera subiendo el TTL 10× (de 30s a 300s) el caché alcanza a compensar su propio costo estructural en este régimen de carga — refuerza la recomendación de §2.2 de preferir B sobre C para este punto de sensibilidad.
 
@@ -169,25 +171,33 @@ Evidencia: `results/raw/{summary,cache,lag,stats}_C_ttl{0,300}_r{1,2,3}.{json,tx
 
 > **Nota de proceso:** la primera ejecución de esta serie (2026-09-10, madrugada) sufrió contención real de otro contenedor Docker de un proyecto distinto corriendo en la misma máquina (`202620-misw4412-api-empresarial-api-1`, load average 4.74-5.87) — 4 de las 6 corridas mostraron un outlier extremo en `max` (~924 segundos) sin afectar el p95 ni el error rate. Se detuvo ese contenedor y se repitieron únicamente las 4 corridas afectadas (`ttl0_r2`, `ttl0_r3`, `ttl300_r2`, `ttl300_r3`); los valores de la tabla arriba son los de la repetición limpia. Es el mismo patrón de amenaza a la validez documentado en §2.5 para la sesión anterior, esta vez causado por un contenedor distinto (no Kubernetes, que ya se había resuelto).
 
-### 2.4 Punto de quiebre no alcanzado (repitiendo a 150/300/600 req/s — resultado de la sesión anterior invalidado, ver nota abajo)
+### 2.4 Punto de quiebre no alcanzado (150/300/600 req/s, repetida con el script corregido)
 
-> ⚠️ **Ver §0.** `run_experiment_alta_carga.sh` tiene el mismo defecto que invalidó el protocolo formal — las 3 filas de la tabla siguiente probablemente midieron todas el brazo C. Pendiente de repetir.
+El punto de sensibilidad 3 del diseño (localizar dónde cada brazo deja de cumplir el umbral subiendo la tasa de llegada) **no se pudo observar** dentro del rango de carga del protocolo formal (10→80 req/s, §1): ningún brazo mostró degradación hacia el límite de 150ms en ese rango. Se repitió la iteración de alta carga (`scripts/run_experiment_alta_carga.sh`, `load/k6/read_estado_alta_carga.js`) con escalones de **150 → 300 → 600 req/s** (3 min cada uno, tras 1 min de warm-up descartado), esta vez con la aserción de `/health`, tags `escalon`/`calor`, thresholds por sub-métrica (para que el p95/p99 por escalón queden en el summary export sin depender de PromQL) y el contenedor de k6 nombrado para poder ver su propio CPU. Las 3 corridas cerraron con **0% de error y 0 `dropped_iterations`**.
 
-El punto de sensibilidad 3 del diseño (localizar dónde cada brazo deja de cumplir el umbral subiendo la tasa de llegada) **no se pudo observar** dentro del rango de carga del protocolo formal (10→80 req/s): ningún brazo mostró degradación hacia el límite de 150ms en ese rango.
+| Brazo | p95 global (ms) | p99 global (ms) | p95 en r150 | p95 en r300 | p95 en r600 |
+|---|---:|---:|---:|---:|---:|
+| A | 3.46 | 22.89 | 5.13 | 2.63 | 2.75 |
+| B | 2.87 | 4.94 | 4.84 | 2.98 | 1.50 |
+| C | 2.96 | 5.41 | 5.24 | 2.76 | 1.90 |
 
-Se ejecutó una iteración adicional de alta carga (`scripts/run_experiment_alta_carga.sh`, `load/k6/read_estado_alta_carga.js`) con escalones de **150 → 300 → 600 req/s** (3 min cada uno, tras 1 min de warm-up descartado) para los tres brazos, buscando específicamente el punto de quiebre. Resultado:
+**No se encontró el punto de quiebre — los tres brazos mejoran o se mantienen estables a medida que sube la tasa de llegada**, en vez de degradarse: el p95 de r150 es consistentemente el más alto de los tres escalones (4.8-5.2ms) y el de r600 el más bajo o similar (1.5-2.8ms), en los tres brazos. Esto es contraintuitivo si se esperara degradación bajo carga, pero tiene una explicación simple: r150 es el primer escalón tras el warm-up descartado, y el sistema (pools de conexión, planes de consulta cacheados por Postgres, JIT de Python) sigue calentándose durante ese primer tramo — el p99 de A en r600 (60.16ms) es más alto que en r150 (8.32ms) y r300 (5.05ms), sugiriendo que sí hay algo de degradación en la cola extrema conforme sube la carga, aunque no en el p95. En ningún caso, en ningún brazo ni escalón, se superó una fracción relevante del umbral de 150ms.
 
-| Brazo | p50 (ms) | p95 (ms) | max (ms) | Error (%) | Throughput real sostenido | CPU `ha08-api` (docker stats final) | Lag proyección (≤0.05s) |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| A | 1.07 | 2.51 | 576.4 | 0 | ✅ 600 req/s | 16.8% de 1 core | 99.6% |
-| B | 1.08 | 2.40 | 278.3 | 0 | ✅ 600 req/s | 0.7% de 1 core | 99.6% |
-| C | 1.10 | 2.54 | 994.7 | 0 | ✅ 600 req/s | 0.7% de 1 core | 99.5% |
+**CPU durante el escalón de 600 req/s** (promedio de las últimas 18 muestras de `docker stats`, capturadas cada 10s durante todo el escalón — no un snapshot único al final):
 
-Incluso a **7.5× la tasa máxima del protocolo formal**, los tres brazos sostuvieron la tasa de arribo objetivo sin errores y con p95 de 2.4–2.5ms — **~60× por debajo** del umbral de 150ms, y sin diferenciación significativa entre brazos. El hit-rate del brazo C sí subió notablemente frente al protocolo formal (**34.0%**, 43238/(43238+84081) acumulado — contra 7.1% en las corridas de 13 min a baja carga), consistente con que a mayor tasa de llegada el *hot set* de 10K claves se "calienta" más rápido dentro de la ventana de TTL=30s; aun así, esa diferencia de hit-rate no se tradujo en diferencia de p95 observable.
+| Brazo | CPU `ha08-api` (avg / max) | CPU `ha08-k6-carga` (avg / max) |
+|---|---:|---:|
+| A | 29.2% / 45.0% | 17.1% / 32.3% |
+| B | 26.6% / 46.2% | 15.9% / 22.7% |
+| C | 30.5% / 46.5% | 15.0% / 20.2% |
 
-**Interpretación:** el cuello de botella no está en la ruta de lectura HTTP→API→Postgres/Redis en este dataset (1M filas, índices efectivos) ni en el pool de conexiones (`DB_POOL_MAX=10`, nunca saturado — CPU de `ha08-api` cayó de 16.8% en A a 0.7% en B/C, coherente con que A sí toca Postgres en cada request mientras B/C lo evitan la mayoría de las veces). El punto de quiebre real está por **encima de 600 req/s** en este montaje, o requeriría un dataset/joins más pesados, o un pool deliberadamente más pequeño para forzar contención — no se intentó llegar más alto por el costo de tiempo de correr escalones aún mayores sin garantía de encontrar el quiebre antes de agotar la capacidad de generación de carga de esta máquina (single-host k6).
+El contenedor `k6-carga` consume consistentemente menos CPU que `ha08-api` en los tres brazos — descarta la hipótesis de que k6 se sature antes que la API a esta tasa. `ha08-api` tampoco se acerca a saturar su límite de 1 core (46% máximo).
 
-Evidencia: `results/raw/{summary,stats,lag}_{A,B,C}_alta_carga.{json,csv,txt}`, `results/raw/log_alta_carga_{A,B,C}.txt`.
+**Hit-rate de C en esta corrida: 34.2%** (41113 hits / (41113+78972) misses) — sustancialmente más alto que el 7.6% del protocolo formal (§2.3), consistente con la fórmula de estado estacionario: a 600 rps, λ=0.06/s por clave caliente, dando un hit-rate teórico dado-caliente de ~64% (con TTL=30s), y el escalón de 180s sí alcanza a acercarse a ese régimen a tasas altas. Aun con ese hit-rate mucho más alto, C (2.96ms) no superó a B (2.87ms) en p95 global — coherente con §2.1/§2.3bis: el costo de escritura por miss sigue presente en el 66% restante de las peticiones.
+
+**Interpretación:** el punto de quiebre real está por **encima de 600 req/s** en este montaje (dataset de 1M filas con índices efectivos, CPU de la API lejos de saturar su límite de 1 core). No se intentó llegar más alto por el costo de tiempo de correr escalones aún mayores; una alternativa metodológicamente más económica para localizar el quiebre sería reducir deliberadamente el CPU asignado a la API (p. ej. a 0.5 cores) o el tamaño del pool de conexiones (a 2-3), para forzar contención observable a tasas de carga más bajas y comparar cómo se degrada cada brazo — no se ejecutó en esta sesión.
+
+Evidencia: `results/raw/{summary,cache,lag,stats}_{A,B,C}_alta_carga_v2.{json,txt,csv}`, `results/raw/log_serie_alta_carga_v4.txt`.
 
 ### 2.5 Amenazas a la validez específicas de esta ejecución
 
@@ -211,7 +221,7 @@ Además de las ya documentadas en el Anexo D del diseño (montaje local, sin lat
 | Verificación | Resultado |
 |---|---|
 | `dropped_iterations` = 0 o despreciable en las 15 corridas válidas | ✅ 0 en las 9 corridas principales y las 6 de TTL |
-| Ningún contenedor de infraestructura saturado | ✅ CPU de `ha08-api` capturado en serie cada 10s durante toda cada corrida (`results/raw/stats_*.csv`), máximos observados ≤28% de 1 core |
+| Ningún contenedor de infraestructura saturado | ✅ CPU de `ha08-api` capturado en serie cada 10s durante toda cada corrida (`results/raw/stats_*.csv`). Protocolo formal (10-80 req/s): 7.8-11.4% avg, 23.2-31.8% max en las 9 corridas, sin diferencia clara entre brazos. TTL (mismo rango): 9.8-11.0% avg, 25.4-28.2% max, sin diferencia clara entre TTL=0 y TTL=300. Ninguna corrida se acercó a saturar el límite de 1 core del contenedor |
 | `ha08_events_projected_total` creció de forma sostenida (simulador activo) | ✅ confirmado — lag de proyección ≤0.05s en el primer bucket del histograma (≥99.5% de las observaciones) en todas las corridas |
 | Tasa de error < 1% | ✅ 0% en las 15 corridas válidas |
 | Verificación de paridad de payload (A=B=C) | ✅ pasó — corregido para correr **una sola vez antes de toda la serie** (no dentro de cada corrida, que era el bug de §0), con aserción de `/health` en cada corrida individual como salvaguarda adicional |
@@ -229,14 +239,17 @@ Ubicación: `results/raw/` y `results/evidencia/`.
 
 | Archivo | Contenido | Cómo se generó |
 |---|---|---|
-| `results/consolidado.csv` | Tabla consolidada de las 12 corridas | `./scripts/collect_results.sh > results/consolidado.csv` |
-| `results/raw/summary_<ARM>_<RUN_ID>.json` (×12) | p50/p95/p99, error rate, thresholds, checks — export nativo de k6 | Automático, parte de `run_experiment.sh` |
-| `results/raw/stats_<ARM>_<RUN_ID>.csv` (×11) | CPU/memoria por contenedor al final de cada corrida | Automático, parte de `run_experiment.sh` (`docker stats --no-stream`) |
-| `results/raw/lag_<ARM>_<RUN_ID>.txt` (×12) | Métrica cruda de lag de proyección (histograma Prometheus) | Automático, parte de `run_experiment.sh` (`curl localhost:8001/metrics`) |
-| `results/evidencia/verify_parity_*.log` | Log de la verificación formal de paridad | `./scripts/verify_parity.sh \| tee results/evidencia/...` |
+| `results/consolidado.csv` | Tabla consolidada de las **15 corridas válidas** (9 protocolo formal + 6 TTL) | `./scripts/collect_results.sh > results/consolidado.csv` |
+| `results/raw/summary_<ARM>_<RUN_ID>.json` (×15 válidos) | p50/p95/p99 (donde se capturó, ver §2.5), error rate, thresholds, checks — export nativo de k6 | Automático, parte de `run_experiment.sh` |
+| `results/raw/stats_<ARM>_<RUN_ID>.csv` (×15 válidos) | CPU/memoria **por contenedor, en serie cada 10s durante toda la corrida** (no un snapshot único al final) | Automático, parte de `run_experiment.sh` (bucle de `docker stats --no-stream`, ver comentario en el script) |
+| `results/raw/lag_<ARM>_<RUN_ID>.txt` (×15 válidos) | Métrica cruda de lag de proyección (histograma Prometheus) | Automático, parte de `run_experiment.sh` (`curl localhost:8001/metrics`) |
+| `results/raw/cache_<ARM>_<RUN_ID>.txt` (parcial — ver §1) | Contadores crudos `ha08_cache_hits_total`/`misses_total` | Automático desde la corrección de §0 en adelante; no existe para las corridas anteriores a ese fix |
+| `results/evidencia/verify_parity_*.log` | Log de la verificación formal de paridad (ahora corre **una sola vez antes de toda la serie**, no dentro de cada corrida) | `./scripts/verify_parity.sh \| tee results/evidencia/...` |
 | `results/evidencia/parity_A/B/C.json` | Los 3 payloads comparados byte a byte | Copiados de `/tmp/parity_*.json` tras `verify_parity.sh` |
 | `results/evidencia/tamano_dataset.txt` | Conteo de filas y tamaño de BD | Query SQL directa (ver §4.3) |
-| `results/evidencia/smoke_test_summary.json` | Prueba de humo previa a las 12 corridas | k6 con `load/k6/smoke_test.js` |
+| `results/evidencia/smoke_test_summary.json` | Prueba de humo previa a la serie formal | k6 con `load/k6/smoke_test.js` |
+
+> `results/raw/` está versionado en el repo (no ignorado por git) precisamente para que estas cifras sean auditables sin tener que reproducir las corridas.
 
 ### 4.2 Evidencia pendiente por capturar (espacios a llenar)
 
@@ -244,15 +257,28 @@ Ubicación: `results/raw/` y `results/evidencia/`.
 
 | Evidencia | Ruta destino sugerida | ¿Automatizable? |
 |---|---|---|
-| Dashboard de Grafana por corrida y brazo (R1/R2/R3 × A/B/C) | `results/evidencia/r{1,2,3}-{a,b,c}.png` | Manual — ✅ capturado, ver tabla abajo |
+| ~~Dashboard de Grafana por corrida y brazo, sesión inválida del 08-09 (R1/R2/R3 × A/B/C)~~ | `results/evidencia/r{1,2,3}-{a,b,c}.png` | Conservado como **evidencia del bug de §0**, no como validación — esa sesión medía el brazo C en las 9 corridas, ver tabla abajo |
+| Dashboard de Grafana de las 3 series válidas (protocolo formal, TTL, alta carga) | `results/evidencia/{Protocolo formal (9 corridas, A→B→C×3),TTL=0 (3 corridas limpias),TTL=300 r1 (original, limpia),TTL r2:r3 (repetición, ambos valores),Alta carga (A:B:C, válida)}.png` | ✅ capturado — ver tabla abajo |
 | JSON del dashboard de Grafana (para reproducirlo) | [`observability/grafana/provisioning/dashboards/ha08-dashboard.json`](observability/grafana/provisioning/dashboards/ha08-dashboard.json) | ✅ capturado — ver §4.5 |
 | Export del volumen de Prometheus (datos crudos, para compartir con el equipo) | *(fuera del repo — pesado; compartir aparte)* | Sí — ver §4.6 |
 | ~~Captura de `docker stats` en vivo durante una corrida de alta carga~~ | ~~`results/evidencia/docker_stats_carga_alta.txt`~~ | Obsoleto — ese archivo es una captura manual puntual del 09-09 con Kubernetes de Docker Desktop todavía activo (no representa carga del experimento); reemplazado por `results/raw/stats_<ARM>_<RUN_ID>.csv`, capturado automáticamente en serie cada 10s durante cada corrida desde la corrección de §0 |
 | Hit-rate exacto del brazo C (no solo el estimado por hits/misses acumulados) | `results/raw/cache_C_r3.txt` (protocolo formal) y `results/raw/cache_C_ttl*.txt` (TTL) | ✅ capturado — ver §2.3/§2.3bis |
 
-**Capturas del dashboard de Grafana, una por combinación corrida × brazo** (ventana de tiempo acotada a cada corrida, ver nota sobre el panel "p95 interno por brazo" en §4.4):
+**Capturas del dashboard de Grafana de las 3 series válidas** (ventana de tiempo en hora Colombia, UTC-5, acotada a cada serie — ver §0/§1/§2.3bis/§2.4 para las cifras que estas capturas respaldan):
 
-| Corrida | Brazo A | Brazo B | Brazo C |
+| Serie | Ventana (hora Colombia) | Captura |
+|---|---|---|
+| Protocolo formal (9 corridas, A→B→C×3) | 2026-09-09 21:27 → 23:28 | [`Protocolo formal (9 corridas, A→B→C×3).png`](<results/evidencia/Protocolo formal (9 corridas, A→B→C×3).png>) |
+| TTL=0 (3 corridas limpias) | 2026-09-09 23:55 → 2026-09-10 01:24 | [`TTL=0 (3 corridas limpias).png`](<results/evidencia/TTL=0 (3 corridas limpias).png>) |
+| TTL=300 r1 (original, limpia) | 2026-09-10 02:33 → 02:58 | [`TTL=300 r1 (original, limpia).png`](<results/evidencia/TTL=300 r1 (original, limpia).png>) |
+| TTL r2/r3 (repetición, ambos valores) | 2026-09-10 20:34 → 21:28 | [`TTL r2:r3 (repetición, ambos valores).png`](<results/evidencia/TTL r2:r3 (repetición, ambos valores).png>) |
+| Alta carga (A/B/C, válida) | 2026-09-10 22:07 → 22:39 | [`Alta carga (A:B:C, válida).png`](<results/evidencia/Alta carga (A:B:C, válida).png>) |
+
+---
+
+**Capturas del dashboard de Grafana de la sesión inválida del 2026-09-08** (⚠️ ver §0/§1.1 — estas 9 imágenes muestran las 9 corridas etiquetadas A/B/C, pero la API estaba sirviendo el brazo C en todas por el bug de `verify_parity.sh`; se conservan como evidencia del proceso de detección del error, no como validación de resultados):
+
+| Corrida | Brazo A (en realidad C) | Brazo B (en realidad C) | Brazo C |
 |---|---|---|---|
 | R1 | ![R1-A](results/evidencia/r1-a.png) | ![R1-B](results/evidencia/r1-b.png) | ![R1-C](results/evidencia/r1-c.png) |
 | R2 | ![R2-A](results/evidencia/r2-a.png) | ![R2-B](results/evidencia/r2-b.png) | ![R2-C](results/evidencia/r2-c.png) |
@@ -334,12 +360,12 @@ docker run --rm -v solventa-ha08_promdata:/data -v $(pwd):/backup \
 
 - [x] Capturar hit-rate exacto del brazo C — **7.6%** (1668 hits / 21948 consultas, corrida C r3 del protocolo formal válido — ver §1 y §2.3). El 7.1% de `hit_rate_brazo_c.txt` es de la sesión inválida de §0 y no debe citarse como resultado; se conserva el archivo solo por trazabilidad. Este hit-rate bajo tiene explicación matemática, no es falta de calentamiento — ver §2.3.
 - [x] Capturar eventos proyectados/descartados — **5134 proyectados, 21 descartados por versión** (acumulado de toda la sesión, no por corrida individual). Ver `results/evidencia/eventos_proyector_final.txt`.
-- [x] Capturar el dashboard de Grafana por corrida y brazo — 9 imágenes (`results/evidencia/r{1,2,3}-{a,b,c}.png`), ver tabla en §4.2.
+- [x] Capturar el dashboard de Grafana de las 3 series válidas (protocolo formal, TTL, alta carga) — 5 imágenes, ver tabla en §4.2. Las 9 capturas de la sesión inválida del 08-09 se conservan por separado, marcadas explícitamente como evidencia del bug de §0, no como validación.
 - [x] Exportar el dashboard de Grafana como JSON reproducible — `observability/grafana/provisioning/dashboards/ha08-dashboard.json` (6 paneles, uid `ffxlg3f0y1qtcc`), ver §4.5.
 - [x] Detectado y corregido el defecto que invalidaba las 12 corridas del protocolo formal + las 3 de alta carga: `verify_parity.sh` dejaba la API en el brazo C antes de que k6 midiera (ver §0). Corrección validada con corrida de humo real (`results/raw/summary_A_smoke_fix.json`, `/health` → `A`, contadores de caché en 0/0).
 - [x] Repetir las 9 corridas contrabalanceadas A/B/C con el script corregido — completadas sin ninguna aserción fallida (2026-09-09/10). **A > C > B en las 3 repeticiones, sin excepción** (ver §1/§2.1). Hit-rate de C solo capturado para r3 (7.6%) — el de r1/r2 se perdió porque el fix de captura llegó después de que esas corridas ya habían pasado su paso 5 (ver nota en §1).
 - [x] Repetir las variantes de sensibilidad TTL con n=3 cada una — completadas sin errores (ver §2.3bis). TTL=0 avg=6.21ms, TTL=300 avg=6.47ms — TTL=300 es *más lento* a pesar de mayor hit-rate (24-33% vs. 0%), mismo patrón de §2.1. 4 de 6 corridas se repitieron por contención de un contenedor externo (documentado en la nota de proceso de §2.3bis).
-- [ ] Repetir la iteración de carga alta (150/300/600 req/s) para los 3 brazos con el script corregido
+- [x] Repetir la iteración de carga alta (150/300/600 req/s) para los 3 brazos con el script corregido — completada sin errores, 0 dropped_iterations. Punto de quiebre **sigue sin alcanzarse** (>600 req/s en este montaje). Ver §2.4 con p95/p99 por escalón, CPU de API y k6 durante el escalón de 600rps, e hit-rate de C a esa carga (34.2%, consistente con la fórmula de estado estacionario).
 - [ ] Extraer p95 por escalón y segregado caliente/frío desde Prometheus (instrumentación ya lista en `read_estado.js`, ver §0 para las queries PromQL)
 - [ ] Exportar volumen de Prometheus si el equipo necesita explorar datos crudos (§4.6)
 - [ ] Trasladar estas conclusiones al informe final del curso, con el formato de los Anexos B/C/D de `Diseno_Experimento_HA-08.md`
