@@ -1,0 +1,22 @@
+{
+  "brazo": "cache_singleflight",
+  "estado": "sin_respuesta",
+  "rate": 200.0,
+  "fases": [
+    {
+      "nombre": "sana",
+      "ini": 1789103092,
+      "fin": 1789103212
+    },
+    {
+      "nombre": "degradada",
+      "ini": 1789103212,
+      "fin": 1789103333
+    },
+    {
+      "nombre": "recuperacion",
+      "ini": 1789103333,
+      "fin": 1789103393
+    }
+  ]
+}

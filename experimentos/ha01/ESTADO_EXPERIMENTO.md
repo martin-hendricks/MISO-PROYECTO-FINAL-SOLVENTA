@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 00:03:19. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 00:10:20. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **32 de 37** corridas ejecutadas · 32 válidas |
+| Progreso | **33 de 37** corridas ejecutadas · 33 válidas |
 | En curso | — |
-| Pendientes | 5 · fin estimado hacia las 00:51 |
-| Válidas / sospechosas / inválidas / fallidas | 32 / 0 / 0 / 0 |
+| Pendientes | 4 · fin estimado hacia las 00:51 |
+| Válidas / sospechosas / inválidas / fallidas | 33 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -72,7 +72,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | 32 | `cache_opportunistic_b3_estampida_ttl2` | C | sin_respuesta | 1.0 | 200 | ✅ válida | 64,5 | 181,4 | 0,00 % | 99,42 % | 4,2 | 11/09 00:03 |
-| 33 | `cache_singleflight_b3_estampida_ttl2` | C' | sin_respuesta | 1.0 (20 claves) | 200 | · pendiente | — | — | — | — | — |  |
+| 33 | `cache_singleflight_b3_estampida_ttl2` | C' | sin_respuesta | 1.0 | 200 | ✅ válida | 64,7 | 184,6 | 0,00 % | 98,50 % | 4,1 | 11/09 00:10 |
 
 ## Bloque 4 — latencia contra tasa de llegada
 
