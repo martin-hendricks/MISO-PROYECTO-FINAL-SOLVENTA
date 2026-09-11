@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 23:49:08. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 23:56:17. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **30 de 37** corridas ejecutadas · 30 válidas |
+| Progreso | **31 de 37** corridas ejecutadas · 31 válidas |
 | En curso | — |
-| Pendientes | 7 · fin estimado hacia las 00:52 |
-| Válidas / sospechosas / inválidas / fallidas | 30 / 0 / 0 / 0 |
+| Pendientes | 6 · fin estimado hacia las 00:52 |
+| Válidas / sospechosas / inválidas / fallidas | 31 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -65,7 +65,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 28 | `cache_blocking_b2_r1_hr0.90` | B | lento | 0.90 | 100 | ✅ válida | 443,3 | 527,6 | 3,06 % | 0,00 % | 4,0 | 10/09 23:34 |
 | 29 | `cache_blocking_b2_r1_hr0.50` | B | lento | 0.50 | 100 | ✅ válida | 531,1 | 556,1 | 16,75 % | 0,00 % | 4,5 | 10/09 23:42 |
 | 30 | `cache_opportunistic_b2_r1_hr0.90` | C | lento | 0.90 | 100 | ✅ válida | 181,8 | 188,4 | 0,00 % | 9,18 % | 4,0 | 10/09 23:49 |
-| 31 | `cache_opportunistic_b2_r1_hr0.50` | C | lento | 0.50 | 100 | · pendiente | — | — | — | — | — |  |
+| 31 | `cache_opportunistic_b2_r1_hr0.50` | C | lento | 0.50 | 100 | ✅ válida | 188,5 | 189,7 | 0,00 % | 49,20 % | 4,4 | 10/09 23:56 |
 
 ## HD-01.7 — estampida sobre pocas claves (C contra C')
 
