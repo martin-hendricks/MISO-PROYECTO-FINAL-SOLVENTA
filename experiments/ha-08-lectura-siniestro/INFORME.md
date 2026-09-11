@@ -4,7 +4,7 @@
 
 Diseño completo: `Diseno_Experimento_HA-08.md` (wiki, `files/`). Guía técnica: `Guia_Tecnica_HA-08.md` (wiki, `files/`).
 
-**Fecha de ejecución:** 2026-09-08
+**Fecha de ejecución (protocolo formal, válida):** 2026-09-09/10. **Ejecución original invalidada:** 2026-09-08 — ver §0.
 **Ambiente:** Docker Compose local (`experiments/ha-08-lectura-siniestro/`)
 **Dataset:** 1.000.000 siniestros, 1.000.000 pólizas, 5.000.000 hitos, 3.000.000 documentos, 1.000.000 peritajes — verificado que supera `shared_buffers + effective_cache_size` (3.000 MB vs. 768 MB configurados)
 
@@ -40,7 +40,37 @@ Una evaluación externa (`EVALUACION_EJECUCION_HA-08.md`, 2026-09-10) detectó u
 
 ## 1. Resultados consolidados
 
-> ⚠️ **Los datos de esta sección corresponden a la sesión del 2026-09-08 e incluyen el defecto descrito en §0: las columnas "A" y "B" son en realidad mediciones del brazo C.** Se conservan por trazabilidad del proceso, no como evidencia válida para las conclusiones de §2. Serán reemplazadas cuando termine la repetición de la serie.
+**Estos son los resultados válidos de las 9 corridas contrabalanceadas (2026-09-09/10), con el script corregido y la aserción de brazo activa en las 9 — ninguna falló.**
+
+| Brazo | Corrida | p50 (ms) | p95 (ms) | max (ms) | Error (%) |
+|---|---|---:|---:|---:|---:|
+| A | r1 | 2.63 | 8.65 | 51.71 | 0 |
+| B | r1 | 2.63 | 6.44 | 47.75 | 0 |
+| C | r1 | 2.84 | 6.77 | 261.15 | 0 |
+| B | r2 | 2.54 | 6.05 | 68.59 | 0 |
+| C | r2 | 2.86 | 6.72 | 53.65 | 0 |
+| A | r2 | 2.82 | 7.79 | 97.04 | 0 |
+| C | r3 | 2.89 | 6.67 | 36.85 | 0 |
+| A | r3 | 3.06 | 7.13 | 161.32 | 0 |
+| B | r3 | 2.70 | 6.06 | 63.78 | 0 |
+
+Fuente por corrida: `results/raw/summary_<ARM>_<RUN_ID>.json`. Orden real de ejecución tal como corrió (Latin square: R1=A→B→C, R2=B→C→A, R3=C→A→B) — ver `results/raw/log_serie_completa.txt` para los timestamps de cada transición.
+
+### Consolidado por brazo (promedio y desviación estándar de las 3 corridas)
+
+| Brazo | p95 medio (ms) | Desviación estándar (ms) | Diferencia vs. B |
+|---|---:|---:|---:|
+| A | 7.86 | 0.76 | +27% (peor) |
+| C | 6.72 | 0.05 | +9% (peor) |
+| B | 6.19 | 0.22 | — (referencia, el más rápido) |
+
+**Los tres brazos se diferencian de forma consistente en las 3 corridas, sin excepción: A > C > B en cada una de las 3 repeticiones.** La diferencia C−B (0.53ms) es ~4× mayor que la desviación estándar combinada (~0.14ms) — no es ruido de medición, es una diferencia real y reproducible. Esta es la diferencia central que la sesión del 2026-09-08 no pudo detectar porque medía C tres veces con etiquetas distintas (ver §0).
+
+> **Hit-rate de C**: solo se capturó correctamente para C r3 (**7.6%**, 1668 hits / 20280 misses — `results/raw/cache_C_r3.txt`). El de C r1 y C r2 se perdió: el fix que captura `ha08_cache_hits_total`/`misses_total` en el paso 5 de `run_experiment.sh` se aplicó *mientras la serie ya estaba corriendo* (después de que C r1 y C r2 ya habían terminado su paso 5), y esos contadores viven en el proceso de la API — se reinician en cada recreación de contenedor entre corridas, así que no son recuperables retroactivamente. Es el mismo patrón de pérdida de dato documentado en §3.5 de `EVALUACION_EJECUCION_HA-08.md`, ahora aplicado también a esta repetición. El 7.6% de C r3 es consistente con el 7.1% observado en la sesión inválida del 08-09, lo que sugiere que el patrón de hit-rate bajo no es un artefacto del bug de brazo — es una propiedad real de este diseño de carga (13 min, selección uniforme sobre 10K claves).
+
+### 1.1 Resultados de la sesión del 2026-09-08 (INVÁLIDOS — conservados solo por trazabilidad)
+
+> ⚠️ **Ver §0. Las columnas "A" y "B" de esta tabla son en realidad mediciones del brazo C.** No son evidencia válida para HD-08; se conservan únicamente para que el proceso de detección del bug sea auditable.
 
 | Brazo | Corrida | p50 (ms) | p95 (ms) | Error (%) | Lag proyección p95 aprox. (s) |
 |---|---|---:|---:|---:|---:|
@@ -57,42 +87,58 @@ Una evaluación externa (`EVALUACION_EJECUCION_HA-08.md`, 2026-09-10) detectó u
 | C (TTL=300s) | ttl300 | 1.92 | 5.27 | 0 | 0.05 |
 | C' (coalescencia) | r1 | 2.19 | 4.76 | 0 | 0.05 |
 
-CSV crudo: [`results/consolidado.csv`](results/consolidado.csv). Fuente por corrida: `results/raw/summary_<ARM>_<RUN_ID>.json`.
-
-### Consolidado por brazo (promedio de las 3 corridas contrabalanceadas)
-
-| Brazo | p95 medio (ms) | Desviación estándar (ms) | Mejora vs. A |
-|---|---:|---:|---:|
-| A | 5.26 | 0.16 | — (referencia) |
-| B | 5.45 | 0.13 | -3.6 % (peor) |
-| C | 5.32 | 0.12 | -1.1 % (peor) |
-
-> La desviación estándar entre corridas es baja (≤0.16ms) en los tres brazos — el p95 medio es representativo, no producto de inestabilidad puntual.
+CSV crudo: [`results/consolidado.csv`](results/consolidado.csv) (contiene la mezcla de datos inválidos/válidos por timestamp — usar `results/raw/log_serie_completa.txt` para diferenciar).
 
 ---
 
 ## 2. Conclusiones
 
-> ⚠️ **Ver §0.** Las conclusiones 2.1 y 2.2 comparan A/B/C entre sí, pero A y B nunca se ejecutaron en esta sesión — la comparación es en realidad C contra C. Se conservan tal como se redactaron originalmente por trazabilidad, pero **no son válidas como evidencia para HD-08** hasta repetir la serie con el script corregido. 2.3 (hit-rate) y 2.4 (punto de quiebre) siguen siendo válidas como caracterización del brazo C específicamente (ver tabla de correspondencia en `EVALUACION_EJECUCION_HA-08.md` §2).
+**Basadas en los 9 resultados válidos de §1** (no en la tabla de §1.1, que queda descartada como evidencia).
 
 ### 2.1 Sobre la hipótesis HD-08
 
-**No se puede aceptar ni refutar formalmente la hipótesis en los términos en que fue planteada**, porque el diseño esperaba que el brazo A (línea base sin CQRS) **incumpliera** el umbral de p95 ≤ 150ms bajo carga, y eso no ocurrió: los tres brazos cumplen el umbral con enorme margen (p95 entre 4.76-5.61ms, es decir, **entre 27× y 32× por debajo del límite de 150ms**).
+**Los tres brazos cumplen el umbral de p95 ≤ 150ms con enorme margen** (p95 entre 6.19-7.86ms, es decir, **entre 19× y 24× por debajo del límite**) — pero, a diferencia de la sesión inválida del 08-09, **esta vez los brazos sí se diferencian entre sí de forma clara y reproducible en las 3 repeticiones**, sin excepción: A > C > B.
 
-- **HD-08.1** (A no alcanza el umbral) — **refutada**. A cumple holgadamente en las tres corridas.
-- **HD-08.2** (B reduce el p95 ≥60% vs. línea base) — **no aplica / refutada**. B no reduce el p95 respecto a A; en promedio es 3.6% más lento (dentro del ruido de medición).
-- **HD-08.3** (C mejora sobre B) — **refutada en esta escala**. C (5.32ms) y B (5.45ms) son estadísticamente indistinguibles; C' (4.76ms) es el más rápido de todos, pero la diferencia es pequeña frente al margen de seguridad del umbral.
-- **HD-08.4** (lag de proyección p95 ≤ 2s) — **aceptada con margen amplio**. El lag aproximado (~0.05s) está muy por debajo del criterio en todas las corridas.
+- **HD-08.1** (A no alcanza el umbral) — **refutada**. A cumple holgadamente (7.86ms vs. 150ms), pero es el más lento de los tres — el costo relativo del modelo normalizado sí es medible (27% más lento que B), solo que no alcanza a comprometer el umbral a este volumen y carga.
+- **HD-08.2** (B reduce el p95 ≥60% vs. línea base) — **parcialmente sostenida en dirección, no en magnitud**. B sí es el más rápido de los tres (7.86→6.19ms, -21% vs. A), pero muy por debajo del 60% que planteaba la hipótesis.
+- **HD-08.3** (C mejora sobre B) — **refutada, y en la dirección contraria a la esperada**. C es *peor* que B (6.72ms vs. 6.19ms, +9%), no mejor. Lectura mecánica: con el hit-rate real observado (7.6%), la gran mayoría de las peticiones de C ejecutan el trabajo completo de B (proyección) *más* un `GET` a Redis que falla — trabajo estrictamente adicional, no ahorro. El caché no solo no aporta en este régimen de carga, tiene costo neto.
+- **HD-08.4** (lag de proyección p95 ≤ 2s) — **aceptada con margen amplio**. Ver §3 para el lag medido en esta serie (mismo orden de magnitud que la sesión anterior, ~0.05s).
 
 ### 2.2 Interpretación arquitectónica
 
-**El resultado intermedio explícitamente previsto en el Anexo B del diseño se materializó**: *"si el brazo B ya cumple el umbral, el caché constituye complejidad no justificada y la recomendación debe ser la alternativa más simple que satisface el ASR"*. Aquí ni siquiera B es necesario — **A (la línea base con joins sobre el modelo normalizado) ya satisface `EC-LAT-11` a 1.000.000 de registros y hasta 80 req/s**.
+**A este volumen (1M registros) y rango de carga (10-80 req/s), ningún brazo está en riesgo de incumplir `EC-LAT-11`** — los tres tienen entre 19× y 24× de margen. Pero, con los brazos correctamente diferenciados, la arquitectura CQRS con caché (C) **no se justifica frente a la proyección materializada sin caché (B)** en este punto de sensibilidad: agrega complejidad operativa (Redis, invalidación, TTL) a cambio de una degradación medible, no de una mejora. La recomendación para este punto de sensibilidad específico es **B** (proyección materializada), no C — el caché solo tendría sentido si el hit-rate real fuera sustancialmente más alto que el 7.6% observado, o si el costo de la consulta base (sin caché) fuera mayor al medido aquí.
 
-Esto no invalida la arquitectura CQRS como decisión general de Solventa (sigue siendo necesaria para otros ASR como escalabilidad de escritura o aislamiento de carga), pero **sí refuta, para este punto de sensibilidad específico y a este volumen de carga, que la separación de modelos de lectura sea indispensable para cumplir la latencia de consulta de un siniestro individual**.
+Esto no invalida la arquitectura CQRS de Solventa en general (sigue siendo relevante para otros ASR como escalabilidad de escritura o aislamiento de carga), pero sí acota su justificación para *este* punto de sensibilidad a la separación de modelos de lectura (B), sin el paso adicional de caché (C).
 
 ### 2.3 Hit-rate real observado, muy por debajo del supuesto de diseño
 
-El hit-rate acumulado del caché en el brazo C fue de **~7.1%** (269 aciertos / 3.791 consultas), frente al 96% que HD-08.4 identificaba como el mínimo necesario para que el caché aporte valor. Esto **no contradice los resultados de latencia** (el p95 se cumplió igual, con o sin caché — TTL=0 dio 5.60ms, prácticamente igual a TTL=300 con 5.27ms), pero sí es evidencia de que **el modelo de conjunto caliente/frío 80/20 asumido en el diseño no se reprodujo en esta ejecución**: cada corrida dura solo 13 minutos y selecciona uniformemente sobre las 10.000 claves del *hot set*, lo que no da tiempo suficiente de calentamiento para un TTL de 30s-300s. Un hit-rate bajo con latencia igualmente buena es, en sí mismo, información: en este dataset y a esta escala, **el camino "frío" (proyección sin caché) ya es tan rápido que el hit-rate deja de ser la variable relevante** — reforzando la conclusión de la sección 2.2.
+El hit-rate medido en C r3 fue **7.6%** (1668/21948, ver nota en §1), consistente con el 7.1% de la sesión inválida del 08-09 — confirma que el patrón de hit-rate bajo **no era un artefacto del bug de brazo**, es una propiedad real de este diseño de carga: cada corrida dura 13 minutos con selección uniforme sobre las 10.000 claves del *hot set*, insuficiente para calentar la caché dado el TTL de 30s. Este hit-rate bajo es precisamente la causa mecánica de que C resulte más lento que B en §2.1 — no es una casualidad estadística, es la explicación del hallazgo.
+
+### 2.3bis Sensibilidad a TTL (n=3 por valor, repetido tras el hallazgo §3.7 de la evaluación externa)
+
+Se repitió el punto de sensibilidad 2 del diseño (TTL=0s vs. TTL=300s, brazo C, n=3 cada uno) con el script corregido. Las 6 corridas cerraron con 0% de error:
+
+| TTL | Corrida | p95 (ms) | max (ms) | Hit-rate |
+|---|---|---:|---:|---:|
+| 0s | r1 | 6.02 | 135.3 | 0.0% |
+| 0s | r2 | 6.33 | 162.3 | 0.0% |
+| 0s | r3 | 6.27 | 198.1 | 0.0% |
+| 300s | r1 | 6.40 | 836.1 | 24.1% |
+| 300s | r2 | 6.45 | 135.7 | 33.3% |
+| 300s | r3 | 6.57 | 155.2 | 32.3% |
+
+**Promedio: TTL=0 → 6.21ms (σ=0.16) — TTL=300 → 6.47ms (σ=0.09) — diferencia de 0.27ms.**
+
+Dos hallazgos, ambos consistentes con §2.1:
+
+1. **El hit-rate con TTL=300 (24-33%) es sustancialmente más alto que con TTL=30 del protocolo formal (7.6%)** — coherente: un TTL 10× más largo retiene las entradas más tiempo dentro de una corrida de 13 minutos, dando más oportunidad de acierto sobre el *hot set* de 10K claves.
+2. **A pesar del hit-rate más alto, TTL=300 es *más lento* que TTL=0, no más rápido** (6.47ms vs. 6.21ms). Esto es contraintuitivo si se esperara que "más hits = más rápido", pero es exactamente la misma mecánica de §2.1: cada hit ahorra la consulta a Postgres, pero cada miss (que sigue siendo mayoría, 67-76%) paga el costo *adicional* del `GET` a Redis que falla, encima del trabajo de B. Con un hit-rate que nunca supera el ~33%, el costo agregado de los misses supera el ahorro de los hits.
+
+**Conclusión:** ni siquiera subiendo el TTL 10× (de 30s a 300s) el caché alcanza a compensar su propio costo estructural en este régimen de carga — refuerza la recomendación de §2.2 de preferir B sobre C para este punto de sensibilidad.
+
+Evidencia: `results/raw/{summary,cache,lag,stats}_C_ttl{0,300}_r{1,2,3}.{json,txt,csv}`.
+
+> **Nota de proceso:** la primera ejecución de esta serie (2026-09-10, madrugada) sufrió contención real de otro contenedor Docker de un proyecto distinto corriendo en la misma máquina (`202620-misw4412-api-empresarial-api-1`, load average 4.74-5.87) — 4 de las 6 corridas mostraron un outlier extremo en `max` (~924 segundos) sin afectar el p95 ni el error rate. Se detuvo ese contenedor y se repitieron únicamente las 4 corridas afectadas (`ttl0_r2`, `ttl0_r3`, `ttl300_r2`, `ttl300_r3`); los valores de la tabla arriba son los de la repetición limpia. Es el mismo patrón de amenaza a la validez documentado en §2.5 para la sesión anterior, esta vez causado por un contenedor distinto (no Kubernetes, que ya se había resuelto).
 
 ### 2.4 Punto de quiebre no alcanzado (confirmado también a 150/300/600 req/s)
 
@@ -259,8 +305,8 @@ docker run --rm -v solventa-ha08_promdata:/data -v $(pwd):/backup \
 - [x] Capturar el dashboard de Grafana por corrida y brazo — 9 imágenes (`results/evidencia/r{1,2,3}-{a,b,c}.png`), ver tabla en §4.2.
 - [x] Exportar el dashboard de Grafana como JSON reproducible — `observability/grafana/provisioning/dashboards/ha08-dashboard.json` (6 paneles, uid `ffxlg3f0y1qtcc`), ver §4.5.
 - [x] Detectado y corregido el defecto que invalidaba las 12 corridas del protocolo formal + las 3 de alta carga: `verify_parity.sh` dejaba la API en el brazo C antes de que k6 midiera (ver §0). Corrección validada con corrida de humo real (`results/raw/summary_A_smoke_fix.json`, `/health` → `A`, contadores de caché en 0/0).
-- [ ] Repetir las 9 corridas contrabalanceadas A/B/C con el script corregido
-- [ ] Repetir las variantes de sensibilidad TTL con n=3 cada una (antes n=1, hallazgo §3.7 de la evaluación externa)
+- [x] Repetir las 9 corridas contrabalanceadas A/B/C con el script corregido — completadas sin ninguna aserción fallida (2026-09-09/10). **A > C > B en las 3 repeticiones, sin excepción** (ver §1/§2.1). Hit-rate de C solo capturado para r3 (7.6%) — el de r1/r2 se perdió porque el fix de captura llegó después de que esas corridas ya habían pasado su paso 5 (ver nota en §1).
+- [x] Repetir las variantes de sensibilidad TTL con n=3 cada una — completadas sin errores (ver §2.3bis). TTL=0 avg=6.21ms, TTL=300 avg=6.47ms — TTL=300 es *más lento* a pesar de mayor hit-rate (24-33% vs. 0%), mismo patrón de §2.1. 4 de 6 corridas se repitieron por contención de un contenedor externo (documentado en la nota de proceso de §2.3bis).
 - [ ] Repetir la iteración de carga alta (150/300/600 req/s) para los 3 brazos con el script corregido
 - [ ] Extraer p95 por escalón y segregado caliente/frío desde Prometheus (instrumentación ya lista en `read_estado.js`, ver §0 para las queries PromQL)
 - [ ] Exportar volumen de Prometheus si el equipo necesita explorar datos crudos (§4.6)

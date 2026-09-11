@@ -59,8 +59,12 @@ docker run --rm --network "${NETWORK}" \
 pkill -P "${STATS_PID}" 2>/dev/null || true
 kill "${STATS_PID}" 2>/dev/null || true
 
-# 5. Recolectar métricas del proyector
+# 5. Recolectar métricas del proyector y de caché (ver nota extensa en
+# run_experiment.sh — estos contadores no son recuperables si no se
+# capturan aquí mismo, antes de que el contenedor se recree).
 curl -s localhost:8001/metrics | grep ha08_projection_lag \
   > "results/raw/lag_${ARM}_${RUN_ID}.txt"
+curl -s localhost:8000/metrics | grep ha08_cache_ \
+  > "results/raw/cache_${ARM}_${RUN_ID}.txt"
 
 echo "==> Listo: results/raw/summary_${ARM}_${RUN_ID}.json"

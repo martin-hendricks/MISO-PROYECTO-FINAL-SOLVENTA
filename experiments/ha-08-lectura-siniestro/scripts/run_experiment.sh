@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ARM="${1:?Uso: run_experiment.sh <A|B|C|C_PRIME> <run_id>}"
+ARM="${1:?Uso: run_experiment.sh <A|B|C|C_PRIME> <run_id> [ttl_segundos]}"
 RUN_ID="${2:?Falta run_id}"
+# TTL opcional para las variantes de sensibilidad (punto de sensibilidad 2 del
+# diseño). Si no se pasa, usa el valor de .env (30s, el del protocolo
+# formal) — así las 9 corridas contrabalanceadas ya ejecutadas no se ven
+# afectadas por este cambio.
+TTL="${3:-${CACHE_TTL_SECONDS:-30}}"
 
-echo "==> Corrida ${RUN_ID}, brazo ${ARM}"
+echo "==> Corrida ${RUN_ID}, brazo ${ARM}, TTL=${TTL}s"
 
 # 1. Reiniciar estado volátil: caché vacío, pools frescos, shared_buffers limpio
 docker compose stop api projector simulator
@@ -12,8 +17,8 @@ docker compose exec -T redis redis-cli FLUSHALL
 docker compose restart postgres
 docker compose exec -T postgres sh -c 'until pg_isready -U solventa; do sleep 1; done'
 
-# 2. Arrancar con la estrategia del brazo
-READ_STRATEGY="${ARM}" docker compose up -d api projector simulator
+# 2. Arrancar con la estrategia del brazo y el TTL de esta corrida
+READ_STRATEGY="${ARM}" CACHE_TTL_SECONDS="${TTL}" docker compose up -d api projector simulator
 sleep 20   # estabilización de pools y consumer group
 
 # 3. Aserción dura: la API debe estar sirviendo el brazo que se va a medir.
@@ -54,8 +59,14 @@ READ_STRATEGY="${ARM}" RUN_ID="${RUN_ID}" \
 pkill -P "${STATS_PID}" 2>/dev/null || true
 kill "${STATS_PID}" 2>/dev/null || true
 
-# 5. Recolectar métricas del proyector
+# 5. Recolectar métricas del proyector y de caché
+# Los contadores ha08_cache_hits_total/misses_total viven en el proceso de
+# la API y se reinician cada vez que el contenedor se recrea (siguiente
+# corrida = siguiente brazo). Si no se capturan aquí, al mirar el hit-rate
+# más tarde ya se perdió — ver EVALUACION_EJECUCION_HA-08.md §3.5.
 curl -s localhost:8001/metrics | grep ha08_projection_lag \
   > "results/raw/lag_${ARM}_${RUN_ID}.txt"
+curl -s localhost:8000/metrics | grep ha08_cache_ \
+  > "results/raw/cache_${ARM}_${RUN_ID}.txt"
 
 echo "==> Listo: results/raw/summary_${ARM}_${RUN_ID}.json"
