@@ -87,6 +87,8 @@ def estado_corrida(etq, en_curso, fallidas):
     d = RAW / etq
     if etq == en_curso:
         return "⏳ en curso", None
+    if "__intento1_fallido" in etq:
+        return "↻ intento fallido (se reintentó)", None
     if not d.is_dir() or not (d / "sanidad.txt").exists():
         return ("❌ fallida" if etq in fallidas else "· pendiente"), None
     san = leer(d / "sanidad.txt")

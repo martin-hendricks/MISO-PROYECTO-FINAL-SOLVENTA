@@ -320,7 +320,8 @@ cerrar_corrida() {  # cerrar_corrida <etiqueta> <valida|FALLIDA>
     "${PY}" "${RAIZ}/scripts/exportar_series.py" "${dir}" >/dev/null 2>&1 || true
   fi
   "${PY}" "${RAIZ}/scripts/estado.py" >/dev/null 2>&1 || true
-  subir_evidencia "Evidencia HA-01: ${etq} (${res})" "results/raw/${etq}"
+  subir_evidencia "Evidencia HA-01: ${etq} (${res})" "results/raw/${etq}" \
+    "results/raw/${etq}__intento1_fallido"
 }
 
 # Commit y push de la evidencia indicada mas el estado del experimento.
@@ -376,9 +377,26 @@ corrida_segura() {
   fi
 
   echo "${etq}|$(date '+%Y-%m-%d %H:%M:%S')" > "${RAIZ}/results/corrida_en_curso.txt"
-  local rc=0
-  bash -c 'set -euo pipefail; source "$1"; shift; "$@"' \
-       _ "${RAIZ}/scripts/_corrida.sh" "${fn}" "$@" || rc=$?
+  # UN reintento si la corrida falla. En una prueba, esperar_carga no vio
+  # moverse el contador con k6 emitiendo a 200 sol/s y no se pudo reproducir;
+  # un fallo intermitente asi no debe costar una celda de la noche. Reintentar
+  # no sesga el resultado: las verificaciones juzgan si el INSTRUMENTO midio
+  # bien (trafico en cada fase, acierto, descartes, fugas), nunca si se cumple
+  # el ASR. El intento fallido se conserva aparte como evidencia.
+  local rc=0 intento
+  for intento in 1 2; do
+    rc=0
+    bash -c 'set -euo pipefail; source "$1"; shift; "$@"' \
+         _ "${RAIZ}/scripts/_corrida.sh" "${fn}" "$@" || rc=$?
+    [ "${rc}" -eq 0 ] && break
+    if [ "${intento}" -eq 1 ]; then
+      rm -rf "${dir}__intento1_fallido"
+      [ -d "${dir}" ] && mv "${dir}" "${dir}__intento1_fallido"
+      echo "$(date '+%Y-%m-%d %H:%M:%S')  ${fn} $*  (intento 1 fallido; reintentada)" >> "${REGISTRO_FALLOS}"
+      echo "!! ${etq}: el intento 1 fallo; se reintenta una vez (evidencia en ${etq}__intento1_fallido)" >&2
+      sleep 10
+    fi
+  done
   rm -f "${RAIZ}/results/corrida_en_curso.txt"
 
   # Tanto si salio bien como si no: la evidencia de un fallo tambien es

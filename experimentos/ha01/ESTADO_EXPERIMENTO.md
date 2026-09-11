@@ -1,6 +1,6 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 21:13:20. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 21:30:55. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
@@ -9,7 +9,7 @@ _Actualizado automáticamente: 2026-09-10 21:13:20. Se regenera al cerrar cada c
 | Campaña | 2026-09-10 20:32:15  FIN de la campana · corridas fallidas en total: 0 |
 | Progreso | **11 de 37** corridas ejecutadas · 11 válidas |
 | En curso | — |
-| Pendientes | 26 · fin estimado hacia las 00:35 |
+| Pendientes | 26 · fin estimado hacia las 00:52 |
 | Válidas / sospechosas / inválidas / fallidas | 11 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.

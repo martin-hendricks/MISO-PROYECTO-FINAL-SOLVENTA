@@ -379,7 +379,7 @@ Tres defensas, en capas:
 2. **`carga_viva`** — justo antes de abrir la ventana se vuelve a comprobar que
    la carga sigue emitiendo. Si k6 terminó durante el rodaje, se aborta ahí en
    vez de descubrirlo seis minutos después. k6 corre además con un margen
-   (`MARGEN_CARGA_S`, 45 s) por encima de lo que duran las fases.
+   (`MARGEN_CARGA_S`, 20 s) por encima de lo que duran las fases.
 3. **`verify_run.sh` comprueba que cada fase contenga tráfico**, consultando a
    Prometheus con los cortes de `fases.json`. Es la comprobación que faltaba y
    la única que caza el caso ya consumado.
@@ -388,6 +388,12 @@ Y un cambio de política: **una corrida que no pasa las verificaciones ahora
 falla**. Antes se imprimía un aviso y se seguía, con lo que una corrida
 inválida acababa igualmente en el CSV. Ahora `corrida_segura` la registra y
 `resumen_bloque` la lista al final como pendiente de repetir.
+
+> **Nota de trazabilidad.** Este cambio de política se describió en un commit
+> anterior pero no quedó aplicado hasta el 10/09 a las 21:15: el reemplazo de
+> texto no encontró la cadena y falló sin avisar. No enmascaró ningún resultado
+> —las 14 corridas ejecutadas mientras tanto pasaron todas sus verificaciones,
+> como consta en su `sanidad.txt`—, pero se deja constancia.
 
 ### 17. Un fallo no se lleva por delante el resto del bloque
 
@@ -405,6 +411,67 @@ desarme **se hereda** en los subshells. Comprobado: ni `( f )`, ni
 punto que falla — las tres siguen ejecutando los pasos posteriores, que es peor
 que abortar, porque la corrida continuaría con la caché mal precargada o el
 proveedor en el estado que no es.
+
+Además, una corrida que falla se **reintenta una vez**. El intento fallido se
+conserva en `<corrida>__intento1_fallido` y queda anotado en
+`corridas_fallidas.txt`. Reintentar no sesga el resultado: las verificaciones
+juzgan si el instrumento midió bien —tráfico en cada fase, acierto, descartes,
+fugas—, nunca si se cumple el ASR.
+
+### 18. Plan reducido en lugar de 3 repeticiones de los bloques 1 y 2
+
+El Anexo A pide 3 repeticiones contrabalanceadas de los bloques 1 y 2 (~8,8 h).
+Se ejecuta en su lugar `run_plan_reducido.sh` (~3,4 h), con esta justificación:
+
+- **La variación entre corridas medida es mínima.** En el bloque 3, el p95 en
+  fase sana fue de 64,8–64,9 ms en seis corridas independientes y el p99 de
+  133–147 ms, a más de 3 veces del umbral. Una repetición no puede mover un
+  resultado que está al triple de distancia; donde sí hace falta repetir es en
+  las celdas cercanas al umbral.
+- **Se replica sólo la celda cercana al umbral:** B con proveedor lento
+  (1,28 % de cotizaciones sobre 475 ms, contra el 1 % permitido).
+- **El bloque 2 corre en `lento`, no en `degradado`.** En `degradado` el
+  interruptor abre en segundos y rescata a B, así que la curva no discriminaría
+  entre brazos. Se añade el nivel del **98 %**, porque el cruce de B parece
+  estar entre 96 y 99 %.
+- Con una sola repetición el contrabalanceo pierde sentido. El riesgo de un
+  efecto de orden es bajo porque cada corrida reinicia la API, vacía la caché y
+  restablece el proveedor.
+
+### 19. Celda de estampida para HD-01.7
+
+En el bloque 3 hubo **0 coalescencias** en las 8 corridas, también con C′. Los
+pools de claves de la desviación 2 hacen que dos fallos simultáneos sobre la
+*misma* clave casi no ocurran, así que C′ no tenía nada que coalescer. La celda
+`b3_estampida_ttl2` concentra todo el tráfico en **20 claves con TTL de 2 s**:
+cada clave vence cada 2 s y recibe ~10 peticiones por segundo. Con el proveedor
+`sin_respuesta`, C lanza un refresco por petición y C′ uno por clave.
+
+Verificado en una prueba corta: C′ coalesció 606 peticiones en la fase
+degradada, con 19 invocaciones en vuelo como máximo (una por clave) y 0,65
+invocaciones por fallo de caché, frente a la 1,0 que da siempre C. En esta
+celda la tasa de acierto **no es la variable** y no se verifica
+(`VERIFICAR_ACIERTO=0`).
+
+### 20. Detector de interferencia
+
+Una sonda dentro de la API duerme 100 ms en bucle y registra cuánto se retrasa
+el bucle de eventos (`ha01_event_loop_lag_seconds`). `verify_run.sh` marca la
+corrida como **sospechosa**, sin invalidarla, si el retraso p99 supera 50 ms o
+hay algún parón de más de 250 ms. La sonda no distingue la carga propia del
+worker de la competencia por CPU con otros procesos del equipo, pero sí dice si
+la cola de latencia de una corrida está contaminada. Las corridas anteriores al
+10/09 21:10 no tienen esta métrica. Su costo es despreciable: 10 despertares
+por segundo frente a 100–200 cotizaciones por segundo.
+
+### 21. Evidencia versionada y autocontenida
+
+Al cerrar cada corrida, su carpeta recibe sus resultados por fase
+(`fases_resultado.json`) y sus series temporales segundo a segundo
+(`series.csv`), de modo que el análisis se puede rehacer sin Prometheus. Se
+regenera `ESTADO_EXPERIMENTO.md` y todo se sube al repositorio. Al cerrar la
+campaña se versiona además una instantánea comprimida de toda la base de
+Prometheus (`results/prometheus/`).
 
 ---
 

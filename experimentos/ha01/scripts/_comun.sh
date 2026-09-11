@@ -38,13 +38,13 @@ cargar_env() {
 cargar_env
 
 metrica() {  # metrica <nombre-exacto-con-etiquetas> [url]
-  curl -s "${2:-$API}/metrics" \
+  curl -s --max-time 5 "${2:-$API}/metrics" \
     | awk -v n="$1" '$0 !~ /^#/ && index($0, n) == 1 { print $NF }' \
     | tail -1
 }
 
 suma_metrica() {  # suma_metrica <prefijo> [url] -> suma de todas las series
-  curl -s "${2:-$API}/metrics" \
+  curl -s --max-time 5 "${2:-$API}/metrics" \
     | awk -v n="$1" '$0 !~ /^#/ && index($0, n) == 1 { s += $NF } END { print s + 0 }'
 }
 
@@ -76,6 +76,13 @@ esperar_carga() {  # esperar_carga [timeout_s]
     fi
     previo="${actual}"
   done
+  # Diagnostico: en una prueba esta funcion no vio moverse el contador pese a
+  # que k6 estaba emitiendo 200 sol/s, y no se pudo reproducir. Si vuelve a
+  # ocurrir, esto deja escrito lo que leyo para poder encontrar la causa.
+  echo "   esperar_carga: ${limite} sondeos sin carga sostenida;" \
+       "ultimo valor leido='${actual:-}' ($(date '+%H:%M:%S'))" >&2
+  curl -s --max-time 5 -o /dev/null -w "   /metrics de la API: HTTP %{http_code} en %{time_total}s\n" \
+    "${API}/metrics" >&2 || echo "   /metrics de la API no responde" >&2
   return 1
 }
 
