@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 18:39:40. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 18:46:51. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
-| Campaña | 2026-09-11 18:39:28  montaje verificado: Docker y API responden |
-| Progreso | **37 de 52** corridas ejecutadas · 37 válidas |
+| Campaña | 2026-09-11 18:39:46  BLOQUE x: inicio |
+| Progreso | **38 de 52** corridas ejecutadas · 38 válidas |
 | En curso | — |
-| Pendientes | 15 · fin estimado hacia las 20:41 |
-| Válidas / sospechosas / inválidas / fallidas | 32 / 0 / 0 / 0 |
+| Pendientes | 14 · fin estimado hacia las 20:41 |
+| Válidas / sospechosas / inválidas / fallidas | 33 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -90,7 +90,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 
 | # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 38 | `cache_blocking_b3b_pol_rate_alto` | B | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 38 | `cache_blocking_b3b_pol_rate_alto` | B | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,24 % | 4,32 % | 4,2 | 11/09 18:46 |
 | 39 | `cache_blocking_b3b_pol_rate_bajo` | B | sin_respuesta | 0.96 | 10 | · pendiente | — | — | — | — | — |  |
 | 40 | `cache_blocking_b3b_pol_count_alto` | B | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
 | 41 | `cache_blocking_b3b_pol_count_bajo` | B | sin_respuesta | 0.96 | 10 | · pendiente | — | — | — | — | — |  |

@@ -1,2 +1,3 @@
 2026-09-11 18:39:27  INICIO de la campana | bloques en orden: x
 2026-09-11 18:39:28  montaje verificado: Docker y API responden
+2026-09-11 18:39:46  BLOQUE x: inicio

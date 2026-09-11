@@ -1,0 +1,69 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 399.0
+python_gc_objects_collected_total{generation="1"} 36.0
+python_gc_objects_collected_total{generation="2"} 0.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 103.0
+python_gc_collections_total{generation="1"} 9.0
+python_gc_collections_total{generation="2"} 0.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="14",version="3.12.14"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 2.42475008e+08
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 5.6070144e+07
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78916988036e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 3.52
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 17.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP ha01_provider_requests_total Peticiones atendidas por el doble
+# TYPE ha01_provider_requests_total counter
+ha01_provider_requests_total 2255.0
+# HELP ha01_provider_requests_created Peticiones atendidas por el doble
+# TYPE ha01_provider_requests_created gauge
+ha01_provider_requests_created 1.7891698813766878e+09
+# HELP ha01_provider_errors_total Respuestas de error del doble
+# TYPE ha01_provider_errors_total counter
+# HELP ha01_provider_latency_seconds Latencia de aplicacion inyectada por el doble
+# TYPE ha01_provider_latency_seconds histogram
+ha01_provider_latency_seconds_bucket{le="0.02"} 4.0
+ha01_provider_latency_seconds_bucket{le="0.04"} 318.0
+ha01_provider_latency_seconds_bucket{le="0.06"} 1148.0
+ha01_provider_latency_seconds_bucket{le="0.08"} 1752.0
+ha01_provider_latency_seconds_bucket{le="0.11"} 2149.0
+ha01_provider_latency_seconds_bucket{le="0.14"} 2228.0
+ha01_provider_latency_seconds_bucket{le="0.18"} 2252.0
+ha01_provider_latency_seconds_bucket{le="0.25"} 2255.0
+ha01_provider_latency_seconds_bucket{le="0.35"} 2255.0
+ha01_provider_latency_seconds_bucket{le="0.6"} 2255.0
+ha01_provider_latency_seconds_bucket{le="1.0"} 2255.0
+ha01_provider_latency_seconds_bucket{le="+Inf"} 2255.0
+ha01_provider_latency_seconds_count 2255.0
+ha01_provider_latency_seconds_sum 144.22477067552856
+# HELP ha01_provider_latency_seconds_created Latencia de aplicacion inyectada por el doble
+# TYPE ha01_provider_latency_seconds_created gauge
+ha01_provider_latency_seconds_created 1.7891698813767412e+09
+# HELP ha01_provider_colgadas_total Peticiones colgadas a proposito
+# TYPE ha01_provider_colgadas_total counter
+ha01_provider_colgadas_total 5.0
+# HELP ha01_provider_colgadas_created Peticiones colgadas a proposito
+# TYPE ha01_provider_colgadas_created gauge
+ha01_provider_colgadas_created 1.7891698813768334e+09
