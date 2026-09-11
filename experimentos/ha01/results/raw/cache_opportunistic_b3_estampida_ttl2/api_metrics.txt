@@ -1,0 +1,271 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 124562.0
+python_gc_objects_collected_total{generation="1"} 10447.0
+python_gc_objects_collected_total{generation="2"} 594.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 484.0
+python_gc_collections_total{generation="1"} 43.0
+python_gc_collections_total{generation="2"} 3.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="14",version="3.12.14"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 4.64318464e+08
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 7.073792e+07
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78910258727e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 66.98
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 27.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP ha01_quote_latency_seconds Latencia de la cotizacion medida en el servicio
+# TYPE ha01_quote_latency_seconds histogram
+ha01_quote_latency_seconds_bucket{le="0.02",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.05",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.065",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.08",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.1",origen="open_finance"} 322.0
+ha01_quote_latency_seconds_bucket{le="0.12",origen="open_finance"} 1685.0
+ha01_quote_latency_seconds_bucket{le="0.14",origen="open_finance"} 2486.0
+ha01_quote_latency_seconds_bucket{le="0.16",origen="open_finance"} 3088.0
+ha01_quote_latency_seconds_bucket{le="0.175",origen="open_finance"} 3524.0
+ha01_quote_latency_seconds_bucket{le="0.19",origen="open_finance"} 3532.0
+ha01_quote_latency_seconds_bucket{le="0.205",origen="open_finance"} 3535.0
+ha01_quote_latency_seconds_bucket{le="0.225",origen="open_finance"} 3538.0
+ha01_quote_latency_seconds_bucket{le="0.25",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.3",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.4",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.475",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.55",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.7",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="0.8",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="1.0",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="1.5",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="2.0",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_bucket{le="+Inf",origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_count{origen="open_finance"} 3539.0
+ha01_quote_latency_seconds_sum{origen="open_finance"} 452.5612249179867
+ha01_quote_latency_seconds_bucket{le="0.02",origen="cache"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.05",origen="cache"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.065",origen="cache"} 46790.0
+ha01_quote_latency_seconds_bucket{le="0.08",origen="cache"} 46805.0
+ha01_quote_latency_seconds_bucket{le="0.1",origen="cache"} 46809.0
+ha01_quote_latency_seconds_bucket{le="0.12",origen="cache"} 46815.0
+ha01_quote_latency_seconds_bucket{le="0.14",origen="cache"} 46822.0
+ha01_quote_latency_seconds_bucket{le="0.16",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.175",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.19",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.205",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.225",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.25",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.3",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.4",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.475",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.55",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.7",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="0.8",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="1.0",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="1.5",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="2.0",origen="cache"} 46827.0
+ha01_quote_latency_seconds_bucket{le="+Inf",origen="cache"} 46827.0
+ha01_quote_latency_seconds_count{origen="cache"} 46827.0
+ha01_quote_latency_seconds_sum{origen="cache"} 2829.4488583067578
+ha01_quote_latency_seconds_bucket{le="0.02",origen="fallback"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.05",origen="fallback"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.065",origen="fallback"} 25132.0
+ha01_quote_latency_seconds_bucket{le="0.08",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.1",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.12",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.14",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.16",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.175",origen="fallback"} 25141.0
+ha01_quote_latency_seconds_bucket{le="0.19",origen="fallback"} 25632.0
+ha01_quote_latency_seconds_bucket{le="0.205",origen="fallback"} 25633.0
+ha01_quote_latency_seconds_bucket{le="0.225",origen="fallback"} 25634.0
+ha01_quote_latency_seconds_bucket{le="0.25",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.3",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.4",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.475",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.55",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.7",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="0.8",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="1.0",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="1.5",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="2.0",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_bucket{le="+Inf",origen="fallback"} 25635.0
+ha01_quote_latency_seconds_count{origen="fallback"} 25635.0
+ha01_quote_latency_seconds_sum{origen="fallback"} 1608.240085279329
+# HELP ha01_quote_latency_seconds_created Latencia de la cotizacion medida en el servicio
+# TYPE ha01_quote_latency_seconds_created gauge
+ha01_quote_latency_seconds_created{origen="open_finance"} 1.7891026072580209e+09
+ha01_quote_latency_seconds_created{origen="cache"} 1.7891026072700317e+09
+ha01_quote_latency_seconds_created{origen="fallback"} 1.7891026074574413e+09
+# HELP ha01_cache_hits_total Aciertos de :CacheOF
+# TYPE ha01_cache_hits_total counter
+ha01_cache_hits_total 46827.0
+# HELP ha01_cache_hits_created Aciertos de :CacheOF
+# TYPE ha01_cache_hits_created gauge
+ha01_cache_hits_created 1.789102589004591e+09
+# HELP ha01_cache_misses_total Fallos de :CacheOF
+# TYPE ha01_cache_misses_total counter
+ha01_cache_misses_total 29174.0
+# HELP ha01_cache_misses_created Fallos de :CacheOF
+# TYPE ha01_cache_misses_created gauge
+ha01_cache_misses_created 1.7891025890046039e+09
+# HELP ha01_cache_errors_total Errores de acceso a :CacheOF
+# TYPE ha01_cache_errors_total counter
+ha01_cache_errors_total 0.0
+# HELP ha01_cache_errors_created Errores de acceso a :CacheOF
+# TYPE ha01_cache_errors_created gauge
+ha01_cache_errors_created 1.7891025890046136e+09
+# HELP ha01_perfil_origen_total Origen del perfil con el que se tarifico
+# TYPE ha01_perfil_origen_total counter
+ha01_perfil_origen_total{origen="open_finance"} 3539.0
+ha01_perfil_origen_total{origen="cache"} 46827.0
+ha01_perfil_origen_total{origen="fallback"} 25635.0
+# HELP ha01_perfil_origen_created Origen del perfil con el que se tarifico
+# TYPE ha01_perfil_origen_created gauge
+ha01_perfil_origen_created{origen="open_finance"} 1.7891026071969619e+09
+ha01_perfil_origen_created{origen="cache"} 1.7891026072101543e+09
+ha01_perfil_origen_created{origen="fallback"} 1.7891026073971229e+09
+# HELP ha01_perfil_edad_seconds Antiguedad del perfil usado para tarificar. Cuantifica el trade-off declarado en §2.8 de la wiki.
+# TYPE ha01_perfil_edad_seconds histogram
+ha01_perfil_edad_seconds_bucket{le="0.0"} 3539.0
+ha01_perfil_edad_seconds_bucket{le="1.0"} 27183.0
+ha01_perfil_edad_seconds_bucket{le="5.0"} 51221.0
+ha01_perfil_edad_seconds_bucket{le="30.0"} 56224.0
+ha01_perfil_edad_seconds_bucket{le="60.0"} 62241.0
+ha01_perfil_edad_seconds_bucket{le="300.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="900.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="1800.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="3600.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="21600.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="86400.0"} 76001.0
+ha01_perfil_edad_seconds_bucket{le="+Inf"} 76001.0
+ha01_perfil_edad_seconds_count 76001.0
+ha01_perfil_edad_seconds_sum 1.7076884478129947e+06
+# HELP ha01_perfil_edad_seconds_created Antiguedad del perfil usado para tarificar. Cuantifica el trade-off declarado en §2.8 de la wiki.
+# TYPE ha01_perfil_edad_seconds_created gauge
+ha01_perfil_edad_seconds_created 1.7891025890046368e+09
+# HELP ha01_cotizaciones_total Cotizaciones atendidas
+# TYPE ha01_cotizaciones_total counter
+ha01_cotizaciones_total 76001.0
+# HELP ha01_cotizaciones_created Cotizaciones atendidas
+# TYPE ha01_cotizaciones_created gauge
+ha01_cotizaciones_created 1.7891025890047617e+09
+# HELP ha01_cotizaciones_degradadas_total Cotizaciones resueltas con valor de respaldo o por defecto
+# TYPE ha01_cotizaciones_degradadas_total counter
+ha01_cotizaciones_degradadas_total 25635.0
+# HELP ha01_cotizaciones_degradadas_created Cotizaciones resueltas con valor de respaldo o por defecto
+# TYPE ha01_cotizaciones_degradadas_created gauge
+ha01_cotizaciones_degradadas_created 1.7891025890047708e+09
+# HELP ha01_cotizaciones_error_total Cotizaciones que terminaron en error
+# TYPE ha01_cotizaciones_error_total counter
+# HELP ha01_adapter_latency_seconds Latencia de la invocacion al proveedor vista por :AdaptadorOF
+# TYPE ha01_adapter_latency_seconds histogram
+ha01_adapter_latency_seconds_bucket{le="0.02"} 0.0
+ha01_adapter_latency_seconds_bucket{le="0.05"} 1111.0
+ha01_adapter_latency_seconds_bucket{le="0.1"} 3100.0
+ha01_adapter_latency_seconds_bucket{le="0.12"} 3539.0
+ha01_adapter_latency_seconds_bucket{le="0.2"} 3795.0
+ha01_adapter_latency_seconds_bucket{le="0.35"} 3795.0
+ha01_adapter_latency_seconds_bucket{le="0.5"} 3795.0
+ha01_adapter_latency_seconds_bucket{le="0.7"} 3795.0
+ha01_adapter_latency_seconds_bucket{le="1.0"} 4033.0
+ha01_adapter_latency_seconds_bucket{le="2.0"} 4033.0
+ha01_adapter_latency_seconds_bucket{le="+Inf"} 4033.0
+ha01_adapter_latency_seconds_count 4033.0
+ha01_adapter_latency_seconds_sum 440.8517457899834
+# HELP ha01_adapter_latency_seconds_created Latencia de la invocacion al proveedor vista por :AdaptadorOF
+# TYPE ha01_adapter_latency_seconds_created gauge
+ha01_adapter_latency_seconds_created 1.7891025890047908e+09
+# HELP ha01_adapter_inflight Invocaciones al proveedor en vuelo. Detecta el agotamiento del pool por llamadas abandonadas — insumo de HD-01.7.
+# TYPE ha01_adapter_inflight gauge
+ha01_adapter_inflight 0.0
+# HELP ha01_adapter_calls_total Invocaciones al proveedor por resultado
+# TYPE ha01_adapter_calls_total counter
+ha01_adapter_calls_total{resultado="ok"} 3795.0
+ha01_adapter_calls_total{resultado="falla_transporte"} 238.0
+ha01_adapter_calls_total{resultado="cortada_por_breaker"} 25141.0
+# HELP ha01_adapter_calls_created Invocaciones al proveedor por resultado
+# TYPE ha01_adapter_calls_created gauge
+ha01_adapter_calls_created{resultado="ok"} 1.7891026071954784e+09
+ha01_adapter_calls_created{resultado="falla_transporte"} 1.7891027923932874e+09
+ha01_adapter_calls_created{resultado="cortada_por_breaker"} 1.7891027936767316e+09
+# HELP ha01_llamadas_fallidas_proveedor_total Invocaciones al proveedor que consumieron el timeout duro sin servir para responder. Salud del adaptador, NO impacto al socio.
+# TYPE ha01_llamadas_fallidas_proveedor_total counter
+ha01_llamadas_fallidas_proveedor_total 238.0
+# HELP ha01_llamadas_fallidas_proveedor_created Invocaciones al proveedor que consumieron el timeout duro sin servir para responder. Salud del adaptador, NO impacto al socio.
+# TYPE ha01_llamadas_fallidas_proveedor_created gauge
+ha01_llamadas_fallidas_proveedor_created 1.7891025890048394e+09
+# HELP ha01_breaker_state 0 cerrado · 1 semiabierto · 2 abierto
+# TYPE ha01_breaker_state gauge
+ha01_breaker_state 0.0
+# HELP ha01_breaker_transitions_total Transiciones del interruptor
+# TYPE ha01_breaker_transitions_total counter
+ha01_breaker_transitions_total{desde="cerrado",hacia="abierto"} 1.0
+ha01_breaker_transitions_total{desde="abierto",hacia="semiabierto"} 8.0
+ha01_breaker_transitions_total{desde="semiabierto",hacia="abierto"} 7.0
+ha01_breaker_transitions_total{desde="semiabierto",hacia="cerrado"} 1.0
+# HELP ha01_breaker_transitions_created Transiciones del interruptor
+# TYPE ha01_breaker_transitions_created gauge
+ha01_breaker_transitions_created{desde="cerrado",hacia="abierto"} 1.7891027936734602e+09
+ha01_breaker_transitions_created{desde="abierto",hacia="semiabierto"} 1.7891028094264977e+09
+ha01_breaker_transitions_created{desde="semiabierto",hacia="abierto"} 1.7891028101300507e+09
+ha01_breaker_transitions_created{desde="semiabierto",hacia="cerrado"} 1.7891029193971481e+09
+# HELP ha01_breaker_abierto_desde_seconds Marca de tiempo unix de la ultima apertura del interruptor (0 si cerrado)
+# TYPE ha01_breaker_abierto_desde_seconds gauge
+ha01_breaker_abierto_desde_seconds 0.0
+# HELP ha01_refrescos_total Refrescos en segundo plano por desenlace
+# TYPE ha01_refrescos_total counter
+ha01_refrescos_total{resultado="completado"} 3795.0
+ha01_refrescos_total{resultado="continua_en_segundo_plano"} 494.0
+ha01_refrescos_total{resultado="fallido"} 25379.0
+# HELP ha01_refrescos_created Refrescos en segundo plano por desenlace
+# TYPE ha01_refrescos_created gauge
+ha01_refrescos_created{resultado="completado"} 1.7891026071968539e+09
+ha01_refrescos_created{resultado="continua_en_segundo_plano"} 1.789102607397099e+09
+ha01_refrescos_created{resultado="fallido"} 1.7891027923933127e+09
+# HELP ha01_refrescos_fondo_activos Tareas de refresco vivas. Debe volver a cero al terminar la ventana; si no, el brazo C tiene una fuga.
+# TYPE ha01_refrescos_fondo_activos gauge
+ha01_refrescos_fondo_activos 0.0
+# HELP ha01_coalescidas_total Peticiones que se sumaron a una invocacion ya en vuelo — HD-01.7
+# TYPE ha01_coalescidas_total counter
+ha01_coalescidas_total 0.0
+# HELP ha01_coalescidas_created Peticiones que se sumaron a una invocacion ya en vuelo — HD-01.7
+# TYPE ha01_coalescidas_created gauge
+ha01_coalescidas_created 1.78910258900489e+09
+# HELP ha01_event_loop_lag_seconds Retraso del bucle de eventos de la API sobre un sueno de 100 ms
+# TYPE ha01_event_loop_lag_seconds histogram
+ha01_event_loop_lag_seconds_bucket{le="0.001"} 3814.0
+ha01_event_loop_lag_seconds_bucket{le="0.005"} 4013.0
+ha01_event_loop_lag_seconds_bucket{le="0.01"} 4015.0
+ha01_event_loop_lag_seconds_bucket{le="0.025"} 4015.0
+ha01_event_loop_lag_seconds_bucket{le="0.05"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="0.1"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="0.25"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="0.5"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="1.0"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="2.5"} 4016.0
+ha01_event_loop_lag_seconds_bucket{le="+Inf"} 4016.0
+ha01_event_loop_lag_seconds_count 4016.0
+ha01_event_loop_lag_seconds_sum 0.6300000030045599
+# HELP ha01_event_loop_lag_seconds_created Retraso del bucle de eventos de la API sobre un sueno de 100 ms
+# TYPE ha01_event_loop_lag_seconds_created gauge
+ha01_event_loop_lag_seconds_created 1.7891025890048995e+09
