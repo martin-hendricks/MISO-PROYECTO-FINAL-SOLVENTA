@@ -258,7 +258,7 @@ Ubicación: `results/raw/` y `results/evidencia/`.
 | Evidencia | Ruta destino sugerida | ¿Automatizable? |
 |---|---|---|
 | ~~Dashboard de Grafana por corrida y brazo, sesión inválida del 08-09 (R1/R2/R3 × A/B/C)~~ | `results/evidencia/r{1,2,3}-{a,b,c}.png` | Conservado como **evidencia del bug de §0**, no como validación — esa sesión medía el brazo C en las 9 corridas, ver tabla abajo |
-| Dashboard de Grafana de las 3 series válidas (protocolo formal, TTL, alta carga) | `results/evidencia/{Protocolo formal (9 corridas, A→B→C×3),TTL=0 (3 corridas limpias),TTL=300 r1 (original, limpia),TTL r2:r3 (repetición, ambos valores),Alta carga (A:B:C, válida)}.png` | ✅ capturado — ver tabla abajo |
+| Dashboard de Grafana de las 3 series válidas (protocolo formal, TTL, alta carga) | `results/evidencia/grafana_{protocolo_formal,ttl0,ttl300_r1,ttl_r2_r3,alta_carga}.png` | ✅ capturado — ver tabla abajo |
 | JSON del dashboard de Grafana (para reproducirlo) | [`observability/grafana/provisioning/dashboards/ha08-dashboard.json`](observability/grafana/provisioning/dashboards/ha08-dashboard.json) | ✅ capturado — ver §4.5 |
 | Export del volumen de Prometheus (datos crudos, para compartir con el equipo) | *(fuera del repo — pesado; compartir aparte)* | Sí — ver §4.6 |
 | ~~Captura de `docker stats` en vivo durante una corrida de alta carga~~ | ~~`results/evidencia/docker_stats_carga_alta.txt`~~ | Obsoleto — ese archivo es una captura manual puntual del 09-09 con Kubernetes de Docker Desktop todavía activo (no representa carga del experimento); reemplazado por `results/raw/stats_<ARM>_<RUN_ID>.csv`, capturado automáticamente en serie cada 10s durante cada corrida desde la corrección de §0 |
@@ -268,11 +268,11 @@ Ubicación: `results/raw/` y `results/evidencia/`.
 
 | Serie | Ventana (hora Colombia) | Captura |
 |---|---|---|
-| Protocolo formal (9 corridas, A→B→C×3) | 2026-09-09 21:27 → 23:28 | [`Protocolo formal (9 corridas, A→B→C×3).png`](<results/evidencia/Protocolo formal (9 corridas, A→B→C×3).png>) |
-| TTL=0 (3 corridas limpias) | 2026-09-09 23:55 → 2026-09-10 01:24 | [`TTL=0 (3 corridas limpias).png`](<results/evidencia/TTL=0 (3 corridas limpias).png>) |
-| TTL=300 r1 (original, limpia) | 2026-09-10 02:33 → 02:58 | [`TTL=300 r1 (original, limpia).png`](<results/evidencia/TTL=300 r1 (original, limpia).png>) |
-| TTL r2/r3 (repetición, ambos valores) | 2026-09-10 20:34 → 21:28 | [`TTL r2:r3 (repetición, ambos valores).png`](<results/evidencia/TTL r2:r3 (repetición, ambos valores).png>) |
-| Alta carga (A/B/C, válida) | 2026-09-10 22:07 → 22:39 | [`Alta carga (A:B:C, válida).png`](<results/evidencia/Alta carga (A:B:C, válida).png>) |
+| Protocolo formal (9 corridas, A→B→C×3) | 2026-09-09 21:27 → 23:28 | [`grafana_protocolo_formal.png`](results/evidencia/grafana_protocolo_formal.png) |
+| TTL=0 (3 corridas limpias) | 2026-09-09 23:55 → 2026-09-10 01:24 | [`grafana_ttl0.png`](results/evidencia/grafana_ttl0.png) |
+| TTL=300 r1 (original, limpia) | 2026-09-10 02:33 → 02:58 | [`grafana_ttl300_r1.png`](results/evidencia/grafana_ttl300_r1.png) |
+| TTL r2/r3 (repetición, ambos valores) | 2026-09-10 20:34 → 21:28 | [`grafana_ttl_r2_r3.png`](results/evidencia/grafana_ttl_r2_r3.png) |
+| Alta carga (A/B/C, válida) | 2026-09-10 22:07 → 22:39 | [`grafana_alta_carga.png`](results/evidencia/grafana_alta_carga.png) |
 
 ---
 
