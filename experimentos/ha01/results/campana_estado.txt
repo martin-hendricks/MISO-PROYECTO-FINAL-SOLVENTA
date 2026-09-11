@@ -1,6 +1,2 @@
-2026-09-10 20:10:43  INICIO de la campana | bloques en orden: d
-2026-09-10 20:10:46  montaje verificado: Docker y API responden
-2026-09-10 20:10:46  BLOQUE d: inicio
-2026-09-10 20:31:59  BLOQUE d: fin | codigo 0 | corridas fallidas en el bloque: 0
-2026-09-10 20:32:15  BLOQUE d: evidencia consolidada (CSV y figuras)
-2026-09-10 20:32:15  FIN de la campana | corridas fallidas en total: 0
+2026-09-10 21:34:14  INICIO de la campana | bloques en orden: r
+2026-09-10 21:34:15  montaje verificado: Docker y API responden
