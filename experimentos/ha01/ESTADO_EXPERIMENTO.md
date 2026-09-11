@@ -1,12 +1,12 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 00:49:16. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 00:49:53. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
-| Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
+| Campaña | 2026-09-11 00:49:53  instantanea de Prometheus guardada en results/prometheus |
 | Progreso | **37 de 37** corridas ejecutadas · 37 válidas |
 | En curso | — |
 | Pendientes | 0 · fin estimado hacia las — |

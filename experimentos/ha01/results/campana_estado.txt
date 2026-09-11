@@ -3,3 +3,5 @@
 2026-09-10 21:34:30  BLOQUE r: inicio
 2026-09-11 00:49:20  BLOQUE r: fin | codigo 0 | corridas fallidas en el bloque: 0
 2026-09-11 00:49:40  BLOQUE r: evidencia consolidada (CSV y figuras)
+2026-09-11 00:49:47  FIN de la campana | corridas fallidas en total: 0
+2026-09-11 00:49:53  instantanea de Prometheus guardada en results/prometheus
