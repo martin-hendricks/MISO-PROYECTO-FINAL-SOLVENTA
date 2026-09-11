@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 22:31:08. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 22:38:11. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **19 de 37** corridas ejecutadas · 19 válidas |
+| Progreso | **20 de 37** corridas ejecutadas · 20 válidas |
 | En curso | — |
-| Pendientes | 18 · fin estimado hacia las 00:54 |
-| Válidas / sospechosas / inválidas / fallidas | 19 / 0 / 0 / 0 |
+| Pendientes | 17 · fin estimado hacia las 00:54 |
+| Válidas / sospechosas / inválidas / fallidas | 20 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -42,7 +42,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 17 | `direct_b1_r1_degradado` | A | degradado | 0.96 | 100 | ✅ válida | 122,2 | 778,1 | 4,55 % | 98,94 % | 4,6 | 10/09 22:16 |
 | 18 | `cache_blocking_b1_r1_degradado` | B | degradado | 0.96 | 100 | ✅ válida | 64,3 | 64,9 | 0,18 % | 3,43 % | 4,5 | 10/09 22:24 |
 | 19 | `cache_opportunistic_b1_r1_degradado` | C | degradado | 0.96 | 100 | ✅ válida | 64,3 | 64,9 | 0,00 % | 4,01 % | 4,0 | 10/09 22:31 |
-| 20 | `direct_b1_r1_sin_respuesta` | A | sin_respuesta | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
+| 20 | `direct_b1_r1_sin_respuesta` | A | sin_respuesta | 0.96 | 100 | ✅ válida | 64,9 | 776,5 | 4,25 % | 99,43 % | 4,6 | 10/09 22:38 |
 | 21 | `cache_blocking_b1_r1_sin_respuesta` | B | sin_respuesta | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
 | 22 | `cache_opportunistic_b1_r1_sin_respuesta` | C | sin_respuesta | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
 | 23 | `direct_b1_r1_caido` | A | caido | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
