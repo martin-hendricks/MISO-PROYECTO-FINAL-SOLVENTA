@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 23:20:42. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 23:27:47. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **26 de 37** corridas ejecutadas · 26 válidas |
+| Progreso | **27 de 37** corridas ejecutadas · 27 válidas |
 | En curso | — |
-| Pendientes | 11 · fin estimado hacia las 00:53 |
-| Válidas / sospechosas / inválidas / fallidas | 26 / 0 / 0 / 0 |
+| Pendientes | 10 · fin estimado hacia las 00:52 |
+| Válidas / sospechosas / inválidas / fallidas | 27 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -61,7 +61,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | 26 | `cache_blocking_b2_r1_hr0.99` | B | lento | 0.99 | 100 | ✅ válida | 64,4 | 65,0 | 0,29 % | 0,00 % | 4,4 | 10/09 23:20 |
-| 27 | `cache_blocking_b2_r1_hr0.98` | B | lento | 0.98 | 100 | · pendiente | — | — | — | — | — |  |
+| 27 | `cache_blocking_b2_r1_hr0.98` | B | lento | 0.98 | 100 | ✅ válida | 64,6 | 452,8 | 0,73 % | 0,00 % | 4,2 | 10/09 23:27 |
 | 28 | `cache_blocking_b2_r1_hr0.90` | B | lento | 0.90 | 100 | · pendiente | — | — | — | — | — |  |
 | 29 | `cache_blocking_b2_r1_hr0.50` | B | lento | 0.50 | 100 | · pendiente | — | — | — | — | — |  |
 | 30 | `cache_opportunistic_b2_r1_hr0.90` | C | lento | 0.90 | 100 | · pendiente | — | — | — | — | — |  |

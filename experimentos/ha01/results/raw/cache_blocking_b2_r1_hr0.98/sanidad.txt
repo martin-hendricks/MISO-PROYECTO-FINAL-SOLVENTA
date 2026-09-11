@@ -1,0 +1,17 @@
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (38001.0 cotizaciones)
+  adapter ok=767.0  provider servidas=238185.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=38001 errores=0 tasa=0.0000%
+  con respaldo=0 de 38001 = 0.00%
+  k6 iteraciones=38001 descartadas=0 (0.000%)
+  fase sana              12001 cotizaciones  ok
+  fase degradada         12000 cotizaciones  ok
+  fase recuperacion       6101 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.2 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9798 objetivo=0.9800 (aciertos=37234 fallos=767)
+  OK   tasa de acierto dentro de tolerancia
