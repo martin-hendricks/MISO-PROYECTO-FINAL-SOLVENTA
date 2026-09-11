@@ -92,6 +92,7 @@ corrida() {
   export SEGUNDOS_SANOS=$((ESTAB + F_SANA + F_REC))
   POOL_STALE="$(pool_vencido "${RATE}" "${SEGUNDOS_SANOS}")"
   export POOL_STALE
+  acotar_edad_caliente "${DUR}"
 
   QUOTE_STRATEGY="${ARM}" docker compose up -d api >/dev/null
   esperar_api
@@ -226,6 +227,7 @@ corrida_escalones() {
   export SEGUNDOS_SANOS=$((ESTAB + n_esc * ESCALON_S))
   POOL_STALE="$(pool_vencido "${rate_max}" "${SEGUNDOS_SANOS}")"
   export POOL_STALE
+  acotar_edad_caliente "$((ESTAB + n_esc * ESCALON_S + 20))"
 
   QUOTE_STRATEGY="${ARM}" docker compose up -d api >/dev/null
   esperar_api
@@ -267,6 +269,11 @@ corrida_escalones() {
 
   local sano=0
   CORRIDA_DIR="${DEST}" "${RAIZ}/scripts/verify_run.sh" | tee "${DEST}/sanidad.txt" || sano=1
+  # Tambien en los escalones: su ausencia dejo pasar el acierto del 0,86 en el
+  # escalon de 200 sol/s del bloque 4.
+  if [ "${ARM}" != "direct" ] && [ "${VERIFICAR_ACIERTO:-1}" = "1" ]; then
+    "${RAIZ}/scripts/verify_hitrate.sh" | tee -a "${DEST}/sanidad.txt" || sano=1
+  fi
 
   echo "corrida ${ETIQUETA} -> ${DEST}"
   echo

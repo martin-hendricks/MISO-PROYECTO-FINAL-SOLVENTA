@@ -3,7 +3,7 @@
 # Es lo que permite recorrer los cinco estados dentro de una misma corrida
 # sin que un efecto de calentamiento se confunda con un efecto del estado.
 #
-#   Uso: states.sh <sano|lento|degradado|sin_respuesta|caido> [--verificar]
+#   Uso: states.sh <sano|lento|degradado|intermitente|sin_respuesta|caido> [--verificar]
 set -euo pipefail
 
 API="${TOXIPROXY_URL:-http://localhost:8474}"
@@ -15,10 +15,15 @@ PROXY="openfinance"
 # `|| true` se tragaba el error y las toxinas se ACUMULABAN entre estados.
 TOXINAS=(lat bh rst bw)
 
+PROVEEDOR="${PROVIDER_URL:-http://localhost:9000}"
+
 limpiar() {
   for t in "${TOXINAS[@]}"; do
     curl -sf -o /dev/null -X DELETE "${API}/proxies/${PROXY}/toxics/${t}" || true
   done
+  # Las fallas intermitentes viven en el doble, no en Toxiproxy: hay que
+  # apagarlas aqui tambien o se arrastrarian al siguiente estado.
+  curl -sf -o /dev/null -X POST "${PROVEEDOR}/modo?fallo_fraccion=0" || true
   # `caido` deshabilita el proxy; hay que volver a habilitarlo siempre.
   curl -sf -o /dev/null -X POST "${API}/proxies/${PROXY}" \
     -H 'Content-Type: application/json' -d '{"enabled":true}'
@@ -30,7 +35,7 @@ agregar() {  # agregar <nombre> <tipo> <stream> <json-atributos>
     -d "{\"name\":\"$1\",\"type\":\"$2\",\"stream\":\"$3\",\"attributes\":$4}"
 }
 
-estado="${1:?estado requerido: sano|lento|degradado|sin_respuesta|caido}"
+estado="${1:?estado requerido: sano|lento|degradado|intermitente|sin_respuesta|caido}"
 
 case "${estado}" in
   sano)
@@ -55,6 +60,17 @@ case "${estado}" in
     # solo aqui donde se va a ver (HD-01.7).
     limpiar
     agregar bh timeout downstream '{"timeout":0}'
+    ;;
+  intermitente)
+    # EL CASO EN QUE LAS DOS POLITICAS DIVERGEN. Una fraccion de las peticiones
+    # se cuelga mas alla del timeout duro y el resto responde normal: el
+    # interruptor no llega a abrir -ni diez fallos seguidos ni una tasa del
+    # 50 % en la ventana- y las llamadas colgadas se acumulan en el pool.
+    # La falla vive en el plano de APLICACION (el doble), no en la red.
+    limpiar
+    curl -sf -o /dev/null -X POST \
+      "${PROVEEDOR}/modo?fallo_fraccion=${FALLO_FRACCION:-0.3}" \
+      || { echo "el doble no acepto el modo intermitente" >&2; exit 1; }
     ;;
   caido)
     # Conexion RECHAZADA, que es lo que el modelo de fallas del Anexo A

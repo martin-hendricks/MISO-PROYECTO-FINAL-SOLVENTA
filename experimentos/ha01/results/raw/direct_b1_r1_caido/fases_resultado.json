@@ -18,6 +18,7 @@
     "llamadas_fallidas": 0.0,
     "coalescidas": 0.0,
     "invocaciones_por_fallo": Infinity,
+    "cortadas_por_breaker": null,
     "sobre_225_pct": 0.42,
     "sobre_475_pct": 0.0,
     "lag_p99_ms": 4.6,
@@ -43,12 +44,13 @@
     "llamadas_fallidas": 516.0,
     "coalescidas": 0.0,
     "invocaciones_por_fallo": Infinity,
+    "cortadas_por_breaker": 11430.0,
     "sobre_225_pct": 0.008,
     "sobre_475_pct": 0.0,
     "lag_p99_ms": 4.6,
     "parones_250ms": 0.0,
-    "p95_open_finance_ms": 170.0,
-    "p95_default_ms": 64.3
+    "p95_default_ms": 64.3,
+    "p95_open_finance_ms": 170.0
   },
   {
     "corrida": "direct_b1_r1_caido",
@@ -69,12 +71,13 @@
     "llamadas_fallidas": 0.0,
     "coalescidas": 0.0,
     "invocaciones_por_fallo": Infinity,
+    "cortadas_por_breaker": 537.0,
     "sobre_225_pct": 0.39,
     "sobre_475_pct": 0.0,
     "lag_p99_ms": 4.6,
     "parones_250ms": 0.0,
-    "p95_open_finance_ms": 173.9,
-    "p95_default_ms": 64.2
+    "p95_default_ms": 64.2,
+    "p95_open_finance_ms": 173.9
   },
   {
     "corrida": "direct_b1_r1_caido",

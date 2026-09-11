@@ -15,6 +15,7 @@ Uso:  docker compose --profile tools run --rm figuras /work/scripts/graficas.py
 import csv
 import json
 import pathlib
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -162,11 +163,14 @@ def fases_de(nombre_corrida):
 def fig_brazo_estado(filas):
     datos = {}
     for r in filas:
-        if not r["corrida"].split("_", 3)[-1].startswith("b1_"):
+        # El nombre es <brazo>_b1_r<n>_<estado>, y ni el brazo ni el estado
+        # tienen un número fijo de guiones bajos: `cache_blocking` lleva uno y
+        # `sin_respuesta` también. Partir por posición fallaba en los dos
+        # extremos y dejaba esta figura sin datos.
+        m = re.search(r"_b1_r\d+_(.+)$", r["corrida"])
+        if not m or r["fase"] != "degradada":
             continue
-        if r["fase"] != "degradada":
-            continue
-        estado = r["corrida"].rsplit("_", 1)[-1]
+        estado = m.group(1)
         if estado not in ORDEN_ESTADO:
             continue
         datos.setdefault((r["brazo"], estado), []).append(
@@ -198,7 +202,9 @@ def fig_brazo_estado(filas):
         ax.set_xticks(range(len(ORDEN_ESTADO)))
         ax.set_xticklabels([e.replace("_", " ") for e in ORDEN_ESTADO])
 
-    ejes[0].legend(loc="upper left", ncol=len(brazos))
+    # Arriba a la derecha: a la izquierda se solapa con la barra de `lento`,
+    # que es la mas alta y la que lleva la etiqueta que hay que poder leer.
+    ejes[0].legend(loc="upper right", ncol=len(brazos))
     fig.suptitle("Bloque 1 — estrategia contra estado del proveedor",
                  x=0.012, ha="left", fontsize=13, weight="600")
     fig.tight_layout(rect=(0, 0.02, 1, 0.97))

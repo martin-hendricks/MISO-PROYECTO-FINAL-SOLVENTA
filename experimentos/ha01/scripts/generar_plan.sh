@@ -10,7 +10,7 @@ RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${RAIZ}"
 
 {
-  for s in run_block3.sh run_decisivo.sh run_plan_reducido.sh; do
+  for s in run_block3.sh run_decisivo.sh run_plan_reducido.sh run_extra.sh; do
     SOLO_LISTAR=1 "./scripts/${s}" 2>/dev/null | grep '^PLAN|' || true
   done
 } > results/plan.txt

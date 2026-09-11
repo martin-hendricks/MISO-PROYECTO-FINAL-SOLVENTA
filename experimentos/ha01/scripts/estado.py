@@ -22,6 +22,9 @@ BRAZO = {"direct": "A", "cache_blocking": "B", "cache_opportunistic": "C",
 MIN_CORRIDA = 7.3            # minutos por corrida de fases (medido)
 MIN_ESCALONES = 10.3         # minutos por corrida de escalones (bloque 4)
 SOSPECHA_LAG_MS = 50         # umbral del detector de interferencia
+# Presupuesto (120) + tarifa (60) + 50 ms de margen: en C y C' el respaldo no
+# puede tardar más, salvo que el bucle de eventos estuviera bloqueado.
+TECHO_RESPALDO_MS = 230
 
 
 def leer(p, defecto=""):
@@ -101,10 +104,49 @@ def estado_corrida(etq, en_curso, fallidas):
     if not valida:
         return "❌ inválida", filas
     medidas = [f for f in filas if f.get("fase") != "transiciones"]
-    sospechosa = any(
-        (f.get("parones_250ms") or 0) >= 1
-        or (f.get("lag_p99_ms") or 0) > SOSPECHA_LAG_MS for f in medidas)
-    return ("⚠️ válida, sospechosa" if sospechosa else "✅ válida"), filas
+    brazo = (medidas[0].get("brazo") if medidas else "") or ""
+    avisos = []
+
+    # Interferencia: el bucle de eventos de la API estuvo retrasado.
+    if any((f.get("parones_250ms") or 0) >= 1
+           or (f.get("lag_p99_ms") or 0) > SOSPECHA_LAG_MS for f in medidas):
+        avisos.append("interferencia")
+
+    # Acierto fuera de tolerancia en alguna fase. Las verificaciones lo
+    # comprueban de forma acumulada y sobre la corrida entera; esto lo mira
+    # FASE A FASE, que es como se detecta que el pool caliente venció a mitad
+    # de corrida (el escalón de 200 sol/s del bloque 4).
+    # Se exceptúan las celdas con TTL muy corto (la de estampida, TTL 2 s):
+    # allí el acierto NO es la variable controlada, cae por diseño y la corrida
+    # se ejecuta con la verificación de acierto desactivada.
+    try:
+        ttl = json.loads(leer(d / "api_info.json") or "{}").get("cache", {}).get("ttl_s")
+    except json.JSONDecodeError:
+        ttl = None
+    acierto_es_variable = brazo != "direct" and (ttl is None or ttl >= 60)
+
+    if acierto_es_variable:
+        try:
+            objetivo = float(acierto_objetivo(etq, d).split()[0])
+        except (ValueError, IndexError):
+            objetivo = None
+        if objetivo is not None and any(
+                f.get("acierto") is not None
+                and abs(f["acierto"] - objetivo) > 0.02 for f in medidas):
+            avisos.append("acierto fuera de tolerancia")
+
+    # El respaldo no puede tardar más que presupuesto + tarifa en los brazos
+    # que abandonan la espera. En B sí puede: espera al proveedor hasta el
+    # timeout duro, así que la regla no aplica.
+    if brazo in ("cache_opportunistic", "cache_singleflight"):
+        if any((f.get("p95_fallback_ms") or 0) > TECHO_RESPALDO_MS
+               or (f.get("p95_default_ms") or 0) > TECHO_RESPALDO_MS
+               for f in medidas):
+            avisos.append("respaldo por encima del presupuesto")
+
+    if avisos:
+        return "⚠️ válida, revisar (" + ", ".join(avisos) + ")", filas
+    return "✅ válida", filas
 
 
 def fase_clave(filas):
@@ -195,9 +237,16 @@ def main():
         "",
         "- **✅ válida** — pasó las nueve verificaciones de sanidad (tráfico en cada fase, "
         "acierto en tolerancia, sin iteraciones descartadas, sin fugas, sin evicción, error < 1 %).",
-        f"- **⚠️ válida, sospechosa** — válida, pero el detector de interferencia vio el bucle "
-        f"de eventos de la API retrasado (p99 > {SOSPECHA_LAG_MS} ms o algún parón > 250 ms). "
-        "Su cola de latencia puede estar contaminada; el informe debe discutirla.",
+        "- **⚠️ válida, revisar** — pasó las verificaciones, pero algo pide una segunda "
+        "lectura antes de citarla en el informe:",
+        f"  - *interferencia*: el bucle de eventos de la API estuvo retrasado "
+        f"(p99 > {SOSPECHA_LAG_MS} ms o algún parón > 250 ms), así que su cola de latencia "
+        "puede estar contaminada.",
+        "  - *acierto fuera de tolerancia*: alguna fase se desvió más de 2 puntos del "
+        "objetivo. Las verificaciones lo miran de forma acumulada; esto lo mira fase a fase.",
+        f"  - *respaldo por encima del presupuesto*: en C o C' el respaldo superó "
+        f"{TECHO_RESPALDO_MS} ms, que es presupuesto + tarifa + margen. En B no aplica, "
+        "porque allí el respaldo espera al proveedor hasta el timeout duro.",
         "- **❌ inválida / fallida** — no pasó las verificaciones o no terminó; queda en "
         "`results/corridas_fallidas.txt` para repetirla.",
         "- **—** en el lag: corrida anterior a la sonda del detector.",

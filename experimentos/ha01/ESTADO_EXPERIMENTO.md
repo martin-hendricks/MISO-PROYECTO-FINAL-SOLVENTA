@@ -1,15 +1,15 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 17:49:11. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 18:38:56. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-11 00:49:53  instantanea de Prometheus guardada en results/prometheus |
-| Progreso | **37 de 37** corridas ejecutadas · 37 válidas |
+| Progreso | **37 de 52** corridas ejecutadas · 37 válidas |
 | En curso | — |
-| Pendientes | 0 · fin estimado hacia las — |
+| Pendientes | 15 · fin estimado hacia las 20:40 |
 | Válidas / sospechosas / inválidas / fallidas | 32 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
@@ -28,6 +28,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 6 | `cache_singleflight_b3_estampida_hr0.96` | C' | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 4,16 % | — | 10/09 18:15 |
 | 7 | `cache_opportunistic_b3_estampida_hr0.50` | C | sin_respuesta | 0.50 | 200 | ✅ válida | 64,6 | 183,3 | 0,00 % | 48,90 % | — | 10/09 18:22 |
 | 8 | `cache_singleflight_b3_estampida_hr0.50` | C' | sin_respuesta | 0.50 | 200 | ⚠️ válida, revisar (respaldo por encima del presupuesto) | 64,7 | 183,6 | 0,00 % | 49,42 % | — | 10/09 18:29 |
+| 52 | `cache_singleflight_b3_estampida_hr0.50b` | C' | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
 
 ## Bloque 1 — estrategia contra estado del proveedor (1 repetición)
 
@@ -73,6 +74,8 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | 32 | `cache_opportunistic_b3_estampida_ttl2` | C | sin_respuesta | 1.0 | 200 | ✅ válida | 64,5 | 181,4 | 0,00 % | 99,42 % | 4,2 | 11/09 00:03 |
 | 33 | `cache_singleflight_b3_estampida_ttl2` | C' | sin_respuesta | 1.0 | 200 | ✅ válida | 64,7 | 184,6 | 0,00 % | 98,50 % | 4,1 | 11/09 00:10 |
+| 50 | `cache_opportunistic_b3_estampida_ttl2b` | C | sin_respuesta | 1.0 (20 claves) | 200 | · pendiente | — | — | — | — | — |  |
+| 51 | `cache_singleflight_b3_estampida_ttl2b` | C' | sin_respuesta | 1.0 (20 claves) | 200 | · pendiente | — | — | — | — | — |  |
 
 ## Bloque 4 — latencia contra tasa de llegada
 
@@ -82,6 +85,23 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 35 | `cache_opportunistic_b4_sano` | C | sano | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 133,0 | 167,7 | 0,00 % | 0,48 % | 4,0 | 11/09 00:29 |
 | 36 | `cache_blocking_b4_degradado` | B | degradado | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 64,3 | 64,9 | 0,03 % | 14,74 % | 4,2 | 11/09 00:39 |
 | 37 | `cache_opportunistic_b4_degradado` | C | degradado | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 64,3 | 64,9 | 0,00 % | 14,78 % | 4,0 | 11/09 00:49 |
+
+## Otras
+
+| # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
+| ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 38 | `cache_blocking_b3b_pol_rate_alto` | B | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 39 | `cache_blocking_b3b_pol_rate_bajo` | B | sin_respuesta | 0.96 | 10 | · pendiente | — | — | — | — | — |  |
+| 40 | `cache_blocking_b3b_pol_count_alto` | B | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 41 | `cache_blocking_b3b_pol_count_bajo` | B | sin_respuesta | 0.96 | 10 | · pendiente | — | — | — | — | — |  |
+| 42 | `cache_blocking_b5_intermitente_rate` | B | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 43 | `cache_opportunistic_b5_intermitente_rate` | C | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 44 | `cache_blocking_b5_intermitente_count` | B | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 45 | `cache_opportunistic_b5_intermitente_count` | C | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 46 | `cache_blocking_b4b_sano` | B | sano | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
+| 47 | `cache_opportunistic_b4b_sano` | C | sano | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
+| 48 | `cache_blocking_b4b_degradado` | B | degradado | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
+| 49 | `cache_opportunistic_b4b_degradado` | C | degradado | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
 
 ## Leyenda
 

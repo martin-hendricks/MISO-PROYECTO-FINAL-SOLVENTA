@@ -67,11 +67,43 @@ def muestrear_latencia(customer_id: str) -> tuple[float, float]:
     return min(math.exp(MU + SIGMA * _NORMAL.inv_cdf(u)), TECHO), v
 
 
+# --- Fallas intermitentes ---------------------------------------------
+# Fraccion de peticiones que se cuelgan mas alla del timeout duro del
+# adaptador. Modela el proveedor que falla A VECES, que es el caso en el que
+# las dos politicas del interruptor divergen: con 30 % de fallos, ni diez
+# fallos consecutivos ni una tasa del 50 % sobre la ventana se alcanzan, asi
+# que el interruptor NO abre y el pool se llena con llamadas colgadas.
+#
+# Se decide por hash del customer_id, igual que la latencia: determinista y
+# estable por cliente. Se conmuta en caliente por `states.sh`, sin reiniciar,
+# porque el protocolo cambia de estado a mitad de corrida.
+FALLO_FRACCION = 0.0
+CUELGUE_S = float(os.environ.get("PROVIDER_CUELGUE_S", "2.0"))
+COLGADAS = Counter("ha01_provider_colgadas", "Peticiones colgadas a proposito")
+
+
+@app.post("/modo")
+def modo(fallo_fraccion: float = 0.0):
+    global FALLO_FRACCION
+    FALLO_FRACCION = max(0.0, min(1.0, fallo_fraccion))
+    return {"fallo_fraccion": FALLO_FRACCION, "cuelgue_s": CUELGUE_S}
+
+
+@app.get("/modo")
+def ver_modo():
+    return {"fallo_fraccion": FALLO_FRACCION, "cuelgue_s": CUELGUE_S}
+
+
 @app.get("/open-finance/v1/customers/{customer_id}/financial-data")
 async def datos_financieros(customer_id: str):
     import asyncio
 
     espera, v = muestrear_latencia(customer_id)
+    if FALLO_FRACCION and v < FALLO_FRACCION:
+        # Se cuelga mas alla del timeout duro: el adaptador abandonara solo.
+        COLGADAS.inc()
+        await asyncio.sleep(CUELGUE_S)
+        return Response(status_code=504)
     await asyncio.sleep(espera)
     LAT.observe(espera)
     SERVED.inc()

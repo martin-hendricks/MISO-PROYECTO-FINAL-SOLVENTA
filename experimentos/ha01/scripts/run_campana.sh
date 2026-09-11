@@ -75,6 +75,7 @@ for b in "${ORDEN[@]}"; do
     4) ./scripts/run_block4.sh   || rc=$? ;;
     d) ./scripts/run_decisivo.sh || rc=$? ;;   # A, B y C con proveedor lento
     r) ./scripts/run_plan_reducido.sh || rc=$? ;;   # plan de la noche
+    x) ./scripts/run_extra.sh || rc=$? ;;           # corridas adicionales
     *) marca "bloque desconocido: ${b}"; continue ;;
   esac
   nuevas=$(( $(fallidas) - antes ))

@@ -70,7 +70,8 @@ ADAPTER_INFLIGHT = Gauge(
 ADAPTER_CALLS = Counter(
     "ha01_adapter_calls",
     "Invocaciones al proveedor por resultado",
-    ["resultado"],  # ok | error_5xx | falla_transporte | cortada_por_breaker
+    # ok | error_5xx | falla_transporte | cortada_por_breaker | pool_agotado
+    ["resultado"],
 )
 
 # --- Metrica separada de "sacrificadas" ------------------------------

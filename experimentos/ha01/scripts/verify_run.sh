@@ -144,6 +144,35 @@ else:
 PY
 fi
 
+# 10. El respaldo no puede tardar mas que presupuesto + tarifa en los brazos
+#     que abandonan la espera (C y C'). Si lo hace, el bucle de eventos estuvo
+#     bloqueado. En B no aplica: alli el respaldo espera al proveedor hasta el
+#     timeout duro. Es AVISO, no invalida la corrida.
+if [ -n "${CORRIDA_DIR:-}" ] && [ -f "${CORRIDA_DIR}/fases.json" ] \
+   && grep -q '"brazo": "cache_\(opportunistic\|singleflight\)"' "${CORRIDA_DIR}/fases.json"; then
+  "${PY}" - "${CORRIDA_DIR}/fases.json" <<'PY' || true
+import json, sys, urllib.parse, urllib.request
+f = json.load(open(sys.argv[1], encoding="utf-8"))["fases"]
+techo = 0.230
+for fase in f:
+    w = "[{}s]".format(max(int(fase["fin"] - fase["ini"]), 5))
+    expr = ('histogram_quantile(0.95, sum by (le, origen) '
+            '(rate(ha01_quote_latency_seconds_bucket{origen=~"fallback|default"}' + w + ')))')
+    url = "http://localhost:9090/api/v1/query?" + urllib.parse.urlencode(
+        {"query": expr, "time": fase["fin"]})
+    try:
+        res = json.load(urllib.request.urlopen(url, timeout=20))["data"]["result"]
+    except Exception:
+        continue
+    for s in res:
+        v = float(s["value"][1])
+        if v == v and v > techo:
+            print("  AVISO respaldo lento en fase {}: {} p95 {:.0f} ms (techo {:.0f}) "
+                  "-> SOSPECHOSA".format(fase["nombre"], s["metric"].get("origen"),
+                                         v * 1000, techo * 1000))
+PY
+fi
+
 echo
 if [ "$fallos" -gt 0 ]; then
   echo "RESULTADO: ${fallos} verificacion(es) fallaron - la corrida NO es valida"

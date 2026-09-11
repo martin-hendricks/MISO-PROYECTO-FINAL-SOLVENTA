@@ -184,10 +184,17 @@ def analizar_corrida(dir_corrida):
                 "increase(ha01_llamadas_fallidas_proveedor_total" + v + ")", t1), 0),
             "coalescidas": _r(escalar(
                 "increase(ha01_coalescidas_total" + v + ")", t1), 0),
+            # Solo las invocaciones que LLEGAN al proveedor. Contar tambien las
+            # que el interruptor corta inflaba la metrica justo cuando el
+            # interruptor esta abierto: en la celda de estampida daba 0,97
+            # invocaciones por fallo con C', que coalescio 595 peticiones.
             # `sum(...)` en AMBOS lados, por la misma razon que en respaldo_pct.
             "invocaciones_por_fallo": _r(escalar(
-                "sum(increase(ha01_adapter_calls_total" + v + ")) / "
-                "sum(" + misses + ")", t1), 2),
+                "sum(increase(ha01_adapter_calls_total{resultado!=\"cortada_por_breaker\"}"
+                + v + ")) / sum(" + misses + ")", t1), 2),
+            "cortadas_por_breaker": _r(escalar(
+                "sum(increase(ha01_adapter_calls_total{resultado=\"cortada_por_breaker\"}"
+                + v + "))", t1), 0),
         }
 
         # Fraccion EXACTA por encima de cada umbral, por conteo de buckets:
@@ -225,7 +232,11 @@ def analizar_corrida(dir_corrida):
     t_ini = m["sana"][0]
     t_deg = m["degradada"][0]
     t_rec, t_fin = m["recuperacion"]
-    tasa_invocaciones = "sum(rate(ha01_adapter_calls_total[10s]))"
+    # Excluye las cortadas por el interruptor: el criterio de HD-01.8 habla de
+    # invocaciones AL PROVEEDOR. Con la celda de estampida, incluirlas daba un
+    # pico de 200/s cuando al proveedor llegaban 15.
+    tasa_invocaciones = ("sum(rate(ha01_adapter_calls_total"
+                         "{resultado!=\"cortada_por_breaker\"}[10s]))")
     filas.append({
         "corrida": dir_corrida.name,
         "brazo": brazo,

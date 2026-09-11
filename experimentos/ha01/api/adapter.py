@@ -73,6 +73,14 @@ class AdaptadorOF:
             ADAPTER_CALLS.labels(resultado="ok").inc()
             return self._a_canonico(customer_id, r.json())
 
+        except httpx.PoolTimeout:
+            # Saturacion NUESTRA, no del proveedor: la peticion nunca llego a
+            # salir porque no habia conexion libre en el pool. Contarla como
+            # falla del tercero abriria el interruptor con el proveedor sano,
+            # que es justo lo contrario de lo que el interruptor debe hacer.
+            # Se registra aparte y NO alimenta al interruptor.
+            ADAPTER_CALLS.labels(resultado="pool_agotado").inc()
+            return None
         except (httpx.TimeoutException, httpx.TransportError):
             self.interruptor.registrar(False)
             ADAPTER_CALLS.labels(resultado="falla_transporte").inc()

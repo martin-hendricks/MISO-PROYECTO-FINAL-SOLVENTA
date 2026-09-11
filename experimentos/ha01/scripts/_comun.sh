@@ -95,6 +95,23 @@ carga_viva() {
   awk -v a="${a}" -v b="${b}" 'BEGIN { exit !(b > a) }'
 }
 
+# El pool caliente se precarga con edades repartidas en 0..HOT_AGE_SPREAD_S.
+# Si esa dispersion mas la duracion de la corrida supera el TTL, las entradas
+# mas viejas VENCEN a mitad de corrida y la tasa de acierto se desploma. Es lo
+# que le paso al escalon de 200 sol/s del bloque 4: acierto 0,86 con objetivo
+# 0,96, porque 450 s de dispersion + 560 s de corrida pasan de los 900 del TTL.
+# La restriccion estaba escrita en el .env pero nada la comprobaba.
+acotar_edad_caliente() {  # acotar_edad_caliente <duracion_de_la_carga_s>
+  local dur="$1" techo
+  techo=$(( ${PROFILE_TTL_SECONDS:-900} - dur - 180 ))   # 180 s: precarga y verificaciones
+  [ "${techo}" -lt 0 ] && techo=0
+  if [ "${HOT_AGE_SPREAD_S:-0}" -gt "${techo}" ]; then
+    echo "   edad del pool caliente acotada de ${HOT_AGE_SPREAD_S} a ${techo} s" \
+         "(TTL ${PROFILE_TTL_SECONDS:-900} s, carga ${dur} s)"
+    export HOT_AGE_SPREAD_S="${techo}"
+  fi
+}
+
 fallar() { echo "ERROR: $*" >&2; exit 1; }
 ok()     { echo "  OK   $*"; }
 aviso()  { echo "  AVISO $*"; }
