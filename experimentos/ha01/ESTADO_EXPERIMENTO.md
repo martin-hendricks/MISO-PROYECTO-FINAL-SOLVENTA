@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 21:41:36. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 21:48:42. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **12 de 37** corridas ejecutadas · 12 válidas |
+| Progreso | **13 de 37** corridas ejecutadas · 13 válidas |
 | En curso | — |
-| Pendientes | 25 · fin estimado hacia las 00:56 |
-| Válidas / sospechosas / inválidas / fallidas | 12 / 0 / 0 / 0 |
+| Pendientes | 24 · fin estimado hacia las 00:55 |
+| Válidas / sospechosas / inválidas / fallidas | 13 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -54,7 +54,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | 12 | `cache_blocking_b1_r2_lento` | B | lento | 0.96 | 100 | ✅ válida | 64,8 | 485,8 | 1,15 % | 0,00 % | 4,6 | 10/09 21:41 |
-| 13 | `cache_blocking_b1_r3_lento` | B | lento | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
+| 13 | `cache_blocking_b1_r3_lento` | B | lento | 0.96 | 100 | ✅ válida | 64,8 | 490,9 | 1,24 % | 0,00 % | 4,7 | 10/09 21:48 |
 
 ## Bloque 2 — sensibilidad a la tasa de acierto, proveedor lento
 
