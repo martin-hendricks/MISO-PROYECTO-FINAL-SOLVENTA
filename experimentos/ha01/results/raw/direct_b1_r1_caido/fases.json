@@ -1,0 +1,22 @@
+{
+  "brazo": "direct",
+  "estado": "caido",
+  "rate": 100.0,
+  "fases": [
+    {
+      "nombre": "sana",
+      "ini": 1789098837,
+      "fin": 1789098957
+    },
+    {
+      "nombre": "degradada",
+      "ini": 1789098957,
+      "fin": 1789099078
+    },
+    {
+      "nombre": "recuperacion",
+      "ini": 1789099078,
+      "fin": 1789099138
+    }
+  ]
+}
