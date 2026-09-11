@@ -5,6 +5,7 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { Trend } from 'k6/metrics';
+import exec from 'k6/execution';
 
 const BASE_URL = __ENV.BASE_URL || 'http://api:8000';
 const ARM = __ENV.ARM || 'A';
@@ -13,6 +14,18 @@ const TOTAL = 1000000;
 const HOT_RATIO = 0.8;
 
 const latencia = new Trend('ha08_estado_duration', true);
+
+// Mismo mecanismo de tagging por escalón/calor que read_estado.js — sin
+// esto el p95 sale agregado sobre 150/300/600 rps y no se puede ubicar en
+// qué escalón (si alguno) aparece el punto de quiebre, que es el objetivo
+// de esta corrida (feedback externo, 2026-09-11: se había omitido al
+// derivar este script de read_estado.js).
+const ESCALONES = [
+  { hasta: 60, target: 10, nombre: 'warmup' },   // SE DESCARTA en el análisis
+  { hasta: 240, target: 150, nombre: 'r150' },
+  { hasta: 420, target: 300, nombre: 'r300' },
+  { hasta: 600, target: 600, nombre: 'r600' },
+];
 
 export const options = {
   discardResponseBodies: false,
@@ -23,12 +36,10 @@ export const options = {
       timeUnit: '1s',
       preAllocatedVUs: 200,
       maxVUs: 1500,
-      stages: [
-        { target: 10, duration: '1m' },   // warm-up — SE DESCARTA
-        { target: 150, duration: '3m' },
-        { target: 300, duration: '3m' },
-        { target: 600, duration: '3m' },
-      ],
+      stages: ESCALONES.map((e, i) => ({
+        target: e.target,
+        duration: `${e.hasta - (i > 0 ? ESCALONES[i - 1].hasta : 0)}s`,
+      })),
     },
   },
   thresholds: {
@@ -38,19 +49,28 @@ export const options = {
   tags: { arm: ARM, run_id: __ENV.RUN_ID || 'alta_carga' },
 };
 
+function nombreEscalon(tSegundos) {
+  for (const e of ESCALONES) {
+    if (tSegundos <= e.hasta) return e.nombre;
+  }
+  return ESCALONES[ESCALONES.length - 1].nombre;
+}
+
 function pickId() {
   if (Math.random() < HOT_RATIO) {
-    return 1 + Math.floor(Math.random() * HOT_SET_SIZE);
+    return { id: 1 + Math.floor(Math.random() * HOT_SET_SIZE), calor: 'caliente' };
   }
-  return 1 + Math.floor(Math.random() * TOTAL);
+  return { id: 1 + Math.floor(Math.random() * TOTAL), calor: 'frio' };
 }
 
 export default function () {
-  const id = pickId();
+  const { id, calor } = pickId();
+  const tSegundos = (Date.now() - exec.scenario.startTime) / 1000;
+  const escalon = nombreEscalon(tSegundos);
   const res = http.get(`${BASE_URL}/siniestros/${id}/estado`, {
-    tags: { name: 'GET /siniestros/{id}/estado' },
+    tags: { name: 'GET /siniestros/{id}/estado', escalon, calor },
   });
-  latencia.add(res.timings.duration);
+  latencia.add(res.timings.duration, { escalon, calor });
   check(res, {
     'status 200': (r) => r.status === 200,
     'tiene estado': (r) => r.json('estado') !== undefined,

@@ -2,16 +2,29 @@
 # Consolida los summary_<ARM>_<RUN_ID>.json producidos por k6 en un único CSV,
 # con las columnas de la plantilla de registro de resultados (Anexo C del
 # diseño del experimento: brazo, corrida, p50/p95/p99, error, hit-rate, lag).
+#
+# Excluye explícitamente los archivos de la sesión del 2026-09-08 invalidada
+# por el bug de verify_parity.sh (ver INFORME.md §0): summary_C_ttl0.json y
+# summary_C_ttl300.json (sin sufijo _r<N>, formato de esa sesión con n=1) y
+# summary_C_PRIME_*.json (C' también corrió bajo el mismo defecto y no se ha
+# repetido). Sin este filtro, el CSV mezclaría datos válidos e inválidos sin
+# forma de distinguirlos.
 set -euo pipefail
 
 RESULTS_DIR="results/raw"
 echo "brazo,corrida,rps_objetivo,p50_ms,p95_ms,p99_ms,error_rate,hit_rate,lag_p95_s_aprox"
 
-for summary in "${RESULTS_DIR}"/summary_*.json; do
+for summary in "${RESULTS_DIR}"/summary_*_r[0-9]*.json; do
   [ -e "$summary" ] || continue
   filename=$(basename "$summary" .json)
-  arm=$(echo "$filename" | sed -E 's/^summary_([A-Z_]+)_([a-zA-Z0-9]+)$/\1/')
-  run_id=$(echo "$filename" | sed -E 's/^summary_([A-Z_]+)_([a-zA-Z0-9]+)$/\2/')
+  case "$filename" in
+    summary_C_PRIME_*) continue ;;
+  esac
+  # Anclado a los valores de brazo conocidos, no a una clase de caracteres
+  # genérica: run_id puede tener guiones bajos (p. ej. "ttl0_r1"), y un
+  # patrón greedy como [A-Z_]+ se traga parte del run_id como si fuera arm.
+  arm=$(echo "$filename" | sed -E 's/^summary_(A|B|C_PRIME|C)_(.+)$/\1/')
+  run_id=$(echo "$filename" | sed -E 's/^summary_(A|B|C_PRIME|C)_(.+)$/\2/')
 
   # La métrica de k6 vive directo en .metrics.ha08_estado_duration, sin el
   # nivel intermedio ".values" que asumía la primera versión de este script.
@@ -40,5 +53,18 @@ for summary in "${RESULTS_DIR}"/summary_*.json; do
     fi
   fi
 
-  echo "${arm},${run_id},n/a,${p50},${p95},${p99},${error_rate},n/a,${lag_p95}"
+  # Hit-rate real desde cache_<ARM>_<RUN_ID>.txt, si se capturó (solo brazo
+  # C toca Redis — ver INFORME.md §0 sobre por qué no existe para todas las
+  # corridas: el fix se aplicó mientras la serie ya estaba en curso).
+  cache_file="${RESULTS_DIR}/cache_${arm}_${run_id}.txt"
+  hit_rate="n/a"
+  if [ -f "$cache_file" ]; then
+    hits=$(grep -oE '^ha08_cache_hits_total [0-9.]+' "$cache_file" | awk '{print $2}')
+    misses=$(grep -oE '^ha08_cache_misses_total [0-9.]+' "$cache_file" | awk '{print $2}')
+    if [ -n "${hits:-}" ] && [ -n "${misses:-}" ]; then
+      hit_rate=$(python3 -c "h,m=${hits},${misses}; print(f'{h/(h+m):.4f}' if (h+m)>0 else 'n/a')")
+    fi
+  fi
+
+  echo "${arm},${run_id},n/a,${p50},${p95},${p99},${error_rate},${hit_rate},${lag_p95}"
 done

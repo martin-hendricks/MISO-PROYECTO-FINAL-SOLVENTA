@@ -29,6 +29,11 @@ ARM_ACTIVO=$(curl -s localhost:8000/health | jq -r .arm)
 
 # 4. Ejecutar la carga de alta intensidad, capturando docker stats en serie
 # durante toda la corrida (ver comentario extenso en run_experiment.sh).
+# El contenedor de k6 se incluye en la captura (nombre fijo "ha08-k6-carga",
+# sin límite de CPU explícito — VM Docker con 10 cores disponibles) para
+# poder distinguir si el propio k6 se satura a 600 rps antes que la API
+# (feedback externo, 2026-09-11: el `docker run` original no tenía nombre
+# fijo, así que el filtro "^ha08-" del bucle de stats no lo capturaba).
 STATS_FILE="results/raw/stats_${ARM}_${RUN_ID}.csv"
 echo "timestamp,name,cpu_perc,mem_usage" > "${STATS_FILE}"
 (
@@ -41,7 +46,7 @@ echo "timestamp,name,cpu_perc,mem_usage" > "${STATS_FILE}"
 ) &
 STATS_PID=$!
 
-docker run --rm --network "${NETWORK}" \
+docker run --rm --name ha08-k6-carga --network "${NETWORK}" \
   -e K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write \
   -e K6_PROMETHEUS_RW_TREND_STATS="p(50),p(95),p(99),avg,max" \
   -e BASE_URL=http://api:8000 \

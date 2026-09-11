@@ -97,22 +97,51 @@ CSV crudo: [`results/consolidado.csv`](results/consolidado.csv) (contiene la mez
 
 ### 2.1 Sobre la hipótesis HD-08
 
-**Los tres brazos cumplen el umbral de p95 ≤ 150ms con enorme margen** (p95 entre 6.19-7.86ms, es decir, **entre 19× y 24× por debajo del límite**) — pero, a diferencia de la sesión inválida del 08-09, **esta vez los brazos sí se diferencian entre sí de forma clara y reproducible en las 3 repeticiones**, sin excepción: A > C > B.
+**Los tres brazos cumplen el umbral de p95 ≤ 150ms con enorme margen** (p95 entre 6.19-7.86ms, es decir, **entre 19× y 24× por debajo del límite**) — y, a diferencia de la sesión inválida del 08-09, esta vez los brazos sí se diferencian entre sí de forma clara y reproducible en las 3 repeticiones, sin excepción: A > C > B.
 
-- **HD-08.1** (A no alcanza el umbral) — **refutada**. A cumple holgadamente (7.86ms vs. 150ms), pero es el más lento de los tres — el costo relativo del modelo normalizado sí es medible (27% más lento que B), solo que no alcanza a comprometer el umbral a este volumen y carga.
-- **HD-08.2** (B reduce el p95 ≥60% vs. línea base) — **parcialmente sostenida en dirección, no en magnitud**. B sí es el más rápido de los tres (7.86→6.19ms, -21% vs. A), pero muy por debajo del 60% que planteaba la hipótesis.
-- **HD-08.3** (C mejora sobre B) — **refutada, y en la dirección contraria a la esperada**. C es *peor* que B (6.72ms vs. 6.19ms, +9%), no mejor. Lectura mecánica: con el hit-rate real observado (7.6%), la gran mayoría de las peticiones de C ejecutan el trabajo completo de B (proyección) *más* un `GET` a Redis que falla — trabajo estrictamente adicional, no ahorro. El caché no solo no aporta en este régimen de carga, tiene costo neto.
-- **HD-08.4** (lag de proyección p95 ≤ 2s) — **aceptada con margen amplio**. Ver §3 para el lag medido en esta serie (mismo orden de magnitud que la sesión anterior, ~0.05s).
+- **HD-08.1** (A no alcanza el umbral) — **refutada**. A cumple holgadamente (7.86ms vs. 150ms, 19× de margen). Esta es la refutación que importa para el dictamen (ver §2.2): el objetivo de la ficha es encontrar el **mínimo** de complejidad que satisface `EC-LAT-11`, y A —sin CQRS, sin proyección, sin caché— ya lo satisface.
+- **HD-08.2** (B reduce el p95 ≥60% vs. línea base) — **refutada en magnitud**. B es el más rápido de los tres (7.86→6.19ms, -21% vs. A), en la dirección esperada, pero muy por debajo del 60% planteado. Ver §2.1bis sobre por qué esta diferencia, aunque reproducible, no altera el dictamen de umbral.
+- **HD-08.3** (C mejora sobre B) — **refutada, y en la dirección contraria a la esperada**. C es *peor* que B (6.72ms vs. 6.19ms, +9%). Con el hit-rate real observado (7.6%, ver §2.3), la mayoría de las peticiones de C ejecutan el trabajo completo de B *más* un `GET` a Redis que falla — trabajo adicional sin ahorro correspondiente.
+- **HD-08.4** (lag de proyección p95 ≤ 2s) — **aceptada con margen amplio, pero solo mide la mitad del punto de sensibilidad 2**. El ~0.05s reportado es el lag *interno del proyector* (tiempo entre que ocurre el evento y que se aplica el UPSERT en `siniestros_r`), no el lag *que ve el cliente en el brazo C* (tiempo entre que el estado cambia y que una lectura vía caché refleja ese cambio). Ese segundo lag es lo que el diseño pide medir para el punto de sensibilidad 2, y no se instrumentó. Además, ese valor de ~0.05s es en realidad "≤50ms" (primer bucket del histograma de Prometheus, `ha08_projection_lag_seconds_bucket{le="0.05"}`), no una medición puntual exacta — con solo 5 eventos/s del simulador, hay pocas observaciones por corrida para una estimación fina.
 
-### 2.2 Interpretación arquitectónica
+### 2.1ter Riesgo de consistencia eventual no medido: carrera entre invalidación del proyector y escritura de `arm_c.py`
 
-**A este volumen (1M registros) y rango de carga (10-80 req/s), ningún brazo está en riesgo de incumplir `EC-LAT-11`** — los tres tienen entre 19× y 24× de margen. Pero, con los brazos correctamente diferenciados, la arquitectura CQRS con caché (C) **no se justifica frente a la proyección materializada sin caché (B)** en este punto de sensibilidad: agrega complejidad operativa (Redis, invalidación, TTL) a cambio de una degradación medible, no de una mejora. La recomendación para este punto de sensibilidad específico es **B** (proyección materializada), no C — el caché solo tendría sentido si el hit-rate real fuera sustancialmente más alto que el 7.6% observado, o si el costo de la consulta base (sin caché) fuera mayor al medido aquí.
+`arm_c.get_estado` (`api/app/strategies/arm_c.py:10-26`) tiene una ventana de carrera con el proyector: en un *miss* de caché, la secuencia es (1) `GET` falla, (2) se lee el estado actual vía `arm_b.get_estado` (proyección), (3) se escribe ese dato en Redis con `SET ... EX=TTL`. El proyector, al procesar un evento nuevo para ese mismo siniestro, hace `redis.delete(f"siniestro:estado:{id}")` (`projector/projector.py:62`) para invalidar la entrada. **Si el `DELETE` del proyector ocurre entre los pasos (2) y (3)** — es decir, el evento se proyecta *después* de que `arm_b` leyó el estado pero *antes* de que `arm_c` escribiera en Redis — el `SET` posterior sobrescribe el `DELETE`, dejando en caché una versión **obsoleta** que persistirá hasta que expire el TTL completo (hasta 300s en la variante de sensibilidad de §2.3bis), no hasta el siguiente evento.
 
-Esto no invalida la arquitectura CQRS de Solventa en general (sigue siendo relevante para otros ASR como escalabilidad de escritura o aislamiento de carga), pero sí acota su justificación para *este* punto de sensibilidad a la separación de modelos de lectura (B), sin el paso adicional de caché (C).
+Esto no se pudo medir en esta ejecución porque `EstadoSiniestro` (`api/app/models.py`) no expone el número de versión del siniestro en la respuesta — no hay forma de comparar "versión servida" contra "versión real en `siniestros_w.siniestro`" sin instrumentación adicional. Se documenta como **riesgo abierto, no como hallazgo cuantificado**: es exactamente el tipo de trade-off de consistencia eventual que la arquitectura de Solventa acepta a cambio de desempeño, y merece medirse antes de decidir el TTL de producción si se optara por implementar C.
+
+### 2.1bis Las diferencias entre brazos son reproducibles pero no relevantes para la decisión del umbral
+
+A > C > B es un hallazgo real (§2.1, confirmado en las 3 repeticiones de cada brazo). Pero **la magnitud de esa diferencia (0.5-1.7ms) representa menos del 1.2% del umbral de 150ms** — ninguno de los tres brazos está remotamente cerca de comprometer `EC-LAT-11`, así que la diferencia entre ellos no cambia el dictamen de cumplimiento. Con n=3 por brazo, además, "4× la desviación estándar" es un argumento estadístico débil para sostener relevancia práctica (no se hizo una prueba de hipótesis formal, solo una comparación descriptiva). La redacción correcta es: **la diferencia A > C > B es consistente y reproducible, pero sin relevancia arquitectónica frente al umbral** — es información útil para elegir entre B y C si se decide implementar CQRS por otras razones (§2.2), no evidencia de que A sea insuficiente.
+
+### 2.2 Dictamen e interpretación arquitectónica
+
+**Dictamen honesto según el criterio de la ficha (mínimo de complejidad que satisface el ASR):** a este volumen (1M registros) y rango de carga (10-80 req/s), **A —la línea base sin CQRS— ya satisface `EC-LAT-11` con 19× de margen**. La hipótesis de que la separación de modelos de lectura (CQRS) es *necesaria* para cumplir este ASR **no se confirma** en las condiciones ensayadas. Recomendar B o C por ser más rápidos que A no se sostiene como argumento de *necesidad* contra un umbral que A ya cumple holgadamente — sería sobrevender una diferencia de <1.2% del umbral como si fuera decisiva.
+
+Dicho esto, si el equipo de Solventa decide implementar CQRS de todos modos, la comparación entre B y C sigue siendo válida y útil: **B (proyección materializada sin caché) es preferible a C (con caché)** para este punto de sensibilidad — C agrega complejidad operativa (Redis, invalidación, TTL) a cambio de una degradación medible, no de una mejora (§2.1, §2.3).
+
+**Dos caminos honestos para la decisión arquitectónica de Solventa, ninguno de los cuales es "recomendar B por ser más rápido":**
+1. **Aceptar que, a esta escala y con este patrón de acceso, la hipótesis de que CQRS es necesario para `EC-LAT-11` no se confirma** — usar A como línea base y reconsiderar CQRS solo si el punto de quiebre real (§2.4) se acerca al rango de operación esperado, o si el dataset/patrón de acceso de producción difiere sustancialmente del ensayado (§2.3).
+2. **Justificar la separación de modelos (B) con otro ASR distinto de latencia** — p. ej. aislamiento de carga de lectura sobre el modelo transaccional (para no competir con escrituras), escalabilidad horizontal independiente del lado de lectura, o disponibilidad (poder degradar lecturas sin afectar el flujo de escritura). Este experimento no midió esos atributos, así que no puede usarse como evidencia para ellos — pero es la justificación arquitectónicamente correcta para B, no la latencia.
+
+Esto no invalida la arquitectura CQRS de Solventa en general para otros puntos de sensibilidad, pero sí acota lo que **este** experimento puede decir: para la latencia de lectura de un siniestro individual a 1M de registros y hasta 80 req/s, la complejidad mínima que cumple el ASR es A.
 
 ### 2.3 Hit-rate real observado, muy por debajo del supuesto de diseño
 
-El hit-rate medido en C r3 fue **7.6%** (1668/21948, ver nota en §1), consistente con el 7.1% de la sesión inválida del 08-09 — confirma que el patrón de hit-rate bajo **no era un artefacto del bug de brazo**, es una propiedad real de este diseño de carga: cada corrida dura 13 minutos con selección uniforme sobre las 10.000 claves del *hot set*, insuficiente para calentar la caché dado el TTL de 30s. Este hit-rate bajo es precisamente la causa mecánica de que C resulte más lento que B en §2.1 — no es una casualidad estadística, es la explicación del hallazgo.
+El hit-rate medido en C r3 fue **7.6%** (1668/21948, ver nota en §1), consistente con el 7.1% de la sesión inválida del 08-09 — confirma que el patrón de hit-rate bajo **no era un artefacto del bug de brazo**.
+
+**No es un problema de "calentamiento insuficiente" — es el resultado matemático esperado de este diseño de carga.** Con tráfico uniforme sobre las 10.000 claves del *hot set* (80% del tráfico) y TTL fijo, el hit-rate en estado estacionario para una clave con tasa de llegada λ se aproxima por `λ·TTL / (1 + λ·TTL)`, con λ = 0.8·rps/10.000. Para los 4 escalones del protocolo formal (10/25/50/80 rps) con TTL=30s:
+
+| rps | λ (llegadas/s por clave) | hit-rate teórico |
+|---:|---:|---:|
+| 10 | 0.0008 | 2.3% |
+| 25 | 0.0020 | 5.7% |
+| 50 | 0.0040 | 10.7% |
+| 80 | 0.0064 | 16.1% |
+
+Promedio simple de los 4 escalones: **8.7%** — prácticamente idéntico al 7.6-7.1% medido. **Correr la corrida más tiempo no cambiaría este número**, porque ya está en su valor de estado estacionario; lo que sí lo cambiaría es la distribución de acceso. Este diseño usa selección **uniforme** dentro del *hot set*, pero el acceso real a un sistema de siniestros probablemente sigue una distribución sesgada (tipo Zipf, donde pocos siniestros concentran la mayoría de las consultas — por ejemplo, siniestros con actividad reciente o en disputa) — con esa distribución, el hit-rate real de producción podría ser sustancialmente más alto que el aquí medido, porque las claves más consultadas se re-visitan con mucha más frecuencia que 1/10.000 del tráfico.
+
+Este hit-rate bajo es precisamente la causa mecánica de que C resulte más lento que B en §2.1 — no es una casualidad estadística, es la explicación del hallazgo. Pero también acota su alcance: **el resultado "C es peor que B" es válido para *este* patrón de acceso (uniforme), no necesariamente para un patrón sesgado con mayor hit-rate real** — es una amenaza a la validez externa que vale la pena señalar, no solo una curiosidad matemática.
 
 ### 2.3bis Sensibilidad a TTL (n=3 por valor, repetido tras el hallazgo §3.7 de la evaluación externa)
 
@@ -140,7 +169,7 @@ Evidencia: `results/raw/{summary,cache,lag,stats}_C_ttl{0,300}_r{1,2,3}.{json,tx
 
 > **Nota de proceso:** la primera ejecución de esta serie (2026-09-10, madrugada) sufrió contención real de otro contenedor Docker de un proyecto distinto corriendo en la misma máquina (`202620-misw4412-api-empresarial-api-1`, load average 4.74-5.87) — 4 de las 6 corridas mostraron un outlier extremo en `max` (~924 segundos) sin afectar el p95 ni el error rate. Se detuvo ese contenedor y se repitieron únicamente las 4 corridas afectadas (`ttl0_r2`, `ttl0_r3`, `ttl300_r2`, `ttl300_r3`); los valores de la tabla arriba son los de la repetición limpia. Es el mismo patrón de amenaza a la validez documentado en §2.5 para la sesión anterior, esta vez causado por un contenedor distinto (no Kubernetes, que ya se había resuelto).
 
-### 2.4 Punto de quiebre no alcanzado (confirmado también a 150/300/600 req/s)
+### 2.4 Punto de quiebre no alcanzado (repitiendo a 150/300/600 req/s — resultado de la sesión anterior invalidado, ver nota abajo)
 
 > ⚠️ **Ver §0.** `run_experiment_alta_carga.sh` tiene el mismo defecto que invalidó el protocolo formal — las 3 filas de la tabla siguiente probablemente midieron todas el brazo C. Pendiente de repetir.
 
@@ -162,8 +191,9 @@ Evidencia: `results/raw/{summary,stats,lag}_{A,B,C}_alta_carga.{json,csv,txt}`, 
 
 ### 2.5 Amenazas a la validez específicas de esta ejecución
 
-Además de las ya documentadas en el Anexo D del diseño (montaje local, sin latencia de red entre componentes, etc.), esta corrida concreta introdujo una amenaza adicional:
+Además de las ya documentadas en el Anexo D del diseño (montaje local, sin latencia de red entre componentes, etc.), esta corrida concreta introdujo amenazas adicionales:
 
+- **El montaje favorece estructuralmente al brazo A, y eso acota el alcance de "A cumple el umbral" (§2.2).** `effective_cache_size` no reserva memoria — es solo una pista para el planificador de consultas de Postgres, no un límite real de qué cabe en caché. La VM de Docker Desktop tiene 8.2GB disponibles y el contenedor `postgres` un límite de 2GB (`docker inspect ha08-postgres`); el dataset completo pesa 3GB (§1), pero el 80% del tráfico se concentra en el *hot set* de 10.000 siniestros — con 5 hitos y 3 documentos exactos por siniestro (verificado por query directa), eso son ~100.000 filas en las tablas relevantes, que caben cómodamente en el caché de página del contenedor y probablemente permanecen casi enteramente en RAM durante toda la corrida. Además, no hay latencia de red entre contenedores (todos en el mismo host, misma red bridge de Docker), y cada siniestro tiene un número fijo y bajo de hitos/documentos — un siniestro real con decenas de hitos haría más pesado el `JOIN` que ejecuta A. **Nada de esto invalida el resultado de que A cumple `EC-LAT-11` en este montaje** — pero el dictamen de §2.2 debe leerse como "A cumple en estas condiciones (dataset de 1M filas, *hot set* completamente cacheable, sin latencia de red, siniestros con estructura simple)", no como una garantía general de que A sea suficiente a cualquier escala o con datos reales de producción.
 - **Contención del host por procesos ajenos al experimento.** Durante las corridas de sensibilidad a TTL se detectó un desfase creciente entre el tiempo de reloj y el tiempo de escenario de k6 (hasta 2.6× más lento en la corrida `ttl300`), coincidente con un clúster de Kubernetes de Docker Desktop y otro proyecto (`202620-misw4412-grupo43-api-1`) corriendo en paralelo en la misma máquina. Se detectaron *outliers* de latencia extrema crecientes (70s → 83s → 186s → 151s) en las corridas consecutivas de esa ventana. Tras desactivar Kubernetes, el desfase desapareció (la corrida C' se ejecutó sin desfase, con el *outlier* más bajo de toda la sesión). **El p95 nunca se vio comprometido por esta contención** — solo la cola extrema (max) — pero se documenta como limitación del montaje, no del sistema bajo prueba.
 - **Dataset con incidente de duplicación corregido antes de medir.** La primera generación del dataset arrastró filas residuales de una sesión anterior (duplicados exactos ×2 en `hito`/`documento`/`peritaje`). Se detectó, se truncaron las tablas y se regeneró limpio antes de cualquier medición — no afecta los resultados reportados, pero se documenta por transparencia del proceso.
 - **`p99` no disponible.** La configuración de k6 usada no expuso `p(99)` en el resumen exportado (solo `p(90)` y `p(95)`); el criterio de aceptación del diseño se basa en p95, por lo que esto no invalida la evaluación, pero limita el detalle solicitado por la plantilla del Anexo C.
@@ -176,16 +206,18 @@ Además de las ya documentadas en el Anexo D del diseño (montaje local, sin lat
 
 ## 3. Verificaciones de sanidad (checklist de la guía técnica)
 
+> Esta tabla se corrigió el 2026-09-11 — la versión anterior describía el protocolo de la sesión invalidada (§0) como si fuera correcto (p. ej. "paridad verificada antes de cada corrida", que era justamente el mecanismo del bug). Los resultados abajo corresponden a las 9 corridas válidas del protocolo formal + las 6 de TTL (§1, §2.3bis).
+
 | Verificación | Resultado |
 |---|---|
-| `dropped_iterations` = 0 o despreciable en las 12 corridas | ✅ 0 en las 9 corridas principales, TTL=0 y C'; **no verificado aún** en R3 (`dropped_iterations: 3` y `14` reportados en R3/C y R3/B — ver §2.5) |
-| Ningún contenedor de infraestructura al 100% de su límite de CPU | ✅ verificado en reposo (<2.3% todos); no monitoreado en tiempo real durante cada corrida |
-| `ha08_events_projected_total` creció de forma sostenida (simulador activo) | ✅ confirmado al menos una vez (888 eventos tras el fix inicial) — pendiente extraer el valor final por corrida |
-| Tasa de error < 1% | ✅ 0% en las 12 corridas |
-| Verificación de paridad de payload (A=B=C) | ✅ pasó formalmente (`verify_parity.sh`) antes de cada corrida |
-| Tamaño de la base > `shared_buffers + effective_cache_size` | ✅ 1.376 MB > 768 MB, verificado antes de la primera corrida |
+| `dropped_iterations` = 0 o despreciable en las 15 corridas válidas | ✅ 0 en las 9 corridas principales y las 6 de TTL |
+| Ningún contenedor de infraestructura saturado | ✅ CPU de `ha08-api` capturado en serie cada 10s durante toda cada corrida (`results/raw/stats_*.csv`), máximos observados ≤28% de 1 core |
+| `ha08_events_projected_total` creció de forma sostenida (simulador activo) | ✅ confirmado — lag de proyección ≤0.05s en el primer bucket del histograma (≥99.5% de las observaciones) en todas las corridas |
+| Tasa de error < 1% | ✅ 0% en las 15 corridas válidas |
+| Verificación de paridad de payload (A=B=C) | ✅ pasó — corregido para correr **una sola vez antes de toda la serie** (no dentro de cada corrida, que era el bug de §0), con aserción de `/health` en cada corrida individual como salvaguarda adicional |
+| Tamaño de la base > `shared_buffers + effective_cache_size` | ✅ 3.000 MB > 768 MB, verificado antes de la primera corrida (`results/evidencia/tamano_dataset.txt`) |
 
-> **Limitación conocida — CPU/memoria por contenedor no es recuperable retroactivamente.** `run_experiment.sh` captura `docker stats --no-stream` al final de cada corrida (`results/raw/stats_*.csv`), pero esa herramienta solo lee el estado *en ese instante*: no existe una fuente donde consultar el uso de CPU/memoria por contenedor de una corrida ya finalizada si no se guardó en su momento. El `docker-compose.yml` de este experimento **no incluye cAdvisor ni node-exporter** (los exportadores estándar de métricas de contenedor hacia Prometheus), así que Prometheus tampoco tiene ese dato histórico. Lo único que Prometheus sí conserva con retención de 7 días es el consumo del **proceso** (no del contenedor completo) de la API y del proyector, vía `process_cpu_seconds_total` y `process_resident_memory_bytes` — expuesto automáticamente por `prometheus-client` en `/metrics`. Es una aproximación parcial (excluye Postgres, Redis, Redpanda y el propio uso de memoria de Docker/overhead del contenedor), pero permite reconstruir al menos la tendencia de CPU/memoria del proceso Python durante una ventana pasada. Ver panel sugerido en §4.4.
+> **Limitación conocida — CPU/memoria de infraestructura (Postgres/Redis/Redpanda) no tiene serie completa, solo la de `ha08-api`/proyector/k6.** El bucle de captura de `docker stats` (agregado en la corrección de §0) filtra por prefijo `ha08-`, así que sí incluye todos los contenedores del experimento con su serie completa cada 10s — pero sigue sin haber cAdvisor/node-exporter en Prometheus, así que no hay retención de 7 días para este dato, solo lo que se guardó en el CSV de cada corrida. El consumo por **proceso** (no contenedor) de la API y el proyector sí persiste en Prometheus vía `process_cpu_seconds_total`/`process_resident_memory_bytes`.
 
 ---
 
@@ -215,8 +247,8 @@ Ubicación: `results/raw/` y `results/evidencia/`.
 | Dashboard de Grafana por corrida y brazo (R1/R2/R3 × A/B/C) | `results/evidencia/r{1,2,3}-{a,b,c}.png` | Manual — ✅ capturado, ver tabla abajo |
 | JSON del dashboard de Grafana (para reproducirlo) | [`observability/grafana/provisioning/dashboards/ha08-dashboard.json`](observability/grafana/provisioning/dashboards/ha08-dashboard.json) | ✅ capturado — ver §4.5 |
 | Export del volumen de Prometheus (datos crudos, para compartir con el equipo) | *(fuera del repo — pesado; compartir aparte)* | Sí — ver §4.6 |
-| Captura de `docker stats` en vivo durante una corrida de alta carga | `results/evidencia/docker_stats_carga_alta.png` o `.txt` | Sí — ver §4.3 |
-| Hit-rate exacto del brazo C (no solo el estimado por hits/misses acumulados) | `results/evidencia/hit_rate_brazo_c.txt` | Sí — ver §4.3 |
+| ~~Captura de `docker stats` en vivo durante una corrida de alta carga~~ | ~~`results/evidencia/docker_stats_carga_alta.txt`~~ | Obsoleto — ese archivo es una captura manual puntual del 09-09 con Kubernetes de Docker Desktop todavía activo (no representa carga del experimento); reemplazado por `results/raw/stats_<ARM>_<RUN_ID>.csv`, capturado automáticamente en serie cada 10s durante cada corrida desde la corrección de §0 |
+| Hit-rate exacto del brazo C (no solo el estimado por hits/misses acumulados) | `results/raw/cache_C_r3.txt` (protocolo formal) y `results/raw/cache_C_ttl*.txt` (TTL) | ✅ capturado — ver §2.3/§2.3bis |
 
 **Capturas del dashboard de Grafana, una por combinación corrida × brazo** (ventana de tiempo acotada a cada corrida, ver nota sobre el panel "p95 interno por brazo" en §4.4):
 
@@ -300,7 +332,7 @@ docker run --rm -v solventa-ha08_promdata:/data -v $(pwd):/backup \
 
 ## 5. Pendientes antes de considerar el experimento cerrado
 
-- [x] Capturar hit-rate exacto del brazo C — **7.1%** (269 hits / 3791 consultas) acumulado al cierre de la sesión. Muy por debajo del 96% que HD-08.4 consideraba necesario para sostener el umbral; explicable porque cada corrida es de solo 13 min con selección uniforme sobre 10.000 claves del *hot set* y TTL corto — no hay suficiente tiempo de calentamiento. Ver `results/evidencia/hit_rate_brazo_c.txt`.
+- [x] Capturar hit-rate exacto del brazo C — **7.6%** (1668 hits / 21948 consultas, corrida C r3 del protocolo formal válido — ver §1 y §2.3). El 7.1% de `hit_rate_brazo_c.txt` es de la sesión inválida de §0 y no debe citarse como resultado; se conserva el archivo solo por trazabilidad. Este hit-rate bajo tiene explicación matemática, no es falta de calentamiento — ver §2.3.
 - [x] Capturar eventos proyectados/descartados — **5134 proyectados, 21 descartados por versión** (acumulado de toda la sesión, no por corrida individual). Ver `results/evidencia/eventos_proyector_final.txt`.
 - [x] Capturar el dashboard de Grafana por corrida y brazo — 9 imágenes (`results/evidencia/r{1,2,3}-{a,b,c}.png`), ver tabla en §4.2.
 - [x] Exportar el dashboard de Grafana como JSON reproducible — `observability/grafana/provisioning/dashboards/ha08-dashboard.json` (6 paneles, uid `ffxlg3f0y1qtcc`), ver §4.5.
