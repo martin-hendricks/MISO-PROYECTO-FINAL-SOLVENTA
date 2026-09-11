@@ -1,0 +1,175 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 858131.0
+python_gc_objects_collected_total{generation="1"} 142459.0
+python_gc_objects_collected_total{generation="2"} 11255.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 2342.0
+python_gc_collections_total{generation="1"} 212.0
+python_gc_collections_total{generation="2"} 19.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="14",version="3.12.14"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 4.6270464e+08
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 6.8288512e+07
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78908905714e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 108.82
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 28.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP ha01_quote_latency_seconds Latencia de la cotizacion medida en el servicio
+# TYPE ha01_quote_latency_seconds histogram
+ha01_quote_latency_seconds_bucket{le="0.02",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.05",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.065",origen="open_finance"} 0.0
+ha01_quote_latency_seconds_bucket{le="0.08",origen="open_finance"} 3.0
+ha01_quote_latency_seconds_bucket{le="0.1",origen="open_finance"} 2309.0
+ha01_quote_latency_seconds_bucket{le="0.12",origen="open_finance"} 11070.0
+ha01_quote_latency_seconds_bucket{le="0.14",origen="open_finance"} 19170.0
+ha01_quote_latency_seconds_bucket{le="0.16",origen="open_finance"} 23374.0
+ha01_quote_latency_seconds_bucket{le="0.175",origen="open_finance"} 24778.0
+ha01_quote_latency_seconds_bucket{le="0.19",origen="open_finance"} 25398.0
+ha01_quote_latency_seconds_bucket{le="0.205",origen="open_finance"} 25680.0
+ha01_quote_latency_seconds_bucket{le="0.225",origen="open_finance"} 25871.0
+ha01_quote_latency_seconds_bucket{le="0.25",origen="open_finance"} 25951.0
+ha01_quote_latency_seconds_bucket{le="0.3",origen="open_finance"} 25985.0
+ha01_quote_latency_seconds_bucket{le="0.4",origen="open_finance"} 28431.0
+ha01_quote_latency_seconds_bucket{le="0.475",origen="open_finance"} 33911.0
+ha01_quote_latency_seconds_bucket{le="0.55",origen="open_finance"} 37630.0
+ha01_quote_latency_seconds_bucket{le="0.7",origen="open_finance"} 37989.0
+ha01_quote_latency_seconds_bucket{le="0.8",origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_bucket{le="1.0",origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_bucket{le="1.5",origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_bucket{le="2.0",origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_bucket{le="+Inf",origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_count{origen="open_finance"} 38001.0
+ha01_quote_latency_seconds_sum{origen="open_finance"} 8738.701059621117
+# HELP ha01_quote_latency_seconds_created Latencia de la cotizacion medida en el servicio
+# TYPE ha01_quote_latency_seconds_created gauge
+ha01_quote_latency_seconds_created{origen="open_finance"} 1.7890890804376302e+09
+# HELP ha01_cache_hits_total Aciertos de :CacheOF
+# TYPE ha01_cache_hits_total counter
+ha01_cache_hits_total 0.0
+# HELP ha01_cache_hits_created Aciertos de :CacheOF
+# TYPE ha01_cache_hits_created gauge
+ha01_cache_hits_created 1.789089058802581e+09
+# HELP ha01_cache_misses_total Fallos de :CacheOF
+# TYPE ha01_cache_misses_total counter
+ha01_cache_misses_total 0.0
+# HELP ha01_cache_misses_created Fallos de :CacheOF
+# TYPE ha01_cache_misses_created gauge
+ha01_cache_misses_created 1.7890890588025937e+09
+# HELP ha01_cache_errors_total Errores de acceso a :CacheOF
+# TYPE ha01_cache_errors_total counter
+ha01_cache_errors_total 0.0
+# HELP ha01_cache_errors_created Errores de acceso a :CacheOF
+# TYPE ha01_cache_errors_created gauge
+ha01_cache_errors_created 1.7890890588026042e+09
+# HELP ha01_perfil_origen_total Origen del perfil con el que se tarifico
+# TYPE ha01_perfil_origen_total counter
+ha01_perfil_origen_total{origen="open_finance"} 38001.0
+# HELP ha01_perfil_origen_created Origen del perfil con el que se tarifico
+# TYPE ha01_perfil_origen_created gauge
+ha01_perfil_origen_created{origen="open_finance"} 1.7890890803783858e+09
+# HELP ha01_perfil_edad_seconds Antiguedad del perfil usado para tarificar. Cuantifica el trade-off declarado en §2.8 de la wiki.
+# TYPE ha01_perfil_edad_seconds histogram
+ha01_perfil_edad_seconds_bucket{le="0.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="1.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="5.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="30.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="60.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="300.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="900.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="1800.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="3600.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="21600.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="86400.0"} 38001.0
+ha01_perfil_edad_seconds_bucket{le="+Inf"} 38001.0
+ha01_perfil_edad_seconds_count 38001.0
+ha01_perfil_edad_seconds_sum 0.0
+# HELP ha01_perfil_edad_seconds_created Antiguedad del perfil usado para tarificar. Cuantifica el trade-off declarado en §2.8 de la wiki.
+# TYPE ha01_perfil_edad_seconds_created gauge
+ha01_perfil_edad_seconds_created 1.7890890588026278e+09
+# HELP ha01_cotizaciones_total Cotizaciones atendidas
+# TYPE ha01_cotizaciones_total counter
+ha01_cotizaciones_total 38001.0
+# HELP ha01_cotizaciones_created Cotizaciones atendidas
+# TYPE ha01_cotizaciones_created gauge
+ha01_cotizaciones_created 1.789089058802781e+09
+# HELP ha01_cotizaciones_degradadas_total Cotizaciones resueltas con valor de respaldo o por defecto
+# TYPE ha01_cotizaciones_degradadas_total counter
+ha01_cotizaciones_degradadas_total 0.0
+# HELP ha01_cotizaciones_degradadas_created Cotizaciones resueltas con valor de respaldo o por defecto
+# TYPE ha01_cotizaciones_degradadas_created gauge
+ha01_cotizaciones_degradadas_created 1.7890890588027909e+09
+# HELP ha01_cotizaciones_error_total Cotizaciones que terminaron en error
+# TYPE ha01_cotizaciones_error_total counter
+# HELP ha01_adapter_latency_seconds Latencia de la invocacion al proveedor vista por :AdaptadorOF
+# TYPE ha01_adapter_latency_seconds histogram
+ha01_adapter_latency_seconds_bucket{le="0.02"} 4.0
+ha01_adapter_latency_seconds_bucket{le="0.05"} 6371.0
+ha01_adapter_latency_seconds_bucket{le="0.1"} 23438.0
+ha01_adapter_latency_seconds_bucket{le="0.12"} 25061.0
+ha01_adapter_latency_seconds_bucket{le="0.2"} 25968.0
+ha01_adapter_latency_seconds_bucket{le="0.35"} 29165.0
+ha01_adapter_latency_seconds_bucket{le="0.5"} 37767.0
+ha01_adapter_latency_seconds_bucket{le="0.7"} 38001.0
+ha01_adapter_latency_seconds_bucket{le="1.0"} 38001.0
+ha01_adapter_latency_seconds_bucket{le="2.0"} 38001.0
+ha01_adapter_latency_seconds_bucket{le="+Inf"} 38001.0
+ha01_adapter_latency_seconds_count 38001.0
+ha01_adapter_latency_seconds_sum 6441.35763899899
+# HELP ha01_adapter_latency_seconds_created Latencia de la invocacion al proveedor vista por :AdaptadorOF
+# TYPE ha01_adapter_latency_seconds_created gauge
+ha01_adapter_latency_seconds_created 1.7890890588028111e+09
+# HELP ha01_adapter_inflight Invocaciones al proveedor en vuelo. Detecta el agotamiento del pool por llamadas abandonadas — insumo de HD-01.7.
+# TYPE ha01_adapter_inflight gauge
+ha01_adapter_inflight 0.0
+# HELP ha01_adapter_calls_total Invocaciones al proveedor por resultado
+# TYPE ha01_adapter_calls_total counter
+ha01_adapter_calls_total{resultado="ok"} 38001.0
+# HELP ha01_adapter_calls_created Invocaciones al proveedor por resultado
+# TYPE ha01_adapter_calls_created gauge
+ha01_adapter_calls_created{resultado="ok"} 1.7890890803782713e+09
+# HELP ha01_llamadas_fallidas_proveedor_total Invocaciones al proveedor que consumieron el timeout duro sin servir para responder. Salud del adaptador, NO impacto al socio.
+# TYPE ha01_llamadas_fallidas_proveedor_total counter
+ha01_llamadas_fallidas_proveedor_total 0.0
+# HELP ha01_llamadas_fallidas_proveedor_created Invocaciones al proveedor que consumieron el timeout duro sin servir para responder. Salud del adaptador, NO impacto al socio.
+# TYPE ha01_llamadas_fallidas_proveedor_created gauge
+ha01_llamadas_fallidas_proveedor_created 1.7890890588028622e+09
+# HELP ha01_breaker_state 0 cerrado · 1 semiabierto · 2 abierto
+# TYPE ha01_breaker_state gauge
+ha01_breaker_state 0.0
+# HELP ha01_breaker_transitions_total Transiciones del interruptor
+# TYPE ha01_breaker_transitions_total counter
+# HELP ha01_breaker_abierto_desde_seconds Marca de tiempo unix de la ultima apertura del interruptor (0 si cerrado)
+# TYPE ha01_breaker_abierto_desde_seconds gauge
+ha01_breaker_abierto_desde_seconds 0.0
+# HELP ha01_refrescos_total Refrescos en segundo plano por desenlace
+# TYPE ha01_refrescos_total counter
+# HELP ha01_refrescos_fondo_activos Tareas de refresco vivas. Debe volver a cero al terminar la ventana; si no, el brazo C tiene una fuga.
+# TYPE ha01_refrescos_fondo_activos gauge
+ha01_refrescos_fondo_activos 0.0
+# HELP ha01_coalescidas_total Peticiones que se sumaron a una invocacion ya en vuelo — HD-01.7
+# TYPE ha01_coalescidas_total counter
+ha01_coalescidas_total 0.0
+# HELP ha01_coalescidas_created Peticiones que se sumaron a una invocacion ya en vuelo — HD-01.7
+# TYPE ha01_coalescidas_created gauge
+ha01_coalescidas_created 1.7890890588029144e+09

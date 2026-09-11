@@ -1,0 +1,22 @@
+{
+  "brazo": "cache_opportunistic",
+  "estado": "sin_respuesta",
+  "rate": 200.0,
+  "fases": [
+    {
+      "nombre": "sana",
+      "ini": 1789081352,
+      "fin": 1789081472
+    },
+    {
+      "nombre": "degradada",
+      "ini": 1789081472,
+      "fin": 1789081593
+    },
+    {
+      "nombre": "recuperacion",
+      "ini": 1789081593,
+      "fin": 1789081653
+    }
+  ]
+}
