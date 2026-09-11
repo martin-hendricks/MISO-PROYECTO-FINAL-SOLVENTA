@@ -1,3 +1,5 @@
 2026-09-10 21:34:14  INICIO de la campana | bloques en orden: r
 2026-09-10 21:34:15  montaje verificado: Docker y API responden
 2026-09-10 21:34:30  BLOQUE r: inicio
+2026-09-11 00:49:20  BLOQUE r: fin | codigo 0 | corridas fallidas en el bloque: 0
+2026-09-11 00:49:40  BLOQUE r: evidencia consolidada (CSV y figuras)
