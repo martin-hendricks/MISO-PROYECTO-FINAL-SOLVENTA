@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-10 22:09:55. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-10 22:16:57. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-10 21:34:30  BLOQUE r: inicio |
-| Progreso | **16 de 37** corridas ejecutadas · 16 válidas |
+| Progreso | **17 de 37** corridas ejecutadas · 17 válidas |
 | En curso | — |
-| Pendientes | 21 · fin estimado hacia las 00:55 |
-| Válidas / sospechosas / inválidas / fallidas | 16 / 0 / 0 / 0 |
+| Pendientes | 20 · fin estimado hacia las 00:54 |
+| Válidas / sospechosas / inválidas / fallidas | 17 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -39,7 +39,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 14 | `direct_b1_r1_sano` | A | sano | 0.96 | 100 | ✅ válida | 174,1 | 208,1 | 0,00 % | 0,00 % | 4,6 | 10/09 21:55 |
 | 15 | `cache_blocking_b1_r1_sano` | B | sano | 0.96 | 100 | ✅ válida | 64,9 | 143,9 | 0,00 % | 0,00 % | 4,4 | 10/09 22:02 |
 | 16 | `cache_opportunistic_b1_r1_sano` | C | sano | 0.96 | 100 | ✅ válida | 64,9 | 144,7 | 0,00 % | 0,23 % | 4,5 | 10/09 22:09 |
-| 17 | `direct_b1_r1_degradado` | A | degradado | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
+| 17 | `direct_b1_r1_degradado` | A | degradado | 0.96 | 100 | ✅ válida | 122,2 | 778,1 | 4,55 % | 98,94 % | 4,6 | 10/09 22:16 |
 | 18 | `cache_blocking_b1_r1_degradado` | B | degradado | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
 | 19 | `cache_opportunistic_b1_r1_degradado` | C | degradado | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
 | 20 | `direct_b1_r1_sin_respuesta` | A | sin_respuesta | 0.96 | 100 | · pendiente | — | — | — | — | — |  |
