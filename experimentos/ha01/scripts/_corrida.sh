@@ -170,14 +170,21 @@ corrida() {
     > "${DEST}/env.txt" || true
 
   # -- 7. Verificaciones POSTERIORES -------------------------------------
-  CORRIDA_DIR="${DEST}" "${RAIZ}/scripts/verify_run.sh" | tee "${DEST}/sanidad.txt" \
-    || echo "AVISO: la corrida ${ETIQUETA} no paso todas las verificaciones"
-  if [ "${ARM}" != "direct" ]; then
-    "${RAIZ}/scripts/verify_hitrate.sh" | tee -a "${DEST}/sanidad.txt" || true
+  # Una corrida que no pasa las verificaciones NO es una corrida: se devuelve
+  # el fallo para que `corrida_segura` la registre y el bloque la liste como
+  # pendiente de repetir.
+  local sano=0
+  CORRIDA_DIR="${DEST}" "${RAIZ}/scripts/verify_run.sh" \
+    | tee "${DEST}/sanidad.txt" || sano=1
+  # VERIFICAR_ACIERTO=0 solo en celdas donde el acierto NO es la variable
+  # controlada (la de estampida de HD-01.7, con TTL de 2 s).
+  if [ "${ARM}" != "direct" ] && [ "${VERIFICAR_ACIERTO:-1}" = "1" ]; then
+    "${RAIZ}/scripts/verify_hitrate.sh" | tee -a "${DEST}/sanidad.txt" || sano=1
   fi
 
   echo "corrida ${ETIQUETA} -> ${DEST}"
   echo
+  return "${sano}"
 }
 
 
@@ -236,7 +243,11 @@ corrida_escalones() {
   MSYS_NO_PATHCONV=1 docker compose --profile load run --rm     -e ESCALONES="${ESCALONES}" -e ESCALON_S="${ESCALON_S}"     -e ESTABILIZACION_S="${ESTAB}"     -e ARM="${ARM}" -e RUN_ID="${RUN_ID}" -e PROVIDER_STATE="${ESTADO}"     -e UNIVERSO_CLIENTES="${UNIVERSO_CLIENTES}" -e POOL_STALE="${POOL_STALE}"     -e POOL_COLD="${POOL_COLD}" -e TARGET_HIT_RATE="${TARGET_HIT_RATE}"     -e MISS_STALE_FRACTION="${MISS_STALE_FRACTION}"     k6 run -o experimental-prometheus-rw       --summary-export "/results/${ETIQUETA}/k6_summary.json"       /scripts/cotizacion.js > "${DEST}/k6_stdout.txt" 2>&1 &
   local K6=$!
 
+  # Mismo blindaje del reloj de fases que en `corrida`: los escalones de k6 se
+  # cuentan desde que k6 arranca, no desde que se lanza el contenedor.
+  esperar_carga || fallar "la carga no arranco: la corrida no es valida"
   sleep "${ESTAB}"
+  carga_viva || fallar "la carga no sigue viva al abrir la ventana"
   local marcas=() ini fin
   for r in $(echo "${ESCALONES}" | tr ',' ' '); do
     ini=$(ahora)
@@ -254,10 +265,12 @@ corrida_escalones() {
   curl -s "${PROV}/metrics" > "${DEST}/provider_metrics.txt"
   docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}}'     > "${DEST}/stats.csv"
 
-  CORRIDA_DIR="${DEST}" "${RAIZ}/scripts/verify_run.sh" | tee "${DEST}/sanidad.txt"     || echo "AVISO: la corrida ${ETIQUETA} no paso todas las verificaciones"
+  local sano=0
+  CORRIDA_DIR="${DEST}" "${RAIZ}/scripts/verify_run.sh" | tee "${DEST}/sanidad.txt" || sano=1
 
   echo "corrida ${ETIQUETA} -> ${DEST}"
   echo
+  return "${sano}"
 }
 
 
@@ -287,6 +300,56 @@ corrida_escalones() {
 #
 #   corrida_segura <corrida|corrida_escalones> <args...>
 # ---------------------------------------------------------------------
+# Una corrida es valida si paso todas las verificaciones y ninguna dio ERROR.
+corrida_valida() {  # corrida_valida <dir>
+  local s="$1/sanidad.txt"
+  [ -f "${s}" ] && grep -q "todas las verificaciones pasaron" "${s}" \
+    && ! grep -q "ERROR" "${s}"
+}
+
+# Cierra la evidencia de una corrida recien terminada: sus resultados por fase
+# y sus series temporales quedan DENTRO de su carpeta (autocontenida, no
+# depende de Prometheus), se regenera ESTADO_EXPERIMENTO.md y todo se sube al
+# repositorio. Cada paso es tolerante a fallos: nada de esto puede tumbar la
+# campana.
+cerrar_corrida() {  # cerrar_corrida <etiqueta> <valida|FALLIDA>
+  local etq="$1" res="$2" dir="${RAIZ}/results/raw/$1"
+  [ -d "${dir}" ] || return 0
+  if [ -f "${dir}/fases.json" ]; then
+    "${PY}" "${RAIZ}/scripts/analizar.py" --corrida "${dir}" >/dev/null 2>&1 || true
+    "${PY}" "${RAIZ}/scripts/exportar_series.py" "${dir}" >/dev/null 2>&1 || true
+  fi
+  "${PY}" "${RAIZ}/scripts/estado.py" >/dev/null 2>&1 || true
+  subir_evidencia "Evidencia HA-01: ${etq} (${res})" "results/raw/${etq}"
+}
+
+# Commit y push de la evidencia indicada mas el estado del experimento.
+# Si el push falla -sin red, por ejemplo- el commit queda en local y sube con
+# el siguiente. EVIDENCIA_GIT=0 lo desactiva (pruebas).
+subir_evidencia() {  # subir_evidencia <mensaje> <ruta>...
+  [ "${EVIDENCIA_GIT:-1}" = "1" ] || return 0
+  local msg="$1"; shift
+  ( cd "${RAIZ}" || exit 0
+    local rutas=() r
+    for r in "$@" ESTADO_EXPERIMENTO.md results/campana_estado.txt results/corridas_fallidas.txt; do
+      [ -e "${r}" ] && rutas+=("${r}")
+    done
+    [ "${#rutas[@]}" -gt 0 ] || exit 0
+    git add -A -- "${rutas[@]}" >/dev/null 2>&1
+    if ! git commit -q -m "${msg}" \
+         -m "Commit automatico de la campana: evidencia cruda, resultados por fase, series temporales y estado del experimento." \
+         -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>" \
+         -- "${rutas[@]}" >/dev/null 2>&1; then
+      echo "   (sin cambios que subir)"; exit 0
+    fi
+    if timeout 90 git push -q origin HEAD >/dev/null 2>&1; then
+      echo "   evidencia subida al repositorio: ${msg}"
+    else
+      echo "   AVISO: no se pudo hacer push; queda commiteada en local y sube con la siguiente"
+    fi
+  )
+}
+
 FALLOS_SEGUIDOS=0
 FALLOS_DEL_BLOQUE=()
 # Registro persistente de toda la campana; el resumen de cada bloque usa el
@@ -295,17 +358,48 @@ REGISTRO_FALLOS="${RAIZ}/results/corridas_fallidas.txt"
 
 corrida_segura() {
   local fn="$1"; shift
+  local etq="${1}_${2}"            # <brazo>_<run_id>, como la carpeta de la corrida
+  local dir="${RAIZ}/results/raw/${etq}"
+
+  # Modo plan: solo enumera. estado.py lo usa para saber que corridas componen
+  # el experimento sin mantener una segunda lista a mano que acabe divergiendo.
+  if [ "${SOLO_LISTAR:-0}" = "1" ]; then
+    echo "PLAN|${etq}|${fn}|$*"
+    return 0
+  fi
+
+  # Idempotencia: una corrida ya valida no se repite. Si el equipo se reinicia
+  # a mitad de la noche, relanzar la campana continua donde se quedo.
+  if corrida_valida "${dir}"; then
+    echo "-- ${etq}: ya existe y es valida; se omite"
+    return 0
+  fi
+
+  echo "${etq}|$(date '+%Y-%m-%d %H:%M:%S')" > "${RAIZ}/results/corrida_en_curso.txt"
   local rc=0
-  bash -c 'set -euo pipefail; source "$1"; shift; "$@"'        _ "${RAIZ}/scripts/_corrida.sh" "${fn}" "$@" || rc=$?
+  bash -c 'set -euo pipefail; source "$1"; shift; "$@"' \
+       _ "${RAIZ}/scripts/_corrida.sh" "${fn}" "$@" || rc=$?
+  rm -f "${RAIZ}/results/corrida_en_curso.txt"
+
+  # Tanto si salio bien como si no: la evidencia de un fallo tambien es
+  # evidencia. Nada de esto puede tumbar la campana.
+  local resultado="valida"
+  local linea="$(date '+%Y-%m-%d %H:%M:%S')  ${fn} $*"
+  if [ "${rc}" -ne 0 ]; then
+    resultado="FALLIDA"
+    # Se anota ANTES de cerrar la corrida, para que el commit de su evidencia
+    # ya incluya el registro de fallos actualizado.
+    echo "${linea}" >> "${REGISTRO_FALLOS}"
+  fi
+  cerrar_corrida "${etq}" "${resultado}" || echo "AVISO: no se pudo cerrar la evidencia de ${etq}" >&2
+
   if [ "${rc}" -eq 0 ]; then
     FALLOS_SEGUIDOS=0
     return 0
   fi
 
   FALLOS_SEGUIDOS=$((FALLOS_SEGUIDOS + 1))
-  local linea="$(date '+%Y-%m-%d %H:%M:%S')  ${fn} $*"
   FALLOS_DEL_BLOQUE+=("${linea}")
-  echo "${linea}" >> "${REGISTRO_FALLOS}"
   echo "!! CORRIDA FALLIDA: ${fn} $* — registrada, el bloque continua" >&2
 
   if [ "${FALLOS_SEGUIDOS}" -ge 3 ]; then

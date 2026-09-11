@@ -113,6 +113,37 @@ else
   echo "  AVISO no hay fases.json: no se pudo comprobar que la ventana tenga carga"
 fi
 
+# 9. Interferencia en el bucle de eventos (detector de interferencia).
+#    NO invalida la corrida: lo marca como SOSPECHOSA para que el informe pueda
+#    discutirla o excluirla. El retraso lo produce tanto la carga propia del
+#    worker como la competencia por CPU con otros procesos del equipo, y la
+#    sonda no distingue una causa de otra; lo que si dice es si la cola de
+#    latencia de esta corrida esta contaminada por parones del bucle.
+if [ -n "${CORRIDA_DIR:-}" ] && [ -f "${CORRIDA_DIR}/fases.json" ]; then
+  "${PY}" - "${CORRIDA_DIR}/fases.json" <<'PY' || true
+import json, sys, urllib.parse, urllib.request
+f = json.load(open(sys.argv[1], encoding="utf-8"))["fases"]
+ini, fin = f[0]["ini"], f[-1]["fin"]
+w = "[{}s]".format(max(int(fin - ini), 5))
+
+def q(expr):
+    url = "http://localhost:9090/api/v1/query?" + urllib.parse.urlencode(
+        {"query": expr, "time": fin})
+    r = json.load(urllib.request.urlopen(url, timeout=20))["data"]["result"]
+    return float(r[0]["value"][1]) if r else None
+
+p99 = q("histogram_quantile(0.99, sum by (le) (rate(ha01_event_loop_lag_seconds_bucket" + w + ")))")
+parones = q("sum(increase(ha01_event_loop_lag_seconds_count" + w + ")) - "
+            "sum(increase(ha01_event_loop_lag_seconds_bucket{le=\"0.25\"}" + w + "))")
+if p99 is None:
+    print("  AVISO sin datos del detector de interferencia (API anterior a la sonda)")
+else:
+    sospechosa = (parones or 0) >= 1 or p99 > 0.05
+    print("  detector de interferencia: retraso p99 del bucle {:.1f} ms, parones > 250 ms: {:.0f}{}".format(
+        p99 * 1000, parones or 0, "  -> SOSPECHOSA" if sospechosa else ""))
+PY
+fi
+
 echo
 if [ "$fallos" -gt 0 ]; then
   echo "RESULTADO: ${fallos} verificacion(es) fallaron - la corrida NO es valida"

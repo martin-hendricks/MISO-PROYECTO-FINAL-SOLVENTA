@@ -1,9 +1,10 @@
-results/raw/*
-results/analysis/*
-!results/raw/.gitkeep
-!results/analysis/.gitkeep
+# La evidencia del experimento (results/raw, results/analysis,
+# results/prometheus) SE VERSIONA: la campana la sube al repositorio al cerrar
+# cada corrida para que el equipo la vea y no dependa de un solo portatil.
+# Solo se excluyen los archivos transitorios de la ejecucion.
 __pycache__/
 *.pyc
 .env.local
 results/*.lock
 results/prueba_tarea.log
+results/corrida_en_curso.txt

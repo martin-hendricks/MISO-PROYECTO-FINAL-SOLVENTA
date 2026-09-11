@@ -1,4 +1,5 @@
 """`:MsCotizacion` — recurso de cotizacion embebida y seleccion de brazo."""
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,7 @@ from .metrics import (
     COTIZACIONES,
     COTIZACIONES_ERROR,
     DEGRADADAS,
+    LOOP_LAG,
     PERFIL_EDAD,
     QUOTE_LAT,
 )
@@ -22,6 +24,20 @@ from .rating import REGLAS_FALLBACK, MotorTarifa
 from .strategies import ESTRATEGIAS, USA_CACHE
 
 ESTRATEGIA = ESTRATEGIAS[config.QUOTE_STRATEGY]
+PERIODO_SONDA = 0.1
+
+
+async def _sonda_bucle() -> None:
+    """Detector de interferencia: mide cuanto se retrasa el bucle de eventos.
+
+    Diez despertares por segundo frente a 100-200 cotizaciones por segundo:
+    su propio costo es despreciable.
+    """
+    loop = asyncio.get_running_loop()
+    while True:
+        t0 = loop.time()
+        await asyncio.sleep(PERIODO_SONDA)
+        LOOP_LAG.observe(max(0.0, loop.time() - t0 - PERIODO_SONDA))
 
 
 @asynccontextmanager
@@ -40,9 +56,11 @@ async def lifespan(app: FastAPI):
         app.state.reglas_desde_bd = True
 
     app.state.ctx = Contexto(adaptador, cache, rating)
+    sonda = asyncio.create_task(_sonda_bucle())
     try:
         yield
     finally:
+        sonda.cancel()
         await app.state.ctx.drenar()
         await adaptador.aclose()
         await cache.aclose()

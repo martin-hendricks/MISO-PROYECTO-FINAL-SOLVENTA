@@ -113,3 +113,16 @@ COALESCIDAS = Counter(
     "ha01_coalescidas",
     "Peticiones que se sumaron a una invocacion ya en vuelo — HD-01.7",
 )
+
+# --- Detector de interferencia -----------------------------------------
+# Una sonda duerme 100 ms en bucle y anota cuanto de mas tardo en despertar.
+# Ese retraso es tiempo en que el bucle de eventos no pudo atender a nadie:
+# lo produce tanto la carga propia del worker como la competencia por CPU con
+# otros procesos del equipo. Sin esta metrica, una corrida contaminada por
+# interferencia es indistinguible de una limpia; con ella, cada corrida trae
+# su propia prueba.
+LOOP_LAG = Histogram(
+    "ha01_event_loop_lag_seconds",
+    "Retraso del bucle de eventos de la API sobre un sueno de 100 ms",
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+)

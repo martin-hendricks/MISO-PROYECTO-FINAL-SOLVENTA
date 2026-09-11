@@ -58,6 +58,11 @@ if ! curl -sf -o /dev/null http://localhost:8000/health; then
 fi
 marca "montaje verificado: Docker y API responden"
 
+# Plan del experimento completo (lo lee estado.py) y estado inicial.
+./scripts/generar_plan.sh >/dev/null 2>&1 || marca "AVISO: no se pudo generar el plan"
+python scripts/estado.py >/dev/null 2>&1 || true
+./scripts/subir.sh "Estado HA-01: inicio de campana (bloques ${ORDEN[*]})" results/plan.txt >/dev/null 2>&1 || true
+
 # --- bloques -----------------------------------------------------------
 for b in "${ORDEN[@]}"; do
   antes=$(fallidas)
@@ -69,6 +74,7 @@ for b in "${ORDEN[@]}"; do
     3) ./scripts/run_block3.sh   || rc=$? ;;
     4) ./scripts/run_block4.sh   || rc=$? ;;
     d) ./scripts/run_decisivo.sh || rc=$? ;;   # A, B y C con proveedor lento
+    r) ./scripts/run_plan_reducido.sh || rc=$? ;;   # plan de la noche
     *) marca "bloque desconocido: ${b}"; continue ;;
   esac
   nuevas=$(( $(fallidas) - antes ))
@@ -78,6 +84,8 @@ for b in "${ORDEN[@]}"; do
   ./scripts/collect_results.sh >/dev/null 2>&1 \
     && marca "BLOQUE ${b}: evidencia consolidada (CSV y figuras)" \
     || marca "BLOQUE ${b}: AVISO, fallo la consolidacion (los datos crudos estan)"
+  ./scripts/subir.sh "Resultados HA-01: CSV y figuras tras el bloque ${b}" \
+    results/analysis >/dev/null 2>&1 || true
 
   if [ "${rc}" -ne 0 ]; then
     marca "DETENIDA: el bloque ${b} aborto por fallos seguidos; el montaje parece caido"
@@ -90,4 +98,13 @@ for b in "${ORDEN[@]}"; do
 done
 
 marca "FIN de la campana | corridas fallidas en total: $(fallidas)"
+
+# Respaldo completo de las series temporales: una sola instantanea vigente.
+rm -f results/prometheus/tsdb_*.tgz
+./scripts/instantanea_prometheus.sh >/dev/null 2>&1 \
+  && marca "instantanea de Prometheus guardada en results/prometheus" \
+  || marca "AVISO: no se pudo sacar la instantanea de Prometheus"
+python scripts/estado.py >/dev/null 2>&1 || true
+./scripts/subir.sh "Evidencia HA-01: cierre de campana (instantanea de Prometheus y traza)" \
+  results/prometheus results/campana.log results/plan.txt >/dev/null 2>&1 || true
 exit 0

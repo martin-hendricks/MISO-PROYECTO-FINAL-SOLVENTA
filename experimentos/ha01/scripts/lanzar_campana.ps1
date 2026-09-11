@@ -21,6 +21,7 @@ if ($Prueba) {
                "docker info --format 'docker {{.ServerVersion}} | {{.MemTotal}} bytes'; " +
                "python --version; " +
                "curl -s -o /dev/null -w 'api /health: %{http_code}\n' http://localhost:8000/health; " +
+               "git push --dry-run origin HEAD >/dev/null 2>&1 && echo 'git push: OK' || echo 'git push: FALLA'; " +
                "echo PRUEBA_OK; } > results/prueba_tarea.log 2>&1"
 } else {
     $comando = "CAMPANA_BLOQUES='$Bloques' ./scripts/run_campana.sh >> results/campana.log 2>&1"

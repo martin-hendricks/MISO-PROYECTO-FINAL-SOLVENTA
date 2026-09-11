@@ -130,6 +130,10 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --web.enable-remote-write-receiver
       - --storage.tsdb.retention.time=30d
+      # Permite sacar instantaneas consistentes de la base (POST
+      # /api/v1/admin/tsdb/snapshot): las series temporales son la materia
+      # prima del analisis y el volumen de Docker no es un respaldo.
+      - --web.enable-admin-api
     volumes:
       - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prom-data:/prometheus

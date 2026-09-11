@@ -190,6 +190,24 @@ def analizar_corrida(dir_corrida):
                 "sum(" + misses + ")", t1), 2),
         }
 
+        # Fraccion EXACTA por encima de cada umbral, por conteo de buckets:
+        # hay limites de bucket justo en 0,225 y 0,475 s, asi que no depende
+        # de la interpolacion de histogram_quantile. Es la forma robusta de
+        # decir si una celda cumple cuando su percentil cae cerca del umbral.
+        cnt = "sum(increase(ha01_quote_latency_seconds_count" + v + "))"
+        for lim, col in (("0.225", "sobre_225_pct"), ("0.475", "sobre_475_pct")):
+            fila[col] = _pct(escalar(
+                "1 - sum(increase(ha01_quote_latency_seconds_bucket{le=\"" + lim
+                + "\"}" + v + ")) / " + cnt, t1))
+
+        # Detector de interferencia: retraso del bucle de eventos de la API.
+        lag = "sum by (le) (rate(ha01_event_loop_lag_seconds_bucket" + v + "))"
+        fila["lag_p99_ms"] = _ms(escalar("histogram_quantile(0.99, " + lag + ")", t1))
+        fila["parones_250ms"] = _r(escalar(
+            "sum(increase(ha01_event_loop_lag_seconds_count" + v + ")) - "
+            "sum(increase(ha01_event_loop_lag_seconds_bucket{le=\"0.25\"}" + v + "))",
+            t1), 0)
+
         # p95 por camino: es la tabla de HD-01.3, donde debe verse que el
         # camino degradado resulta mas rapido que el camino frio.
         for origen, val in por_etiqueta(
@@ -230,7 +248,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("origen", nargs="?", default="results/raw")
     ap.add_argument("-o", "--salida", default="results/analysis")
+    ap.add_argument("--corrida", help="analiza solo esta carpeta de corrida y "
+                    "guarda sus resultados dentro de ella (fases_resultado.json)")
     args = ap.parse_args()
+
+    if args.corrida:
+        # Modo por corrida: la carpeta queda autocontenida, con sus propios
+        # resultados por fase junto a la evidencia cruda. Se ejecuta al cerrar
+        # cada corrida, mientras Prometheus aun tiene las series.
+        d = pathlib.Path(args.corrida)
+        filas = analizar_corrida(d)
+        (d / "fases_resultado.json").write_text(
+            json.dumps(filas, indent=2, ensure_ascii=False), encoding="utf-8")
+        print("resultados por fase -> " + str(d / "fases_resultado.json"))
+        return 0 if filas else 1
 
     raiz = pathlib.Path(args.origen)
     if not raiz.exists():
