@@ -1,6 +1,6 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 00:49:53. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 17:49:11. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
@@ -10,7 +10,7 @@ _Actualizado automáticamente: 2026-09-11 00:49:53. Se regenera al cerrar cada c
 | Progreso | **37 de 37** corridas ejecutadas · 37 válidas |
 | En curso | — |
 | Pendientes | 0 · fin estimado hacia las — |
-| Válidas / sospechosas / inválidas / fallidas | 37 / 0 / 0 / 0 |
+| Válidas / sospechosas / inválidas / fallidas | 32 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -27,7 +27,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 5 | `cache_opportunistic_b3_estampida_hr0.96` | C | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 3,88 % | — | 10/09 18:08 |
 | 6 | `cache_singleflight_b3_estampida_hr0.96` | C' | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 4,16 % | — | 10/09 18:15 |
 | 7 | `cache_opportunistic_b3_estampida_hr0.50` | C | sin_respuesta | 0.50 | 200 | ✅ válida | 64,6 | 183,3 | 0,00 % | 48,90 % | — | 10/09 18:22 |
-| 8 | `cache_singleflight_b3_estampida_hr0.50` | C' | sin_respuesta | 0.50 | 200 | ✅ válida | 64,7 | 183,6 | 0,00 % | 49,42 % | — | 10/09 18:29 |
+| 8 | `cache_singleflight_b3_estampida_hr0.50` | C' | sin_respuesta | 0.50 | 200 | ⚠️ válida, revisar (respaldo por encima del presupuesto) | 64,7 | 183,6 | 0,00 % | 49,42 % | — | 10/09 18:29 |
 
 ## Bloque 1 — estrategia contra estado del proveedor (1 repetición)
 
@@ -78,15 +78,18 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 
 | # | Corrida | Brazo | Proveedor | Acierto | sol/s | Estado | p95 ms | p99 ms | > 475 ms | Con respaldo | Lag bucle p99 ms | Fin |
 | ---: | --- | :---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 34 | `cache_blocking_b4_sano` | B | sano | 0.96 | 20→200 | ✅ válida | 131,4 | 166,0 | 0,00 % | 0,00 % | 4,2 | 11/09 00:20 |
-| 35 | `cache_opportunistic_b4_sano` | C | sano | 0.96 | 20→200 | ✅ válida | 133,0 | 167,7 | 0,00 % | 0,48 % | 4,0 | 11/09 00:29 |
-| 36 | `cache_blocking_b4_degradado` | B | degradado | 0.96 | 20→200 | ✅ válida | 64,3 | 64,9 | 0,03 % | 14,74 % | 4,2 | 11/09 00:39 |
-| 37 | `cache_opportunistic_b4_degradado` | C | degradado | 0.96 | 20→200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 14,78 % | 4,0 | 11/09 00:49 |
+| 34 | `cache_blocking_b4_sano` | B | sano | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 131,4 | 166,0 | 0,00 % | 0,00 % | 4,2 | 11/09 00:20 |
+| 35 | `cache_opportunistic_b4_sano` | C | sano | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 133,0 | 167,7 | 0,00 % | 0,48 % | 4,0 | 11/09 00:29 |
+| 36 | `cache_blocking_b4_degradado` | B | degradado | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 64,3 | 64,9 | 0,03 % | 14,74 % | 4,2 | 11/09 00:39 |
+| 37 | `cache_opportunistic_b4_degradado` | C | degradado | 0.96 | 20→200 | ⚠️ válida, revisar (acierto fuera de tolerancia) | 64,3 | 64,9 | 0,00 % | 14,78 % | 4,0 | 11/09 00:49 |
 
 ## Leyenda
 
 - **✅ válida** — pasó las nueve verificaciones de sanidad (tráfico en cada fase, acierto en tolerancia, sin iteraciones descartadas, sin fugas, sin evicción, error < 1 %).
-- **⚠️ válida, sospechosa** — válida, pero el detector de interferencia vio el bucle de eventos de la API retrasado (p99 > 50 ms o algún parón > 250 ms). Su cola de latencia puede estar contaminada; el informe debe discutirla.
+- **⚠️ válida, revisar** — pasó las verificaciones, pero algo pide una segunda lectura antes de citarla en el informe:
+  - *interferencia*: el bucle de eventos de la API estuvo retrasado (p99 > 50 ms o algún parón > 250 ms), así que su cola de latencia puede estar contaminada.
+  - *acierto fuera de tolerancia*: alguna fase se desvió más de 2 puntos del objetivo. Las verificaciones lo miran de forma acumulada; esto lo mira fase a fase.
+  - *respaldo por encima del presupuesto*: en C o C' el respaldo superó 230 ms, que es presupuesto + tarifa + margen. En B no aplica, porque allí el respaldo espera al proveedor hasta el timeout duro.
 - **❌ inválida / fallida** — no pasó las verificaciones o no terminó; queda en `results/corridas_fallidas.txt` para repetirla.
 - **—** en el lag: corrida anterior a la sonda del detector.
 
