@@ -1,15 +1,15 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 18:38:56. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 18:39:40. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
-| Campaña | 2026-09-11 00:49:53  instantanea de Prometheus guardada en results/prometheus |
+| Campaña | 2026-09-11 18:39:28  montaje verificado: Docker y API responden |
 | Progreso | **37 de 52** corridas ejecutadas · 37 válidas |
 | En curso | — |
-| Pendientes | 15 · fin estimado hacia las 20:40 |
+| Pendientes | 15 · fin estimado hacia las 20:41 |
 | Válidas / sospechosas / inválidas / fallidas | 32 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
