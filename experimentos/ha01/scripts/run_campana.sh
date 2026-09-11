@@ -68,6 +68,7 @@ for b in "${ORDEN[@]}"; do
     2) ./scripts/run_block2.sh 3 || rc=$? ;;
     3) ./scripts/run_block3.sh   || rc=$? ;;
     4) ./scripts/run_block4.sh   || rc=$? ;;
+    d) ./scripts/run_decisivo.sh || rc=$? ;;   # A, B y C con proveedor lento
     *) marca "bloque desconocido: ${b}"; continue ;;
   esac
   nuevas=$(( $(fallidas) - antes ))
