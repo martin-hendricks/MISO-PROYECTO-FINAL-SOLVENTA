@@ -75,7 +75,11 @@ for summary in "${RESULTS_DIR}"/summary_*_r[0-9]*.json; do
   # vienen ttl0_r1b/ttl300_r1b, sin tener que consultar la bitácora.
   estado="valido"
   case "$run_id" in
-    ttl0_r1b|ttl300_r1b) estado="valido (repeticion de r1 contaminada, ver INFORME.md §2.3bis)" ;;
+    # Sin comas dentro del valor: es CSV sin comillado de campos, una coma
+    # aquí desalinea la fila contra el encabezado (defecto real, encontrado
+    # en la segunda ronda de auditoría externa — verificado con el lector
+    # csv de Python: las 2 filas r1b salían con 11 campos contra 10).
+    ttl0_r1b|ttl300_r1b) estado="valido (repeticion de r1 contaminada - ver INFORME.md §2.3bis)" ;;
   esac
 
   echo "${arm},${run_id},n/a,${p50},${p95},${p99},${error_rate},${hit_rate},${lag_p95},${estado}"
