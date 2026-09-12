@@ -2459,3 +2459,1036 @@ CAMPANA 2026-09-11 00:49:20  BLOQUE r: fin | codigo 0 | corridas fallidas en el 
 CAMPANA 2026-09-11 00:49:40  BLOQUE r: evidencia consolidada (CSV y figuras)
 CAMPANA 2026-09-11 00:49:47  FIN de la campana | corridas fallidas en total: 0
 CAMPANA 2026-09-11 00:49:53  instantanea de Prometheus guardada en results/prometheus
+CAMPANA 2026-09-11 18:39:27  INICIO de la campana | bloques en orden: x
+CAMPANA 2026-09-11 18:39:28  montaje verificado: Docker y API responden
+CAMPANA 2026-09-11 18:39:46  BLOQUE x: inicio
+############################################################
+# corrida cache_blocking_b3b_pol_rate_alto | brazo=cache_blocking estado=sin_respuesta
+#   acierto=0.96 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-toxiproxy Running 
+ Container ha01-provider Running 
+ Container ha01-postgres Running 
+ Container ha01-redis Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-54ca906ac9b7 Creating 
+ Container ha01-tools-run-54ca906ac9b7 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.69M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.3 ms
+    toxiproxy p50=  68.8 ms
+    sobrecosto PAREADO: +1.12 ms  IC 95 % [-0.50, +1.50]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=71 ms p95=151 ms max=299 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=1932.0  provider servidas=2255.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=1146 de 76001 = 1.51%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24001 cotizaciones  ok
+  fase degradada         24201 cotizaciones  ok
+  fase recuperacion      12001 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.2 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9595 objetivo=0.9600 (aciertos=72923 fallos=3078)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b3b_pol_rate_alto -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b3b_pol_rate_alto
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b3b_pol_rate_alto (valida)
+############################################################
+# corrida cache_blocking_b3b_pol_rate_bajo | brazo=cache_blocking estado=sin_respuesta
+#   acierto=0.96 breaker=rate rate=10
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-postgres Running 
+ Container ha01-redis Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-provider Running 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-postgres Healthy 
+ Container ha01-redis Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d554eaacd023 Creating 
+ Container ha01-tools-run-d554eaacd023 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.69M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 10 sol/s se repoblaran ~48 durante los 240 s sanos -> deriva +0.00 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  63.9 ms
+    toxiproxy p50=  68.5 ms
+    sobrecosto PAREADO: +1.08 ms  IC 95 % [+0.37, +1.74]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=139 ms max=309 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 10 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (3801.0 cotizaciones)
+  adapter ok=98.0  provider servidas=2624.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=3801 errores=0 tasa=0.0000%
+  con respaldo=50 de 3801 = 1.32%
+  k6 iteraciones=3801 descartadas=0 (0.000%)
+  fase sana               1210 cotizaciones  ok
+  fase degradada          1200 cotizaciones  ok
+  fase recuperacion        610 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 3.7 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9611 objetivo=0.9600 (aciertos=3653 fallos=148)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b3b_pol_rate_bajo -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b3b_pol_rate_bajo
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b3b_pol_rate_bajo (valida)
+############################################################
+# corrida cache_blocking_b3b_pol_count_alto | brazo=cache_blocking estado=sin_respuesta
+#   acierto=0.96 breaker=count rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-redis Running 
+ Container ha01-provider Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-postgres Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-f9c2f9fd5d48 Creating 
+ Container ha01-tools-run-f9c2f9fd5d48 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.67M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  66.0 ms
+    toxiproxy p50=  68.2 ms
+    sobrecosto PAREADO: +1.60 ms  IC 95 % [+0.90, +2.15]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=128 ms max=276 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.25%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=2045.0  provider servidas=4950.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=1029 de 76001 = 1.35%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              23999 cotizaciones  ok
+  fase degradada         24202 cotizaciones  ok
+  fase recuperacion      12000 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.0 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9596 objetivo=0.9600 (aciertos=72927 fallos=3074)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b3b_pol_count_alto -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b3b_pol_count_alto
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b3b_pol_count_alto (valida)
+############################################################
+# corrida cache_blocking_b3b_pol_count_bajo | brazo=cache_blocking estado=sin_respuesta
+#   acierto=0.96 breaker=count rate=10
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-provider Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-postgres Running 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-7e04f74c6707 Creating 
+ Container ha01-tools-run-7e04f74c6707 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.69M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 10 sol/s se repoblaran ~48 durante los 240 s sanos -> deriva +0.00 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  69.1 ms
+    toxiproxy p50=  65.9 ms
+    sobrecosto PAREADO: +1.13 ms  IC 95 % [+0.66, +1.71]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=151 ms max=340 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+-- carga: 380s a 10 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (3801.0 cotizaciones)
+  adapter ok=105.0  provider servidas=5331.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=3801 errores=0 tasa=0.0000%
+  con respaldo=50 de 3801 = 1.32%
+  k6 iteraciones=3801 descartadas=0 (0.000%)
+  fase sana               1200 cotizaciones  ok
+  fase degradada          1200 cotizaciones  ok
+  fase recuperacion        610 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.5 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9592 objetivo=0.9600 (aciertos=3646 fallos=155)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b3b_pol_count_bajo -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b3b_pol_count_bajo
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b3b_pol_count_bajo (valida)
+############################################################
+# corrida cache_blocking_b5_intermitente_rate | brazo=cache_blocking estado=intermitente
+#   acierto=0.96 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-provider Running 
+ Container ha01-redis Running 
+ Container ha01-postgres Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-postgres Healthy 
+ Container ha01-redis Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-5d0637526250 Creating 
+ Container ha01-tools-run-5d0637526250 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.67M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  66.8 ms
+    toxiproxy p50=  68.9 ms
+    sobrecosto PAREADO: +1.45 ms  IC 95 % [+0.72, +2.46]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=150 ms max=308 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> intermitente
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=2817.0  provider servidas=8408.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=267 de 76001 = 0.35%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24001 cotizaciones  ok
+  fase degradada         24000 cotizaciones  ok
+  fase recuperacion      12200 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.0 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9594 objetivo=0.9600 (aciertos=72917 fallos=3084)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b5_intermitente_rate -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b5_intermitente_rate
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b5_intermitente_rate (valida)
+############################################################
+# corrida cache_opportunistic_b5_intermitente_rate | brazo=cache_opportunistic estado=intermitente
+#   acierto=0.96 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-toxiproxy Running 
+ Container ha01-postgres Running 
+ Container ha01-provider Running 
+ Container ha01-redis Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-e068bf5707d0 Creating 
+ Container ha01-tools-run-e068bf5707d0 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.69M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.6 ms
+    toxiproxy p50=  68.7 ms
+    sobrecosto PAREADO: +1.00 ms  IC 95 % [+0.31, +1.64]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=141 ms max=311 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> intermitente
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76000.0 cotizaciones)
+  adapter ok=2681.0  provider servidas=11349.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76000 errores=0 tasa=0.0000%
+  con respaldo=382 de 76000 = 0.50%
+  k6 iteraciones=76000 descartadas=0 (0.000%)
+  fase sana              23998 cotizaciones  ok
+  fase degradada         24200 cotizaciones  ok
+  fase recuperacion      12001 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.2 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9610 objetivo=0.9600 (aciertos=73035 fallos=2965)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_opportunistic_b5_intermitente_rate -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_opportunistic_b5_intermitente_rate
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_opportunistic_b5_intermitente_rate (valida)
+############################################################
+# corrida cache_blocking_b5_intermitente_count | brazo=cache_blocking estado=intermitente
+#   acierto=0.96 breaker=count rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-redis Running 
+ Container ha01-postgres Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-provider Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Healthy 
+ Container ha01-redis Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d423bd98c3c2 Creating 
+ Container ha01-tools-run-d423bd98c3c2 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.69M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  65.9 ms
+    toxiproxy p50=  69.0 ms
+    sobrecosto PAREADO: +1.05 ms  IC 95 % [-0.11, +1.70]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=151 ms max=342 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> intermitente
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=2798.0  provider servidas=14407.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=288 de 76001 = 0.38%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24000 cotizaciones  ok
+  fase degradada         24199 cotizaciones  ok
+  fase recuperacion      12001 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 3.9 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9594 objetivo=0.9600 (aciertos=72915 fallos=3086)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b5_intermitente_count -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b5_intermitente_count
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b5_intermitente_count (valida)
+############################################################
+# corrida cache_opportunistic_b5_intermitente_count | brazo=cache_opportunistic estado=intermitente
+#   acierto=0.96 breaker=count rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-redis Running 
+ Container ha01-provider Running 
+ Container ha01-postgres Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d1e340c4b34a Creating 
+ Container ha01-tools-run-d1e340c4b34a Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.68M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~960 durante los 240 s sanos -> deriva +0.02 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  68.9 ms
+    toxiproxy p50=  68.0 ms
+    sobrecosto PAREADO: +0.85 ms  IC 95 % [+0.13, +1.42]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=129 ms max=270 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> intermitente
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=2805.0  provider servidas=17472.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=358 de 76001 = 0.47%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24000 cotizaciones  ok
+  fase degradada         24201 cotizaciones  ok
+  fase recuperacion      12002 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.1 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9593 objetivo=0.9600 (aciertos=72908 fallos=3093)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_opportunistic_b5_intermitente_count -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_opportunistic_b5_intermitente_count
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_opportunistic_b5_intermitente_count (valida)
+############################################################
+# corrida cache_blocking_b4b_sano | brazo=cache_blocking estado=sano
+#   escalones 20,50,100,200 de 120s | acierto=0.96
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 160 s (TTL 900 s, carga 560 s)
+ Container ha01-redis Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-provider Running 
+ Container ha01-postgres Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d6f208f102ff Creating 
+ Container ha01-tools-run-d6f208f102ff Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.70M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~2160 durante los 540 s sanos -> deriva +0.04 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-160 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.3 ms
+    toxiproxy p50=  68.2 ms
+    sobrecosto PAREADO: +0.69 ms  IC 95 % [+0.43, +1.12]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=153 ms max=345 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+proveedor -> sano
+-- carga: 540s (rodaje 60s + 4 escalones de 120s)
+   carga sostenida detectada
+   escalon 20 sol/s: 1789173498 -> 1789173618
+   escalon 50 sol/s: 1789173618 -> 1789173739
+   escalon 100 sol/s: 1789173739 -> 1789173859
+   escalon 200 sol/s: 1789173859 -> 1789173979
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (45605.0 cotizaciones)
+  adapter ok=1817.0  provider servidas=19549.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=45605 errores=0 tasa=0.0000%
+  con respaldo=0 de 45605 = 0.00%
+  k6 iteraciones=45605 descartadas=0 (0.000%)
+  fase r20                2498 cotizaciones  ok
+  fase r50                6263 cotizaciones  ok
+  fase r100              12427 cotizaciones  ok
+  fase r200              23154 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.3 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9602 objetivo=0.9600 (aciertos=43788 fallos=1817)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b4b_sano -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b4b_sano
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b4b_sano (valida)
+############################################################
+# corrida cache_opportunistic_b4b_sano | brazo=cache_opportunistic estado=sano
+#   escalones 20,50,100,200 de 120s | acierto=0.96
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 160 s (TTL 900 s, carga 560 s)
+ Container ha01-postgres Running 
+ Container ha01-redis Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-provider Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-15be9c895fb8 Creating 
+ Container ha01-tools-run-15be9c895fb8 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.68M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~2160 durante los 540 s sanos -> deriva +0.04 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-160 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.1 ms
+    toxiproxy p50=  70.1 ms
+    sobrecosto PAREADO: +1.46 ms  IC 95 % [+0.80, +1.83]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=129 ms max=271 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.21%
+verificacion del doble: COMPLETA
+proveedor -> sano
+-- carga: 540s (rodaje 60s + 4 escalones de 120s)
+   carga sostenida detectada
+   escalon 20 sol/s: 1789174086 -> 1789174206
+   escalon 50 sol/s: 1789174206 -> 1789174326
+   escalon 100 sol/s: 1789174327 -> 1789174447
+   escalon 200 sol/s: 1789174447 -> 1789174567
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (45603.0 cotizaciones)
+  adapter ok=1802.0  provider servidas=21611.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=45603 errores=0 tasa=0.0000%
+  con respaldo=71 de 45603 = 0.16%
+  k6 iteraciones=45603 descartadas=0 (0.000%)
+  fase r20                2500 cotizaciones  ok
+  fase r50                6167 cotizaciones  ok
+  fase r100              12432 cotizaciones  ok
+  fase r200              23136 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.5 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9605 objetivo=0.9600 (aciertos=43801 fallos=1802)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_opportunistic_b4b_sano -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_opportunistic_b4b_sano
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_opportunistic_b4b_sano (valida)
+############################################################
+# corrida cache_blocking_b4b_degradado | brazo=cache_blocking estado=degradado
+#   escalones 20,50,100,200 de 120s | acierto=0.96
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 160 s (TTL 900 s, carga 560 s)
+ Container ha01-redis Running 
+ Container ha01-provider Running 
+ Container ha01-postgres Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-b5df1f4c2d96 Creating 
+ Container ha01-tools-run-b5df1f4c2d96 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.68M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~2160 durante los 540 s sanos -> deriva +0.04 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-160 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  69.2 ms
+    toxiproxy p50=  70.1 ms
+    sobrecosto PAREADO: +1.35 ms  IC 95 % [+0.92, +2.08]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=151 ms max=323 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+proveedor -> degradado
+-- carga: 540s (rodaje 60s + 4 escalones de 120s)
+   carga sostenida detectada
+   escalon 20 sol/s: 1789174674 -> 1789174794
+   escalon 50 sol/s: 1789174794 -> 1789174914
+   escalon 100 sol/s: 1789174914 -> 1789175035
+   escalon 200 sol/s: 1789175035 -> 1789175155
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (45605.0 cotizaciones)
+  adapter ok=0  provider servidas=21909.0
+  breaker_state final=2.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=45605 errores=0 tasa=0.0000%
+  con respaldo=1807 de 45605 = 3.96%
+  k6 iteraciones=45605 descartadas=0 (0.000%)
+  fase r20                2504 cotizaciones  ok
+  fase r50                6172 cotizaciones  ok
+  fase r100              12544 cotizaciones  ok
+  fase r200              23116 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.3 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9604 objetivo=0.9600 (aciertos=43798 fallos=1807)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_blocking_b4b_degradado -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_blocking_b4b_degradado
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_blocking_b4b_degradado (valida)
+############################################################
+# corrida cache_opportunistic_b4b_degradado | brazo=cache_opportunistic estado=degradado
+#   escalones 20,50,100,200 de 120s | acierto=0.96
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 160 s (TTL 900 s, carga 560 s)
+ Container ha01-redis Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-postgres Running 
+ Container ha01-provider Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-postgres Healthy 
+ Container ha01-redis Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-a82c2aa99450 Creating 
+ Container ha01-tools-run-a82c2aa99450 Created 
+precarga: 50000 calientes + 100000 vencidas = 150000 claves (40.70M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~2160 durante los 540 s sanos -> deriva +0.04 puntos
+objetivo: acierto 96% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-160 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.4 ms
+    toxiproxy p50=  67.0 ms
+    sobrecosto PAREADO: +1.13 ms  IC 95 % [+0.12, +7.22]  (30 pares)
+    AVISO: el intervalo no descarta que supere los 3 ms; subir BASELINE_PARES
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=140 ms max=303 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+proveedor -> degradado
+-- carga: 540s (rodaje 60s + 4 escalones de 120s)
+   carga sostenida detectada
+   escalon 20 sol/s: 1789175262 -> 1789175382
+   escalon 50 sol/s: 1789175382 -> 1789175502
+   escalon 100 sol/s: 1789175502 -> 1789175622
+   escalon 200 sol/s: 1789175622 -> 1789175742
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (45603.0 cotizaciones)
+  adapter ok=0  provider servidas=22206.0
+  breaker_state final=2.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=45603 errores=0 tasa=0.0000%
+  con respaldo=1699 de 45603 = 3.73%
+  k6 iteraciones=45603 descartadas=0 (0.000%)
+  fase r20                2516 cotizaciones  ok
+  fase r50                6193 cotizaciones  ok
+  fase r100              12386 cotizaciones  ok
+  fase r200              23236 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.4 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.9627 objetivo=0.9600 (aciertos=43904 fallos=1699)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_opportunistic_b4b_degradado -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_opportunistic_b4b_degradado
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_opportunistic_b4b_degradado (valida)
+############################################################
+# corrida cache_opportunistic_b3_estampida_ttl2b | brazo=cache_opportunistic estado=sin_respuesta
+#   acierto=1.0 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+ Container ha01-postgres Running 
+ Container ha01-provider Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-redis Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d3536817fbe0 Creating 
+ Container ha01-tools-run-d3536817fbe0 Created 
+precarga: 20 calientes + 100000 vencidas = 100020 claves (26.49M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~0 durante los 240 s sanos -> deriva +0.00 puntos
+objetivo: acierto 100% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-0 s (TTL 2 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  63.9 ms
+    toxiproxy p50=  64.9 ms
+    sobrecosto PAREADO: +1.30 ms  IC 95 % [+0.40, +1.56]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=139 ms max=328 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=3843.0  provider servidas=26576.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=25713 de 76001 = 33.83%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24199 cotizaciones  ok
+  fase degradada         24002 cotizaciones  ok
+  fase recuperacion      12199 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 3.6 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+corrida cache_opportunistic_b3_estampida_ttl2b -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_opportunistic_b3_estampida_ttl2b
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_opportunistic_b3_estampida_ttl2b (valida)
+############################################################
+# corrida cache_singleflight_b3_estampida_ttl2b | brazo=cache_singleflight estado=sin_respuesta
+#   acierto=1.0 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+ Container ha01-postgres Running 
+ Container ha01-redis Running 
+ Container ha01-provider Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-postgres Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-d14a90c3fce2 Creating 
+ Container ha01-tools-run-d14a90c3fce2 Created 
+precarga: 20 calientes + 100000 vencidas = 100020 claves (26.49M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 100000 claves (configurado 100000); a 200 sol/s se repoblaran ~0 durante los 240 s sanos -> deriva +0.00 puntos
+objetivo: acierto 100% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-0 s (TTL 2 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  66.8 ms
+    toxiproxy p50=  68.9 ms
+    sobrecosto PAREADO: +1.40 ms  IC 95 % [+0.82, +2.59]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=70 ms p95=139 ms max=356 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.20%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=2331.0  provider servidas=29252.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=25801 de 76001 = 33.95%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24001 cotizaciones  ok
+  fase degradada         24002 cotizaciones  ok
+  fase recuperacion      12200 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.0 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+corrida cache_singleflight_b3_estampida_ttl2b -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_singleflight_b3_estampida_ttl2b
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_singleflight_b3_estampida_ttl2b (valida)
+############################################################
+# corrida cache_singleflight_b3_estampida_hr0.50b | brazo=cache_singleflight estado=sin_respuesta
+#   acierto=0.50 breaker=rate rate=200
+#   rodaje 60s + fases 120/120/60s = 380s de carga
+############################################################
+ Container ha01-api Stopping 
+ Container ha01-api Stopped 
+   edad del pool caliente acotada de 450 a 340 s (TTL 900 s, carga 380 s)
+ Container ha01-redis Running 
+ Container ha01-provider Running 
+ Container ha01-toxiproxy Running 
+ Container ha01-postgres Running 
+ Container ha01-api Recreate 
+ Container ha01-api Recreated 
+ Container ha01-redis Waiting 
+ Container ha01-postgres Waiting 
+ Container ha01-postgres Healthy 
+ Container ha01-redis Healthy 
+ Container ha01-api Starting 
+ Container ha01-api Started 
+ Container ha01-redis Running 
+ Container ha01-redis Waiting 
+ Container ha01-redis Healthy 
+ Container ha01-tools-run-39c30009c97d Creating 
+ Container ha01-tools-run-39c30009c97d Created 
+precarga: 50000 calientes + 600000 vencidas = 650000 claves (167.77M); pool frio no acotado (ids aleatorios, cero deriva)
+pool vencido: 600000 claves (configurado 600000); a 200 sol/s se repoblaran ~12000 durante los 240 s sanos -> deriva +0.50 puntos
+objetivo: acierto 50% | de los fallos, 50% con valor de respaldo y 50% sin el | edad del pool caliente repartida en 0-340 s (TTL 900 s)
+== verificacion: costo del inyector sin toxinas ==
+    directo   p50=  67.0 ms
+    toxiproxy p50=  66.2 ms
+    sobrecosto PAREADO: +0.75 ms  IC 95 % [+0.34, +1.45]  (30 pares)
+  OK   el inyector sin toxinas no altera la linea base
+== verificacion: el doble del proveedor ==
+  OK   el doble responde
+  distribucion configurada vs realizada:
+    p50 cfg=60 real=60 | p95 cfg=110 real=110
+    p99 realizado=141 (el configurado 180 es SOLO COTA) | techo=1080
+  OK   p50 y p95 realizados coinciden con lo configurado
+  sondeo de saturacion (200 peticiones, concurrencia 20)...
+    p50=69 ms p95=128 ms max=273 ms
+  OK   el doble no se satura
+  CPU del doble tras el sondeo: 0.19%
+verificacion del doble: COMPLETA
+-- carga: 380s a 200 sol/s (los primeros 60s no se contabilizan)
+   carga sostenida detectada
+proveedor -> sin_respuesta
+proveedor -> sano
+== verificaciones de sanidad de la corrida ==
+  OK   hubo trafico (76001.0 cotizaciones)
+  adapter ok=24799.0  provider servidas=54849.0
+  breaker_state final=0.0 (0 cerrado, 1 semiabierto, 2 abierto)
+  refrescos_fondo_activos=0.0  adapter_inflight=0.0
+  redis evicted_keys=0
+  cotizaciones=76001 errores=0 tasa=0.0000%
+  con respaldo=13843 de 76001 = 18.21%
+  k6 iteraciones=76001 descartadas=0 (0.000%)
+  fase sana              24005 cotizaciones  ok
+  fase degradada         24208 cotizaciones  ok
+  fase recuperacion      12190 cotizaciones  ok
+  detector de interferencia: retraso p99 del bucle 4.0 ms, parones > 250 ms: 0
+
+RESULTADO: todas las verificaciones pasaron
+  acierto observado=0.5032 objetivo=0.5000 (aciertos=38245 fallos=37756)
+  OK   tasa de acierto dentro de tolerancia
+corrida cache_singleflight_b3_estampida_hr0.50b -> /c/Users/marti/OneDrive/Documentos/Universidad/Semestre IV/Proyecto final/MISO-PROYECTO-FINAL-SOLVENTA/experimentos/ha01/results/raw/cache_singleflight_b3_estampida_hr0.50b
+
+   evidencia subida al repositorio: Evidencia HA-01: cache_singleflight_b3_estampida_hr0.50b (valida)
+============================================================
+BLOQUE COMPLETO — ninguna corrida fallo
+============================================================
+CAMPANA 2026-09-11 20:37:17  BLOQUE x: fin | codigo 0 | corridas fallidas en el bloque: 0
+CAMPANA 2026-09-11 20:37:44  BLOQUE x: evidencia consolidada (CSV y figuras)
+CAMPANA 2026-09-11 20:37:52  FIN de la campana | corridas fallidas en total: 0
+CAMPANA 2026-09-11 20:38:00  instantanea de Prometheus guardada en results/prometheus
