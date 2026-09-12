@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 19:29:35. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 19:36:43. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-11 18:39:46  BLOQUE x: inicio |
-| Progreso | **44 de 52** corridas ejecutadas · 44 válidas |
+| Progreso | **45 de 52** corridas ejecutadas · 45 válidas |
 | En curso | — |
-| Pendientes | 8 · fin estimado hacia las 20:39 |
-| Válidas / sospechosas / inválidas / fallidas | 39 / 0 / 0 / 0 |
+| Pendientes | 7 · fin estimado hacia las 20:39 |
+| Válidas / sospechosas / inválidas / fallidas | 40 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -97,7 +97,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 42 | `cache_blocking_b5_intermitente_rate` | B | intermitente | 0.96 | 200 | ✅ válida | 64,8 | 709,2 | 1,10 % | 1,10 % | 4,1 | 11/09 19:15 |
 | 43 | `cache_opportunistic_b5_intermitente_rate` | C | intermitente | 0.96 | 200 | ✅ válida | 64,8 | 178,4 | 0,00 % | 1,27 % | 4,2 | 11/09 19:22 |
 | 44 | `cache_blocking_b5_intermitente_count` | B | intermitente | 0.96 | 200 | ✅ válida | 64,8 | 714,0 | 1,16 % | 1,18 % | 4,0 | 11/09 19:29 |
-| 45 | `cache_opportunistic_b5_intermitente_count` | C | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 45 | `cache_opportunistic_b5_intermitente_count` | C | intermitente | 0.96 | 200 | ✅ válida | 64,9 | 178,5 | 0,00 % | 1,27 % | 3,9 | 11/09 19:36 |
 | 46 | `cache_blocking_b4b_sano` | B | sano | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
 | 47 | `cache_opportunistic_b4b_sano` | C | sano | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
 | 48 | `cache_blocking_b4b_degradado` | B | degradado | 0.96 | 20→200 | · pendiente | — | — | — | — | — |  |
