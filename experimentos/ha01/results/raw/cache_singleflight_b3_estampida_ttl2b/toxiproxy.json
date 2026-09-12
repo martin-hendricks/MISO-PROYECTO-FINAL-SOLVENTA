@@ -1,0 +1,1 @@
+{"name":"openfinance","listen":"[::]:19000","upstream":"provider:9000","enabled":true,"Logger":{},"toxics":[]}
