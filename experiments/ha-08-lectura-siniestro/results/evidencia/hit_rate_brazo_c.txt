@@ -1,0 +1,6 @@
+# HELP ha08_cache_hits_total Aciertos de caché
+# TYPE ha08_cache_hits_total counter
+ha08_cache_hits_total 269.0
+# HELP ha08_cache_misses_total Fallos de caché
+# TYPE ha08_cache_misses_total counter
+ha08_cache_misses_total 3522.0

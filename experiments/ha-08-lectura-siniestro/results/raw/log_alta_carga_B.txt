@@ -1,0 +1,1908 @@
+==> [Alta carga] Corrida alta_carga, brazo B
+ Container ha08-simulator  Stopping
+ Container ha08-projector  Stopping
+ Container ha08-api  Stopping
+ Container ha08-simulator  Stopped
+ Container ha08-projector  Stopped
+ Container ha08-api  Stopped
+OK
+ Container ha08-postgres  Restarting
+ Container ha08-postgres  Started
+/var/run/postgresql:5432 - accepting connections
+ Container ha08-redis  Running
+ Container ha08-redpanda  Running
+ Container ha08-postgres  Running
+ Container ha08-api  Recreate
+ Container ha08-api  Recreated
+ Container ha08-redis  Waiting
+ Container ha08-postgres  Waiting
+ Container ha08-redpanda  Waiting
+ Container ha08-redpanda  Waiting
+ Container ha08-redis  Waiting
+ Container ha08-postgres  Waiting
+ Container ha08-postgres  Waiting
+ Container ha08-redis  Healthy
+ Container ha08-redpanda  Healthy
+ Container ha08-redpanda  Healthy
+ Container ha08-redis  Healthy
+ Container ha08-postgres  Healthy
+ Container ha08-simulator  Starting
+ Container ha08-postgres  Healthy
+ Container ha08-api  Starting
+ Container ha08-postgres  Healthy
+ Container ha08-projector  Starting
+ Container ha08-projector  Started
+ Container ha08-api  Started
+ Container ha08-simulator  Started
+ Container ha08-redis  Running
+ Container ha08-postgres  Running
+ Container ha08-api  Recreate
+ Container ha08-api  Recreated
+ Container ha08-redis  Waiting
+ Container ha08-postgres  Waiting
+ Container ha08-redis  Healthy
+ Container ha08-postgres  Healthy
+ Container ha08-api  Starting
+ Container ha08-api  Started
+ Container ha08-redis  Running
+ Container ha08-postgres  Running
+ Container ha08-api  Recreate
+ Container ha08-api  Recreated
+ Container ha08-postgres  Waiting
+ Container ha08-redis  Waiting
+ Container ha08-postgres  Healthy
+ Container ha08-redis  Healthy
+ Container ha08-api  Starting
+ Container ha08-api  Started
+ Container ha08-postgres  Running
+ Container ha08-redis  Running
+ Container ha08-api  Recreate
+ Container ha08-api  Recreated
+ Container ha08-postgres  Waiting
+ Container ha08-redis  Waiting
+ Container ha08-redis  Healthy
+ Container ha08-postgres  Healthy
+ Container ha08-api  Starting
+ Container ha08-api  Started
+OK: payload idéntico entre brazos
+
+          /\      |‾‾| /‾‾/   /‾‾/   
+     /\  /  \     |  |/  /   /  /    
+    /  \/    \    |     (   /   ‾‾\  
+   /          \   |  |\  \ |  (‾)  | 
+  / __________ \  |__| \__\ \_____/ .io
+
+     execution: local
+        script: /scripts/read_estado_alta_carga.js
+        output: Prometheus remote write (http://prometheus:9090/api/v1/write)
+
+     scenarios: (100.00%) 1 scenario, 1500 max VUs, 10m30s max duration (incl. graceful stop):
+              * escalones_alta_carga: Up to 600.00 iterations/s for 10m0s over 4 stages (maxVUs: 200-1500, gracefulStop: 30s)
+
+
+running (00m01.0s), 0000/0200 VUs, 9 complete and 0 interrupted iterations
+escalones_alta_carga   [   0% ] 0000/0200 VUs  00m01.0s/10m0s  010.00 iters/s
+
+running (00m02.0s), 0000/0200 VUs, 19 complete and 0 interrupted iterations
+escalones_alta_carga   [   0% ] 0000/0200 VUs  00m02.0s/10m0s  010.00 iters/s
+
+running (00m03.0s), 0000/0200 VUs, 29 complete and 0 interrupted iterations
+escalones_alta_carga   [   0% ] 0000/0200 VUs  00m03.0s/10m0s  010.00 iters/s
+
+running (00m04.0s), 0000/0200 VUs, 39 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m04.0s/10m0s  010.00 iters/s
+
+running (00m05.0s), 0000/0200 VUs, 49 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m05.0s/10m0s  010.00 iters/s
+
+running (00m06.0s), 0000/0200 VUs, 59 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m06.0s/10m0s  010.00 iters/s
+
+running (00m07.0s), 0000/0200 VUs, 69 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m07.0s/10m0s  010.00 iters/s
+
+running (00m08.0s), 0000/0200 VUs, 79 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m08.0s/10m0s  010.00 iters/s
+
+running (00m09.0s), 0000/0200 VUs, 89 complete and 0 interrupted iterations
+escalones_alta_carga   [   1% ] 0000/0200 VUs  00m09.0s/10m0s  010.00 iters/s
+
+running (00m10.0s), 0000/0200 VUs, 99 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0000/0200 VUs  00m10.0s/10m0s  010.00 iters/s
+
+running (00m11.0s), 0000/0200 VUs, 109 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0000/0200 VUs  00m11.0s/10m0s  010.00 iters/s
+
+running (00m12.0s), 0000/0200 VUs, 119 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0000/0200 VUs  00m12.0s/10m0s  010.00 iters/s
+
+running (00m13.0s), 0001/0200 VUs, 128 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0001/0200 VUs  00m13.0s/10m0s  010.00 iters/s
+
+running (00m14.0s), 0000/0200 VUs, 139 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0000/0200 VUs  00m14.0s/10m0s  010.00 iters/s
+
+running (00m15.0s), 0000/0200 VUs, 149 complete and 0 interrupted iterations
+escalones_alta_carga   [   2% ] 0000/0200 VUs  00m15.0s/10m0s  010.00 iters/s
+
+running (00m16.0s), 0000/0200 VUs, 159 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m16.0s/10m0s  010.00 iters/s
+
+running (00m17.0s), 0000/0200 VUs, 169 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m17.0s/10m0s  010.00 iters/s
+
+running (00m18.0s), 0000/0200 VUs, 179 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m18.0s/10m0s  010.00 iters/s
+
+running (00m19.0s), 0000/0200 VUs, 189 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m19.0s/10m0s  010.00 iters/s
+
+running (00m20.0s), 0000/0200 VUs, 199 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m20.0s/10m0s  010.00 iters/s
+
+running (00m21.0s), 0000/0200 VUs, 209 complete and 0 interrupted iterations
+escalones_alta_carga   [   3% ] 0000/0200 VUs  00m21.0s/10m0s  010.00 iters/s
+
+running (00m22.0s), 0000/0200 VUs, 219 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m22.0s/10m0s  010.00 iters/s
+
+running (00m23.0s), 0000/0200 VUs, 229 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m23.0s/10m0s  010.00 iters/s
+
+running (00m24.0s), 0000/0200 VUs, 239 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m24.0s/10m0s  010.00 iters/s
+
+running (00m25.0s), 0000/0200 VUs, 249 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m25.0s/10m0s  010.00 iters/s
+
+running (00m26.0s), 0000/0200 VUs, 259 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m26.0s/10m0s  010.00 iters/s
+
+running (00m27.0s), 0000/0200 VUs, 269 complete and 0 interrupted iterations
+escalones_alta_carga   [   4% ] 0000/0200 VUs  00m27.0s/10m0s  010.00 iters/s
+
+running (00m28.0s), 0000/0200 VUs, 279 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m28.0s/10m0s  010.00 iters/s
+
+running (00m29.0s), 0000/0200 VUs, 289 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m29.0s/10m0s  010.00 iters/s
+
+running (00m30.0s), 0000/0200 VUs, 299 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m30.0s/10m0s  010.00 iters/s
+
+running (00m31.0s), 0000/0200 VUs, 309 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m31.0s/10m0s  010.00 iters/s
+
+running (00m32.0s), 0000/0200 VUs, 319 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m32.0s/10m0s  010.00 iters/s
+
+running (00m33.0s), 0000/0200 VUs, 329 complete and 0 interrupted iterations
+escalones_alta_carga   [   5% ] 0000/0200 VUs  00m33.0s/10m0s  010.00 iters/s
+
+running (00m34.0s), 0000/0200 VUs, 339 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m34.0s/10m0s  010.00 iters/s
+
+running (00m35.0s), 0000/0200 VUs, 349 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m35.0s/10m0s  010.00 iters/s
+
+running (00m36.0s), 0000/0200 VUs, 359 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m36.0s/10m0s  010.00 iters/s
+
+running (00m37.0s), 0000/0200 VUs, 369 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m37.0s/10m0s  010.00 iters/s
+
+running (00m38.0s), 0000/0200 VUs, 379 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m38.0s/10m0s  010.00 iters/s
+
+running (00m39.0s), 0000/0200 VUs, 389 complete and 0 interrupted iterations
+escalones_alta_carga   [   6% ] 0000/0200 VUs  00m39.0s/10m0s  010.00 iters/s
+
+running (00m40.0s), 0000/0200 VUs, 399 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m40.0s/10m0s  010.00 iters/s
+
+running (00m41.0s), 0000/0200 VUs, 409 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m41.0s/10m0s  010.00 iters/s
+
+running (00m42.0s), 0000/0200 VUs, 419 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m42.0s/10m0s  010.00 iters/s
+
+running (00m43.0s), 0000/0200 VUs, 429 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m43.0s/10m0s  010.00 iters/s
+
+running (00m44.0s), 0000/0200 VUs, 439 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m44.0s/10m0s  010.00 iters/s
+
+running (00m45.0s), 0000/0200 VUs, 449 complete and 0 interrupted iterations
+escalones_alta_carga   [   7% ] 0000/0200 VUs  00m45.0s/10m0s  010.00 iters/s
+
+running (00m46.0s), 0000/0200 VUs, 459 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m46.0s/10m0s  010.00 iters/s
+
+running (00m47.0s), 0000/0200 VUs, 469 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m47.0s/10m0s  010.00 iters/s
+
+running (00m48.0s), 0000/0200 VUs, 479 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m48.0s/10m0s  010.00 iters/s
+
+running (00m49.0s), 0000/0200 VUs, 489 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m49.0s/10m0s  010.00 iters/s
+
+running (00m50.0s), 0000/0200 VUs, 499 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m50.0s/10m0s  010.00 iters/s
+
+running (00m51.0s), 0000/0200 VUs, 509 complete and 0 interrupted iterations
+escalones_alta_carga   [   8% ] 0000/0200 VUs  00m51.0s/10m0s  010.00 iters/s
+
+running (00m52.0s), 0000/0200 VUs, 519 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m52.0s/10m0s  010.00 iters/s
+
+running (00m53.0s), 0000/0200 VUs, 529 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m53.0s/10m0s  010.00 iters/s
+
+running (00m54.0s), 0000/0200 VUs, 539 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m54.0s/10m0s  010.00 iters/s
+
+running (00m55.0s), 0000/0200 VUs, 549 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m55.0s/10m0s  010.00 iters/s
+
+running (00m56.0s), 0000/0200 VUs, 559 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m56.0s/10m0s  010.00 iters/s
+
+running (00m57.0s), 0000/0200 VUs, 569 complete and 0 interrupted iterations
+escalones_alta_carga   [   9% ] 0000/0200 VUs  00m57.0s/10m0s  010.00 iters/s
+
+running (00m58.0s), 0000/0200 VUs, 579 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0000/0200 VUs  00m58.0s/10m0s  010.00 iters/s
+
+running (00m59.0s), 0000/0200 VUs, 589 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0000/0200 VUs  00m59.0s/10m0s  010.00 iters/s
+
+running (01m00.0s), 0000/0200 VUs, 599 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0000/0200 VUs  01m00.0s/10m0s  010.00 iters/s
+
+running (01m01.0s), 0001/0200 VUs, 609 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0001/0200 VUs  01m01.0s/10m0s  010.79 iters/s
+
+running (01m02.0s), 0000/0200 VUs, 621 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0000/0200 VUs  01m02.0s/10m0s  011.55 iters/s
+
+running (01m03.0s), 0000/0200 VUs, 633 complete and 0 interrupted iterations
+escalones_alta_carga   [  10% ] 0000/0200 VUs  01m03.0s/10m0s  012.33 iters/s
+
+running (01m04.0s), 0000/0200 VUs, 645 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m04.0s/10m0s  013.07 iters/s
+
+running (01m05.0s), 0000/0200 VUs, 659 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m05.0s/10m0s  013.88 iters/s
+
+running (01m06.0s), 0000/0200 VUs, 673 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m06.0s/10m0s  014.64 iters/s
+
+running (01m07.0s), 0000/0200 VUs, 688 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m07.0s/10m0s  015.42 iters/s
+
+running (01m08.0s), 0000/0200 VUs, 704 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m08.0s/10m0s  016.20 iters/s
+
+running (01m09.0s), 0000/0200 VUs, 720 complete and 0 interrupted iterations
+escalones_alta_carga   [  11% ] 0000/0200 VUs  01m09.0s/10m0s  016.95 iters/s
+
+running (01m10.0s), 0000/0200 VUs, 738 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m10.0s/10m0s  017.76 iters/s
+
+running (01m11.0s), 0000/0200 VUs, 756 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m11.0s/10m0s  018.53 iters/s
+
+running (01m12.0s), 0000/0200 VUs, 775 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m12.0s/10m0s  019.31 iters/s
+
+running (01m13.0s), 0000/0200 VUs, 795 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m13.0s/10m0s  020.10 iters/s
+
+running (01m14.0s), 0000/0200 VUs, 815 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m14.0s/10m0s  020.86 iters/s
+
+running (01m15.0s), 0000/0200 VUs, 836 complete and 0 interrupted iterations
+escalones_alta_carga   [  12% ] 0000/0200 VUs  01m15.0s/10m0s  021.63 iters/s
+
+running (01m16.0s), 0000/0200 VUs, 858 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m16.0s/10m0s  022.41 iters/s
+
+running (01m17.0s), 0000/0200 VUs, 881 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m17.0s/10m0s  023.19 iters/s
+
+running (01m18.0s), 0000/0200 VUs, 905 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m18.0s/10m0s  023.98 iters/s
+
+running (01m19.0s), 0000/0200 VUs, 929 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m19.0s/10m0s  024.75 iters/s
+
+running (01m20.0s), 0000/0200 VUs, 954 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m20.0s/10m0s  025.52 iters/s
+
+running (01m21.0s), 0000/0200 VUs, 980 complete and 0 interrupted iterations
+escalones_alta_carga   [  13% ] 0000/0200 VUs  01m21.0s/10m0s  026.30 iters/s
+
+running (01m22.0s), 0000/0200 VUs, 1007 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0000/0200 VUs  01m22.0s/10m0s  027.09 iters/s
+
+running (01m23.0s), 0000/0200 VUs, 1034 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0000/0200 VUs  01m23.0s/10m0s  027.85 iters/s
+
+running (01m24.0s), 0001/0200 VUs, 1062 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0001/0200 VUs  01m24.0s/10m0s  028.65 iters/s
+
+running (01m25.0s), 0000/0200 VUs, 1092 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0000/0200 VUs  01m25.0s/10m0s  029.43 iters/s
+
+running (01m26.0s), 0000/0200 VUs, 1121 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0000/0200 VUs  01m26.0s/10m0s  030.19 iters/s
+
+running (01m27.0s), 0000/0200 VUs, 1152 complete and 0 interrupted iterations
+escalones_alta_carga   [  14% ] 0000/0200 VUs  01m27.0s/10m0s  030.97 iters/s
+
+running (01m28.0s), 0000/0200 VUs, 1183 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0000/0200 VUs  01m28.0s/10m0s  031.74 iters/s
+
+running (01m29.0s), 0000/0200 VUs, 1215 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0000/0200 VUs  01m29.0s/10m0s  032.52 iters/s
+
+running (01m30.0s), 0000/0200 VUs, 1248 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0000/0200 VUs  01m30.0s/10m0s  033.30 iters/s
+
+running (01m31.0s), 0000/0200 VUs, 1282 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0000/0200 VUs  01m31.0s/10m0s  034.08 iters/s
+
+running (01m32.0s), 0001/0200 VUs, 1316 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0001/0200 VUs  01m32.0s/10m0s  034.87 iters/s
+
+running (01m33.0s), 0000/0200 VUs, 1352 complete and 0 interrupted iterations
+escalones_alta_carga   [  15% ] 0000/0200 VUs  01m33.0s/10m0s  035.64 iters/s
+
+running (01m34.0s), 0000/0200 VUs, 1388 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m34.0s/10m0s  036.42 iters/s
+
+running (01m35.0s), 0000/0200 VUs, 1425 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m35.0s/10m0s  037.20 iters/s
+
+running (01m36.0s), 0000/0200 VUs, 1462 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m36.0s/10m0s  037.97 iters/s
+
+running (01m37.0s), 0000/0200 VUs, 1501 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m37.0s/10m0s  038.76 iters/s
+
+running (01m38.0s), 0000/0200 VUs, 1540 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m38.0s/10m0s  039.53 iters/s
+
+running (01m39.0s), 0000/0200 VUs, 1580 complete and 0 interrupted iterations
+escalones_alta_carga   [  16% ] 0000/0200 VUs  01m39.0s/10m0s  040.31 iters/s
+
+running (01m40.0s), 0000/0200 VUs, 1620 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0000/0200 VUs  01m40.0s/10m0s  041.08 iters/s
+
+running (01m41.0s), 0000/0200 VUs, 1662 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0000/0200 VUs  01m41.0s/10m0s  041.87 iters/s
+
+running (01m42.0s), 0000/0200 VUs, 1704 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0000/0200 VUs  01m42.0s/10m0s  042.64 iters/s
+
+running (01m43.0s), 0000/0200 VUs, 1747 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0000/0200 VUs  01m43.0s/10m0s  043.42 iters/s
+
+running (01m44.0s), 0000/0200 VUs, 1791 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0000/0200 VUs  01m44.0s/10m0s  044.20 iters/s
+
+running (01m45.0s), 0001/0200 VUs, 1835 complete and 0 interrupted iterations
+escalones_alta_carga   [  17% ] 0001/0200 VUs  01m45.0s/10m0s  044.98 iters/s
+
+running (01m46.0s), 0000/0200 VUs, 1881 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m46.0s/10m0s  045.75 iters/s
+
+running (01m47.0s), 0000/0200 VUs, 1927 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m47.0s/10m0s  046.53 iters/s
+
+running (01m48.0s), 0000/0200 VUs, 1974 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m48.0s/10m0s  047.31 iters/s
+
+running (01m49.0s), 0000/0200 VUs, 2022 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m49.0s/10m0s  048.09 iters/s
+
+running (01m50.0s), 0000/0200 VUs, 2070 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m50.0s/10m0s  048.86 iters/s
+
+running (01m51.0s), 0000/0200 VUs, 2119 complete and 0 interrupted iterations
+escalones_alta_carga   [  18% ] 0000/0200 VUs  01m51.0s/10m0s  049.64 iters/s
+
+running (01m52.0s), 0000/0200 VUs, 2169 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m52.0s/10m0s  050.41 iters/s
+
+running (01m53.0s), 0000/0200 VUs, 2220 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m53.0s/10m0s  051.19 iters/s
+
+running (01m54.0s), 0000/0200 VUs, 2272 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m54.0s/10m0s  051.98 iters/s
+
+running (01m55.0s), 0000/0200 VUs, 2324 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m55.0s/10m0s  052.75 iters/s
+
+running (01m56.0s), 0000/0200 VUs, 2377 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m56.0s/10m0s  053.53 iters/s
+
+running (01m57.0s), 0000/0200 VUs, 2431 complete and 0 interrupted iterations
+escalones_alta_carga   [  19% ] 0000/0200 VUs  01m57.0s/10m0s  054.30 iters/s
+
+running (01m58.0s), 0000/0200 VUs, 2486 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0000/0200 VUs  01m58.0s/10m0s  055.09 iters/s
+
+running (01m59.0s), 0001/0200 VUs, 2541 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0001/0200 VUs  01m59.0s/10m0s  055.87 iters/s
+
+running (02m00.0s), 0000/0200 VUs, 2598 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0000/0200 VUs  02m00.0s/10m0s  056.65 iters/s
+
+running (02m01.0s), 0000/0200 VUs, 2655 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0000/0200 VUs  02m01.0s/10m0s  057.42 iters/s
+
+running (02m02.0s), 0001/0200 VUs, 2712 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0001/0200 VUs  02m02.0s/10m0s  058.20 iters/s
+
+running (02m03.0s), 0000/0200 VUs, 2771 complete and 0 interrupted iterations
+escalones_alta_carga   [  20% ] 0000/0200 VUs  02m03.0s/10m0s  058.97 iters/s
+
+running (02m04.0s), 0001/0200 VUs, 2830 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0001/0200 VUs  02m04.0s/10m0s  059.76 iters/s
+
+running (02m05.0s), 0001/0200 VUs, 2890 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0001/0200 VUs  02m05.0s/10m0s  060.54 iters/s
+
+running (02m06.0s), 0001/0200 VUs, 2951 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0001/0200 VUs  02m06.0s/10m0s  061.31 iters/s
+
+running (02m07.0s), 0000/0200 VUs, 3013 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0000/0200 VUs  02m07.0s/10m0s  062.08 iters/s
+
+running (02m08.0s), 0000/0200 VUs, 3076 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0000/0200 VUs  02m08.0s/10m0s  062.87 iters/s
+
+running (02m09.0s), 0000/0200 VUs, 3139 complete and 0 interrupted iterations
+escalones_alta_carga   [  21% ] 0000/0200 VUs  02m09.0s/10m0s  063.64 iters/s
+
+running (02m10.0s), 0000/0200 VUs, 3203 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0000/0200 VUs  02m10.0s/10m0s  064.42 iters/s
+
+running (02m11.0s), 0000/0200 VUs, 3268 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0000/0200 VUs  02m11.0s/10m0s  065.20 iters/s
+
+running (02m12.0s), 0000/0200 VUs, 3333 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0000/0200 VUs  02m12.0s/10m0s  065.97 iters/s
+
+running (02m13.0s), 0000/0200 VUs, 3400 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0000/0200 VUs  02m13.0s/10m0s  066.76 iters/s
+
+running (02m14.0s), 0000/0200 VUs, 3467 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0000/0200 VUs  02m14.0s/10m0s  067.53 iters/s
+
+running (02m15.0s), 0001/0200 VUs, 3534 complete and 0 interrupted iterations
+escalones_alta_carga   [  22% ] 0001/0200 VUs  02m15.0s/10m0s  068.31 iters/s
+
+running (02m16.0s), 0001/0200 VUs, 3603 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0001/0200 VUs  02m16.0s/10m0s  069.09 iters/s
+
+running (02m17.0s), 0000/0200 VUs, 3673 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0000/0200 VUs  02m17.0s/10m0s  069.86 iters/s
+
+running (02m18.0s), 0000/0200 VUs, 3743 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0000/0200 VUs  02m18.0s/10m0s  070.64 iters/s
+
+running (02m19.0s), 0000/0200 VUs, 3814 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0000/0200 VUs  02m19.0s/10m0s  071.42 iters/s
+
+running (02m20.0s), 0000/0200 VUs, 3886 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0000/0200 VUs  02m20.0s/10m0s  072.20 iters/s
+
+running (02m21.0s), 0001/0200 VUs, 3958 complete and 0 interrupted iterations
+escalones_alta_carga   [  23% ] 0001/0200 VUs  02m21.0s/10m0s  072.98 iters/s
+
+running (02m22.0s), 0000/0200 VUs, 4032 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0000/0200 VUs  02m22.0s/10m0s  073.75 iters/s
+
+running (02m23.0s), 0000/0200 VUs, 4106 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0000/0200 VUs  02m23.0s/10m0s  074.53 iters/s
+
+running (02m24.0s), 0000/0200 VUs, 4181 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0000/0200 VUs  02m24.0s/10m0s  075.31 iters/s
+
+running (02m25.0s), 0000/0200 VUs, 4257 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0000/0200 VUs  02m25.0s/10m0s  076.09 iters/s
+
+running (02m26.0s), 0000/0200 VUs, 4333 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0000/0200 VUs  02m26.0s/10m0s  076.86 iters/s
+
+running (02m27.0s), 0001/0200 VUs, 4410 complete and 0 interrupted iterations
+escalones_alta_carga   [  24% ] 0001/0200 VUs  02m27.0s/10m0s  077.65 iters/s
+
+running (02m28.0s), 0001/0200 VUs, 4488 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0001/0200 VUs  02m28.0s/10m0s  078.42 iters/s
+
+running (02m29.0s), 0000/0200 VUs, 4567 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0000/0200 VUs  02m29.0s/10m0s  079.19 iters/s
+
+running (02m30.0s), 0000/0200 VUs, 4647 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0000/0200 VUs  02m30.0s/10m0s  079.98 iters/s
+
+running (02m31.0s), 0000/0200 VUs, 4727 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0000/0200 VUs  02m31.0s/10m0s  080.75 iters/s
+
+running (02m32.0s), 0001/0200 VUs, 4808 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0001/0200 VUs  02m32.0s/10m0s  081.54 iters/s
+
+running (02m33.0s), 0000/0200 VUs, 4890 complete and 0 interrupted iterations
+escalones_alta_carga   [  25% ] 0000/0200 VUs  02m33.0s/10m0s  082.30 iters/s
+
+running (02m34.0s), 0000/0200 VUs, 4973 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0000/0200 VUs  02m34.0s/10m0s  083.09 iters/s
+
+running (02m35.0s), 0001/0200 VUs, 5056 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0001/0200 VUs  02m35.0s/10m0s  083.87 iters/s
+
+running (02m36.0s), 0000/0200 VUs, 5141 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0000/0200 VUs  02m36.0s/10m0s  084.64 iters/s
+
+running (02m37.0s), 0000/0200 VUs, 5226 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0000/0200 VUs  02m37.0s/10m0s  085.42 iters/s
+
+running (02m38.0s), 0001/0200 VUs, 5311 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0001/0200 VUs  02m38.0s/10m0s  086.20 iters/s
+
+running (02m39.0s), 0000/0200 VUs, 5398 complete and 0 interrupted iterations
+escalones_alta_carga   [  26% ] 0000/0200 VUs  02m39.0s/10m0s  086.97 iters/s
+
+running (02m40.0s), 0001/0200 VUs, 5485 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0001/0200 VUs  02m40.0s/10m0s  087.76 iters/s
+
+running (02m41.0s), 0001/0200 VUs, 5573 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0001/0200 VUs  02m41.0s/10m0s  088.53 iters/s
+
+running (02m42.0s), 0001/0200 VUs, 5662 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0001/0200 VUs  02m42.0s/10m0s  089.31 iters/s
+
+running (02m43.0s), 0000/0200 VUs, 5752 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0000/0200 VUs  02m43.0s/10m0s  090.08 iters/s
+
+running (02m44.0s), 0000/0200 VUs, 5843 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0000/0200 VUs  02m44.0s/10m0s  090.87 iters/s
+
+running (02m45.0s), 0000/0200 VUs, 5934 complete and 0 interrupted iterations
+escalones_alta_carga   [  27% ] 0000/0200 VUs  02m45.0s/10m0s  091.64 iters/s
+
+running (02m46.0s), 0000/0200 VUs, 6026 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0000/0200 VUs  02m46.0s/10m0s  092.42 iters/s
+
+running (02m47.0s), 0001/0200 VUs, 6118 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0001/0200 VUs  02m47.0s/10m0s  093.20 iters/s
+
+running (02m48.0s), 0001/0200 VUs, 6212 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0001/0200 VUs  02m48.0s/10m0s  093.98 iters/s
+
+running (02m49.0s), 0000/0200 VUs, 6307 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0000/0200 VUs  02m49.0s/10m0s  094.75 iters/s
+
+running (02m50.0s), 0000/0200 VUs, 6402 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0000/0200 VUs  02m50.0s/10m0s  095.53 iters/s
+
+running (02m51.0s), 0000/0200 VUs, 6498 complete and 0 interrupted iterations
+escalones_alta_carga   [  28% ] 0000/0200 VUs  02m51.0s/10m0s  096.31 iters/s
+
+running (02m52.0s), 0001/0200 VUs, 6594 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0001/0200 VUs  02m52.0s/10m0s  097.09 iters/s
+
+running (02m53.0s), 0000/0200 VUs, 6692 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0000/0200 VUs  02m53.0s/10m0s  097.86 iters/s
+
+running (02m54.0s), 0000/0200 VUs, 6790 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0000/0200 VUs  02m54.0s/10m0s  098.64 iters/s
+
+running (02m55.0s), 0000/0200 VUs, 6889 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0000/0200 VUs  02m55.0s/10m0s  099.42 iters/s
+
+running (02m56.0s), 0000/0200 VUs, 6989 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0000/0200 VUs  02m56.0s/10m0s  100.20 iters/s
+
+running (02m57.0s), 0000/0200 VUs, 7090 complete and 0 interrupted iterations
+escalones_alta_carga   [  29% ] 0000/0200 VUs  02m57.0s/10m0s  100.98 iters/s
+
+running (02m58.0s), 0000/0200 VUs, 7191 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0000/0200 VUs  02m58.0s/10m0s  101.75 iters/s
+
+running (02m59.0s), 0000/0200 VUs, 7293 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0000/0200 VUs  02m59.0s/10m0s  102.53 iters/s
+
+running (03m00.0s), 0000/0200 VUs, 7396 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0000/0200 VUs  03m00.0s/10m0s  103.31 iters/s
+
+running (03m01.0s), 0000/0200 VUs, 7500 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0000/0200 VUs  03m01.0s/10m0s  104.09 iters/s
+
+running (03m02.0s), 0001/0200 VUs, 7604 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0001/0200 VUs  03m02.0s/10m0s  104.87 iters/s
+
+running (03m03.0s), 0001/0200 VUs, 7709 complete and 0 interrupted iterations
+escalones_alta_carga   [  30% ] 0001/0200 VUs  03m03.0s/10m0s  105.64 iters/s
+
+running (03m04.0s), 0001/0200 VUs, 7815 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0001/0200 VUs  03m04.0s/10m0s  106.42 iters/s
+
+running (03m05.0s), 0001/0200 VUs, 7922 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0001/0200 VUs  03m05.0s/10m0s  107.20 iters/s
+
+running (03m06.0s), 0000/0200 VUs, 8030 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0000/0200 VUs  03m06.0s/10m0s  107.97 iters/s
+
+running (03m07.0s), 0000/0200 VUs, 8138 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0000/0200 VUs  03m07.0s/10m0s  108.75 iters/s
+
+running (03m08.0s), 0001/0200 VUs, 8247 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0001/0200 VUs  03m08.0s/10m0s  109.53 iters/s
+
+running (03m09.0s), 0001/0200 VUs, 8357 complete and 0 interrupted iterations
+escalones_alta_carga   [  31% ] 0001/0200 VUs  03m09.0s/10m0s  110.31 iters/s
+
+running (03m10.0s), 0000/0200 VUs, 8468 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0000/0200 VUs  03m10.0s/10m0s  111.09 iters/s
+
+running (03m11.0s), 0000/0200 VUs, 8580 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0000/0200 VUs  03m11.0s/10m0s  111.87 iters/s
+
+running (03m12.0s), 0000/0200 VUs, 8692 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0000/0200 VUs  03m12.0s/10m0s  112.64 iters/s
+
+running (03m13.0s), 0000/0200 VUs, 8805 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0000/0200 VUs  03m13.0s/10m0s  113.42 iters/s
+
+running (03m14.0s), 0001/0200 VUs, 8918 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0001/0200 VUs  03m14.0s/10m0s  114.20 iters/s
+
+running (03m15.0s), 0000/0200 VUs, 9033 complete and 0 interrupted iterations
+escalones_alta_carga   [  32% ] 0000/0200 VUs  03m15.0s/10m0s  114.97 iters/s
+
+running (03m16.0s), 0000/0200 VUs, 9149 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0000/0200 VUs  03m16.0s/10m0s  115.76 iters/s
+
+running (03m17.0s), 0001/0200 VUs, 9264 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0001/0200 VUs  03m17.0s/10m0s  116.53 iters/s
+
+running (03m18.0s), 0001/0200 VUs, 9381 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0001/0200 VUs  03m18.0s/10m0s  117.31 iters/s
+
+running (03m19.0s), 0000/0200 VUs, 9499 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0000/0200 VUs  03m19.0s/10m0s  118.08 iters/s
+
+running (03m20.0s), 0001/0200 VUs, 9617 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0001/0200 VUs  03m20.0s/10m0s  118.86 iters/s
+
+running (03m21.0s), 0000/0200 VUs, 9737 complete and 0 interrupted iterations
+escalones_alta_carga   [  33% ] 0000/0200 VUs  03m21.0s/10m0s  119.64 iters/s
+
+running (03m22.0s), 0000/0200 VUs, 9857 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0000/0200 VUs  03m22.0s/10m0s  120.42 iters/s
+
+running (03m23.0s), 0000/0200 VUs, 9978 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0000/0200 VUs  03m23.0s/10m0s  121.20 iters/s
+
+running (03m24.0s), 0001/0200 VUs, 10099 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0001/0200 VUs  03m24.0s/10m0s  121.98 iters/s
+
+running (03m25.0s), 0000/0200 VUs, 10222 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0000/0200 VUs  03m25.0s/10m0s  122.75 iters/s
+
+running (03m26.0s), 0000/0200 VUs, 10345 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0000/0200 VUs  03m26.0s/10m0s  123.53 iters/s
+
+running (03m27.0s), 0000/0200 VUs, 10469 complete and 0 interrupted iterations
+escalones_alta_carga   [  34% ] 0000/0200 VUs  03m27.0s/10m0s  124.31 iters/s
+
+running (03m28.0s), 0000/0200 VUs, 10594 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0000/0200 VUs  03m28.0s/10m0s  125.09 iters/s
+
+running (03m29.0s), 0000/0200 VUs, 10719 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0000/0200 VUs  03m29.0s/10m0s  125.86 iters/s
+
+running (03m30.0s), 0001/0200 VUs, 10845 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0001/0200 VUs  03m30.0s/10m0s  126.65 iters/s
+
+running (03m31.0s), 0001/0200 VUs, 10972 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0001/0200 VUs  03m31.0s/10m0s  127.42 iters/s
+
+running (03m32.0s), 0000/0200 VUs, 11100 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0000/0200 VUs  03m32.0s/10m0s  128.20 iters/s
+
+running (03m33.0s), 0000/0200 VUs, 11229 complete and 0 interrupted iterations
+escalones_alta_carga   [  35% ] 0000/0200 VUs  03m33.0s/10m0s  128.98 iters/s
+
+running (03m34.0s), 0000/0200 VUs, 11358 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0000/0200 VUs  03m34.0s/10m0s  129.75 iters/s
+
+running (03m35.0s), 0001/0200 VUs, 11488 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0001/0200 VUs  03m35.0s/10m0s  130.53 iters/s
+
+running (03m36.0s), 0000/0200 VUs, 11619 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0000/0200 VUs  03m36.0s/10m0s  131.31 iters/s
+
+running (03m37.0s), 0000/0200 VUs, 11751 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0000/0200 VUs  03m37.0s/10m0s  132.09 iters/s
+
+running (03m38.0s), 0000/0200 VUs, 11883 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0000/0200 VUs  03m38.0s/10m0s  132.86 iters/s
+
+running (03m39.0s), 0001/0200 VUs, 12016 complete and 0 interrupted iterations
+escalones_alta_carga   [  36% ] 0000/0200 VUs  03m39.0s/10m0s  133.64 iters/s
+
+running (03m40.0s), 0001/0200 VUs, 12150 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0001/0200 VUs  03m40.0s/10m0s  134.42 iters/s
+
+running (03m41.0s), 0001/0200 VUs, 12285 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0001/0200 VUs  03m41.0s/10m0s  135.20 iters/s
+
+running (03m42.0s), 0000/0200 VUs, 12421 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0000/0200 VUs  03m42.0s/10m0s  135.97 iters/s
+
+running (03m43.0s), 0001/0200 VUs, 12557 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0001/0200 VUs  03m43.0s/10m0s  136.76 iters/s
+
+running (03m44.0s), 0001/0200 VUs, 12694 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0001/0200 VUs  03m44.0s/10m0s  137.53 iters/s
+
+running (03m45.0s), 0001/0200 VUs, 12832 complete and 0 interrupted iterations
+escalones_alta_carga   [  37% ] 0001/0200 VUs  03m45.0s/10m0s  138.31 iters/s
+
+running (03m46.0s), 0000/0200 VUs, 12971 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0000/0200 VUs  03m46.0s/10m0s  139.08 iters/s
+
+running (03m47.0s), 0001/0200 VUs, 13110 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0001/0200 VUs  03m47.0s/10m0s  139.87 iters/s
+
+running (03m48.0s), 0000/0200 VUs, 13251 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0000/0200 VUs  03m48.0s/10m0s  140.64 iters/s
+
+running (03m49.0s), 0000/0200 VUs, 13392 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0000/0200 VUs  03m49.0s/10m0s  141.42 iters/s
+
+running (03m50.0s), 0001/0200 VUs, 13533 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0001/0200 VUs  03m50.0s/10m0s  142.20 iters/s
+
+running (03m51.0s), 0000/0200 VUs, 13676 complete and 0 interrupted iterations
+escalones_alta_carga   [  38% ] 0000/0200 VUs  03m51.0s/10m0s  142.97 iters/s
+
+running (03m52.0s), 0000/0200 VUs, 13820 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0000/0200 VUs  03m52.0s/10m0s  143.75 iters/s
+
+running (03m53.0s), 0001/0200 VUs, 13963 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0001/0200 VUs  03m53.0s/10m0s  144.53 iters/s
+
+running (03m54.0s), 0000/0200 VUs, 14109 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0000/0200 VUs  03m54.0s/10m0s  145.31 iters/s
+
+running (03m55.0s), 0001/0200 VUs, 14254 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0001/0200 VUs  03m55.0s/10m0s  146.09 iters/s
+
+running (03m56.0s), 0000/0200 VUs, 14401 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0000/0200 VUs  03m56.0s/10m0s  146.86 iters/s
+
+running (03m57.0s), 0000/0200 VUs, 14548 complete and 0 interrupted iterations
+escalones_alta_carga   [  39% ] 0001/0200 VUs  03m57.0s/10m0s  147.65 iters/s
+
+running (03m58.0s), 0000/0200 VUs, 14696 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0000/0200 VUs  03m58.0s/10m0s  148.42 iters/s
+
+running (03m59.0s), 0000/0200 VUs, 14845 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0000/0200 VUs  03m59.0s/10m0s  149.20 iters/s
+
+running (04m00.0s), 0001/0200 VUs, 14994 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0001/0200 VUs  04m00.0s/10m0s  149.98 iters/s
+
+running (04m01.0s), 0000/0200 VUs, 15145 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0000/0200 VUs  04m01.0s/10m0s  150.81 iters/s
+
+running (04m02.0s), 0000/0200 VUs, 15296 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0000/0200 VUs  04m02.0s/10m0s  151.64 iters/s
+
+running (04m03.0s), 0000/0200 VUs, 15448 complete and 0 interrupted iterations
+escalones_alta_carga   [  40% ] 0000/0200 VUs  04m03.0s/10m0s  152.47 iters/s
+
+running (04m04.0s), 0000/0200 VUs, 15601 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0000/0200 VUs  04m04.0s/10m0s  153.31 iters/s
+
+running (04m05.0s), 0001/0200 VUs, 15754 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0001/0200 VUs  04m05.0s/10m0s  154.14 iters/s
+
+running (04m06.0s), 0001/0200 VUs, 15909 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0001/0200 VUs  04m06.0s/10m0s  154.98 iters/s
+
+running (04m07.0s), 0000/0200 VUs, 16065 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0000/0200 VUs  04m07.0s/10m0s  155.81 iters/s
+
+running (04m08.0s), 0000/0200 VUs, 16221 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0000/0200 VUs  04m08.0s/10m0s  156.64 iters/s
+
+running (04m09.0s), 0000/0200 VUs, 16378 complete and 0 interrupted iterations
+escalones_alta_carga   [  41% ] 0000/0200 VUs  04m09.0s/10m0s  157.47 iters/s
+
+running (04m10.0s), 0000/0200 VUs, 16536 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0000/0200 VUs  04m10.0s/10m0s  158.31 iters/s
+
+running (04m11.0s), 0001/0200 VUs, 16694 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0001/0200 VUs  04m11.0s/10m0s  159.14 iters/s
+
+running (04m12.0s), 0001/0200 VUs, 16854 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0001/0200 VUs  04m12.0s/10m0s  159.98 iters/s
+
+running (04m13.0s), 0001/0200 VUs, 17014 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0001/0200 VUs  04m13.0s/10m0s  160.81 iters/s
+
+running (04m14.0s), 0000/0200 VUs, 17176 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0000/0200 VUs  04m14.0s/10m0s  161.64 iters/s
+
+running (04m15.0s), 0000/0200 VUs, 17338 complete and 0 interrupted iterations
+escalones_alta_carga   [  42% ] 0000/0200 VUs  04m15.0s/10m0s  162.47 iters/s
+
+running (04m16.0s), 0000/0200 VUs, 17501 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0000/0200 VUs  04m16.0s/10m0s  163.31 iters/s
+
+running (04m17.0s), 0001/0200 VUs, 17664 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0001/0200 VUs  04m17.0s/10m0s  164.14 iters/s
+
+running (04m18.0s), 0000/0200 VUs, 17829 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0000/0200 VUs  04m18.0s/10m0s  164.97 iters/s
+
+running (04m19.0s), 0001/0200 VUs, 17994 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0001/0200 VUs  04m19.0s/10m0s  165.81 iters/s
+
+running (04m20.0s), 0000/0200 VUs, 18161 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0000/0200 VUs  04m20.0s/10m0s  166.64 iters/s
+
+running (04m21.0s), 0000/0200 VUs, 18328 complete and 0 interrupted iterations
+escalones_alta_carga   [  43% ] 0000/0200 VUs  04m21.0s/10m0s  167.47 iters/s
+
+running (04m22.0s), 0001/0200 VUs, 18495 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0001/0200 VUs  04m22.0s/10m0s  168.31 iters/s
+
+running (04m23.0s), 0000/0200 VUs, 18664 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0001/0200 VUs  04m23.0s/10m0s  169.14 iters/s
+
+running (04m24.0s), 0000/0200 VUs, 18834 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0000/0200 VUs  04m24.0s/10m0s  169.97 iters/s
+
+running (04m25.0s), 0001/0200 VUs, 19004 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0001/0200 VUs  04m25.0s/10m0s  170.81 iters/s
+
+running (04m26.0s), 0001/0200 VUs, 19175 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0001/0200 VUs  04m26.0s/10m0s  171.64 iters/s
+
+running (04m27.0s), 0001/0200 VUs, 19347 complete and 0 interrupted iterations
+escalones_alta_carga   [  44% ] 0001/0200 VUs  04m27.0s/10m0s  172.47 iters/s
+
+running (04m28.0s), 0001/0200 VUs, 19520 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0001/0200 VUs  04m28.0s/10m0s  173.31 iters/s
+
+running (04m29.0s), 0001/0200 VUs, 19694 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0001/0200 VUs  04m29.0s/10m0s  174.14 iters/s
+
+running (04m30.0s), 0000/0200 VUs, 19869 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0000/0200 VUs  04m30.0s/10m0s  174.97 iters/s
+
+running (04m31.0s), 0001/0200 VUs, 20044 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0001/0200 VUs  04m31.0s/10m0s  175.81 iters/s
+
+running (04m32.0s), 0001/0200 VUs, 20220 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0001/0200 VUs  04m32.0s/10m0s  176.64 iters/s
+
+running (04m33.0s), 0001/0200 VUs, 20397 complete and 0 interrupted iterations
+escalones_alta_carga   [  45% ] 0001/0200 VUs  04m33.0s/10m0s  177.48 iters/s
+
+running (04m34.0s), 0001/0200 VUs, 20575 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0001/0200 VUs  04m34.0s/10m0s  178.31 iters/s
+
+running (04m35.0s), 0000/0200 VUs, 20754 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0000/0200 VUs  04m35.0s/10m0s  179.14 iters/s
+
+running (04m36.0s), 0001/0200 VUs, 20933 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0001/0200 VUs  04m36.0s/10m0s  179.97 iters/s
+
+running (04m37.0s), 0000/0200 VUs, 21114 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0000/0200 VUs  04m37.0s/10m0s  180.81 iters/s
+
+running (04m38.0s), 0001/0200 VUs, 21295 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0001/0200 VUs  04m38.0s/10m0s  181.64 iters/s
+
+running (04m39.0s), 0001/0200 VUs, 21477 complete and 0 interrupted iterations
+escalones_alta_carga   [  46% ] 0001/0200 VUs  04m39.0s/10m0s  182.48 iters/s
+
+running (04m40.0s), 0000/0200 VUs, 21660 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0001/0200 VUs  04m40.0s/10m0s  183.31 iters/s
+
+running (04m41.0s), 0000/0200 VUs, 21844 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0000/0200 VUs  04m41.0s/10m0s  184.14 iters/s
+
+running (04m42.0s), 0001/0200 VUs, 22028 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0001/0200 VUs  04m42.0s/10m0s  184.98 iters/s
+
+running (04m43.0s), 0000/0200 VUs, 22214 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0000/0200 VUs  04m43.0s/10m0s  185.81 iters/s
+
+running (04m44.0s), 0000/0200 VUs, 22400 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0000/0200 VUs  04m44.0s/10m0s  186.64 iters/s
+
+running (04m45.0s), 0000/0200 VUs, 22587 complete and 0 interrupted iterations
+escalones_alta_carga   [  47% ] 0000/0200 VUs  04m45.0s/10m0s  187.47 iters/s
+
+running (04m46.0s), 0000/0200 VUs, 22775 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0000/0200 VUs  04m46.0s/10m0s  188.31 iters/s
+
+running (04m47.0s), 0001/0200 VUs, 22963 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0001/0200 VUs  04m47.0s/10m0s  189.14 iters/s
+
+running (04m48.0s), 0001/0200 VUs, 23153 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0001/0200 VUs  04m48.0s/10m0s  189.98 iters/s
+
+running (04m49.0s), 0001/0200 VUs, 23343 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0001/0200 VUs  04m49.0s/10m0s  190.81 iters/s
+
+running (04m50.0s), 0000/0200 VUs, 23535 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0000/0200 VUs  04m50.0s/10m0s  191.64 iters/s
+
+running (04m51.0s), 0000/0200 VUs, 23727 complete and 0 interrupted iterations
+escalones_alta_carga   [  48% ] 0000/0200 VUs  04m51.0s/10m0s  192.47 iters/s
+
+running (04m52.0s), 0000/0200 VUs, 23920 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0000/0200 VUs  04m52.0s/10m0s  193.31 iters/s
+
+running (04m53.0s), 0000/0200 VUs, 24114 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0000/0200 VUs  04m53.0s/10m0s  194.14 iters/s
+
+running (04m54.0s), 0000/0200 VUs, 24308 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0000/0200 VUs  04m54.0s/10m0s  194.97 iters/s
+
+running (04m55.0s), 0001/0200 VUs, 24503 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0001/0200 VUs  04m55.0s/10m0s  195.81 iters/s
+
+running (04m56.0s), 0001/0200 VUs, 24699 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0001/0200 VUs  04m56.0s/10m0s  196.64 iters/s
+
+running (04m57.0s), 0001/0200 VUs, 24896 complete and 0 interrupted iterations
+escalones_alta_carga   [  49% ] 0001/0200 VUs  04m57.0s/10m0s  197.47 iters/s
+
+running (04m58.0s), 0001/0200 VUs, 25094 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0001/0200 VUs  04m58.0s/10m0s  198.31 iters/s
+
+running (04m59.0s), 0001/0200 VUs, 25293 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0001/0200 VUs  04m59.0s/10m0s  199.14 iters/s
+
+running (05m00.0s), 0000/0200 VUs, 25493 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0000/0200 VUs  05m00.0s/10m0s  199.97 iters/s
+
+running (05m01.0s), 0001/0200 VUs, 25693 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0001/0200 VUs  05m01.0s/10m0s  200.81 iters/s
+
+running (05m02.0s), 0001/0200 VUs, 25894 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0001/0200 VUs  05m02.0s/10m0s  201.64 iters/s
+
+running (05m03.0s), 0001/0200 VUs, 26096 complete and 0 interrupted iterations
+escalones_alta_carga   [  50% ] 0001/0200 VUs  05m03.0s/10m0s  202.47 iters/s
+
+running (05m04.0s), 0000/0200 VUs, 26300 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0000/0200 VUs  05m04.0s/10m0s  203.31 iters/s
+
+running (05m05.0s), 0000/0200 VUs, 26503 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0000/0200 VUs  05m05.0s/10m0s  204.14 iters/s
+
+running (05m06.0s), 0001/0200 VUs, 26707 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0001/0200 VUs  05m06.0s/10m0s  204.97 iters/s
+
+running (05m07.0s), 0000/0200 VUs, 26913 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0000/0200 VUs  05m07.0s/10m0s  205.81 iters/s
+
+running (05m08.0s), 0001/0200 VUs, 27119 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0001/0200 VUs  05m08.0s/10m0s  206.64 iters/s
+
+running (05m09.0s), 0001/0200 VUs, 27326 complete and 0 interrupted iterations
+escalones_alta_carga   [  51% ] 0001/0200 VUs  05m09.0s/10m0s  207.47 iters/s
+
+running (05m10.0s), 0001/0200 VUs, 27534 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0001/0200 VUs  05m10.0s/10m0s  208.31 iters/s
+
+running (05m11.0s), 0001/0200 VUs, 27742 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0001/0200 VUs  05m11.0s/10m0s  209.14 iters/s
+
+running (05m12.0s), 0001/0200 VUs, 27952 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0001/0200 VUs  05m12.0s/10m0s  209.97 iters/s
+
+running (05m13.0s), 0001/0200 VUs, 28163 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0001/0200 VUs  05m13.0s/10m0s  210.81 iters/s
+
+running (05m14.0s), 0000/0200 VUs, 28374 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0000/0200 VUs  05m14.0s/10m0s  211.64 iters/s
+
+running (05m15.0s), 0001/0200 VUs, 28586 complete and 0 interrupted iterations
+escalones_alta_carga   [  52% ] 0001/0200 VUs  05m15.0s/10m0s  212.48 iters/s
+
+running (05m16.0s), 0000/0200 VUs, 28799 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0001/0200 VUs  05m16.0s/10m0s  213.31 iters/s
+
+running (05m17.0s), 0023/0200 VUs, 28997 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0026/0200 VUs  05m17.0s/10m0s  214.18 iters/s
+
+running (05m18.0s), 0001/0200 VUs, 29227 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0001/0200 VUs  05m18.0s/10m0s  214.97 iters/s
+
+running (05m19.0s), 0000/0200 VUs, 29443 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0001/0200 VUs  05m19.0s/10m0s  215.81 iters/s
+
+running (05m20.0s), 0000/0200 VUs, 29659 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0000/0200 VUs  05m20.0s/10m0s  216.64 iters/s
+
+running (05m21.0s), 0001/0200 VUs, 29876 complete and 0 interrupted iterations
+escalones_alta_carga   [  53% ] 0001/0200 VUs  05m21.0s/10m0s  217.48 iters/s
+
+running (05m22.0s), 0000/0200 VUs, 30094 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0000/0200 VUs  05m22.0s/10m0s  218.31 iters/s
+
+running (05m23.0s), 0001/0200 VUs, 30313 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0001/0200 VUs  05m23.0s/10m0s  219.14 iters/s
+
+running (05m24.0s), 0001/0200 VUs, 30532 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0001/0200 VUs  05m24.0s/10m0s  219.98 iters/s
+
+running (05m25.0s), 0001/0200 VUs, 30752 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0001/0200 VUs  05m25.0s/10m0s  220.81 iters/s
+
+running (05m26.0s), 0000/0200 VUs, 30974 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0000/0200 VUs  05m26.0s/10m0s  221.64 iters/s
+
+running (05m27.0s), 0000/0200 VUs, 31196 complete and 0 interrupted iterations
+escalones_alta_carga   [  54% ] 0000/0200 VUs  05m27.0s/10m0s  222.47 iters/s
+
+running (05m28.0s), 0001/0200 VUs, 31418 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0001/0200 VUs  05m28.0s/10m0s  223.31 iters/s
+
+running (05m29.0s), 0001/0200 VUs, 31642 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0001/0200 VUs  05m29.0s/10m0s  224.14 iters/s
+
+running (05m30.0s), 0001/0200 VUs, 31867 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0001/0200 VUs  05m30.0s/10m0s  224.98 iters/s
+
+running (05m31.0s), 0001/0200 VUs, 32092 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0001/0200 VUs  05m31.0s/10m0s  225.81 iters/s
+
+running (05m32.0s), 0000/0200 VUs, 32319 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0000/0200 VUs  05m32.0s/10m0s  226.64 iters/s
+
+running (05m33.0s), 0000/0200 VUs, 32546 complete and 0 interrupted iterations
+escalones_alta_carga   [  55% ] 0000/0200 VUs  05m33.0s/10m0s  227.47 iters/s
+
+running (05m34.0s), 0001/0200 VUs, 32773 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0001/0200 VUs  05m34.0s/10m0s  228.31 iters/s
+
+running (05m35.0s), 0001/0200 VUs, 33002 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0001/0200 VUs  05m35.0s/10m0s  229.14 iters/s
+
+running (05m36.0s), 0000/0200 VUs, 33232 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0000/0200 VUs  05m36.0s/10m0s  229.97 iters/s
+
+running (05m37.0s), 0001/0200 VUs, 33462 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0001/0200 VUs  05m37.0s/10m0s  230.81 iters/s
+
+running (05m38.0s), 0001/0200 VUs, 33693 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0001/0200 VUs  05m38.0s/10m0s  231.64 iters/s
+
+running (05m39.0s), 0000/0200 VUs, 33926 complete and 0 interrupted iterations
+escalones_alta_carga   [  56% ] 0000/0200 VUs  05m39.0s/10m0s  232.47 iters/s
+
+running (05m40.0s), 0001/0200 VUs, 34158 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0001/0200 VUs  05m40.0s/10m0s  233.31 iters/s
+
+running (05m41.0s), 0001/0200 VUs, 34392 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0001/0200 VUs  05m41.0s/10m0s  234.14 iters/s
+
+running (05m42.0s), 0001/0200 VUs, 34627 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0001/0200 VUs  05m42.0s/10m0s  234.98 iters/s
+
+running (05m43.0s), 0000/0200 VUs, 34862 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0000/0200 VUs  05m43.0s/10m0s  235.81 iters/s
+
+running (05m44.0s), 0001/0200 VUs, 35098 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0001/0200 VUs  05m44.0s/10m0s  236.64 iters/s
+
+running (05m45.0s), 0001/0200 VUs, 35335 complete and 0 interrupted iterations
+escalones_alta_carga   [  57% ] 0001/0200 VUs  05m45.0s/10m0s  237.47 iters/s
+
+running (05m46.0s), 0001/0200 VUs, 35573 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0001/0200 VUs  05m46.0s/10m0s  238.31 iters/s
+
+running (05m47.0s), 0000/0200 VUs, 35812 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0000/0200 VUs  05m47.0s/10m0s  239.14 iters/s
+
+running (05m48.0s), 0001/0200 VUs, 36051 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0001/0200 VUs  05m48.0s/10m0s  239.97 iters/s
+
+running (05m49.0s), 0000/0200 VUs, 36292 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0001/0200 VUs  05m49.0s/10m0s  240.81 iters/s
+
+running (05m50.0s), 0001/0200 VUs, 36533 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0001/0200 VUs  05m50.0s/10m0s  241.64 iters/s
+
+running (05m51.0s), 0001/0200 VUs, 36775 complete and 0 interrupted iterations
+escalones_alta_carga   [  58% ] 0001/0200 VUs  05m51.0s/10m0s  242.48 iters/s
+
+running (05m52.0s), 0001/0200 VUs, 37018 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0001/0200 VUs  05m52.0s/10m0s  243.31 iters/s
+
+running (05m53.0s), 0001/0200 VUs, 37261 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0000/0200 VUs  05m53.0s/10m0s  244.14 iters/s
+
+running (05m54.0s), 0001/0200 VUs, 37506 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0001/0200 VUs  05m54.0s/10m0s  244.97 iters/s
+
+running (05m55.0s), 0000/0200 VUs, 37752 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0000/0200 VUs  05m55.0s/10m0s  245.81 iters/s
+
+running (05m56.0s), 0001/0200 VUs, 37998 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0001/0200 VUs  05m56.0s/10m0s  246.64 iters/s
+
+running (05m57.0s), 0000/0200 VUs, 38245 complete and 0 interrupted iterations
+escalones_alta_carga   [  59% ] 0000/0200 VUs  05m57.0s/10m0s  247.47 iters/s
+
+running (05m58.0s), 0000/0200 VUs, 38493 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0000/0200 VUs  05m58.0s/10m0s  248.31 iters/s
+
+running (05m59.0s), 0000/0200 VUs, 38742 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0000/0200 VUs  05m59.0s/10m0s  249.14 iters/s
+
+running (06m00.0s), 0001/0200 VUs, 38991 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0001/0200 VUs  06m00.0s/10m0s  249.98 iters/s
+
+running (06m01.0s), 0001/0200 VUs, 39241 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0000/0200 VUs  06m01.0s/10m0s  250.81 iters/s
+
+running (06m02.0s), 0000/0200 VUs, 39493 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0000/0200 VUs  06m02.0s/10m0s  251.64 iters/s
+
+running (06m03.0s), 0001/0200 VUs, 39745 complete and 0 interrupted iterations
+escalones_alta_carga   [  60% ] 0001/0200 VUs  06m03.0s/10m0s  252.48 iters/s
+
+running (06m04.0s), 0001/0200 VUs, 39997 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0001/0200 VUs  06m04.0s/10m0s  253.31 iters/s
+
+running (06m05.0s), 0001/0200 VUs, 40251 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0001/0200 VUs  06m05.0s/10m0s  254.14 iters/s
+
+running (06m06.0s), 0000/0200 VUs, 40506 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0000/0200 VUs  06m06.0s/10m0s  254.97 iters/s
+
+running (06m07.0s), 0001/0200 VUs, 40761 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0001/0200 VUs  06m07.0s/10m0s  255.81 iters/s
+
+running (06m08.0s), 0000/0200 VUs, 41018 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0000/0200 VUs  06m08.0s/10m0s  256.64 iters/s
+
+running (06m09.0s), 0000/0200 VUs, 41275 complete and 0 interrupted iterations
+escalones_alta_carga   [  61% ] 0000/0200 VUs  06m09.0s/10m0s  257.47 iters/s
+
+running (06m10.0s), 0001/0200 VUs, 41532 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m10.0s/10m0s  258.31 iters/s
+
+running (06m11.0s), 0001/0200 VUs, 41791 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m11.0s/10m0s  259.14 iters/s
+
+running (06m12.0s), 0001/0200 VUs, 42050 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m12.0s/10m0s  259.97 iters/s
+
+running (06m13.0s), 0000/0200 VUs, 42311 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m13.0s/10m0s  260.81 iters/s
+
+running (06m14.0s), 0001/0200 VUs, 42572 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m14.0s/10m0s  261.64 iters/s
+
+running (06m15.0s), 0001/0200 VUs, 42834 complete and 0 interrupted iterations
+escalones_alta_carga   [  62% ] 0001/0200 VUs  06m15.0s/10m0s  262.47 iters/s
+
+running (06m16.0s), 0001/0200 VUs, 43097 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0001/0200 VUs  06m16.0s/10m0s  263.31 iters/s
+
+running (06m17.0s), 0001/0200 VUs, 43361 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0001/0200 VUs  06m17.0s/10m0s  264.14 iters/s
+
+running (06m18.0s), 0000/0200 VUs, 43626 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0000/0200 VUs  06m18.0s/10m0s  264.97 iters/s
+
+running (06m19.0s), 0001/0200 VUs, 43891 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0001/0200 VUs  06m19.0s/10m0s  265.81 iters/s
+
+running (06m20.0s), 0000/0200 VUs, 44158 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0000/0200 VUs  06m20.0s/10m0s  266.64 iters/s
+
+running (06m21.0s), 0001/0200 VUs, 44424 complete and 0 interrupted iterations
+escalones_alta_carga   [  63% ] 0001/0200 VUs  06m21.0s/10m0s  267.47 iters/s
+
+running (06m22.0s), 0017/0200 VUs, 44670 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0017/0200 VUs  06m22.0s/10m0s  268.29 iters/s
+
+running (06m23.0s), 0001/0200 VUs, 44961 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0001/0200 VUs  06m23.0s/10m0s  269.14 iters/s
+
+running (06m24.0s), 0001/0200 VUs, 45230 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0001/0200 VUs  06m24.0s/10m0s  269.97 iters/s
+
+running (06m25.0s), 0001/0200 VUs, 45501 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0001/0200 VUs  06m25.0s/10m0s  270.81 iters/s
+
+running (06m26.0s), 0001/0200 VUs, 45772 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0001/0200 VUs  06m26.0s/10m0s  271.64 iters/s
+
+running (06m27.0s), 0000/0200 VUs, 46044 complete and 0 interrupted iterations
+escalones_alta_carga   [  64% ] 0000/0200 VUs  06m27.0s/10m0s  272.47 iters/s
+
+running (06m28.0s), 0001/0200 VUs, 46317 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0001/0200 VUs  06m28.0s/10m0s  273.31 iters/s
+
+running (06m29.0s), 0000/0200 VUs, 46591 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0000/0200 VUs  06m29.0s/10m0s  274.14 iters/s
+
+running (06m30.0s), 0001/0200 VUs, 46865 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0001/0200 VUs  06m30.0s/10m0s  274.97 iters/s
+
+running (06m31.0s), 0000/0200 VUs, 47141 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0000/0200 VUs  06m31.0s/10m0s  275.81 iters/s
+
+running (06m32.0s), 0000/0200 VUs, 47417 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0001/0200 VUs  06m32.0s/10m0s  276.64 iters/s
+
+running (06m33.0s), 0002/0200 VUs, 47693 complete and 0 interrupted iterations
+escalones_alta_carga   [  65% ] 0002/0200 VUs  06m33.0s/10m0s  277.48 iters/s
+
+running (06m34.0s), 0000/0200 VUs, 47972 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0000/0200 VUs  06m34.0s/10m0s  278.31 iters/s
+
+running (06m35.0s), 0001/0200 VUs, 48250 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0001/0200 VUs  06m35.0s/10m0s  279.14 iters/s
+
+running (06m36.0s), 0001/0200 VUs, 48530 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0001/0200 VUs  06m36.0s/10m0s  279.97 iters/s
+
+running (06m37.0s), 0001/0200 VUs, 48810 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0001/0200 VUs  06m37.0s/10m0s  280.81 iters/s
+
+running (06m38.0s), 0000/0200 VUs, 49092 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0000/0200 VUs  06m38.0s/10m0s  281.64 iters/s
+
+running (06m39.0s), 0001/0200 VUs, 49374 complete and 0 interrupted iterations
+escalones_alta_carga   [  66% ] 0001/0200 VUs  06m39.0s/10m0s  282.48 iters/s
+
+running (06m40.0s), 0001/0200 VUs, 49656 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0001/0200 VUs  06m40.0s/10m0s  283.31 iters/s
+
+running (06m41.0s), 0001/0200 VUs, 49940 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0001/0200 VUs  06m41.0s/10m0s  284.14 iters/s
+
+running (06m42.0s), 0000/0200 VUs, 50225 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0001/0200 VUs  06m42.0s/10m0s  284.98 iters/s
+
+running (06m43.0s), 0001/0200 VUs, 50510 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0001/0200 VUs  06m43.0s/10m0s  285.81 iters/s
+
+running (06m44.0s), 0000/0200 VUs, 50797 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0000/0200 VUs  06m44.0s/10m0s  286.64 iters/s
+
+running (06m45.0s), 0000/0200 VUs, 51084 complete and 0 interrupted iterations
+escalones_alta_carga   [  67% ] 0000/0200 VUs  06m45.0s/10m0s  287.47 iters/s
+
+running (06m46.0s), 0000/0200 VUs, 51372 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0000/0200 VUs  06m46.0s/10m0s  288.31 iters/s
+
+running (06m47.0s), 0001/0200 VUs, 51660 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0001/0200 VUs  06m47.0s/10m0s  289.14 iters/s
+
+running (06m48.0s), 0001/0200 VUs, 51950 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0001/0200 VUs  06m48.0s/10m0s  289.98 iters/s
+
+running (06m49.0s), 0001/0200 VUs, 52240 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0001/0200 VUs  06m49.0s/10m0s  290.81 iters/s
+
+running (06m50.0s), 0001/0200 VUs, 52531 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0001/0200 VUs  06m50.0s/10m0s  291.64 iters/s
+
+running (06m51.0s), 0000/0200 VUs, 52824 complete and 0 interrupted iterations
+escalones_alta_carga   [  68% ] 0000/0200 VUs  06m51.0s/10m0s  292.47 iters/s
+
+running (06m52.0s), 0001/0200 VUs, 53116 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0001/0200 VUs  06m52.0s/10m0s  293.31 iters/s
+
+running (06m53.0s), 0001/0200 VUs, 53410 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0001/0200 VUs  06m53.0s/10m0s  294.14 iters/s
+
+running (06m54.0s), 0000/0200 VUs, 53705 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0000/0200 VUs  06m54.0s/10m0s  294.97 iters/s
+
+running (06m55.0s), 0001/0200 VUs, 54000 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0001/0200 VUs  06m55.0s/10m0s  295.81 iters/s
+
+running (06m56.0s), 0001/0200 VUs, 54296 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0001/0200 VUs  06m56.0s/10m0s  296.64 iters/s
+
+running (06m57.0s), 0000/0200 VUs, 54594 complete and 0 interrupted iterations
+escalones_alta_carga   [  69% ] 0000/0200 VUs  06m57.0s/10m0s  297.47 iters/s
+
+running (06m58.0s), 0001/0200 VUs, 54891 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0001/0200 VUs  06m58.0s/10m0s  298.31 iters/s
+
+running (06m59.0s), 0000/0200 VUs, 55190 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0000/0200 VUs  06m59.0s/10m0s  299.14 iters/s
+
+running (07m00.0s), 0001/0200 VUs, 55489 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0001/0200 VUs  07m00.0s/10m0s  299.97 iters/s
+
+running (07m01.0s), 0001/0200 VUs, 55790 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0001/0200 VUs  07m01.0s/10m0s  301.62 iters/s
+
+running (07m02.0s), 0000/0200 VUs, 56093 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0000/0200 VUs  07m02.0s/10m0s  303.28 iters/s
+
+running (07m03.0s), 0001/0200 VUs, 56396 complete and 0 interrupted iterations
+escalones_alta_carga   [  70% ] 0001/0200 VUs  07m03.0s/10m0s  304.95 iters/s
+
+running (07m04.0s), 0001/0200 VUs, 56702 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0001/0200 VUs  07m04.0s/10m0s  306.61 iters/s
+
+running (07m05.0s), 0000/0200 VUs, 57010 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0000/0200 VUs  07m05.0s/10m0s  308.28 iters/s
+
+running (07m06.0s), 0001/0200 VUs, 57319 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0001/0200 VUs  07m06.0s/10m0s  309.95 iters/s
+
+running (07m07.0s), 0001/0200 VUs, 57630 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0001/0200 VUs  07m07.0s/10m0s  311.62 iters/s
+
+running (07m08.0s), 0001/0200 VUs, 57942 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0001/0200 VUs  07m08.0s/10m0s  313.28 iters/s
+
+running (07m09.0s), 0000/0200 VUs, 58257 complete and 0 interrupted iterations
+escalones_alta_carga   [  71% ] 0000/0200 VUs  07m09.0s/10m0s  314.95 iters/s
+
+running (07m10.0s), 0000/0200 VUs, 58573 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0000/0200 VUs  07m10.0s/10m0s  316.61 iters/s
+
+running (07m11.0s), 0000/0200 VUs, 58890 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0001/0200 VUs  07m11.0s/10m0s  318.28 iters/s
+
+running (07m12.0s), 0001/0200 VUs, 59209 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0001/0200 VUs  07m12.0s/10m0s  319.95 iters/s
+
+running (07m13.0s), 0000/0200 VUs, 59530 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0000/0200 VUs  07m13.0s/10m0s  321.61 iters/s
+
+running (07m14.0s), 0001/0200 VUs, 59852 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0001/0200 VUs  07m14.0s/10m0s  323.28 iters/s
+
+running (07m15.0s), 0001/0200 VUs, 60176 complete and 0 interrupted iterations
+escalones_alta_carga   [  72% ] 0001/0200 VUs  07m15.0s/10m0s  324.95 iters/s
+
+running (07m16.0s), 0001/0200 VUs, 60502 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0001/0200 VUs  07m16.0s/10m0s  326.62 iters/s
+
+running (07m17.0s), 0001/0200 VUs, 60829 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0001/0200 VUs  07m17.0s/10m0s  328.28 iters/s
+
+running (07m18.0s), 0000/0200 VUs, 61159 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0000/0200 VUs  07m18.0s/10m0s  329.95 iters/s
+
+running (07m19.0s), 0001/0200 VUs, 61489 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0001/0200 VUs  07m19.0s/10m0s  331.61 iters/s
+
+running (07m20.0s), 0002/0200 VUs, 61821 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0002/0200 VUs  07m20.0s/10m0s  333.28 iters/s
+
+running (07m21.0s), 0001/0200 VUs, 62156 complete and 0 interrupted iterations
+escalones_alta_carga   [  73% ] 0001/0200 VUs  07m21.0s/10m0s  334.95 iters/s
+
+running (07m22.0s), 0001/0200 VUs, 62492 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0001/0200 VUs  07m22.0s/10m0s  336.62 iters/s
+
+running (07m23.0s), 0001/0200 VUs, 62829 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0001/0200 VUs  07m23.0s/10m0s  338.28 iters/s
+
+running (07m24.0s), 0001/0200 VUs, 63168 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0001/0200 VUs  07m24.0s/10m0s  339.95 iters/s
+
+running (07m25.0s), 0001/0200 VUs, 63509 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0001/0200 VUs  07m25.0s/10m0s  341.62 iters/s
+
+running (07m26.0s), 0000/0200 VUs, 63852 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0000/0200 VUs  07m26.0s/10m0s  343.28 iters/s
+
+running (07m27.0s), 0001/0200 VUs, 64196 complete and 0 interrupted iterations
+escalones_alta_carga   [  74% ] 0001/0200 VUs  07m27.0s/10m0s  344.95 iters/s
+
+running (07m28.0s), 0001/0200 VUs, 64541 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m28.0s/10m0s  346.61 iters/s
+
+running (07m29.0s), 0002/0200 VUs, 64888 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m29.0s/10m0s  348.28 iters/s
+
+running (07m30.0s), 0001/0200 VUs, 65238 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m30.0s/10m0s  349.95 iters/s
+
+running (07m31.0s), 0001/0200 VUs, 65589 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m31.0s/10m0s  351.62 iters/s
+
+running (07m32.0s), 0001/0200 VUs, 65941 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m32.0s/10m0s  353.28 iters/s
+
+running (07m33.0s), 0001/0200 VUs, 66295 complete and 0 interrupted iterations
+escalones_alta_carga   [  75% ] 0001/0200 VUs  07m33.0s/10m0s  354.95 iters/s
+
+running (07m34.0s), 0001/0200 VUs, 66651 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0001/0200 VUs  07m34.0s/10m0s  356.62 iters/s
+
+running (07m35.0s), 0001/0200 VUs, 67008 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0001/0200 VUs  07m35.0s/10m0s  358.28 iters/s
+
+running (07m36.0s), 0001/0200 VUs, 67367 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0001/0200 VUs  07m36.0s/10m0s  359.95 iters/s
+
+running (07m37.0s), 0000/0200 VUs, 67729 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0000/0200 VUs  07m37.0s/10m0s  361.61 iters/s
+
+running (07m38.0s), 0001/0200 VUs, 68090 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0001/0200 VUs  07m38.0s/10m0s  363.28 iters/s
+
+running (07m39.0s), 0000/0200 VUs, 68455 complete and 0 interrupted iterations
+escalones_alta_carga   [  76% ] 0000/0200 VUs  07m39.0s/10m0s  364.95 iters/s
+
+running (07m40.0s), 0001/0200 VUs, 68821 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0001/0200 VUs  07m40.0s/10m0s  366.62 iters/s
+
+running (07m41.0s), 0001/0200 VUs, 69188 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0001/0200 VUs  07m41.0s/10m0s  368.28 iters/s
+
+running (07m42.0s), 0001/0200 VUs, 69557 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0001/0200 VUs  07m42.0s/10m0s  369.95 iters/s
+
+running (07m43.0s), 0002/0200 VUs, 69927 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0002/0200 VUs  07m43.0s/10m0s  371.62 iters/s
+
+running (07m44.0s), 0000/0200 VUs, 70300 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0000/0200 VUs  07m44.0s/10m0s  373.28 iters/s
+
+running (07m45.0s), 0000/0200 VUs, 70675 complete and 0 interrupted iterations
+escalones_alta_carga   [  77% ] 0000/0200 VUs  07m45.0s/10m0s  374.95 iters/s
+
+running (07m46.0s), 0001/0200 VUs, 71050 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0001/0200 VUs  07m46.0s/10m0s  376.61 iters/s
+
+running (07m47.0s), 0001/0200 VUs, 71428 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0001/0200 VUs  07m47.0s/10m0s  378.28 iters/s
+
+running (07m48.0s), 0001/0200 VUs, 71807 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0001/0200 VUs  07m48.0s/10m0s  379.95 iters/s
+
+running (07m49.0s), 0001/0200 VUs, 72188 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0001/0200 VUs  07m49.0s/10m0s  381.62 iters/s
+
+running (07m50.0s), 0001/0200 VUs, 72570 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0001/0200 VUs  07m50.0s/10m0s  383.28 iters/s
+
+running (07m51.0s), 0000/0200 VUs, 72955 complete and 0 interrupted iterations
+escalones_alta_carga   [  78% ] 0000/0200 VUs  07m51.0s/10m0s  384.95 iters/s
+
+running (07m52.0s), 0001/0200 VUs, 73340 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0001/0200 VUs  07m52.0s/10m0s  386.62 iters/s
+
+running (07m53.0s), 0001/0200 VUs, 73727 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0001/0200 VUs  07m53.0s/10m0s  388.28 iters/s
+
+running (07m54.0s), 0001/0200 VUs, 74117 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0001/0200 VUs  07m54.0s/10m0s  389.95 iters/s
+
+running (07m55.0s), 0001/0200 VUs, 74507 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0001/0200 VUs  07m55.0s/10m0s  391.61 iters/s
+
+running (07m56.0s), 0000/0200 VUs, 74900 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0000/0200 VUs  07m56.0s/10m0s  393.28 iters/s
+
+running (07m57.0s), 0000/0200 VUs, 75294 complete and 0 interrupted iterations
+escalones_alta_carga   [  79% ] 0000/0200 VUs  07m57.0s/10m0s  394.95 iters/s
+
+running (07m58.0s), 0000/0200 VUs, 75690 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0000/0200 VUs  07m58.0s/10m0s  396.61 iters/s
+
+running (07m59.0s), 0001/0200 VUs, 76087 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0001/0200 VUs  07m59.0s/10m0s  398.28 iters/s
+
+running (08m00.0s), 0001/0200 VUs, 76486 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0001/0200 VUs  08m00.0s/10m0s  399.95 iters/s
+
+running (08m01.0s), 0001/0200 VUs, 76886 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0001/0200 VUs  08m01.0s/10m0s  401.61 iters/s
+
+running (08m02.0s), 0000/0200 VUs, 77290 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0000/0200 VUs  08m02.0s/10m0s  403.28 iters/s
+
+running (08m03.0s), 0001/0200 VUs, 77693 complete and 0 interrupted iterations
+escalones_alta_carga   [  80% ] 0001/0200 VUs  08m03.0s/10m0s  404.95 iters/s
+
+running (08m04.0s), 0001/0200 VUs, 78099 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m04.0s/10m0s  406.61 iters/s
+
+running (08m05.0s), 0001/0200 VUs, 78507 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m05.0s/10m0s  408.28 iters/s
+
+running (08m06.0s), 0001/0200 VUs, 78916 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m06.0s/10m0s  409.95 iters/s
+
+running (08m07.0s), 0001/0200 VUs, 79327 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m07.0s/10m0s  411.62 iters/s
+
+running (08m08.0s), 0001/0200 VUs, 79739 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m08.0s/10m0s  413.28 iters/s
+
+running (08m09.0s), 0001/0200 VUs, 80153 complete and 0 interrupted iterations
+escalones_alta_carga   [  81% ] 0001/0200 VUs  08m09.0s/10m0s  414.95 iters/s
+
+running (08m10.0s), 0001/0200 VUs, 80569 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0001/0200 VUs  08m10.0s/10m0s  416.62 iters/s
+
+running (08m11.0s), 0001/0200 VUs, 80987 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0001/0200 VUs  08m11.0s/10m0s  418.28 iters/s
+
+running (08m12.0s), 0001/0200 VUs, 81406 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0001/0200 VUs  08m12.0s/10m0s  419.95 iters/s
+
+running (08m13.0s), 0000/0200 VUs, 81827 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0000/0200 VUs  08m13.0s/10m0s  421.61 iters/s
+
+running (08m14.0s), 0000/0200 VUs, 82249 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0000/0200 VUs  08m14.0s/10m0s  423.28 iters/s
+
+running (08m15.0s), 0001/0200 VUs, 82673 complete and 0 interrupted iterations
+escalones_alta_carga   [  82% ] 0001/0200 VUs  08m15.0s/10m0s  424.95 iters/s
+
+running (08m16.0s), 0001/0200 VUs, 83099 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0001/0200 VUs  08m16.0s/10m0s  426.62 iters/s
+
+running (08m17.0s), 0001/0200 VUs, 83526 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0001/0200 VUs  08m17.0s/10m0s  428.28 iters/s
+
+running (08m18.0s), 0000/0200 VUs, 83956 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0000/0200 VUs  08m18.0s/10m0s  429.95 iters/s
+
+running (08m19.0s), 0001/0200 VUs, 84386 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0001/0200 VUs  08m19.0s/10m0s  431.62 iters/s
+
+running (08m20.0s), 0000/0200 VUs, 84819 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0000/0200 VUs  08m20.0s/10m0s  433.28 iters/s
+
+running (08m21.0s), 0001/0200 VUs, 85252 complete and 0 interrupted iterations
+escalones_alta_carga   [  83% ] 0001/0200 VUs  08m21.0s/10m0s  434.95 iters/s
+
+running (08m22.0s), 0000/0200 VUs, 85689 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0000/0200 VUs  08m22.0s/10m0s  436.61 iters/s
+
+running (08m23.0s), 0001/0200 VUs, 86126 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0001/0200 VUs  08m23.0s/10m0s  438.28 iters/s
+
+running (08m24.0s), 0002/0200 VUs, 86564 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0001/0200 VUs  08m24.0s/10m0s  439.95 iters/s
+
+running (08m25.0s), 0001/0200 VUs, 87006 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0001/0200 VUs  08m25.0s/10m0s  441.62 iters/s
+
+running (08m26.0s), 0001/0200 VUs, 87448 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0001/0200 VUs  08m26.0s/10m0s  443.28 iters/s
+
+running (08m27.0s), 0001/0200 VUs, 87892 complete and 0 interrupted iterations
+escalones_alta_carga   [  84% ] 0001/0200 VUs  08m27.0s/10m0s  444.95 iters/s
+
+running (08m28.0s), 0001/0200 VUs, 88338 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0001/0200 VUs  08m28.0s/10m0s  446.61 iters/s
+
+running (08m29.0s), 0001/0200 VUs, 88785 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0001/0200 VUs  08m29.0s/10m0s  448.28 iters/s
+
+running (08m30.0s), 0000/0200 VUs, 89235 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0000/0200 VUs  08m30.0s/10m0s  449.95 iters/s
+
+running (08m31.0s), 0001/0200 VUs, 89685 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0001/0200 VUs  08m31.0s/10m0s  451.61 iters/s
+
+running (08m32.0s), 0002/0200 VUs, 90138 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0002/0200 VUs  08m32.0s/10m0s  453.29 iters/s
+
+running (08m33.0s), 0001/0200 VUs, 90592 complete and 0 interrupted iterations
+escalones_alta_carga   [  85% ] 0001/0200 VUs  08m33.0s/10m0s  454.95 iters/s
+
+running (08m34.0s), 0002/0200 VUs, 91047 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0002/0200 VUs  08m34.0s/10m0s  456.62 iters/s
+
+running (08m35.0s), 0001/0200 VUs, 91505 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0001/0200 VUs  08m35.0s/10m0s  458.28 iters/s
+
+running (08m36.0s), 0000/0200 VUs, 91965 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0000/0200 VUs  08m36.0s/10m0s  459.95 iters/s
+
+running (08m37.0s), 0000/0200 VUs, 92426 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0000/0200 VUs  08m37.0s/10m0s  461.61 iters/s
+
+running (08m38.0s), 0000/0200 VUs, 92888 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0000/0200 VUs  08m38.0s/10m0s  463.28 iters/s
+
+running (08m39.0s), 0001/0200 VUs, 93351 complete and 0 interrupted iterations
+escalones_alta_carga   [  86% ] 0001/0200 VUs  08m39.0s/10m0s  464.95 iters/s
+
+running (08m40.0s), 0001/0200 VUs, 93817 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0001/0200 VUs  08m40.0s/10m0s  466.61 iters/s
+
+running (08m41.0s), 0002/0200 VUs, 94284 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0001/0200 VUs  08m41.0s/10m0s  468.28 iters/s
+
+running (08m42.0s), 0001/0200 VUs, 94754 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0001/0200 VUs  08m42.0s/10m0s  469.95 iters/s
+
+running (08m43.0s), 0001/0200 VUs, 95225 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0001/0200 VUs  08m43.0s/10m0s  471.62 iters/s
+
+running (08m44.0s), 0001/0200 VUs, 95697 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0000/0200 VUs  08m44.0s/10m0s  473.28 iters/s
+
+running (08m45.0s), 0001/0200 VUs, 96171 complete and 0 interrupted iterations
+escalones_alta_carga   [  87% ] 0001/0200 VUs  08m45.0s/10m0s  474.95 iters/s
+
+running (08m46.0s), 0001/0200 VUs, 96647 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0001/0200 VUs  08m46.0s/10m0s  476.61 iters/s
+
+running (08m47.0s), 0001/0200 VUs, 97124 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0001/0200 VUs  08m47.0s/10m0s  478.28 iters/s
+
+running (08m48.0s), 0002/0200 VUs, 97603 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0002/0200 VUs  08m48.0s/10m0s  479.95 iters/s
+
+running (08m49.0s), 0000/0200 VUs, 98085 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0000/0200 VUs  08m49.0s/10m0s  481.61 iters/s
+
+running (08m50.0s), 0000/0200 VUs, 98567 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0001/0200 VUs  08m50.0s/10m0s  483.28 iters/s
+
+running (08m51.0s), 0000/0200 VUs, 99051 complete and 0 interrupted iterations
+escalones_alta_carga   [  88% ] 0000/0200 VUs  08m51.0s/10m0s  484.94 iters/s
+
+running (08m52.0s), 0000/0200 VUs, 99537 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0000/0200 VUs  08m52.0s/10m0s  486.61 iters/s
+
+running (08m53.0s), 0002/0200 VUs, 100023 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0000/0200 VUs  08m53.0s/10m0s  488.28 iters/s
+
+running (08m54.0s), 0000/0200 VUs, 100514 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0000/0200 VUs  08m54.0s/10m0s  489.95 iters/s
+
+running (08m55.0s), 0001/0200 VUs, 101004 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0001/0200 VUs  08m55.0s/10m0s  491.61 iters/s
+
+running (08m56.0s), 0001/0200 VUs, 101496 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0001/0200 VUs  08m56.0s/10m0s  493.28 iters/s
+
+running (08m57.0s), 0001/0200 VUs, 101990 complete and 0 interrupted iterations
+escalones_alta_carga   [  89% ] 0001/0200 VUs  08m57.0s/10m0s  494.95 iters/s
+
+running (08m58.0s), 0000/0200 VUs, 102487 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0000/0200 VUs  08m58.0s/10m0s  496.61 iters/s
+
+running (08m59.0s), 0001/0200 VUs, 102984 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0001/0200 VUs  08m59.0s/10m0s  498.28 iters/s
+
+running (09m00.0s), 0002/0200 VUs, 103483 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0002/0200 VUs  09m00.0s/10m0s  499.95 iters/s
+
+running (09m01.0s), 0002/0200 VUs, 103984 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0002/0200 VUs  09m01.0s/10m0s  501.62 iters/s
+
+running (09m02.0s), 0001/0200 VUs, 104486 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0001/0200 VUs  09m02.0s/10m0s  503.28 iters/s
+
+running (09m03.0s), 0000/0200 VUs, 104990 complete and 0 interrupted iterations
+escalones_alta_carga   [  90% ] 0000/0200 VUs  09m03.0s/10m0s  504.94 iters/s
+
+running (09m04.0s), 0011/0200 VUs, 105490 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0011/0200 VUs  09m04.0s/10m0s  506.63 iters/s
+
+running (09m05.0s), 0001/0200 VUs, 106003 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0001/0200 VUs  09m05.0s/10m0s  508.28 iters/s
+
+running (09m06.0s), 0001/0200 VUs, 106512 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0001/0200 VUs  09m06.0s/10m0s  509.95 iters/s
+
+running (09m07.0s), 0001/0200 VUs, 107024 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0001/0200 VUs  09m07.0s/10m0s  511.62 iters/s
+
+running (09m08.0s), 0001/0200 VUs, 107536 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0001/0200 VUs  09m08.0s/10m0s  513.28 iters/s
+
+running (09m09.0s), 0000/0200 VUs, 108051 complete and 0 interrupted iterations
+escalones_alta_carga   [  91% ] 0000/0200 VUs  09m09.0s/10m0s  514.95 iters/s
+
+running (09m10.0s), 0001/0200 VUs, 108566 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0001/0200 VUs  09m10.0s/10m0s  516.62 iters/s
+
+running (09m11.0s), 0000/0200 VUs, 109084 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0000/0200 VUs  09m11.0s/10m0s  518.28 iters/s
+
+running (09m12.0s), 0001/0200 VUs, 109602 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0001/0200 VUs  09m12.0s/10m0s  519.95 iters/s
+
+running (09m13.0s), 0001/0200 VUs, 110123 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0001/0200 VUs  09m13.0s/10m0s  521.61 iters/s
+
+running (09m14.0s), 0001/0200 VUs, 110646 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0001/0200 VUs  09m14.0s/10m0s  523.28 iters/s
+
+running (09m15.0s), 0001/0200 VUs, 111170 complete and 0 interrupted iterations
+escalones_alta_carga   [  92% ] 0001/0200 VUs  09m15.0s/10m0s  524.95 iters/s
+
+running (09m16.0s), 0000/0200 VUs, 111696 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0000/0200 VUs  09m16.0s/10m0s  526.61 iters/s
+
+running (09m17.0s), 0001/0200 VUs, 112223 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0001/0200 VUs  09m17.0s/10m0s  528.28 iters/s
+
+running (09m18.0s), 0001/0200 VUs, 112752 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0001/0200 VUs  09m18.0s/10m0s  529.95 iters/s
+
+running (09m19.0s), 0001/0200 VUs, 113283 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0001/0200 VUs  09m19.0s/10m0s  531.62 iters/s
+
+running (09m20.0s), 0001/0200 VUs, 113816 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0001/0200 VUs  09m20.0s/10m0s  533.28 iters/s
+
+running (09m21.0s), 0001/0200 VUs, 114350 complete and 0 interrupted iterations
+escalones_alta_carga   [  93% ] 0001/0200 VUs  09m21.0s/10m0s  534.95 iters/s
+
+running (09m22.0s), 0001/0200 VUs, 114885 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0001/0200 VUs  09m22.0s/10m0s  536.61 iters/s
+
+running (09m23.0s), 0001/0200 VUs, 115423 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0001/0200 VUs  09m23.0s/10m0s  538.28 iters/s
+
+running (09m24.0s), 0000/0200 VUs, 115962 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0000/0200 VUs  09m24.0s/10m0s  539.95 iters/s
+
+running (09m25.0s), 0001/0200 VUs, 116502 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0001/0200 VUs  09m25.0s/10m0s  541.61 iters/s
+
+running (09m26.0s), 0001/0200 VUs, 117045 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0001/0200 VUs  09m26.0s/10m0s  543.28 iters/s
+
+running (09m27.0s), 0002/0200 VUs, 117589 complete and 0 interrupted iterations
+escalones_alta_carga   [  94% ] 0002/0200 VUs  09m27.0s/10m0s  544.95 iters/s
+
+running (09m28.0s), 0001/0200 VUs, 118135 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0001/0200 VUs  09m28.0s/10m0s  546.62 iters/s
+
+running (09m29.0s), 0001/0200 VUs, 118682 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0001/0200 VUs  09m29.0s/10m0s  548.28 iters/s
+
+running (09m30.0s), 0001/0200 VUs, 119232 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0001/0200 VUs  09m30.0s/10m0s  549.95 iters/s
+
+running (09m31.0s), 0001/0200 VUs, 119781 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0000/0200 VUs  09m31.0s/10m0s  551.61 iters/s
+
+running (09m32.0s), 0000/0200 VUs, 120335 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0000/0200 VUs  09m32.0s/10m0s  553.28 iters/s
+
+running (09m33.0s), 0002/0200 VUs, 120888 complete and 0 interrupted iterations
+escalones_alta_carga   [  95% ] 0002/0200 VUs  09m33.0s/10m0s  554.95 iters/s
+
+running (09m34.0s), 0001/0200 VUs, 121445 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m34.0s/10m0s  556.62 iters/s
+
+running (09m35.0s), 0001/0200 VUs, 122002 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m35.0s/10m0s  558.28 iters/s
+
+running (09m36.0s), 0001/0200 VUs, 122560 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m36.0s/10m0s  559.94 iters/s
+
+running (09m37.0s), 0001/0200 VUs, 123122 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m37.0s/10m0s  561.62 iters/s
+
+running (09m38.0s), 0001/0200 VUs, 123684 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m38.0s/10m0s  563.28 iters/s
+
+running (09m39.0s), 0001/0200 VUs, 124248 complete and 0 interrupted iterations
+escalones_alta_carga   [  96% ] 0001/0200 VUs  09m39.0s/10m0s  564.95 iters/s
+
+running (09m40.0s), 0000/0200 VUs, 124815 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0000/0200 VUs  09m40.0s/10m0s  566.61 iters/s
+
+running (09m41.0s), 0000/0200 VUs, 125382 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0000/0200 VUs  09m41.0s/10m0s  568.28 iters/s
+
+running (09m42.0s), 0000/0200 VUs, 125950 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0000/0200 VUs  09m42.0s/10m0s  569.95 iters/s
+
+running (09m43.0s), 0001/0200 VUs, 126522 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0001/0200 VUs  09m43.0s/10m0s  571.62 iters/s
+
+running (09m44.0s), 0001/0200 VUs, 127094 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0001/0200 VUs  09m44.0s/10m0s  573.28 iters/s
+
+running (09m45.0s), 0000/0200 VUs, 127668 complete and 0 interrupted iterations
+escalones_alta_carga   [  97% ] 0001/0200 VUs  09m45.0s/10m0s  574.95 iters/s
+
+running (09m46.0s), 0000/0200 VUs, 128245 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0000/0200 VUs  09m46.0s/10m0s  576.62 iters/s
+
+running (09m47.0s), 0000/0200 VUs, 128822 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0000/0200 VUs  09m47.0s/10m0s  578.28 iters/s
+
+running (09m48.0s), 0001/0200 VUs, 129400 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0001/0200 VUs  09m48.0s/10m0s  579.95 iters/s
+
+running (09m49.0s), 0001/0200 VUs, 129981 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0001/0200 VUs  09m49.0s/10m0s  581.61 iters/s
+
+running (09m50.0s), 0000/0200 VUs, 130563 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0000/0200 VUs  09m50.0s/10m0s  583.28 iters/s
+
+running (09m51.0s), 0001/0200 VUs, 131148 complete and 0 interrupted iterations
+escalones_alta_carga   [  98% ] 0001/0200 VUs  09m51.0s/10m0s  584.95 iters/s
+
+running (09m52.0s), 0002/0200 VUs, 131732 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0002/0200 VUs  09m52.0s/10m0s  586.61 iters/s
+
+running (09m53.0s), 0001/0200 VUs, 132321 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0001/0200 VUs  09m53.0s/10m0s  588.28 iters/s
+
+running (09m54.0s), 0001/0200 VUs, 132910 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0001/0200 VUs  09m54.0s/10m0s  589.95 iters/s
+
+running (09m55.0s), 0001/0200 VUs, 133501 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0001/0200 VUs  09m55.0s/10m0s  591.61 iters/s
+
+running (09m56.0s), 0001/0200 VUs, 134094 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0001/0200 VUs  09m56.0s/10m0s  593.28 iters/s
+
+running (09m57.0s), 0001/0200 VUs, 134687 complete and 0 interrupted iterations
+escalones_alta_carga   [  99% ] 0001/0200 VUs  09m57.0s/10m0s  594.95 iters/s
+
+running (09m58.0s), 0001/0200 VUs, 135283 complete and 0 interrupted iterations
+escalones_alta_carga   [ 100% ] 0001/0200 VUs  09m58.0s/10m0s  596.61 iters/s
+
+running (09m59.0s), 0002/0200 VUs, 135881 complete and 0 interrupted iterations
+escalones_alta_carga   [ 100% ] 0002/0200 VUs  09m59.0s/10m0s  598.29 iters/s
+
+running (10m00.0s), 0002/0200 VUs, 136479 complete and 0 interrupted iterations
+escalones_alta_carga   [ 100% ] 0002/0200 VUs  10m00.0s/10m0s  599.95 iters/s
+
+     ✓ status 200
+     ✓ tiene estado
+
+     checks.........................: 100.00% ✓ 272996     ✗ 0     
+     data_received..................: 496 MB  826 kB/s
+     data_sent......................: 13 MB   22 kB/s
+   ✓ ha08_estado_duration...........: avg=1.3ms   min=322µs    med=1.07ms  max=278.26ms p(90)=1.93ms  p(95)=2.39ms 
+     http_req_blocked...............: avg=9.06µs  min=625ns    med=1.83µs  max=22.73ms  p(90)=4.25µs  p(95)=6.04µs 
+     http_req_connecting............: avg=4.52µs  min=0s       med=0s      max=22.56ms  p(90)=0s      p(95)=0s     
+     http_req_duration..............: avg=1.3ms   min=322µs    med=1.07ms  max=278.26ms p(90)=1.93ms  p(95)=2.39ms 
+       { expected_response:true }...: avg=1.3ms   min=322µs    med=1.07ms  max=278.26ms p(90)=1.93ms  p(95)=2.39ms 
+   ✓ http_req_failed................: 0.00%   ✓ 0          ✗ 136498
+     http_req_receiving.............: avg=33.86µs min=5.75µs   med=26.83µs max=15.6ms   p(90)=52.33µs p(95)=66.33µs
+     http_req_sending...............: avg=17.52µs min=2.91µs   med=13.75µs max=43ms     p(90)=25.79µs p(95)=33µs   
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s       p(90)=0s      p(95)=0s     
+     http_req_waiting...............: avg=1.25ms  min=297.83µs med=1.03ms  max=278.09ms p(90)=1.85ms  p(95)=2.3ms  
+     http_reqs......................: 136498  227.492381/s
+     iteration_duration.............: avg=1.43ms  min=371.29µs med=1.17ms  max=285.58ms p(90)=2.11ms  p(95)=2.63ms 
+     iterations.....................: 136498  227.492381/s
+     vus............................: 2       min=0        max=24  
+     vus_max........................: 200     min=200      max=200 
+
+
+running (10m00.0s), 0000/0200 VUs, 136498 complete and 0 interrupted iterations
+escalones_alta_carga ✓ [ 100% ] 0000/0200 VUs  10m0s  600.00 iters/s
+==> Listo: results/raw/summary_B_alta_carga.json

@@ -1,0 +1,70 @@
+{
+  "causa": "INCENDIO",
+  "cliente_id": 42,
+  "documentos": [
+    {
+      "cargado_en": "2026-09-05T01:39:34.510956Z",
+      "estado": "PENDIENTE",
+      "tipo": "DENUNCIA"
+    },
+    {
+      "cargado_en": "2026-09-06T01:39:34.510956Z",
+      "estado": "RECHAZADO",
+      "tipo": "FACTURA"
+    },
+    {
+      "cargado_en": "2026-09-07T01:39:34.510956Z",
+      "estado": "APROBADO",
+      "tipo": "FOTOS"
+    }
+  ],
+  "estado": "RECIBIDO",
+  "fecha_aviso": "2026-07-28T03:38:21.822411Z",
+  "fecha_ocurrencia": "2026-07-28T01:38:21.822411Z",
+  "hitos": [
+    {
+      "actor": "SISTEMA",
+      "descripcion": "Hito automático 5",
+      "ocurrido_en": "2026-09-03T01:38:35.225870Z",
+      "tipo": "LIQUIDACION"
+    },
+    {
+      "actor": "SISTEMA",
+      "descripcion": "Hito automático 4",
+      "ocurrido_en": "2026-09-04T01:38:35.225870Z",
+      "tipo": "INSPECCION"
+    },
+    {
+      "actor": "SISTEMA",
+      "descripcion": "Hito automático 3",
+      "ocurrido_en": "2026-09-05T01:38:35.225870Z",
+      "tipo": "PERITO_ASIGNADO"
+    },
+    {
+      "actor": "SISTEMA",
+      "descripcion": "Hito automático 2",
+      "ocurrido_en": "2026-09-06T01:38:35.225870Z",
+      "tipo": "DOCS_SOLICITADOS"
+    },
+    {
+      "actor": "SISTEMA",
+      "descripcion": "Hito automático 1",
+      "ocurrido_en": "2026-09-07T01:38:35.225870Z",
+      "tipo": "AVISO_RECIBIDO"
+    }
+  ],
+  "monto_aprobado": null,
+  "monto_estimado": 1420000.0,
+  "numero": "SIN-2026-42",
+  "peritaje": {
+    "agendado_para": "2026-09-09T01:40:11.013834Z",
+    "estado": "AGENDADO",
+    "perito": "P-42",
+    "resultado": null
+  },
+  "poliza": {
+    "numero": "POL-42",
+    "producto": "VIDA",
+    "suma_asegurada": 92000000.0
+  }
+}

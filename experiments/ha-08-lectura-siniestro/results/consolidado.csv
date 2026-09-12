@@ -1,0 +1,16 @@
+brazo,corrida,rps_objetivo,p50_ms,p95_ms,p99_ms,error_rate,hit_rate,lag_p95_s_aprox,estado
+A,r1,n/a,2.630125,8.6521584,n/a,0,n/a,0.05,valido
+A,r2,n/a,2.815229,7.794556249999999,n/a,0,n/a,0.05,valido
+A,r3,n/a,3.060292,7.131758099999999,n/a,0,n/a,0.05,valido
+B,r1,n/a,2.627958,6.4446832999999994,n/a,0,n/a,0.05,valido
+B,r2,n/a,2.5406455,6.0536048,n/a,0,n/a,0.05,valido
+B,r3,n/a,2.6951045000000002,6.05763335,n/a,0,n/a,0.05,valido
+C,r1,n/a,2.836084,6.770624399999999,n/a,0,n/a,0.05,valido
+C,r2,n/a,2.857375,6.7159628,n/a,0,n/a,0.05,valido
+C,r3,n/a,2.885833,6.6686255999999995,n/a,0,0.0760,0.05,valido
+C,ttl0_r1b,n/a,2.648375,6.2225997,n/a,0,0.0000,0.05,valido (repeticion de r1 contaminada - ver INFORME.md §2.3bis)
+C,ttl0_r2,n/a,2.7649375,6.3286857499999964,n/a,0,0.0000,0.05,valido
+C,ttl0_r3,n/a,2.7679584999999998,6.267033349999999,n/a,0,0.0000,0.05,valido
+C,ttl300_r1b,n/a,2.690417,6.4651603999999985,n/a,0,0.3289,0.05,valido (repeticion de r1 contaminada - ver INFORME.md §2.3bis)
+C,ttl300_r2,n/a,2.748375,6.451204499999999,n/a,0,0.3331,0.05,valido
+C,ttl300_r3,n/a,2.86725,6.570742299999998,n/a,0,0.3231,0.05,valido

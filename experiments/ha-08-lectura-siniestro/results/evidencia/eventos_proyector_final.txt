@@ -1,0 +1,6 @@
+# HELP ha08_events_projected_total Eventos proyectados
+# TYPE ha08_events_projected_total counter
+ha08_events_projected_total 5134.0
+# HELP ha08_events_skipped_total Eventos descartados por versión
+# TYPE ha08_events_skipped_total counter
+ha08_events_skipped_total 21.0
