@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 20:29:58. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 20:37:14. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-11 18:39:46  BLOQUE x: inicio |
-| Progreso | **51 de 52** corridas ejecutadas · 51 válidas |
+| Progreso | **52 de 52** corridas ejecutadas · 52 válidas |
 | En curso | — |
-| Pendientes | 1 · fin estimado hacia las 20:37 |
-| Válidas / sospechosas / inválidas / fallidas | 46 / 0 / 0 / 0 |
+| Pendientes | 0 · fin estimado hacia las — |
+| Válidas / sospechosas / inválidas / fallidas | 47 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -28,7 +28,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 6 | `cache_singleflight_b3_estampida_hr0.96` | C' | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 4,16 % | — | 10/09 18:15 |
 | 7 | `cache_opportunistic_b3_estampida_hr0.50` | C | sin_respuesta | 0.50 | 200 | ✅ válida | 64,6 | 183,3 | 0,00 % | 48,90 % | — | 10/09 18:22 |
 | 8 | `cache_singleflight_b3_estampida_hr0.50` | C' | sin_respuesta | 0.50 | 200 | ⚠️ válida, revisar (respaldo por encima del presupuesto) | 64,7 | 183,6 | 0,00 % | 49,42 % | — | 10/09 18:29 |
-| 52 | `cache_singleflight_b3_estampida_hr0.50b` | C' | sin_respuesta | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
+| 52 | `cache_singleflight_b3_estampida_hr0.50b` | C' | sin_respuesta | 0.50 | 200 | ✅ válida | 64,7 | 184,3 | 0,00 % | 49,06 % | 3,6 | 11/09 20:37 |
 
 ## Bloque 1 — estrategia contra estado del proveedor (1 repetición)
 
