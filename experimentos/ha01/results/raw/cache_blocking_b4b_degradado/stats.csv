@@ -1,0 +1,7 @@
+ha01-api,0.38%,49.38MiB / 1GiB
+ha01-provider,0.19%,37.88MiB / 512MiB
+ha01-prometheus,0.17%,55.93MiB / 1GiB
+ha01-redis,0.34%,52.41MiB / 2GiB
+ha01-grafana,0.08%,72.63MiB / 512MiB
+ha01-toxiproxy,0.00%,37.6MiB / 256MiB
+ha01-postgres,0.00%,32.1MiB / 512MiB
