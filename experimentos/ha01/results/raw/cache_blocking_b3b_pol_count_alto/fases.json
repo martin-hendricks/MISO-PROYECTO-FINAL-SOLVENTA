@@ -1,0 +1,22 @@
+{
+  "brazo": "cache_blocking",
+  "estado": "sin_respuesta",
+  "rate": 200.0,
+  "fases": [
+    {
+      "nombre": "sana",
+      "ini": 1789170931,
+      "fin": 1789171051
+    },
+    {
+      "nombre": "degradada",
+      "ini": 1789171051,
+      "fin": 1789171172
+    },
+    {
+      "nombre": "recuperacion",
+      "ini": 1789171172,
+      "fin": 1789171232
+    }
+  ]
+}
