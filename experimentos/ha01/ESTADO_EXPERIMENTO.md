@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 19:01:03. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-11 19:08:09. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-11 18:39:46  BLOQUE x: inicio |
-| Progreso | **40 de 52** corridas ejecutadas · 40 válidas |
+| Progreso | **41 de 52** corridas ejecutadas · 41 válidas |
 | En curso | — |
-| Pendientes | 12 · fin estimado hacia las 20:40 |
-| Válidas / sospechosas / inválidas / fallidas | 35 / 0 / 0 / 0 |
+| Pendientes | 11 · fin estimado hacia las 20:40 |
+| Válidas / sospechosas / inválidas / fallidas | 36 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -93,7 +93,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 38 | `cache_blocking_b3b_pol_rate_alto` | B | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,24 % | 4,32 % | 4,2 | 11/09 18:46 |
 | 39 | `cache_blocking_b3b_pol_rate_bajo` | B | sin_respuesta | 0.96 | 10 | ✅ válida | 64,4 | 65,0 | 0,77 % | 3,95 % | 3,2 | 11/09 18:53 |
 | 40 | `cache_blocking_b3b_pol_count_alto` | B | sin_respuesta | 0.96 | 200 | ✅ válida | 64,3 | 64,9 | 0,07 % | 3,97 % | 3,7 | 11/09 19:01 |
-| 41 | `cache_blocking_b3b_pol_count_bajo` | B | sin_respuesta | 0.96 | 10 | · pendiente | — | — | — | — | — |  |
+| 41 | `cache_blocking_b3b_pol_count_bajo` | B | sin_respuesta | 0.96 | 10 | ✅ válida | 64,4 | 715,7 | 1,19 % | 4,17 % | 4,6 | 11/09 19:08 |
 | 42 | `cache_blocking_b5_intermitente_rate` | B | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
 | 43 | `cache_opportunistic_b5_intermitente_rate` | C | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
 | 44 | `cache_blocking_b5_intermitente_count` | B | intermitente | 0.96 | 200 | · pendiente | — | — | — | — | — |  |
