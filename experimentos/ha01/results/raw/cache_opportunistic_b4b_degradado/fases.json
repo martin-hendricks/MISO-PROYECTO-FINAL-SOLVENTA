@@ -1,0 +1,27 @@
+{
+  "brazo": "cache_opportunistic",
+  "estado": "degradado",
+  "rate": 0.0,
+  "fases": [
+    {
+      "nombre": "r20",
+      "ini": 1789175262,
+      "fin": 1789175382
+    },
+    {
+      "nombre": "r50",
+      "ini": 1789175382,
+      "fin": 1789175502
+    },
+    {
+      "nombre": "r100",
+      "ini": 1789175502,
+      "fin": 1789175622
+    },
+    {
+      "nombre": "r200",
+      "ini": 1789175622,
+      "fin": 1789175742
+    }
+  ]
+}
