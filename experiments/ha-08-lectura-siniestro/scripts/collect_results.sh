@@ -7,18 +7,22 @@
 # por el bug de verify_parity.sh (ver INFORME.md §0): summary_C_ttl0.json y
 # summary_C_ttl300.json (sin sufijo _r<N>, formato de esa sesión con n=1) y
 # summary_C_PRIME_*.json (C' también corrió bajo el mismo defecto y no se ha
-# repetido). Sin este filtro, el CSV mezclaría datos válidos e inválidos sin
-# forma de distinguirlos.
+# repetido). También excluye summary_C_ttl{0,300}_r1.json: son las corridas
+# con http_reqs.rate ~50% del diseñado (contención de host, ver INFORME.md
+# §2.3bis), reemplazadas por su repetición limpia _r1b. Sin estas exclusiones
+# el CSV mezclaría datos válidos e inválidos/contaminados sin forma de
+# distinguirlos (hallazgo E2 de AUDITORIA_EXTERNA_HA-08.md).
 set -euo pipefail
 
 RESULTS_DIR="results/raw"
-echo "brazo,corrida,rps_objetivo,p50_ms,p95_ms,p99_ms,error_rate,hit_rate,lag_p95_s_aprox"
+echo "brazo,corrida,rps_objetivo,p50_ms,p95_ms,p99_ms,error_rate,hit_rate,lag_p95_s_aprox,estado"
 
 for summary in "${RESULTS_DIR}"/summary_*_r[0-9]*.json; do
   [ -e "$summary" ] || continue
   filename=$(basename "$summary" .json)
   case "$filename" in
     summary_C_PRIME_*) continue ;;
+    summary_C_ttl0_r1|summary_C_ttl300_r1) continue ;;
   esac
   # Anclado a los valores de brazo conocidos, no a una clase de caracteres
   # genérica: run_id puede tener guiones bajos (p. ej. "ttl0_r1"), y un
@@ -66,5 +70,13 @@ for summary in "${RESULTS_DIR}"/summary_*_r[0-9]*.json; do
     fi
   fi
 
-  echo "${arm},${run_id},n/a,${p50},${p95},${p99},${error_rate},${hit_rate},${lag_p95}"
+  # Columna de estado: marca explícitamente las corridas repetidas (r1b) para
+  # que quede visible en el CSV por qué faltan ttl0_r1/ttl300_r1 y de dónde
+  # vienen ttl0_r1b/ttl300_r1b, sin tener que consultar la bitácora.
+  estado="valido"
+  case "$run_id" in
+    ttl0_r1b|ttl300_r1b) estado="valido (repeticion de r1 contaminada, ver INFORME.md §2.3bis)" ;;
+  esac
+
+  echo "${arm},${run_id},n/a,${p50},${p95},${p99},${error_rate},${hit_rate},${lag_p95},${estado}"
 done
