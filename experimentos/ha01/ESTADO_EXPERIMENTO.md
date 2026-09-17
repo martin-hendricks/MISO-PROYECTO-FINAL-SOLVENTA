@@ -1,16 +1,16 @@
 # Estado de ejecución — Experimento HA-01
 
-_Actualizado automáticamente: 2026-09-11 20:38:00. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
+_Actualizado automáticamente: 2026-09-16 22:16:41. Se regenera al cerrar cada corrida y se sube al repositorio con su evidencia._
 
 ## Resumen
 
 | | |
 | --- | --- |
 | Campaña | 2026-09-11 20:38:00  instantanea de Prometheus guardada en results/prometheus |
-| Progreso | **52 de 52** corridas ejecutadas · 52 válidas |
+| Progreso | **53 de 53** corridas ejecutadas · 53 válidas |
 | En curso | — |
 | Pendientes | 0 · fin estimado hacia las — |
-| Válidas / sospechosas / inválidas / fallidas | 47 / 0 / 0 / 0 |
+| Válidas / sospechosas / inválidas / fallidas | 48 / 0 / 0 / 0 |
 
 **Umbral del servicio:** p95 ≤ 225 ms y p99 ≤ 475 ms (250/500 extremo a extremo menos 25 ms de borde, Anexo G). `> 475 ms` es la fracción EXACTA de cotizaciones sobre el umbral del p99, por conteo de buckets: el ASR permite como máximo el 1 %.
 
@@ -102,6 +102,7 @@ Las métricas de cada fila corresponden a la **fase degradada** (proveedor en el
 | 47 | `cache_opportunistic_b4b_sano` | C | sano | 0.96 | 20→200 | ✅ válida | 64,8 | 138,1 | 0,00 % | 0,13 % | 4,3 | 11/09 19:56 |
 | 48 | `cache_blocking_b4b_degradado` | B | degradado | 0.96 | 20→200 | ✅ válida | 64,3 | 64,9 | 0,03 % | 3,96 % | 3,5 | 11/09 20:06 |
 | 49 | `cache_opportunistic_b4b_degradado` | C | degradado | 0.96 | 20→200 | ✅ válida | 64,3 | 64,9 | 0,00 % | 3,66 % | 4,2 | 11/09 20:15 |
+| 53 | `cache_blocking_b5b_intermitente_rate` | B | intermitente | 0.96 | 200.0 | ✅ válida | 64,8 | 717,9 | 1,22 % | 1,23 % | 4,1 | 16/09 22:16 |
 
 ## Leyenda
 
