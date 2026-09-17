@@ -9,6 +9,11 @@ Fuente primaria: el histograma `ha01_quote_latency_seconds` de la API, que
 es un histograma real y admite corte por fase y por `origen`. El resumen de
 k6 se conserva como medida de cliente, pero cubre la ventana entera.
 
+Se corta igual `ha01_adapter_latency_seconds`, que sostiene el veredicto de
+`EC-LAT-07` (<= 120 ms por dependencia). Es una restriccion arquitectonica
+declarada en la hoja de trabajo y pertenece al consolidado, no a una nota
+al margen calculada aparte.
+
 Uso:  python scripts/analizar.py [results/raw] [-o results/analysis]
 """
 import argparse
@@ -206,6 +211,28 @@ def analizar_corrida(dir_corrida):
             fila[col] = _pct(escalar(
                 "1 - sum(increase(ha01_quote_latency_seconds_bucket{le=\"" + lim
                 + "\"}" + v + ")) / " + cnt, t1))
+
+        # EC-LAT-07 (<= 120 ms por dependencia), POR FASE. Antes esta cifra no
+        # pasaba por el pipeline y se calculaba a mano desde `api_metrics.txt`,
+        # que es un volcado final de contadores ACUMULADOS: mezcla las tres
+        # fases. En una corrida con estado degradado `lento`, dos tercios de
+        # las llamadas vienen de fases sanas y arrastran el percentil hacia
+        # abajo, de modo que el adaptador parecia caber en el presupuesto
+        # (111-117 ms) cuando en la fase degradada esta en ~495 ms y el 99,8 %
+        # de sus llamadas se sale. La regla que este modulo aplica desde el
+        # principio a la latencia de cotizacion -no agregar fases distintas-
+        # vale igual para la dependencia; era la unica metrica que se le
+        # escapaba.
+        ad = "sum by (le) (increase(ha01_adapter_latency_seconds_bucket" + v + "))"
+        ad_cnt = "sum(increase(ha01_adapter_latency_seconds_count" + v + "))"
+        fila["llamadas_adapter"] = _r(escalar(ad_cnt, t1), 0)
+        fila["p95_adapter_ms"] = _ms(escalar(
+            "histogram_quantile(0.95, " + ad + ")", t1))
+        # Hay frontera de bucket exacta en 0,12 s, que es justo el umbral de
+        # EC-LAT-07: el porcentaje es conteo directo, no interpolacion.
+        fila["pct_adapter_sobre_120ms"] = _pct(escalar(
+            "1 - sum(increase(ha01_adapter_latency_seconds_bucket{le=\"0.12\"}"
+            + v + ")) / " + ad_cnt, t1))
 
         # Detector de interferencia: retraso del bucle de eventos de la API.
         lag = "sum by (le) (rate(ha01_event_loop_lag_seconds_bucket" + v + "))"
