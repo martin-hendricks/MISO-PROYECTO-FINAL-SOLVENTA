@@ -139,6 +139,11 @@ corrida() {
   sleep "${F_SANA}"
   ahora > "${DEST}/t_degradado"
   "${RAIZ}/infra/toxiproxy/states.sh" "${ESTADO}"
+  # Evidencia del estado inyectado: se captura AQUI, con las toxinas puestas.
+  # La instantanea de la recoleccion se toma despues de restaurar el estado
+  # sano y por eso siempre trae `"toxics":[]`: documenta el final, no el
+  # estado bajo prueba. Se conservan las dos.
+  curl -s "${TOXI}/proxies/openfinance" > "${DEST}/toxiproxy_degradado.json"
   sleep "${F_DEG}"
   ahora > "${DEST}/t_recuperacion"
   "${RAIZ}/infra/toxiproxy/states.sh" sano

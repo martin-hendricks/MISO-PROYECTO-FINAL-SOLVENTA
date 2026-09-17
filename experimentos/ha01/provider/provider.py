@@ -11,6 +11,10 @@ Tres propiedades que debe cumplir:
    no de un generador global. Un `random.Random` compartido entre corrutinas
    produce secuencias que dependen del entrelazado, y dos repeticiones con
    la misma semilla dejarian de ser comparables bajo concurrencia.
+   EXCEPCION deliberada: la decision de FALLO se deriva de un contador de
+   peticion, no del customer_id. Atarla al cliente convertia el estado
+   `intermitente` en un subconjunto fijo de clientes rotos en vez de un
+   proveedor que falla a veces (ver «Fallas intermitentes»).
 2. SIN ESTADO. No guarda nada entre peticiones: cualquier acumulacion
    introduciria deriva a lo largo de la ventana de medicion.
 3. NUNCA SATURADO. Se le asignan mas recursos que a la API a proposito.
@@ -21,6 +25,7 @@ determinan por completo. P99 NO se controla -con 60/110 el p99 realizado es
 ~141 ms- y solo se usa como cota superior de la cola.
 """
 import hashlib
+import itertools
 import math
 import os
 import statistics
@@ -52,19 +57,30 @@ TECHO = P99_CAP * 6
 _NORMAL = statistics.NormalDist()
 
 
-def _uniformes(customer_id: str) -> tuple[float, float]:
-    """Dos uniformes en (0,1) derivadas de la semilla y el cliente."""
+def _uniforme_cliente(customer_id: str) -> float:
+    """Uniforme en (0,1) derivada de la semilla y el cliente."""
     d = hashlib.blake2b(f"{SEED}:{customer_id}".encode(), digest_size=16).digest()
     a = int.from_bytes(d[:8], "big") / 2**64
-    b = int.from_bytes(d[8:], "big") / 2**64
-    return min(max(a, 1e-9), 1 - 1e-9), b
+    return min(max(a, 1e-9), 1 - 1e-9)
 
 
-def muestrear_latencia(customer_id: str) -> tuple[float, float]:
-    u, v = _uniformes(customer_id)
+# Secuencia de peticion: sostiene la uniforme del fallo, que NO puede
+# derivarse del customer_id (ver «Fallas intermitentes»).
+_SECUENCIA = itertools.count()
+
+
+def _uniforme_peticion() -> float:
+    """Uniforme en (0,1) por PETICION, independiente del cliente."""
+    n = next(_SECUENCIA)
+    d = hashlib.blake2b(f"{SEED}:peticion:{n}".encode(), digest_size=8).digest()
+    return int.from_bytes(d, "big") / 2**64
+
+
+def muestrear_latencia(customer_id: str) -> float:
+    u = _uniforme_cliente(customer_id)
     # Cota superior para que el doble no se vuelva el caso patologico:
     # el objeto de estudio es el diseno, no un proveedor imposible.
-    return min(math.exp(MU + SIGMA * _NORMAL.inv_cdf(u)), TECHO), v
+    return min(math.exp(MU + SIGMA * _NORMAL.inv_cdf(u)), TECHO)
 
 
 # --- Fallas intermitentes ---------------------------------------------
@@ -74,9 +90,21 @@ def muestrear_latencia(customer_id: str) -> tuple[float, float]:
 # fallos consecutivos ni una tasa del 50 % sobre la ventana se alcanzan, asi
 # que el interruptor NO abre y el pool se llena con llamadas colgadas.
 #
-# Se decide por hash del customer_id, igual que la latencia: determinista y
-# estable por cliente. Se conmuta en caliente por `states.sh`, sin reiniciar,
-# porque el protocolo cambia de estado a mitad de corrida.
+# La decision se toma POR PETICION, no por cliente. Derivarla de la misma
+# uniforme que la latencia -hash de (semilla, customer_id)- convertia este
+# estado en «un subconjunto fijo del 30 % de clientes que falla SIEMPRE»: la
+# clave de esos clientes no se repuebla nunca y los fallos se concentran en
+# una parte fija del espacio de claves. Es un modo de falla distinto del que
+# se quiere modelar, y el razonamiento de por que el interruptor no abre
+# depende del ENTRELAZADO de fallos y aciertos, que difiere entre ambos.
+#
+# Se usa un contador de peticion y no `random()` para no perder la
+# reproducibilidad dada la secuencia de llegada. La LATENCIA sigue siendo
+# determinista por cliente (propiedad 1 del encabezado): lo que se desacopla
+# aqui es unicamente la decision de fallo.
+#
+# Se conmuta en caliente por `states.sh`, sin reiniciar, porque el protocolo
+# cambia de estado a mitad de corrida.
 FALLO_FRACCION = 0.0
 CUELGUE_S = float(os.environ.get("PROVIDER_CUELGUE_S", "2.0"))
 COLGADAS = Counter("ha01_provider_colgadas", "Peticiones colgadas a proposito")
@@ -98,8 +126,9 @@ def ver_modo():
 async def datos_financieros(customer_id: str):
     import asyncio
 
-    espera, v = muestrear_latencia(customer_id)
-    if FALLO_FRACCION and v < FALLO_FRACCION:
+    espera = muestrear_latencia(customer_id)
+    w = _uniforme_peticion()
+    if FALLO_FRACCION and w < FALLO_FRACCION:
         # Se cuelga mas alla del timeout duro: el adaptador abandonara solo.
         COLGADAS.inc()
         await asyncio.sleep(CUELGUE_S)
@@ -108,7 +137,7 @@ async def datos_financieros(customer_id: str):
     LAT.observe(espera)
     SERVED.inc()
 
-    if ERROR_RATE and v < ERROR_RATE:
+    if ERROR_RATE and w < ERROR_RATE:
         ERRORES.labels(codigo="503").inc()
         return Response(status_code=503)
 
