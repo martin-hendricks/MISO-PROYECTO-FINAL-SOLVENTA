@@ -26,7 +26,7 @@ actualización oportunista sin separar qué hace el interruptor y qué hace el d
 | §4.3 Falta el estado de fallas intermitentes | ✅ válida · mecanismo corregido | `toxicity` de Toxiproxy se aplica **por conexión, no por petición**: con el pool de conexiones persistentes de httpx la fracción real habría quedado fuera de control. Se implementó en el doble, por petición y por hash del cliente |
 | §4.4 `PoolTimeout` como falla del proveedor | ✅ defecto real · sin efecto medido | Corregido. Al separarlo se comprueba que **no se produjo ninguno**: los fallos que abrieron el interruptor eran timeouts auténticos |
 | §4.5 Corrida de C′ al 50 % dada por válida | ✅ válida | Repetida con el detector: p99 de 311 → 183 ms, respaldo de 467 → 189 ms, 0 parones del bucle. Era un transitorio del entorno |
-| §4.6 El camino frío no cabe en EC-LAT-07 | ❌ **incorrecta** | El adaptador está en **111–117 ms** de p95 y sólo el 2,5–4,1 % de sus llamadas pasa de 120 ms: EC-LAT-07 **se cumple**. Los 155–178 ms citados son la cotización completa, que incluye los 60 ms de tarifa. El sobrecosto medido de Toxiproxy es de ~1 ms, no de 50 |
+| §4.6 El camino frío no cabe en EC-LAT-07 | ✅ **válida** (rectificado) | Esta fila decía «incorrecta» apoyándose en un p95 de 111–117 ms del adaptador. Esa cifra estaba **mal agregada**: salía de contadores acumulados de toda la corrida, que mezclan las tres fases. Cortada por fase, en la degradada con proveedor lento el adaptador está en **495,6 ms y el 99,78 % de sus llamadas pasa de 120 ms**. La observación original era correcta. Ver `EC-LAT-07` en §3 |
 | §4.7 Replicar A sano y B degradado | ❌ **premisa falsa** | B degradado queda en 0,18 % frente al 1 % permitido: lejos del umbral. A sano ya tenía cuatro medidas (p95 173,3–174,6 ms), porque cada corrida incluye su fase sana |
 | §4.7 "A muestra 103 s" | ❌ **unidades mal leídas** | Son 103,77 invocaciones por segundo. Las métricas del interruptor sí aplican a A y B: el interruptor vive en el adaptador, que es común |
 | §4.7 El p95 no discrimina | ✅ válida | Con acierto del 96 %, el p95 cae siempre dentro de los aciertos de caché. **El p99 y la fracción sobre 475 ms son las métricas que deciden** |
@@ -51,8 +51,39 @@ Porcentaje de cotizaciones por encima de 475 ms; el ASR permite como máximo el 
 | **lento** | ❌ 34,10 % | ❌ **1,28 %** | ✅ 0,00 % |
 | degradado | ❌ 4,55 % | ✅ 0,18 % | ✅ 0,00 % |
 | sin respuesta | ❌ 4,25 % | ✅ 0,18 % | ✅ 0,00 % |
-| caído | ✅ 0,00 % | ✅ 0,00 % | ✅ 0,00 % |
+| caído | ⚠️ 0,00 % ¹ | ✅ 0,00 % | ✅ 0,00 % |
 | **intermitente** (30 % de fallos) | — | ❌ **1,10 %** | ✅ 0,00 % |
+
+¹ Cumple la latencia por un camino que el propio diseño declara inaceptable. Ver abajo.
+
+**El veredicto de latencia no se puede leer solo.** La misma celda, medida por la
+proporción de cotizaciones resueltas con **valor de respaldo** —es decir, tarifadas sin
+ninguna señal de Open Finance—:
+
+| Estado del proveedor | A | B | C |
+| --- | ---: | ---: | ---: |
+| sano | 0,00 % | 0,00 % | 0,23 % |
+| lento | 0,00 % | 0,00 % | 3,73 % |
+| degradado | **98,94 %** | 3,43 % | 4,01 % |
+| sin respuesta | **99,43 %** | 3,81 % | 3,82 % |
+| caído | **98,89 %** | 3,95 % | 3,67 % |
+
+El brazo A no tiene caché (`USA_CACHE["direct"] = False`): cuando el interruptor abre,
+`brazo_directo` devuelve `PERFIL_DEFECTO` sin posibilidad de último valor conocido. Su
+✅ con el proveedor caído significa que **el 98,9 % de las cotizaciones se tarifica con
+el perfil por defecto**. B y C, en esa misma celda, resuelven el ~96 % desde caché con
+datos reales y usan respaldo sólo en el ~4 %.
+
+El criterio de refutación del Anexo B —*«se refuta la hipótesis si el brazo C alcanza el
+umbral sólo degradando la proporción de valor de respaldo a un nivel que actuaría
+considere inaceptable»*— se aplicó a C pero no a A al declararlo conforme. Con el
+criterio del propio diseño, **A con proveedor caído es el ejemplo canónico de cumplir la
+latencia por un camino inaceptable**. La proporción con respaldo es, por tanto, la
+segunda medida de respuesta de `EC-LAT-09`, no una nota al margen.
+
+> **Brecha abierta.** Cuánto respaldo considera aceptable actuaría es un número que hoy
+> no existe. Sin él, C gana por definición y el criterio de refutación del Anexo B es
+> inaplicable. No se cierra con más corridas.
 
 **B sólo incumple cuando el proveedor falla a medias.** Con el proveedor caído, el
 interruptor abre en segundos y a partir de ahí B también falla rápido: el ASR se
@@ -155,12 +186,56 @@ Con el bloque 4 repetido, la latencia es **plana de 20 a 200 sol/s**: p95 de 65 
 entre 138 y 149 ms en los cuatro escalones, en B y en C. Multiplicar la carga por diez
 no mueve el percentil.
 
-### EC-LAT-07 — presupuesto por dependencia ✅ **con poco margen**
+### EC-LAT-07 — presupuesto por dependencia ❌ **se incumple con el proveedor degradado**
 
-El p95 del adaptador es de **111–117 ms** contra los 120 ms de la restricción, y entre el
-2,5 % y el 4,1 % de las llamadas lo superan. Se cumple, pero el margen es de pocos
-milisegundos y depende de la distribución configurada en el doble, que es una hipótesis
-sobre el proveedor real y no una medición contra él.
+El p95 del adaptador, **cortado por fase** (`p95_adapter_ms` en el consolidado):
+
+| Corrida | Fase | Llamadas | p95 adaptador | % > 120 ms |
+| --- | --- | ---: | ---: | ---: |
+| `cache_opportunistic_b1_r1_sano` | sana | 501 | 116,0 ms | 3,02 % |
+| `cache_opportunistic_b1_r1_sano` | degradada | 512 | 121,8 ms | 5,12 % |
+| **`cache_opportunistic_b1_r1_lento`** | **degradada** | 451 | **495,6 ms** | **99,78 %** |
+| `cache_blocking_b1_r1_lento` | degradada | 468 | 490,3 ms | 99,14 % |
+
+**Con el proveedor sano la restricción se cumple al filo** —116 ms contra 120, y ya un
+5,1 % de exceso en la fase degradada de una corrida sana—. **Con el proveedor lento no
+se cumple en absoluto:** prácticamente ninguna llamada cabe en el presupuesto.
+
+Agregado por estado del proveedor, sobre la fase degradada de todas las corridas:
+
+| Estado del proveedor | n | p95 del adaptador | % > 120 ms | Veredicto |
+| --- | ---: | ---: | ---: | :---: |
+| sano | 3 | 114,9 – 121,8 ms | 3,2 – 5,1 % | ⚠️ al filo |
+| **caído** | 3 | 19,7 – 85,1 ms | 0,0 – 0,6 % | ✅ |
+| **lento** | 5 | 490,3 – 495,6 ms | 99,1 – 100,0 % | ❌ |
+| intermitente | 8 | 947,9 – 952,0 ms | 31,1 – 34,2 % | ❌ |
+| sin respuesta | 3 | 981,7 – 983,8 ms | 81,8 – 93,2 % | ❌ |
+| degradado | 3 | 982,3 – 984,5 ms | 85,0 – 96,9 % | ❌ |
+
+**El único estado degradado en que `EC-LAT-07` se cumple es `caído`, y se cumple por el
+interruptor**: al abrir, corta las llamadas y el adaptador responde en decenas de
+milisegundos sin tocar al proveedor. Es la misma separación de mecanismos que aparece en
+el hallazgo nº 1 — el interruptor protege el presupuesto de la dependencia cuando el
+proveedor está caído; frente al proveedor **lento** nunca abre, y ahí no protege nada.
+
+Una versión anterior de este documento declaraba `EC-LAT-07` cumplido con 111–117 ms. Esa
+cifra salía de `api_metrics.txt`, que es un volcado final de **contadores acumulados** de
+toda la corrida: mezcla los 120 s sanos, los 120 s degradados y los 60 s de recuperación.
+En una corrida con estado degradado `lento`, dos tercios de las llamadas provienen de
+fases sanas y arrastran el percentil hacia abajo. La regla que el análisis aplica desde el
+principio a la latencia de cotización —no agregar fases distintas, porque son poblaciones
+distintas— era la que faltaba aplicar a la dependencia.
+
+**Esto no debilita HD-01, la refuerza.** Si la dependencia cupiera en 120 ms, cabría
+preguntar para qué hace falta la actualización oportunista. Lo que la evidencia muestra es
+lo contrario: con el proveedor degradado la dependencia **no cabe**, y por eso el
+desacople no es una optimización sino la condición para cumplir el ASR de cotización. El
+brazo C cumple justamente porque *abandona* al agotar el presupuesto, que es el mecanismo
+bajo prueba.
+
+El umbral de 120 ms coincide con una frontera de bucket exacta (`le="0.12"`), de modo que
+el porcentaje de exceso es conteo directo y no depende de la interpolación; el p95 sí es
+interpolado, cae entre los buckets de 350 y 500 ms.
 
 ## 4. Hallazgos nuevos
 
@@ -168,10 +243,32 @@ sobre el proveedor real y no una medición contra él.
    ASR en `degradado`, `sin respuesta` y `caído`. Esto no estaba previsto en HD-01.2.
 2. **El desacople es lo que protege frente al proveedor que falla a medias.** Con fallos
    intermitentes del 30 %, **el interruptor no llega a abrir en ningún brazo** —no se
-   alcanzan ni diez fallos consecutivos ni el 50 % de la ventana— y aun así B incumple
-   (1,10 %) y C cumple (0,00 %). Como el interruptor no interviene en ninguno de los dos,
-   la diferencia es atribuible **sólo al desacople**. Es el argumento más fuerte del
-   experimento, porque elimina la explicación alternativa.
+   alcanzan ni diez fallos consecutivos ni el 50 % de la ventana— y aun así B incumple y
+   C cumple. Como el interruptor no interviene en ninguno de los dos, la diferencia es
+   atribuible **sólo al desacople**. Es el argumento más fuerte del experimento, porque
+   elimina la explicación alternativa.
+
+   **Verificado bajo los dos modelos de fallo.** Las corridas `b5_*` originales tenían el
+   fallo atado al `customer_id`, de modo que el 30 % de los clientes fallaba siempre y el
+   70 % nunca: no era un proveedor intermitente sino un subconjunto fijo de clientes
+   rotos. Como el razonamiento depende del **entrelazado** de fallos y aciertos, la celda
+   se repitió con la decisión de fallo derivada de un contador de petición (`b5b_*`):
+
+   | Corrida | Brazo | Modelo de fallo | Sobre 475 ms | p99 | ¿Abrió el interruptor? |
+   | --- | :---: | --- | ---: | ---: | :---: |
+   | `b5_intermitente_rate` | B | por cliente | ❌ 1,101 % | 709,2 ms | No |
+   | `b5_intermitente_count` | B | por cliente | ❌ 1,163 % | 714,0 ms | No |
+   | **`b5b_intermitente_rate`** | B | **por petición** | ❌ **1,218 %** | 717,9 ms | No |
+   | **`b5b_intermitente_count`** | B | **por petición** | ❌ **1,247 %** | 719,8 ms | No |
+   | `b5_intermitente_rate` | C | por cliente | ✅ 0,000 % | 178,4 ms | No |
+   | `b5_intermitente_count` | C | por cliente | ✅ 0,000 % | 178,5 ms | No |
+   | **`b5b_intermitente_rate`** | C | **por petición** | ✅ **0,000 %** | 178,0 ms | No |
+   | **`b5b_intermitente_count`** | C | **por petición** | ✅ **0,000 %** | 178,3 ms | No |
+
+   El resultado se mantiene y B empeora ligeramente con el modelo corregido. El
+   interruptor no abre en ninguna de las ocho corridas (`breaker_max = 0`,
+   `s_hasta_abrir` vacío). **El hallazgo deja de depender del modelo de fallo**, que era
+   la única objeción que le quedaba.
 3. **El estado `degradado` del diseño es, en la práctica, una caída.** Con 820 ± 120 ms
    todas las llamadas superan el timeout duro, así que se comporta casi igual que
    `sin respuesta`. El estado que de verdad separa los brazos es `lento`.

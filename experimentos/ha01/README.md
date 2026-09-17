@@ -490,7 +490,13 @@ Prometheus (`results/prometheus/`).
 | `k6_summary.json` | medida **de cliente**, incluido `dropped_iterations` |
 | `k6_stdout.txt` | traza completa de k6 |
 | `stats.csv` | CPU y memoria de cada contenedor al terminar |
-| `toxiproxy.json` | toxinas activas, para confirmar el estado inyectado |
+| `toxiproxy_degradado.json` | toxinas **activas durante la fase degradada**: es la evidencia del estado inyectado |
+| `toxiproxy.json` | estado del proxy al recolectar, ya restaurado a sano. Documenta el cierre, no el estado bajo prueba |
+
+> Las corridas anteriores al 16/09/2026 sólo tienen `toxiproxy.json`, y siempre con
+> `"toxics":[]`: se capturaba después de restaurar el estado sano, así que no confirma
+> nada. Para esas corridas el estado efectivo se corrobora indirectamente por las
+> latencias observadas y por `provider_metrics.txt`.
 
 `api_info.json` y `env.txt` son lo que hace **auditable** un resultado seis
 semanas después: sin ellos, un número en una tabla no se puede reproducir.
@@ -499,7 +505,7 @@ semanas después: sin ellos, un número en una tabla no se puede reproducir.
 
 | Archivo | Qué contiene |
 | --- | --- |
-| `resultados_por_fase.csv` | una fila por fase de cada corrida: p50/p95/p99, error, % con respaldo, edad p50/p95, acierto observado, estado máximo del interruptor, invocaciones en vuelo, refrescos, coalescidas, p95 **por camino**; más una fila `transiciones` con los tiempos hasta abrir y hasta cerrar |
+| `resultados_por_fase.csv` | una fila por fase de cada corrida: p50/p95/p99, error, % con respaldo, edad p50/p95, acierto observado, estado máximo del interruptor, invocaciones en vuelo, refrescos, coalescidas, p95 **por camino**, y el p95 del **adaptador** con su fracción por encima de 120 ms (`EC-LAT-07`); más una fila `transiciones` con los tiempos hasta abrir y hasta cerrar |
 | `figuras/*.png` | las figuras del informe, 200 ppp |
 | `enlaces_grafana.md` | un enlace por corrida al tablero, **ya acotado a su ventana** |
 

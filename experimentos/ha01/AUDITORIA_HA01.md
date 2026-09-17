@@ -28,7 +28,7 @@ los tres deben corregirse antes de que el informe se publique.
 
 | # | Hallazgo | Severidad | Afecta a |
 | --- | --- | :---: | --- |
-| H-1 | `EC-LAT-07` se declara cumplido con cifras calculadas sobre contadores acumulados de toda la corrida, dominados por las fases sanas. En la fase degradada el p95 del adaptador es **472 ms, no 111–117 ms** | 🔴 **Alta** | Cumplimiento de `EC-LAT-07` |
+| H-1 | `EC-LAT-07` se declara cumplido con cifras calculadas sobre contadores acumulados de toda la corrida, dominados por las fases sanas. En la fase degradada el p95 del adaptador es **495,6 ms, no 111–117 ms**, y el **99,78 %** de las llamadas se sale del presupuesto | 🔴 **Alta** | Cumplimiento de `EC-LAT-07` |
 | H-2 | En el estado `intermitente` el fallo es **determinista por cliente**, no aleatorio por petición: el mismo cliente falla siempre. No es un proveedor intermitente sino un subconjunto fijo de clientes rotos | 🟠 **Media** | Hallazgo nuevo nº 2, el "argumento más fuerte del experimento" |
 | H-3 | El brazo A "cumple" el ASR con proveedor `caído` resolviendo el **98,9 % de las cotizaciones con el perfil por defecto**. Es cumplimiento de latencia con cero señal de Open Finance; la tabla de HD-01.2 lo presenta como ✅ sin esa salvedad | 🟠 **Media** | Tabla de HD-01.2, comparabilidad entre brazos |
 | H-4 | `toxiproxy.json` se captura **después** de restaurar el estado sano: las 52 corridas guardan `"toxics":[]`. La evidencia del estado inyectado no existe | 🟡 **Baja** | Auditabilidad, no los resultados |
@@ -105,6 +105,24 @@ Las cifras de 111–117 ms sólo aparecen en las corridas cuyo estado degradado 
 tres fases (120 s sana + 120 s degradada + 60 s recuperación). En una corrida con estado
 degradado `lento`, dos tercios de las llamadas provienen de fases sanas y arrastran el
 percentil hacia abajo.
+
+> **Rectificación de esta misma tabla (16/09/2026).** Las tres filas de arriba son **por
+> corrida**, así que siguen siendo cifras acumuladas: esta auditoría diagnosticó bien el
+> defecto pero no lo corrigió del todo en su propia evidencia. Recalculado **por fase**
+> desde las series de Prometheus, acotando con los límites de `fases.json`:
+>
+> | Corrida | Fase | Llamadas | p95 adaptador | % > 120 ms |
+> | --- | --- | ---: | ---: | ---: |
+> | `cache_opportunistic_b1_r1_sano` | sana | 501 | 116,0 ms | 3,02 % |
+> | `cache_opportunistic_b1_r1_sano` | degradada | 512 | 121,8 ms | 5,12 % |
+> | **`cache_opportunistic_b1_r1_lento`** | **degradada** | 451 | **495,6 ms** | **99,78 %** |
+> | `cache_blocking_b1_r1_lento` | degradada | 468 | 490,3 ms | 99,14 % |
+>
+> El incumplimiento no es marginal: con el proveedor lento **el 99,78 % de las llamadas
+> se sale del presupuesto**, no el 34 %. Y en la corrida sana el p95 de la fase degradada
+> ya roza el límite (121,8 ms), de modo que `EC-LAT-07` está al filo incluso con el
+> proveedor sano. La diferencia entre 1441 y 451 llamadas es que el volcado acumulado
+> incluye además el rodaje previo a la ventana de medición.
 
 **Consecuencia.** La observación §4.6 que el documento declara "incorrecta" era
 **correcta**: con el proveedor lento el camino frío no cabe en el presupuesto de 120 ms,
