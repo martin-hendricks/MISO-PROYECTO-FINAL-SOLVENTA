@@ -513,6 +513,20 @@ instantánea final como documentación del cierre.
 No invalida las corridas anteriores —el estado efectivo se corrobora por las
 latencias observadas y por `provider_metrics.txt`— pero sí su auditabilidad.
 
+**Cómo se lee el artefacto.** Verificado sobre el montaje, estado por estado:
+
+| Estado | Qué muestra `toxiproxy_degradado.json` |
+| --- | --- |
+| `lento` | `latency` de 320 ms con jitter de 80 |
+| `degradado` | `latency` de 820 ms con jitter de 120 |
+| `sin_respuesta` | `timeout` de 0 (agujero negro) |
+| `caido` | **`enabled: false`** y `"toxics": []` |
+| sano / tras restaurar | `enabled: true` y `"toxics": []` |
+
+Atención al caso `caido`: se distingue por **`enabled`**, no por el array de
+toxinas. Quien audite mirando sólo `toxics` lo confundiría con `sano`, que es
+justo el error que esta desviación corrige.
+
 **Límite conocido.** El estado `intermitente` no se inyecta con Toxiproxy sino
 en el doble (`POST /modo`), por la razón de la desviación 7, así que en sus
 corridas `toxiproxy_degradado.json` trae legítimamente `"toxics":[]`: el proxy
