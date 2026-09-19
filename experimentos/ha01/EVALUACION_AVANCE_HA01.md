@@ -208,17 +208,31 @@ Agregado por estado del proveedor, sobre la fase degradada de todas las corridas
 | sano | 3 | 114,9 – 121,8 ms | 3,2 – 5,1 % | ⚠️ al filo |
 | **caído** | 3 | 19,7 – 85,1 ms | 0,0 – 0,6 % | ✅ |
 | **lento** | 5 | 490,3 – 495,6 ms | 99,1 – 100,0 % | ❌ |
-| intermitente | 8 | 947,9 – 952,0 ms | 31,1 – 34,2 % | ❌ |
-| sin respuesta | 3 | 981,7 – 983,8 ms | 81,8 – 93,2 % | ❌ |
-| degradado ¹ | 3 | 982,3 – 984,5 ms | 85,0 – 96,9 % | ❌ |
+| intermitente ² | 8 | entre 700 ms y 1 s | 31,1 – 34,2 % | ❌ |
+| sin respuesta ² | 3 | entre 700 ms y 1 s | 81,8 – 93,2 % | ❌ |
+| degradado ¹ ² | 3 | entre 700 ms y 1 s | 85,0 – 96,9 % | ❌ |
 
 ¹ **Muestra pequeña en B y C.** En la celda `degradado`, el adaptador sólo
 registra **25 llamadas en B y 32 en C**, frente a 650 en A: al abrir el
 interruptor a los ~7 s, el resto de las invocaciones se corta sin llegar a
 cronometrarse. El p95 de 984 ms de esas dos celdas descansa sobre esas
-decenas de muestras y no debe citarse aislado. **El incumplimiento no depende
-de ellas:** se sostiene sobre `lento`, donde el interruptor nunca abre y hay
-452 llamadas con el 99,78 % fuera de presupuesto.
+decenas de muestras. **El incumplimiento no depende de ellas:** se sostiene
+sobre `lento`, donde el interruptor nunca abre y hay 452 llamadas con el
+99,78 % fuera de presupuesto.
+
+² **El p95 no es resoluble por encima de 700 ms.** El histograma del adaptador
+tiene fronteras en 500, 700, 1000 y 2000 ms. En esos tres estados **todas** las
+observaciones caen en el bucket (700 – 1000 ms] y ningún bucket intermedio se
+incrementa, así que `histogram_quantile` interpola dentro de él y devuelve
+cifras de 948 a 984 ms que **no son mediciones sino el punto medio ponderado
+del bucket**. Una versión anterior de esta tabla las citaba como si lo fueran.
+Lo que la evidencia sostiene es que las llamadas se cortan **entre 700 ms y
+1 s**, coherente con el timeout duro de `EC-LAT-08` disparando a 700 ms.
+
+El veredicto de `EC-LAT-07` **no depende de esa cifra**: descansa en el
+porcentaje sobre 120 ms, que es conteo directo de la frontera `le="0.12"` y por
+tanto exacto. Resolver el p95 en esa franja exigiría añadir fronteras entre
+700 ms y 1 s al histograma y no cambiaría el dictamen.
 
 **El único estado degradado en que `EC-LAT-07` se cumple es `caído`, y se cumple por el
 interruptor**: al abrir, corta las llamadas y el adaptador responde en decenas de
