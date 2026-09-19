@@ -144,6 +144,13 @@ corrida() {
   # sano y por eso siempre trae `"toxics":[]`: documenta el final, no el
   # estado bajo prueba. Se conservan las dos.
   curl -s "${TOXI}/proxies/openfinance" > "${DEST}/toxiproxy_degradado.json"
+  # `intermitente` no se inyecta con Toxiproxy sino en el doble, porque la
+  # `toxicity` se aplica por conexion y el pool persistente de httpx dejaria la
+  # fraccion real fuera de control (desviacion 7). Para ese estado el proxy no
+  # tiene nada que mostrar, asi que la evidencia es el modo del doble. Se
+  # archiva siempre, para que los SEIS estados tengan su artefacto y no solo
+  # los cinco de Toxiproxy.
+  curl -s "${PROV}/modo" > "${DEST}/provider_modo.json"
   sleep "${F_DEG}"
   ahora > "${DEST}/t_recuperacion"
   "${RAIZ}/infra/toxiproxy/states.sh" sano

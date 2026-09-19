@@ -23,7 +23,7 @@ actualización oportunista sin separar qué hace el interruptor y qué hace el d
 | --- | --- | --- |
 | §4.1 Reformular HD-01.4 | ✅ válida | Con un matiz: la segunda cláusula propuesta es casi una identidad. Ver §4 |
 | §4.2 Reubicar el punto de sensibilidad 4 | ✅ válida | Y decisiva: al correr las políticas en B aparece el incumplimiento que en C era invisible |
-| §4.3 Falta el estado de fallas intermitentes | ✅ válida · mecanismo corregido | `toxicity` de Toxiproxy se aplica **por conexión, no por petición**: con el pool de conexiones persistentes de httpx la fracción real habría quedado fuera de control. Se implementó en el doble, por petición y por hash del cliente |
+| §4.3 Falta el estado de fallas intermitentes | ✅ válida · mecanismo corregido dos veces | `toxicity` de Toxiproxy se aplica **por conexión, no por petición**: con el pool de conexiones persistentes de httpx la fracción real habría quedado fuera de control. Se implementó en el doble, **por petición**. Una primera versión derivaba la decisión del hash del `customer_id`, lo que convertía el estado en un subconjunto fijo de clientes rotos; se corrigió y la celda se repitió — ver §4, hallazgo nº 2 |
 | §4.4 `PoolTimeout` como falla del proveedor | ✅ defecto real · sin efecto medido | Corregido. Al separarlo se comprueba que **no se produjo ninguno**: los fallos que abrieron el interruptor eran timeouts auténticos |
 | §4.5 Corrida de C′ al 50 % dada por válida | ✅ válida | Repetida con el detector: p99 de 311 → 183 ms, respaldo de 467 → 189 ms, 0 parones del bucle. Era un transitorio del entorno |
 | §4.6 El camino frío no cabe en EC-LAT-07 | ✅ **válida** (rectificado) | Esta fila decía «incorrecta» apoyándose en un p95 de 111–117 ms del adaptador. Esa cifra estaba **mal agregada**: salía de contadores acumulados de toda la corrida, que mezclan las tres fases. Cortada por fase, en la degradada con proveedor lento el adaptador está en **495,6 ms y el 99,78 % de sus llamadas pasa de 120 ms**. La observación original era correcta. Ver `EC-LAT-07` en §3 |
@@ -210,7 +210,15 @@ Agregado por estado del proveedor, sobre la fase degradada de todas las corridas
 | **lento** | 5 | 490,3 – 495,6 ms | 99,1 – 100,0 % | ❌ |
 | intermitente | 8 | 947,9 – 952,0 ms | 31,1 – 34,2 % | ❌ |
 | sin respuesta | 3 | 981,7 – 983,8 ms | 81,8 – 93,2 % | ❌ |
-| degradado | 3 | 982,3 – 984,5 ms | 85,0 – 96,9 % | ❌ |
+| degradado ¹ | 3 | 982,3 – 984,5 ms | 85,0 – 96,9 % | ❌ |
+
+¹ **Muestra pequeña en B y C.** En la celda `degradado`, el adaptador sólo
+registra **25 llamadas en B y 32 en C**, frente a 650 en A: al abrir el
+interruptor a los ~7 s, el resto de las invocaciones se corta sin llegar a
+cronometrarse. El p95 de 984 ms de esas dos celdas descansa sobre esas
+decenas de muestras y no debe citarse aislado. **El incumplimiento no depende
+de ellas:** se sostiene sobre `lento`, donde el interruptor nunca abre y hay
+452 llamadas con el 99,78 % fuera de presupuesto.
 
 **El único estado degradado en que `EC-LAT-07` se cumple es `caído`, y se cumple por el
 interruptor**: al abrir, corta las llamadas y el adaptador responde en decenas de

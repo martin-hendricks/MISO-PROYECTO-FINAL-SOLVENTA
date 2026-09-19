@@ -473,6 +473,78 @@ regenera `ESTADO_EXPERIMENTO.md` y todo se sube al repositorio. Al cerrar la
 campaña se versiona además una instantánea comprimida de toda la base de
 Prometheus (`results/prometheus/`).
 
+### 22. El fallo del estado `intermitente` se decide por petición, no por cliente
+
+**Corrige un defecto de la desviación 7**, que extendió el determinismo por
+cliente más allá de la latencia. La decisión de fallo se derivaba de la misma
+uniforme que la latencia —hash de `(semilla, customer_id)`—, de modo que el
+30 % de los clientes fallaba **siempre** y el 70 % restante **nunca**: el
+estado no modelaba un proveedor que falla a veces sino un subconjunto fijo de
+clientes cuya clave no se repuebla jamás.
+
+Importa porque el razonamiento de por qué el interruptor no abre —ni diez
+fallos consecutivos ni el 50 % de la ventana— depende del **entrelazado** de
+fallos y aciertos, y ese entrelazado difiere entre los dos modelos. Con el
+modelo por cliente el resultado se sostenía por coincidencia, no por control.
+
+Ahora `provider.py` separa las dos uniformes: `_uniforme_cliente()` sostiene la
+latencia y conserva la propiedad de la desviación 7; `_uniforme_peticion()`
+decide el fallo desde un contador de petición, independiente del cliente. Se
+usa un contador y no `random()` para no perder la reproducibilidad dada la
+secuencia de llegada.
+
+**Evidencia.** Con `fallo_fraccion=0.30`, el mismo cliente pasa de 0 %/100 % a
+32,3 % de fallos; 300 clientes distintos dan 30,7 %. La celda se repitió bajo
+etiqueta nueva (`b5b_intermitente_{rate,count}`) **sin sobrescribir** las
+cuatro corridas originales, de modo que el mismo estado queda medido bajo los
+dos modelos. El resultado se mantiene: B incumple (1,22–1,25 % contra
+1,10–1,16 %), C cumple (0,00 %) y el interruptor no abre en ninguna de las
+ocho corridas.
+
+### 23. Dos instantáneas del inyector de fallas, no una
+
+`toxiproxy.json` se capturaba en la recolección, **después** de restaurar el
+estado sano, así que las 52 corridas de la campaña original lo archivan con
+`"toxics":[]`: el artefacto designado para confirmar el estado inyectado no
+confirmaba nada. Ahora se captura `toxiproxy_degradado.json` inmediatamente
+después de aplicar el estado, con las toxinas puestas, y se conserva la
+instantánea final como documentación del cierre.
+
+No invalida las corridas anteriores —el estado efectivo se corrobora por las
+latencias observadas y por `provider_metrics.txt`— pero sí su auditabilidad.
+
+**Límite conocido.** El estado `intermitente` no se inyecta con Toxiproxy sino
+en el doble (`POST /modo`), por la razón de la desviación 7, así que en sus
+corridas `toxiproxy_degradado.json` trae legítimamente `"toxics":[]`: el proxy
+no tiene nada que mostrar. Para que los **seis** estados tengan artefacto y no
+sólo los cinco de Toxiproxy, se archiva además `provider_modo.json` con la
+respuesta de `GET /modo` del doble, capturada en la fase degradada.
+
+Ese artefacto existe **a partir del 18/09/2026**. Para las cuatro corridas
+`b5b_*`, anteriores al cambio, la evidencia del estado es
+`ha01_provider_colgadas` en `provider_metrics.txt`: registran entre 491 y 1358
+peticiones colgadas, frente a **cero** en cualquier corrida no intermitente.
+Esa proporción es de ~10 % sobre el total de la corrida y no del 30 %
+configurado, porque el contador es acumulado y el estado sólo estuvo activo
+durante la fase degradada, que es un tercio de la ventana medida — la misma
+aritmética de agregación que motivó la desviación 24.
+
+### 24. La latencia del adaptador se mide por fase y va al consolidado
+
+`analizar.py` no tocaba `ha01_adapter_latency_seconds`: el veredicto de
+`EC-LAT-07` se calculaba a mano desde `api_metrics.txt`, que es un volcado
+final de **contadores acumulados** y mezcla las tres fases. En una corrida con
+estado degradado `lento`, dos tercios de las llamadas vienen de fases sanas y
+arrastran el percentil hacia abajo: así medido, el adaptador parecía caber en
+el presupuesto con 111–117 ms cuando en la fase degradada está en 495,6 ms.
+
+La regla de no agregar fases distintas ya se aplicaba a la latencia de
+cotización desde el principio; el adaptador era la única métrica que se le
+escapaba, precisamente porque no pasaba por el pipeline. Ahora el consolidado
+trae `llamadas_adapter`, `p95_adapter_ms` y `pct_adapter_sobre_120ms` por fase.
+El porcentaje es **conteo directo** del bucket `le="0.12"`, no interpolación:
+hay frontera de bucket exacta justo en el umbral de `EC-LAT-07`.
+
 ---
 
 ## Evidencia para el informe
@@ -490,7 +562,8 @@ Prometheus (`results/prometheus/`).
 | `k6_summary.json` | medida **de cliente**, incluido `dropped_iterations` |
 | `k6_stdout.txt` | traza completa de k6 |
 | `stats.csv` | CPU y memoria de cada contenedor al terminar |
-| `toxiproxy_degradado.json` | toxinas **activas durante la fase degradada**: es la evidencia del estado inyectado |
+| `toxiproxy_degradado.json` | toxinas **activas durante la fase degradada**: es la evidencia del estado inyectado en los cinco estados de Toxiproxy |
+| `provider_modo.json` | modo del doble en la fase degradada: es la evidencia del estado `intermitente`, que no se inyecta con Toxiproxy |
 | `toxiproxy.json` | estado del proxy al recolectar, ya restaurado a sano. Documenta el cierre, no el estado bajo prueba |
 
 > Las corridas anteriores al 16/09/2026 sólo tienen `toxiproxy.json`, y siempre con
