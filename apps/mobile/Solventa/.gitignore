@@ -1,0 +1,27 @@
+# IntelliJ / Android Studio
+*.iml
+.idea/
+
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Native builds
+.externalNativeBuild/
+.cxx/
+
+# Generated outputs
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+
+# Profiling and logs
+*.hprof
+*.log
+
+# OS
+.DS_Store
