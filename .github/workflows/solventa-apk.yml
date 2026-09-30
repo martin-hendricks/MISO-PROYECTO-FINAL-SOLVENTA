@@ -2,7 +2,9 @@ name: Solventa APK
 
 on:
   push:
-    branches: [main]
+    branches:
+      - develop
+      - main
     paths:
       - 'apps/mobile/Solventa/**'
       - '.github/workflows/solventa-apk.yml'

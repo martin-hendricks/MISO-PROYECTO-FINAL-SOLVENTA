@@ -2,7 +2,11 @@ name: Solventa
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - develop
+      - main
+      - 'release/**'
+      - 'hotfix/**'
     types: [opened, synchronize, reopened]
 
 jobs:
