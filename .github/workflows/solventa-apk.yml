@@ -25,7 +25,11 @@ jobs:
             apps/mobile/Solventa/**/*.gradle.kts
             apps/mobile/Solventa/gradle/libs.versions.toml
             apps/mobile/Solventa/gradle/wrapper/gradle-wrapper.properties
-      - uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' 24333f8a63b6825ea9c5514f83c2829b004d1fee > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
       - name: Build debug APK
         working-directory: apps/mobile/Solventa
         run: ./gradlew :app:assembleDebug
