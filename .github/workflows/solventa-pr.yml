@@ -1,0 +1,63 @@
+name: Solventa
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  changes:
+    name: detect-solventa-changes
+    runs-on: ubuntu-latest
+    outputs:
+      solventa: ${{ steps.filter.outputs.solventa }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            solventa:
+              - 'apps/mobile/Solventa/**'
+              - '.github/workflows/solventa-pr.yml'
+
+  unit-tests:
+    name: unit-tests
+    needs: changes
+    if: needs.changes.outputs.solventa == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            apps/mobile/Solventa/**/*.gradle*
+            apps/mobile/Solventa/**/*.gradle.kts
+            apps/mobile/Solventa/gradle/libs.versions.toml
+            apps/mobile/Solventa/gradle/wrapper/gradle-wrapper.properties
+      - uses: android-actions/setup-android@v3
+      - name: Run unit tests
+        working-directory: apps/mobile/Solventa
+        run: ./gradlew :app:testDebugUnitTest
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: apps/mobile/Solventa/app/build/reports/tests/testDebugUnitTest/
+
+  solventa-unit-tests:
+    name: solventa-unit-tests
+    needs: [changes, unit-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require unit tests when Solventa changed
+        run: |
+          result="${{ needs.unit-tests.result }}"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
