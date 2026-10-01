@@ -1,0 +1,25 @@
+---
+description: Karma and Cucumber rules for the Solventa web portal
+globs: apps/web/**
+alwaysApply: false
+---
+
+# Web tests
+
+Unit tests run on Karma and Jasmine (`npm test`). Cover ViewModels and use cases with no DOM and no HTTP. Catalog keys used by a screen (starting with `es-CO`) need a Karma spec. Do not switch the runner to Vitest.
+
+E2E scenarios are Gherkin (`Given` / `When` / `Then`) executed by Cucumber and Playwright against the nginx URL (`BASE_URL`).
+
+- Page objects own every locator. Steps call page objects only.
+- Locate elements with `data-testid` via `getByTestId`. No `xpath` or `css` in steps or page objects.
+- Wait on Playwright auto-waits or `waitFor`. No `sleep()`.
+
+```ts
+// ❌ BAD
+await page.locator('h1').click();
+await new Promise((r) => setTimeout(r, 1000));
+
+// ✅ GOOD
+await this.page.getByTestId('nav-cms').click();
+await this.page.getByTestId('cms-shell').waitFor({ state: 'visible' });
+```
