@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Web tests
 
-Unit tests run on Karma and Jasmine (`npm test`). Cover ViewModels and use cases with no DOM and no HTTP. Catalog keys used by a screen (starting with `es-CO`) need a Karma spec. Do not switch the runner to Vitest.
+Unit tests run on Karma and Jasmine (`pnpm test`). Cover ViewModels and use cases with no DOM and no HTTP. Catalog keys used by a screen (starting with `es-CO`) need a Karma spec. Do not switch the runner to Vitest.
 
 E2E scenarios are Gherkin (`Given` / `When` / `Then`) executed by Cucumber and Playwright against the nginx URL (`BASE_URL`).
 

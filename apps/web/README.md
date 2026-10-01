@@ -9,9 +9,9 @@ Portal de escritorio con dos variantes en la misma aplicación: cliente (`/user`
 
 ```bash
 cd apps/web
-npm ci
-npm test
-npm start
+pnpm install --frozen-lockfile
+pnpm test
+pnpm start
 ```
 
 ## Imagen
@@ -29,6 +29,6 @@ Con el contenedor en el puerto 8080:
 
 ```bash
 cd apps/web
-npx playwright install chromium
-BASE_URL=http://localhost:8080 npm run e2e
+pnpm exec playwright install chromium
+BASE_URL=http://localhost:8080 pnpm e2e
 ```
