@@ -32,10 +32,6 @@ output-metadata.json
 # OS
 .DS_Store
 
-# Tracked on purpose: Cursor rules, Speckit, and feature specs
-!.cursor/
-!.cursor/**
-!.specify/
-!.specify/**
-!specs/
-!specs/**
+# Local Cursor and Speckit files. specs/ stays tracked.
+.cursor/
+.specify/
