@@ -341,7 +341,13 @@ resource "helm_release" "cluster_autoscaler" {
     value = "false"
   }
 
-  depends_on = [aws_iam_role_policy_attachment.cluster_autoscaler]
+  # Ver el comentario en helm_release.external_secrets: este chart también
+  # crea un Service, así que corre el mismo riesgo de carrera contra el
+  # webhook del ALB Controller si Terraform los aplica en paralelo.
+  depends_on = [
+    aws_iam_role_policy_attachment.cluster_autoscaler,
+    helm_release.aws_load_balancer_controller,
+  ]
 }
 
 # ---------------------------------------------------------------------------
@@ -447,7 +453,18 @@ resource "helm_release" "external_secrets" {
     value = aws_iam_role.external_secrets[0].arn
   }
 
-  depends_on = [aws_iam_role_policy_attachment.external_secrets]
+  # Depende también del helm_release del ALB Controller, no solo de su IAM
+  # role: el ALB Controller registra un webhook que intercepta la creación de
+  # cualquier Service del clúster, y helm_release.aws_load_balancer_controller
+  # solo tiene wait=true sobre SU PROPIO chart -- no bloquea a los demás
+  # releases que Terraform aplicaría en paralelo. Sin esta dependencia
+  # explícita, el Service que crea este chart puede llegar antes de que el
+  # pod del ALB Controller tenga un endpoint vivo, y el webhook responde "no
+  # endpoints available for service aws-load-balancer-webhook-service".
+  depends_on = [
+    aws_iam_role_policy_attachment.external_secrets,
+    helm_release.aws_load_balancer_controller,
+  ]
 }
 
 # ---------------------------------------------------------------------------
@@ -462,4 +479,9 @@ resource "helm_release" "metrics_server" {
   chart      = "metrics-server"
   version    = var.metrics_server_chart_version
   namespace  = "kube-system"
+
+  # Ver el comentario en helm_release.external_secrets: metrics-server
+  # también crea un Service. En una corrida donde complete antes que el ALB
+  # Controller esté listo puede chocar con el mismo webhook.
+  depends_on = [helm_release.aws_load_balancer_controller]
 }

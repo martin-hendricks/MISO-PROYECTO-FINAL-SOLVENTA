@@ -140,6 +140,57 @@ resource "aws_iam_openid_connect_provider" "eks" {
 }
 
 # ---------------------------------------------------------------------------
+# IRSA del add-on EBS CSI driver
+#
+# Sin este rol, el pod ebs-csi-controller intenta autenticarse vía IMDS del
+# nodo EC2 y falla en CrashLoopBackOff con "no EC2 IMDS role found": el add-on
+# gestionado necesita su propio ServiceAccount con un rol IRSA, igual que los
+# add-ons de Helm en modules/eks_addons (ALB Controller, Cluster Autoscaler,
+# External Secrets), pero aquí se cablea directo en aws_eks_addon en vez de
+# vía "helm set", porque EKS gestiona la anotación del ServiceAccount por su
+# cuenta a partir de service_account_role_arn.
+# ---------------------------------------------------------------------------
+
+data "aws_iam_policy_document" "ebs_csi_driver_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ebs_csi_driver" {
+  name               = "${var.project_name}-${var.environment}-ebs-csi-driver-irsa"
+  assume_role_policy = data.aws_iam_policy_document.ebs_csi_driver_assume_role.json
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-ebs-csi-driver-irsa" })
+}
+
+# Política gestionada oficial de AWS para el driver, en vez de una política
+# propia: es la ruta recomendada por AWS y ya cubre exactamente los permisos
+# de EBS (CreateVolume, AttachVolume, snapshots, etc.) que el driver necesita.
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  role       = aws_iam_role.ebs_csi_driver.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+# ---------------------------------------------------------------------------
 # Node Group A: ms-cotizacion (MotorRating) + ms-perfilamiento (MotorRiesgo)
 #
 # Curvas de carga independientes, escalamiento vertical e imágenes livianas
@@ -290,11 +341,13 @@ resource "aws_eks_addon" "ebs_csi_driver" {
   addon_name                  = "aws-ebs-csi-driver"
   addon_version               = lookup(var.addon_versions, "aws-ebs-csi-driver", null)
   resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = aws_iam_role.ebs_csi_driver.arn
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-addon-ebs-csi-driver" })
 
   depends_on = [
     aws_eks_node_group.grupo_a,
     aws_eks_node_group.grupo_b,
+    aws_iam_role_policy_attachment.ebs_csi_driver,
   ]
 }

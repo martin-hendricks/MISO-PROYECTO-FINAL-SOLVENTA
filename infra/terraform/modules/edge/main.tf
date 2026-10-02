@@ -159,8 +159,10 @@ resource "aws_cloudfront_distribution" "spa" {
 resource "aws_wafv2_web_acl" "cloudfront" {
   provider = aws.us_east_1
 
-  name        = "${var.project_name}-${var.environment}-cf-waf"
-  description = "Web ACL for the Solventa CloudFront distribution (SPA + edge)"
+  name = "${var.project_name}-${var.environment}-cf-waf"
+  # AWS valida esta descripción contra un regex que no admite paréntesis;
+  # "(SPA + edge)" la rompía con ValidationException al crear el Web ACL.
+  description = "Web ACL for the Solventa CloudFront distribution, SPA and edge"
   scope       = "CLOUDFRONT"
 
   default_action {

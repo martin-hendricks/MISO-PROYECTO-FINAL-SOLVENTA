@@ -27,8 +27,14 @@ locals {
       service_principals = ["elasticache.amazonaws.com"]
     }
     s3 = {
-      description        = "CMK for S3 (evidencia de siniestros) encryption at rest"
-      service_principals = ["s3.amazonaws.com"]
+      description = "CMK for S3 (evidencia de siniestros) encryption at rest"
+      # Esta CMK se reutiliza también para cifrar los CloudWatch Log Groups
+      # (observability y la integración del API Gateway): sin
+      # logs.amazonaws.com como principal, CreateLogGroup falla con
+      # AccessDeniedException ("The specified KMS key does not exist or is
+      # not allowed to be used"), porque CloudWatch Logs necesita permiso
+      # explícito de la llave, no solo el permiso IAM del caller.
+      service_principals = ["s3.amazonaws.com", "logs.amazonaws.com"]
     }
     secrets = {
       description        = "CMK for Secrets Manager (credenciales de BD y terceros) encryption at rest"
