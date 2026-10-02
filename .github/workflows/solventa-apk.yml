@@ -1,0 +1,42 @@
+name: Solventa APK
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - 'apps/mobile/Solventa/**'
+      - '.github/workflows/solventa-apk.yml'
+
+jobs:
+  apk:
+    name: assemble-debug-apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            apps/mobile/Solventa/**/*.gradle*
+            apps/mobile/Solventa/**/*.gradle.kts
+            apps/mobile/Solventa/gradle/libs.versions.toml
+            apps/mobile/Solventa/gradle/wrapper/gradle-wrapper.properties
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' 24333f8a63b6825ea9c5514f83c2829b004d1fee > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+      - name: Build debug APK
+        working-directory: apps/mobile/Solventa
+        run: ./gradlew :app:assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: solventa-debug-apk
+          path: apps/mobile/Solventa/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
