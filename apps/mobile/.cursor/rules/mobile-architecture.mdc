@@ -1,0 +1,33 @@
+---
+description: Android rules for apps/mobile only — layers, Compose, offline evidence, BFF
+globs:
+  - apps/mobile/**/*.kt
+  - apps/mobile/**/*.xml
+alwaysApply: false
+---
+
+# Solventa mobile
+
+These rules live with the Android app and apply only to files under `apps/mobile/`. Do not use them for `apps/web/` or `apps/backend/`.
+
+From the wiki: [Hoja de trabajo semana 5 §1.6](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Hoja-de-trabajo-semana-5#16-arquitectura-del-cliente-móvil-android) and [Estrategia de pruebas §4.3](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Estrategia-de-pruebas#43-framework-para-el-componente-móvil).
+
+App in `apps/mobile/Solventa/`. Package `com.grupo8_uniandes.solventa`. Kotlin, Jetpack Compose, Material 3, `SolventaTheme`. One `MainActivity`. Screens are Composables (login, policy detail, claim, payment, renewal), not Fragments or XML layouts. The app talks only to `bff-movil`.
+
+## Layers
+
+- Presentation observes ViewModels (`StateFlow` / `UiState`). A ViewModel calls use cases (`EntrarAlSistema`, `ReportarSiniestro`, `ValidarCodigos`, `ConsultarPagos`, `RenovarPoliza`, `SincronizarUsuario`). It does not call Retrofit or Room.
+- Domain holds those use cases and repository contracts (Póliza, Siniestro, Pago). No Android APIs.
+- Data: `*RepositoryImpl` chooses Retrofit DTOs to the Mobile BFF or Room DAOs. Offline claim evidence is stored encrypted in Room and queued with WorkManager. Replay is idempotent: reconnecting must not create a duplicate claim.
+- Identity: `BiometricPrompt` (fingerprint or face, PIN fallback), `TokenStore` (DataStore or EncryptedPrefs), and the OkHttp JWT interceptor. Attach the access token only on protected APIs. Login and refresh do not send it. Room and FCM do not use the interceptor. The BFF validates the JWT and ignores roles sent by the client.
+
+## UI and locale
+
+- Composables receive state. State that must survive rotation uses `rememberSaveable`.
+- User-visible copy lives in `strings.xml` and `plurals.xml`: default `es-CO` in `res/values/`, plus `values-es-rMX`, `values-es-rCL`, and `values-es-rPE`. No string literals in Composables.
+- Format money and dates with `NumberFormat` and `DateFormat` for the active locale. The backend sends `prima` and `moneda` as data, not as formatted text.
+- Previews use `@Preview` and `SolventaTheme`.
+
+```kotlin
+Text(text = stringResource(R.string.home_title))
+```
