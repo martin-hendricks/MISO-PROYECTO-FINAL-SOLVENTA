@@ -1,0 +1,33 @@
+[project]
+name = "bff-movil"
+version = "0.1.0"
+description = "Canal móvil de Solventa"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115",
+  "pyjwt>=2.9",
+  "pydantic>=2",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "httpx>=0.27",
+]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = [
+  "integration: excluded from the unit workflow",
+  "contract: excluded from the unit workflow",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

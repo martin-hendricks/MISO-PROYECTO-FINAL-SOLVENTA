@@ -4,6 +4,10 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.coverage
+htmlcov/
+coverage.xml
+junit.xml
 
 # Node / Angular
 node_modules/
