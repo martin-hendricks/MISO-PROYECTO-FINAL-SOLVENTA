@@ -1,0 +1,62 @@
+# Ubicación en el repo: .github/workflows/branch-flow-policy.yml
+#
+# Valida que cada PR venga de una rama origen permitida según la rama destino:
+#   develop    <- feature/* | release/* | hotfix/*  (release/hotfix = back-merge)
+#   main       <- release/* | hotfix/*
+#   release/*  <- bugfix/*
+#
+# El job "validate-source-branch" debe marcarse como status check requerido
+# en los rulesets de develop, main y release/**.
+
+name: Branch flow policy
+
+on:
+  pull_request:
+    # "edited" cubre el caso en que alguien cambia la rama destino de un PR abierto
+    types: [opened, edited, reopened, synchronize]
+    branches:
+      - develop
+      - main
+      - 'release/**'
+
+permissions: {}
+
+jobs:
+  validate-source-branch:
+    name: validate-source-branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar rama origen del PR
+        env:
+          # Se pasan por variables de entorno (no interpoladas en el script)
+          # para evitar inyección de comandos vía nombres de rama.
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$BASE_REF" in
+            develop)
+              # feature/* para desarrollo nuevo; release/* y hotfix/* para
+              # back-merges después de integrar a main (Git Flow)
+              allowed='^(feature|release|hotfix)/.+'
+              desc='feature/*, release/* o hotfix/* (back-merge)'
+              ;;
+            main)
+              allowed='^(release|hotfix)/.+'
+              desc='release/* o hotfix/*'
+              ;;
+            release/*)
+              allowed='^bugfix/.+'
+              desc='bugfix/*'
+              ;;
+            *)
+              echo "No hay política definida para '$BASE_REF'."
+              exit 0
+              ;;
+          esac
+
+          if [[ "$HEAD_REF" =~ $allowed ]]; then
+            echo "OK: '$HEAD_REF' -> '$BASE_REF' está permitido."
+          else
+            echo "::error title=Rama origen no permitida::'$BASE_REF' solo acepta PRs desde $desc (recibido: '$HEAD_REF')."
+            exit 1
+          fi
