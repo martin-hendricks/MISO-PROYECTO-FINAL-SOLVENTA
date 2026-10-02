@@ -11,11 +11,21 @@ locals {
   log_group_map = { for name in var.log_groups : name => "/${var.project_name}/${var.environment}/${name}" }
 
   alarm_email_enabled = length(var.alarm_email) > 0
-  alb_enabled         = length(var.alb_arn_suffix) > 0
-  msk_enabled         = length(var.msk_cluster_name) > 0
+  alb_enabled         = var.enable_alb_alarms
+  msk_enabled         = var.enable_msk_alarms
 
-  rds_instance_map        = { for id in var.rds_instance_ids : id => id }
-  elasticache_cluster_map = { for id in var.elasticache_cluster_ids : id => id }
+  # El for_each/count de cada bloque de alarmas no puede depender de
+  # alb_arn_suffix/rds_instance_ids/etc. directamente: en este ambiente esos
+  # valores son outputs de recursos creados en el mismo apply (el ALB, las
+  # instancias RDS...), así que durante el plan son "known after apply" y
+  # Terraform no puede decidir cuántas instancias crear a partir de ellos.
+  #
+  # La solución es la que el propio error de Terraform sugiere: separar
+  # "cuántas alarmas crear" (una clave estática, conocida ahora, vía
+  # rds_alarm_keys / elasticache_alarm_keys) de "qué recurso monitorea cada
+  # una" (un valor que solo se conoce tras el apply). El for_each solo ve la
+  # clave estática; el ID real correspondiente se resuelve por posición en
+  # rds_instance_ids / elasticache_cluster_ids dentro del propio recurso.
 }
 
 # =============================================================================
@@ -107,7 +117,10 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 # =============================================================================
 
 resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
-  for_each = local.rds_instance_map
+  # for_each itera sobre las claves estáticas (conocidas en el plan); el ID
+  # real de la instancia, que solo se conoce tras el apply, se resuelve por
+  # posición dentro de "dimensions", no en el for_each.
+  for_each = toset(var.rds_alarm_keys)
 
   alarm_name          = "${var.project_name}-${var.environment}-rds-${each.key}-cpu"
   alarm_description   = "RDS instance ${each.key} CPUUtilization above threshold."
@@ -121,7 +134,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    DBInstanceIdentifier = each.value
+    DBInstanceIdentifier = var.rds_instance_ids[index(var.rds_alarm_keys, each.key)]
   }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
@@ -135,7 +148,9 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
 # =============================================================================
 
 resource "aws_cloudwatch_metric_alarm" "elasticache_high_memory" {
-  for_each = local.elasticache_cluster_map
+  # Igual que en rds_high_cpu: for_each sobre claves estáticas, el ID real del
+  # clúster se resuelve por posición dentro de "dimensions".
+  for_each = toset(var.elasticache_alarm_keys)
 
   alarm_name          = "${var.project_name}-${var.environment}-redis-${each.key}-memory"
   alarm_description   = "ElastiCache cluster ${each.key} DatabaseMemoryUsagePercentage above threshold."
@@ -149,7 +164,7 @@ resource "aws_cloudwatch_metric_alarm" "elasticache_high_memory" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    CacheClusterId = each.value
+    CacheClusterId = var.elasticache_cluster_ids[index(var.elasticache_alarm_keys, each.key)]
   }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
@@ -159,7 +174,7 @@ resource "aws_cloudwatch_metric_alarm" "elasticache_high_memory" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "elasticache_evictions" {
-  for_each = local.elasticache_cluster_map
+  for_each = toset(var.elasticache_alarm_keys)
 
   alarm_name          = "${var.project_name}-${var.environment}-redis-${each.key}-evictions"
   alarm_description   = "ElastiCache cluster ${each.key} Evictions above threshold."
@@ -173,7 +188,7 @@ resource "aws_cloudwatch_metric_alarm" "elasticache_evictions" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    CacheClusterId = each.value
+    CacheClusterId = var.elasticache_cluster_ids[index(var.elasticache_alarm_keys, each.key)]
   }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
@@ -276,7 +291,7 @@ resource "aws_cloudwatch_dashboard" "this" {
           }
         }
       ] : [],
-      length(local.rds_instance_map) > 0 ? [
+      length(var.rds_alarm_keys) > 0 ? [
         {
           type   = "metric"
           x      = 0
@@ -293,7 +308,7 @@ resource "aws_cloudwatch_dashboard" "this" {
           }
         }
       ] : [],
-      length(local.elasticache_cluster_map) > 0 ? [
+      length(var.elasticache_alarm_keys) > 0 ? [
         {
           type   = "metric"
           x      = 12

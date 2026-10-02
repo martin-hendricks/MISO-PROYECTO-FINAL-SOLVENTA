@@ -48,8 +48,14 @@ variable "alarm_email" {
 
 variable "alb_arn_suffix" {
   type        = string
-  description = "ARN suffix of the ALB (alb module output, format app/<name>/<id>), required by the ALB CloudWatch metrics dimension. Empty string skips the ALB alarms."
+  description = "ARN suffix of the ALB (alb module output, format app/<name>/<id>), required by the ALB CloudWatch metrics dimension."
   default     = ""
+}
+
+variable "enable_alb_alarms" {
+  type        = bool
+  description = "Whether to create the ALB alarms. Must be a value known at plan time (a literal or a variable), not derived from alb_arn_suffix: that value usually comes from a resource created in the same apply and is unknown during plan, which breaks count/for_each."
+  default     = true
 }
 
 variable "alb_p95_latency_threshold_seconds" {
@@ -66,7 +72,13 @@ variable "alb_5xx_threshold" {
 
 variable "rds_instance_ids" {
   type        = list(string)
-  description = "RDS instance identifiers to monitor for high CPU (e.g. DBPolizas, DBSiniestros). Empty list skips the RDS alarms."
+  description = "RDS instance identifiers to monitor for high CPU (e.g. DBPolizas, DBSiniestros). Must be a value known at plan time: a static list, not one built directly from resource attributes that only exist after apply (see rds_alarm_keys)."
+  default     = []
+}
+
+variable "rds_alarm_keys" {
+  type        = list(string)
+  description = "Static, plan-time-known keys for the RDS alarms for_each (e.g. [\"polizas\", \"siniestros\"]). Decouples how many alarms to create (known now) from the instance ID each one monitors (known after apply). Must have the same length and order as rds_instance_ids."
   default     = []
 }
 
@@ -78,7 +90,13 @@ variable "rds_cpu_threshold_percent" {
 
 variable "elasticache_cluster_ids" {
   type        = list(string)
-  description = "ElastiCache Redis cluster IDs to monitor for high memory/evictions (e.g. CacheOF, CacheOD). Empty list skips the ElastiCache alarms."
+  description = "ElastiCache Redis cluster IDs to monitor for high memory/evictions (e.g. CacheOF, CacheOD). Must be a value known at plan time: a static list, not one built directly from resource attributes that only exist after apply (see elasticache_alarm_keys)."
+  default     = []
+}
+
+variable "elasticache_alarm_keys" {
+  type        = list(string)
+  description = "Static, plan-time-known keys for the ElastiCache alarms for_each (e.g. [\"redis\"]). Decouples how many alarms to create (known now) from the cluster ID each one monitors (known after apply). Must have the same length and order as elasticache_cluster_ids."
   default     = []
 }
 
@@ -96,8 +114,14 @@ variable "elasticache_evictions_threshold" {
 
 variable "msk_cluster_name" {
   type        = string
-  description = "MSK cluster name to monitor for consumer lag and disk usage. Empty string skips the MSK alarms."
+  description = "MSK cluster name to monitor for consumer lag and disk usage."
   default     = ""
+}
+
+variable "enable_msk_alarms" {
+  type        = bool
+  description = "Whether to create the MSK alarms. Must be a value known at plan time (a literal or a variable), not derived from msk_cluster_name: that value usually comes from a resource created in the same apply and is unknown during plan, which breaks count/for_each."
+  default     = true
 }
 
 variable "msk_consumer_lag_threshold" {

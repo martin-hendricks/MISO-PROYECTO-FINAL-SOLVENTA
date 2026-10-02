@@ -322,15 +322,24 @@ module "observability" {
   kms_key_arn        = module.kms.s3_key_arn
   alarm_email        = var.alarm_email
 
-  alb_arn_suffix = module.alb.alb_arn_suffix
+  # enable_*_alarms y *_alarm_keys son literales, conocidos en el plan: no se
+  # derivan de los outputs de alb/rds/elasticache/msk, que solo existen tras el
+  # apply. Así el for_each/count de las alarmas no depende de un valor
+  # desconocido. Ver el comentario en modules/observability/main.tf.
+  enable_alb_alarms = true
+  alb_arn_suffix    = module.alb.alb_arn_suffix
 
-  rds_instance_ids = compact([
+  rds_alarm_keys = ["polizas", "siniestros"]
+  rds_instance_ids = [
     module.rds_polizas.db_instance_id,
     module.rds_siniestros.db_instance_id,
-  ])
+  ]
 
+  elasticache_alarm_keys  = ["redis"]
   elasticache_cluster_ids = [module.elasticache.replication_group_id]
-  msk_cluster_name        = module.msk.cluster_name
+
+  enable_msk_alarms = true
+  msk_cluster_name  = module.msk.cluster_name
 
   enable_managed_prometheus = var.enable_managed_prometheus
 
