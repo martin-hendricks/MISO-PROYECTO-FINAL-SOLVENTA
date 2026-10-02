@@ -13,15 +13,19 @@ variable "kms_key_arn" {
   description = "CMK ARN (kms module) used to encrypt the SPA S3 bucket and the API Gateway access log group."
 }
 
-variable "alb_dns_name" {
+variable "alb_listener_arn" {
   type        = string
-  description = "DNS name of the internal Application Load Balancer (alb module). Used as the HTTP_PROXY integration target for the API Gateway."
+  description = "ARN of the internal ALB's listener (alb module output). This is what a VPC_LINK integration targets -- not the ALB's DNS name, which only an internet-reachable HTTP_PROXY integration would use (EC-SEG-07: the ALB here has no public path)."
 }
 
-variable "alb_listener_port" {
-  type        = number
-  description = "Port on the ALB the API Gateway HTTP_PROXY integration connects to."
-  default     = 80
+variable "vpc_link_subnet_ids" {
+  type        = list(string)
+  description = "Subnet IDs (at least two AZs) where the API Gateway VPC Link's ENIs are placed. Must be able to route to the ALB's subnets -- the private application subnets."
+}
+
+variable "vpc_link_security_group_ids" {
+  type        = list(string)
+  description = "Security group IDs attached to the VPC Link's ENIs (the vpc_link SG from the security_groups module, which is the only principal the ALB's security group allows in)."
 }
 
 variable "spa_bucket_force_destroy" {

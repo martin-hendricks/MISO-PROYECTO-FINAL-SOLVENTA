@@ -1,6 +1,6 @@
 # Plan de implementación — Terraform ambiente mínimo (HU-78)
 
-Trazabilidad: [Vista de despliegue — AWS](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Hoja-de-trabajo-semana-5#13-vista-de-despliegue--aws) (VC-003) · HU-78 *Red y clúster cloud (mínimo)*.
+Trazabilidad: [Vista de despliegue — AWS](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Hoja-de-trabajo-semana-8#113-vista-de-despliegue--aws) (VC-003, §1.1.3) · HU-78 *Red y clúster cloud (mínimo)*.
 
 ## Decisiones tomadas
 
@@ -51,9 +51,10 @@ infra/terraform/
 | --- | --- | --- |
 | VPC Solventa, subred pública, subredes privadas AZ-a/AZ-b, subred de datos | `network` | Multi-AZ activo-activo (EC-DISP-06, RTO ≤ 10 min) |
 | Application Load Balancer | `alb` | En subred pública |
-| EKS Node Group AZ-a + réplica AZ-b | `eks` | **Grupo A**: `ms-cotizacion` (MotorRating) + `ms-perfilamiento` (MotorRiesgo), curvas de carga independientes, escalamiento vertical, warm pool, capacidad ≤ 60 s (EC-ESC-02). **Grupo B**: resto de microservicios, BFFs y adaptadores |
-| `DBPolizas` — RDS PostgreSQL | `rds_polizas` | Redundancia **ACTIVA**: réplica de lectura sirve tráfico, RPO ≤ 30 s (EC-LAT-10) |
-| `DBSiniestros` — RDS PostgreSQL | `rds_siniestros` | Redundancia **PASIVA**: standby Multi-AZ que no sirve tráfico (EC-DISP-06 / EC-DISP-07) |
+| EKS Node Group AZ-a + réplica AZ-b | `eks` | **Grupo A**: `ms-cotizacion` (MotorRating) + `ms-perfilamiento` (MotorRiesgo), curvas de carga independientes, escalamiento vertical, capacidad ≤ 60 s (EC-ESC-02). **Grupo B**: resto de microservicios, BFFs y adaptadores |
+| `DBPolizas` — RDS PostgreSQL | `rds_polizas` | Redundancia **ACTIVA**: réplica de lectura sirve tráfico, RPO ≤ 30 s (EC-LAT-10). Esquema `ms_polizas` |
+| `DBSiniestros` — RDS PostgreSQL | `rds_siniestros` | Redundancia **PASIVA**: standby Multi-AZ que no sirve tráfico (EC-DISP-06 / EC-DISP-07). Esquema `ms_siniestros` |
+| *(no está en el diagrama)* — RDS PostgreSQL | `rds_compartida` | **Sin redundancia** (solo backups): aloja los 9 esquemas sin instancia propia — `ms_cotizacion`, `ms_identidad`, `ms_consentimiento`, `ms_pagos`, `ms_parametrico`, `ms_perfilamiento`, `ms_socios`, `analitica`, `notificaciones`. Ver nota de instancia única más abajo |
 | ElastiCache Redis | `elasticache` | `CacheOF` y `CacheOD`, TTL por fuente |
 | MSK (Kafka) | `msk` | `BusEventos`, `ColaPagos`, `TopicoTelemetria`; contrapresión, retención duradera, grupos de consumidores (EC-ESC-03) |
 | API Gateway, AWS WAF, CloudFront, S3 hosting SPA Angular | `edge` | Borde fuera de la VPC |
@@ -63,6 +64,19 @@ infra/terraform/
 | S3 evidencia de siniestros | `s3_evidencias` | Versionado y cifrado con CMK |
 
 Los 12 microservicios, los 6 adaptadores y el `Sincronizador` **no** son recursos de Terraform: van en `k8s/` como manifiestos, según la frontera acordada.
+
+### Nota — instancia única por BD, múltiples esquemas
+
+Ajuste del 2026-10-01: en vez de una instancia RDS por microservicio, cada microservicio es un **esquema PostgreSQL** dentro de una de tres instancias. El reparto es por dominio de negocio, preservando la asimetría de redundancia activa/pasiva que la wiki define solo para pólizas y siniestros:
+
+- `rds_polizas` (activa) y `rds_siniestros` (pasiva) mantienen sus nombres y su único esquema original — son exactamente los nodos `:DBPolizas` y `:DBSiniestros` del diagrama VC-003.
+- `rds_compartida`, nueva, aloja los 9 esquemas restantes **sin redundancia** (ni Multi-AZ ni réplica, solo backups automáticos). No está en el diagrama: la wiki solo define activa/pasiva, cada una ligada a un problema de negocio concreto (volumen de lectura vs. staleness del estado de una reclamación), y ninguna de las dos aplica a este tercer grupo. Forzar una tercera política inventada no estaba justificado.
+
+La creación de esquemas y roles de BD por microservicio (`CREATE SCHEMA`, `CREATE ROLE` con permisos acotados a su propio esquema) queda **fuera de este Terraform**: el provider `postgresql` necesita conectarse a la instancia por red, y las tres viven en subred privada sin ruta desde fuera de la VPC. Va en un script de migración aparte (Flyway/Alembic/SQL plano) que corra en CI/CD o al arrancar cada microservicio.
+
+### Nota — discrepancia entre el diagrama y el texto de la wiki (Grupos EKS)
+
+El diagrama de despliegue VC-003 (el SVG embebido) dibuja `ms-cotizacion` y `ms-perfilamiento` **juntos** en el Grupo de escalado A. El texto de la Hoja de trabajo semana 8 §1.1.3.2 dice que van **separados** ("Réplicas de `:MsCotización` + `:MotorRaiting` como grupo, separadas de `:MsPerfilamiento` + `:MotorRiesgo`"). Es la misma imagen citada en semana 5 y semana 8; no hay una versión más nueva que desempate. Se decidió mantener el diagrama (2 grupos, A = ambos juntos, que es lo que ya implementa `modules/eks`) en vez de abrir un tercer node group. Queda como inconsistencia a resolver en la wiki misma.
 
 ## Bloques de implementación
 
@@ -95,7 +109,26 @@ Heredadas del patrón del repo de DevOps (`Universidad/devops/MISW-4304-DevOps/t
 - [x] `terraform validate` en `environments/minimo` sin errores.
 - [x] Cada nodo del diagrama de despliegue tiene módulo correspondiente y está trazado en la tabla de arriba.
 - [x] `README.md` documenta cómo levantar y destruir el ambiente.
-- [x] No se ejecutó `plan` ni `apply`: el ambiente no se creó en esta pasada.
+- [x] `terraform plan` corrido contra la cuenta real (382888552507): converge limpio, 215 recursos a crear, 0 errores. No se ejecutó `apply`: el ambiente no se creó en esta pasada.
+
+## Correcciones tras revisión (2026-10-01)
+
+Un segundo par de ojos revisó el Terraform contra la wiki y encontró 8 puntos. Verificados y corregidos:
+
+| # | Problema | Corrección |
+| --- | --- | --- |
+| 1 | MSK con `default_replication_factor=3` y solo 2 brokers por defecto: ningún tópico se puede crear | Factor 2 / `min_insync_replicas=1`, consistente con 2 brokers |
+| 2 | El comentario de `rds_polizas` decía que RDS "siempre" coloca la réplica en otra AZ; no es cierto sin `availability_zone` explícita | Se fija `availability_zone` en primaria y réplica, resuelta vía `data "aws_subnet"` sobre índices estáticos (mismo patrón que el fix de `observability`) |
+| 3 | El comentario de `rds_siniestros` describía el patrón `:Monitor`/`:Sincronizador` de la wiki como si existiera | Comentario corregido: se usa el Multi-AZ nativo de RDS como aproximación, no una implementación de esos componentes |
+| 4 | Sin alarma de `ReplicaLag` sobre la réplica de pólizas — no hay evidencia del RPO ≤ 30 s de EC-LAT-10 | Alarma + widget de dashboard agregados en `observability`, cableados a `rds_polizas.reader_instance_id` |
+| 5 | Las alarmas de Redis usaban `replication_group_id` como `CacheClusterId`, que no es un ID de nodo válido; con `treat_missing_data="notBreaching"` quedaban en OK permanente sin medir nada | `elasticache` expone `member_cluster_ids` (IDs reales); `observability` genera sus claves de alarma desde `var.redis_num_cache_clusters` (conocido en plan), no desde la lista de IDs reales (conocida solo tras el apply) |
+| 6 | El ALB aceptaba 80/443 desde `0.0.0.0/0`: se podía llamar directo sin pasar por el API Gateway/WAF (EC-SEG-07) | ALB pasó a `internal = true` en subredes privadas de aplicación; nuevo `aws_apigatewayv2_vpc_link` + security group dedicado son el único camino de entrada |
+| 7 | Grupos de escalado EKS: el diagrama VC-003 dibuja cotización+perfilamiento juntos en el Grupo A, pero el texto de la wiki semana 8 §1.1.3.2 dice que van separados | Se mantuvo el diagrama (2 grupos); la discrepancia queda documentada arriba para resolver en la wiki, no en el código |
+| 8 | Menores: "warm pool" no existe en managed node groups de EKS; links a semana 5 en vez de semana 8 | Comentario corregido; links actualizados a semana 8 |
+
+Durante la corrección del punto 2 y 6, `terraform plan` sacó a la luz dos problemas que `validate` no detecta:
+- Un `data "aws_subnet"` con `for_each` sobre IDs de subred recién creados en el mismo apply (mismo problema de "known after apply" que ya había aparecido en `observability`), resuelto iterando sobre índices estáticos en vez de los IDs.
+- Un `concat()` de widgets del dashboard con tipos de tupla heterogéneos (`metrics` termina en objeto en unos widgets, no en otros), que Terraform no puede unificar. Se resolvió serializando cada widget a JSON por separado y deserializando la lista completa al final, evitando que HCL intente unificar los tipos.
 
 ## Estado — implementado
 

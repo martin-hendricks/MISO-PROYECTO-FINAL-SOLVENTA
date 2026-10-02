@@ -18,6 +18,11 @@ output "reader_endpoint" {
   description = "Hostname (no port) of the active read replica (EC-LAT-10). This replica serves real production read traffic, not just a passive standby -- consumers should point read-heavy queries here."
 }
 
+output "reader_instance_id" {
+  value       = var.create_read_replica ? aws_db_instance.read_replica[0].id : null
+  description = "Identifier of the active read replica, for CloudWatch dimensions (e.g. the ReplicaLag alarm in the observability module). Null when create_read_replica is false."
+}
+
 output "db_name" {
   value       = aws_db_instance.this.db_name
   description = "Database name."

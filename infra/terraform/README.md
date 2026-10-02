@@ -1,6 +1,6 @@
 # Infraestructura como código — Terraform
 
-IaC de la infraestructura AWS de Solventa, alineada con la [vista de despliegue VC-003](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Hoja-de-trabajo-semana-5#13-vista-de-despliegue--aws) de la wiki.
+IaC de la infraestructura AWS de Solventa, alineada con la [vista de despliegue VC-003](https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA/wiki/Hoja-de-trabajo-semana-8#113-vista-de-despliegue--aws) de la wiki.
 
 Cubre el **ambiente mínimo de producto** (HU-78): despliegue destructible que evidencia ambientes iguales. El **ambiente de experimentos** (HU-89) queda pendiente de una pasada posterior.
 

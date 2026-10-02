@@ -157,6 +157,36 @@ variable "siniestros_max_allocated_storage" {
   default     = 100
 }
 
+variable "compartida_db_name" {
+  type        = string
+  description = "Nombre de la base de datos compartida (aloja un esquema por microservicio sin instancia propia)."
+  default     = "compartida"
+}
+
+variable "compartida_db_username" {
+  type        = string
+  description = "Usuario maestro de la base de datos compartida."
+  default     = "solventa_compartida"
+}
+
+variable "compartida_instance_class" {
+  type        = string
+  description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible."
+  default     = "db.t4g.medium"
+}
+
+variable "compartida_allocated_storage" {
+  type        = number
+  description = "Almacenamiento inicial en GB de la base compartida."
+  default     = 20
+}
+
+variable "compartida_max_allocated_storage" {
+  type        = number
+  description = "Techo del autoescalado de almacenamiento de la base compartida."
+  default     = 100
+}
+
 variable "rds_backup_retention_period" {
   type        = number
   description = "Días de retención de backups en ambas bases."

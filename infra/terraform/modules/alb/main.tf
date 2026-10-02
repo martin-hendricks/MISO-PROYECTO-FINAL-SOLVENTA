@@ -12,16 +12,19 @@ locals {
   has_access_logs = length(var.access_logs_bucket) > 0
 }
 
-# --- Application Load Balancer, public subnets ---
-# Receives traffic from the API Gateway (edge module) and balances it towards
-# the EKS node groups in AZ-a and AZ-b (eks module).
+# --- Application Load Balancer, internal (EC-SEG-07) ---
+# Receives traffic ONLY from the API Gateway VPC Link (edge module) and
+# balances it towards the EKS node groups in AZ-a and AZ-b (eks module). It is
+# internal and has no public IP: before this, the ALB had a public-facing
+# listener open to 0.0.0.0/0, which let anyone call it directly and skip the
+# API Gateway's WAF and throttling entirely.
 
 resource "aws_lb" "this" {
   name               = "${var.project_name}-${var.environment}-alb"
-  internal           = false
+  internal           = true
   load_balancer_type = "application"
   security_groups    = var.security_group_ids
-  subnets            = var.public_subnet_ids
+  subnets            = var.subnet_ids
 
   idle_timeout                     = var.idle_timeout
   enable_deletion_protection       = var.enable_deletion_protection

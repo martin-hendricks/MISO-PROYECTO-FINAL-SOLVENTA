@@ -37,3 +37,8 @@ output "api_gateway_endpoint" {
   value       = aws_apigatewayv2_stage.default.invoke_url
   description = "Invoke URL of the API Gateway default stage."
 }
+
+output "vpc_link_id" {
+  value       = aws_apigatewayv2_vpc_link.alb.id
+  description = "ID of the VPC Link connecting the API Gateway to the internal ALB (EC-SEG-07)."
+}

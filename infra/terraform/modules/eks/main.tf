@@ -142,8 +142,11 @@ resource "aws_iam_openid_connect_provider" "eks" {
 # ---------------------------------------------------------------------------
 # Node Group A: ms-cotizacion (MotorRating) + ms-perfilamiento (MotorRiesgo)
 #
-# Curvas de carga independientes, escalamiento vertical, warm pool y
-# capacidad ampliada <= 60 s (EC-ESC-02). Aislado del resto de servicios con
+# Curvas de carga independientes, escalamiento vertical e imágenes livianas
+# para ganar los primeros segundos de la rampa, con capacidad ampliada
+# <= 60 s (EC-ESC-02). No hay warm pool: los managed node groups de EKS no
+# soportan esa feature (es propia de Auto Scaling Groups self-managed). Está
+# aislado del resto de servicios con
 # un taint opcional; los pods de estos dos microservicios deben declarar la
 # toleración solventa.io/scaling-group=a:NoSchedule y el nodeSelector
 # solventa.io/scaling-group=a en su manifiesto de Kubernetes.

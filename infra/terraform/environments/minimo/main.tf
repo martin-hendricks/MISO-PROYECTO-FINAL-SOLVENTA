@@ -27,6 +27,13 @@ locals {
   # un ciclo: la VPC necesita el tag kubernetes.io/cluster/<nombre> en sus
   # subredes antes de que exista el clúster que las usa.
   cluster_name = "${local.name_prefix}-eks"
+
+  # Claves estáticas para las alarmas de ElastiCache: una por nodo configurado
+  # (var.redis_num_cache_clusters es un literal, conocido en el plan). No se
+  # derivan de module.elasticache.member_cluster_ids porque esos IDs reales
+  # solo existen tras el apply -- el mismo problema de "known after apply"
+  # que ya resolvimos para las alarmas de RDS.
+  elasticache_alarm_keys = [for i in range(var.redis_num_cache_clusters) : "redis-${i}"]
 }
 
 # ---------------------------------------------------------------------------
@@ -93,6 +100,14 @@ module "secrets" {
     dbname   = module.rds_siniestros.db_name
   }
 
+  compartida_db_credentials = {
+    username = module.rds_compartida.master_username
+    password = module.rds_compartida.master_password
+    host     = module.rds_compartida.endpoint
+    port     = module.rds_compartida.port
+    dbname   = module.rds_compartida.db_name
+  }
+
   tags = var.extra_tags
 }
 
@@ -139,6 +154,30 @@ module "rds_siniestros" {
   instance_class          = var.siniestros_instance_class
   allocated_storage       = var.siniestros_allocated_storage
   max_allocated_storage   = var.siniestros_max_allocated_storage
+  backup_retention_period = var.rds_backup_retention_period
+  skip_final_snapshot     = var.rds_skip_final_snapshot
+  deletion_protection     = var.rds_deletion_protection
+  kms_key_id              = module.kms.rds_key_arn
+  tags                    = var.extra_tags
+}
+
+# Sin redundancia (no está en el diagrama VC-003): aloja los esquemas de los
+# microservicios que no son ni pólizas ni siniestros (cotización, identidad,
+# consentimiento, pagos, paramétrico, perfilamiento, socios, analítica,
+# notificaciones), ninguno de los cuales tenía instancia propia en el plan
+# original. Ver el comentario en modules/rds_compartida/main.tf.
+module "rds_compartida" {
+  source = "../../modules/rds_compartida"
+
+  project_name            = var.project_name
+  environment             = var.environment
+  private_data_subnet_ids = module.network.private_data_subnet_ids
+  vpc_security_group_ids  = [module.security_groups.rds_security_group_id]
+  db_name                 = var.compartida_db_name
+  db_username             = var.compartida_db_username
+  instance_class          = var.compartida_instance_class
+  allocated_storage       = var.compartida_allocated_storage
+  max_allocated_storage   = var.compartida_max_allocated_storage
   backup_retention_period = var.rds_backup_retention_period
   skip_final_snapshot     = var.rds_skip_final_snapshot
   deletion_protection     = var.rds_deletion_protection
@@ -265,13 +304,16 @@ module "irsa_aplicacion" {
 # Borde y almacenamiento
 # ---------------------------------------------------------------------------
 
+# ALB interno (EC-SEG-07): sin IP pública, en las subredes privadas de
+# aplicación. El único camino hacia él es el VPC Link del API Gateway (módulo
+# edge, más abajo) -- su security group solo acepta ese origen.
 module "alb" {
   source = "../../modules/alb"
 
   project_name               = var.project_name
   environment                = var.environment
   vpc_id                     = module.network.vpc_id
-  public_subnet_ids          = module.network.public_subnet_ids
+  subnet_ids                 = module.network.private_app_subnet_ids
   security_group_ids         = [module.security_groups.alb_security_group_id]
   certificate_arn            = var.certificate_arn
   health_check_path          = var.health_check_path
@@ -280,7 +322,8 @@ module "alb" {
 }
 
 # API Gateway + WAF + CloudFront + S3 de la SPA. El WAF se crea en us-east-1
-# porque así lo exige CloudFront.
+# porque así lo exige CloudFront. El API Gateway llega al ALB interno vía
+# VPC Link (EC-SEG-07): no hay ruta pública hacia el ALB.
 module "edge" {
   source = "../../modules/edge"
 
@@ -289,14 +332,16 @@ module "edge" {
     aws.us_east_1 = aws.us_east_1
   }
 
-  project_name             = var.project_name
-  environment              = var.environment
-  kms_key_arn              = module.kms.s3_key_arn
-  alb_dns_name             = module.alb.alb_dns_name
-  spa_bucket_force_destroy = var.s3_force_destroy
-  cloudfront_price_class   = var.cloudfront_price_class
-  waf_rate_limit           = var.waf_rate_limit
-  tags                     = var.extra_tags
+  project_name                = var.project_name
+  environment                 = var.environment
+  kms_key_arn                 = module.kms.s3_key_arn
+  alb_listener_arn            = module.alb.http_listener_arn
+  vpc_link_subnet_ids         = module.network.private_app_subnet_ids
+  vpc_link_security_group_ids = [module.security_groups.vpc_link_security_group_id]
+  spa_bucket_force_destroy    = var.s3_force_destroy
+  cloudfront_price_class      = var.cloudfront_price_class
+  waf_rate_limit              = var.waf_rate_limit
+  tags                        = var.extra_tags
 }
 
 module "s3_evidencias" {
@@ -329,14 +374,28 @@ module "observability" {
   enable_alb_alarms = true
   alb_arn_suffix    = module.alb.alb_arn_suffix
 
-  rds_alarm_keys = ["polizas", "siniestros"]
+  rds_alarm_keys = ["polizas", "siniestros", "compartida"]
   rds_instance_ids = [
     module.rds_polizas.db_instance_id,
     module.rds_siniestros.db_instance_id,
+    module.rds_compartida.db_instance_id,
   ]
 
-  elasticache_alarm_keys  = ["redis"]
-  elasticache_cluster_ids = [module.elasticache.replication_group_id]
+  # ReplicaLag solo existe sobre la réplica de lectura activa de pólizas
+  # (EC-LAT-10). enable_polizas_replica_lag_alarm es un literal: no depende
+  # de si var.polizas_create_read_replica resultó en una réplica real, sino
+  # de que este ambiente siempre la crea por defecto.
+  enable_polizas_replica_lag_alarm = var.polizas_create_read_replica
+  polizas_replica_instance_id      = coalesce(module.rds_polizas.reader_instance_id, "")
+
+  # elasticache_alarm_keys se calcula en locals a partir de
+  # var.redis_num_cache_clusters (un literal, conocido en el plan) para no
+  # depender de module.elasticache.member_cluster_ids, que solo existe tras
+  # el apply. elasticache_cluster_ids sí usa ese output real: el valor en sí
+  # puede ser desconocido durante el plan sin problema, solo el for_each no
+  # puede serlo.
+  elasticache_alarm_keys  = local.elasticache_alarm_keys
+  elasticache_cluster_ids = module.elasticache.member_cluster_ids
 
   enable_msk_alarms = true
   msk_cluster_name  = module.msk.cluster_name

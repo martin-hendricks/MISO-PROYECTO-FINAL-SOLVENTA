@@ -3,6 +3,11 @@ output "alb_security_group_id" {
   description = "Attach to the Application Load Balancer."
 }
 
+output "vpc_link_security_group_id" {
+  value       = aws_security_group.vpc_link.id
+  description = "Attach to the API Gateway VPC Link (edge module): it is the only principal the ALB's security group lets through (EC-SEG-07)."
+}
+
 output "eks_nodes_security_group_id" {
   value       = aws_security_group.eks_nodes.id
   description = "Attach to the EKS node groups (Grupo A y Grupo B)."

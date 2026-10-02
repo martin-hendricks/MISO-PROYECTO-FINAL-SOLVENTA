@@ -1,3 +1,18 @@
+# Resuelve la AZ real de cada subred de datos para poder fijar
+# availability_zone explícita en la primaria y la réplica (ver el comentario
+# en aws_db_instance.read_replica: sin esto, RDS puede colocar ambas en la
+# misma zona y la redundancia activa de EC-LAT-10 deja de ser real).
+#
+# for_each itera sobre índices (0, 1, ...), no sobre los IDs de subred en sí:
+# en este ambiente esos IDs son outputs del módulo network creado en el mismo
+# apply, así que durante el plan son "known after apply" y un for_each/toset
+# sobre ellos directamente no converge (el mismo problema ya resuelto en
+# modules/observability). El número de subredes sí es estático.
+data "aws_subnet" "data_subnets" {
+  for_each = { for idx in range(length(var.private_data_subnet_ids)) : tostring(idx) => var.private_data_subnet_ids[idx] }
+  id       = each.value
+}
+
 locals {
   common_tags = merge(
     {
@@ -9,6 +24,13 @@ locals {
   )
 
   storage_autoscaling = var.max_allocated_storage > var.allocated_storage
+
+  # Lista de AZs ordenada de forma estable (no depende del orden de
+  # evaluación de for_each) a partir de las subredes de datos recibidas.
+  data_subnet_azs = sort([for s in data.aws_subnet.data_subnets : s.availability_zone])
+
+  primary_az = local.data_subnet_azs[0]
+  replica_az = local.data_subnet_azs[length(local.data_subnet_azs) > 1 ? 1 : 0]
 }
 
 resource "random_password" "master" {
@@ -56,6 +78,11 @@ resource "aws_db_instance" "this" {
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = var.vpc_security_group_ids
 
+  # Fijada explícitamente a la primera AZ de las subredes de datos: así la
+  # réplica (abajo) puede fijarse a una AZ distinta de forma determinística,
+  # en vez de depender de que RDS "normalmente" elija otra zona.
+  availability_zone = var.multi_az ? null : local.primary_az
+
   allocated_storage     = var.allocated_storage
   max_allocated_storage = local.storage_autoscaling ? var.max_allocated_storage : null
   storage_encrypted     = true
@@ -92,11 +119,14 @@ resource "aws_db_instance" "read_replica" {
 
   instance_class = var.replica_instance_class
 
-  # No se fija availability_zone explícitamente: RDS coloca la réplica en una
-  # AZ del subnet group distinta a la de la primaria siempre que el subnet
-  # group (var.private_data_subnet_ids) cubra más de una AZ, que es el caso
-  # esperado en este ambiente. Esto materializa la redundancia activa real
-  # (AZ-b), no solo escalado de lectura dentro de la misma zona.
+  # Fijada explícitamente a una AZ distinta de la primaria. Sin esto, AWS
+  # elige la zona de la réplica y puede coincidir con la de la primaria: el
+  # comentario anterior de este módulo afirmaba que RDS "siempre" la coloca
+  # en otra zona, lo cual no es cierto. local.replica_az ya resuelve a una AZ
+  # distinta de local.primary_az cuando hay al menos dos subredes de datos
+  # (el caso esperado en este ambiente); con una sola subred, ambas AZs
+  # coinciden y la redundancia zonal real depende de ampliar las subredes.
+  availability_zone   = local.replica_az
   publicly_accessible = false
 
   storage_encrypted = true

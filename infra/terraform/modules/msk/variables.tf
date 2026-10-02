@@ -67,14 +67,14 @@ variable "auto_create_topics_enable" {
 
 variable "default_replication_factor" {
   type        = string
-  description = "Kafka broker property default.replication.factor."
-  default     = "3"
+  description = "Kafka broker property default.replication.factor. Must be <= number_of_broker_nodes: Kafka cannot create a topic requiring more replicas than there are brokers to host them. Default 2 matches the default of 2 broker nodes (one per AZ)."
+  default     = "2"
 }
 
 variable "min_insync_replicas" {
   type        = string
-  description = "Kafka broker property min.insync.replicas, paired with acks=all producers to give the exactly-once processing guarantee required by EC-ESC-03."
-  default     = "2"
+  description = "Kafka broker property min.insync.replicas, paired with acks=all producers to give the exactly-once processing guarantee required by EC-ESC-03. Must be < default_replication_factor, or a single broker outage (e.g. a zone failure) blocks every acks=all producer. Default 1 tolerates losing one of the 2 default brokers."
+  default     = "1"
 }
 
 variable "log_retention_hours" {

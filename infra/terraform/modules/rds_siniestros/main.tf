@@ -46,8 +46,18 @@ resource "aws_db_parameter_group" "this" {
 # cliente interpreta como el estado vigente de su reclamación (¿fue aprobada?
 # ¿en qué etapa está?). Ese staleness es aceptable para consultar cobertura
 # vigente de pólizas (EC-LAT-10), pero no para el estado de un siniestro, así
-# que la redundancia se mantiene completamente fuera del camino de tráfico y
-# solo se promueve cuando el Monitor detecta la caída de la zona.
+# que la redundancia se mantiene completamente fuera del camino de tráfico.
+#
+# Nota sobre el :Monitor y el :Sincronizador del diagrama de despliegue: son
+# los componentes que la wiki describe para detectar la caída de zona y
+# promover la réplica. Este módulo NO los implementa como componentes
+# propios -- usa el Multi-AZ nativo de RDS, donde AWS detecta la falla y
+# promueve el standby de forma autónoma, sin que ningún proceso de la
+# aplicación la vigile o la dispare. Es una aproximación al patrón de la
+# wiki, no una implementación de :Monitor/:Sincronizador; si ese
+# comportamiento explícito se vuelve necesario (por ejemplo, para
+# orquestar algo más que la conmutación de la BD cuando cae la zona),
+# hay que construirlo aparte.
 resource "aws_db_instance" "this" {
   identifier = "${var.project_name}-${var.environment}-siniestros-primary"
 

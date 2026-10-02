@@ -14,10 +14,28 @@ locals {
 
 resource "aws_security_group" "alb" {
   name        = "${var.project_name}-${var.environment}-alb"
-  description = "Application Load Balancer, public-facing"
+  description = "Application Load Balancer, internal -- only reachable from the API Gateway VPC Link (EC-SEG-07: no direct bypass of the gateway/WAF)"
   vpc_id      = var.vpc_id
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-sg-alb" })
+}
+
+resource "aws_security_group" "vpc_link" {
+  name        = "${var.project_name}-${var.environment}-apigw-vpclink"
+  description = "API Gateway VPC Link ENIs -- the only principal allowed to reach the internal ALB"
+  vpc_id      = var.vpc_id
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-sg-apigw-vpclink" })
+}
+
+resource "aws_security_group_rule" "vpc_link_egress_to_alb" {
+  type                     = "egress"
+  description              = "To the internal ALB on 80/443"
+  security_group_id        = aws_security_group.vpc_link.id
+  from_port                = 80
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
 }
 
 resource "aws_security_group" "eks_nodes" {
@@ -54,24 +72,27 @@ resource "aws_security_group" "msk" {
 
 # --- alb rules ---
 
+# EC-SEG-07: el ALB solo acepta tráfico del VPC Link del API Gateway, no de
+# 0.0.0.0/0. Antes aceptaba cualquier IP en 80/443, lo que permitía llamarlo
+# directo saltándose el API Gateway y su WAF/throttling por completo.
 resource "aws_security_group_rule" "alb_ingress_http" {
-  type              = "ingress"
-  description       = "HTTP from the internet"
-  security_group_id = aws_security_group.alb.id
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type                     = "ingress"
+  description              = "HTTP from the API Gateway VPC Link only"
+  security_group_id        = aws_security_group.alb.id
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.vpc_link.id
 }
 
 resource "aws_security_group_rule" "alb_ingress_https" {
-  type              = "ingress"
-  description       = "HTTPS from the internet"
-  security_group_id = aws_security_group.alb.id
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  type                     = "ingress"
+  description              = "HTTPS from the API Gateway VPC Link only"
+  security_group_id        = aws_security_group.alb.id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.vpc_link.id
 }
 
 resource "aws_security_group_rule" "alb_egress_to_eks_nodes" {

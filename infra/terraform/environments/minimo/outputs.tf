@@ -60,6 +60,11 @@ output "siniestros_endpoint" {
   description = "Endpoint de la base de siniestros. No existe endpoint de lectura: el standby es pasivo por diseño (EC-DISP-06/07)."
 }
 
+output "compartida_endpoint" {
+  value       = module.rds_compartida.endpoint
+  description = "Endpoint de la base compartida (cotización, identidad, consentimiento, pagos, paramétrico, perfilamiento, socios, analítica, notificaciones). Sin redundancia por diseño."
+}
+
 output "redis_primary_endpoint" {
   value       = module.elasticache.primary_endpoint_address
   description = "Endpoint primario de Redis (CacheOF / CacheOD)."
@@ -76,7 +81,7 @@ output "msk_bootstrap_brokers_sasl_iam" {
 
 output "alb_dns_name" {
   value       = module.alb.alb_dns_name
-  description = "DNS del Application Load Balancer."
+  description = "DNS del Application Load Balancer. Interno (EC-SEG-07): no resuelve desde fuera de la VPC. El único punto de entrada público es api_gateway_endpoint."
 }
 
 output "cloudfront_domain_name" {

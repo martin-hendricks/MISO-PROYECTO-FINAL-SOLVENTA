@@ -143,6 +143,35 @@ resource "aws_cloudwatch_metric_alarm" "rds_high_cpu" {
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-rds-${each.key}-cpu" })
 }
 
+# Alarma de ReplicaLag sobre la réplica de lectura ACTIVA de pólizas: es la
+# evidencia operativa del RPO <= 30 s que exige EC-LAT-10. Es una alarma
+# singular (no for_each): a diferencia de rds_high_cpu, que vigila todas las
+# primarias por igual, ReplicaLag solo tiene sentido sobre una réplica de
+# lectura real, y hoy la única que existe es la de pólizas.
+resource "aws_cloudwatch_metric_alarm" "polizas_replica_lag" {
+  count = var.enable_polizas_replica_lag_alarm ? 1 : 0
+
+  alarm_name          = "${var.project_name}-${var.environment}-rds-polizas-replica-lag"
+  alarm_description   = "DBPolizas read replica lag above the EC-LAT-10 RPO budget (<= 30 s)."
+  namespace           = "AWS/RDS"
+  metric_name         = "ReplicaLag"
+  statistic           = "Average"
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = var.polizas_replica_lag_threshold_seconds
+  evaluation_periods  = var.alarm_evaluation_periods
+  period              = var.alarm_period_seconds
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    DBInstanceIdentifier = var.polizas_replica_instance_id
+  }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-rds-polizas-replica-lag" })
+}
+
 # =============================================================================
 # Alarmas — ElastiCache memoria alta y evictions (CacheOF, CacheOD)
 # =============================================================================
@@ -254,97 +283,136 @@ resource "aws_cloudwatch_metric_alarm" "msk_disk_usage" {
 # Dashboard — agrupa las métricas de ALB, RDS, ElastiCache y MSK
 # =============================================================================
 
+# El dashboard se construye como una lista de widgets ya serializados a JSON
+# (jsonencode por widget, no uno solo al final). Antes "widgets" era un único
+# concat() de listas de objetos HCL con distinta forma -- algunas filas de
+# "metrics" terminan en un objeto de opciones ({stat=...}), otras no -- y
+# Terraform exige que todos los elementos de una lista compartan tipo
+# estructural exacto para poder unificarla antes del propio jsonencode final;
+# con formas distintas, "concat" fallaba en runtime con "inconsistent list
+# element types". Serializar cada widget por separado evita la unificación:
+# cada jsonencode() es independiente y el resultado ya es un string, así que
+# la lista de widgets es una lista de strings (homogénea) en vez de una lista
+# de objetos heterogéneos.
+locals {
+  dashboard_widget_jsons = concat(
+    local.alb_enabled ? [
+      jsonencode({
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ALB - p95 latency (EC-LAT-03)"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = [
+            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, { stat = "p95" }]
+          ]
+        }
+      }),
+      jsonencode({
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ALB - 5xx count"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = [
+            ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum" }]
+          ]
+        }
+      })
+    ] : [],
+    length(var.rds_alarm_keys) > 0 ? [
+      jsonencode({
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "RDS - CPUUtilization"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = [
+            for id in var.rds_instance_ids : ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", id]
+          ]
+        }
+      })
+    ] : [],
+    var.enable_polizas_replica_lag_alarm ? [
+      jsonencode({
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "RDS - DBPolizas ReplicaLag (EC-LAT-10, RPO <= 30 s)"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = [
+            ["AWS/RDS", "ReplicaLag", "DBInstanceIdentifier", var.polizas_replica_instance_id]
+          ]
+        }
+      })
+    ] : [],
+    length(var.elasticache_alarm_keys) > 0 ? [
+      jsonencode({
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "ElastiCache - memory % / evictions"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = concat(
+            [for id in var.elasticache_cluster_ids : ["AWS/ElastiCache", "DatabaseMemoryUsagePercentage", "CacheClusterId", id]],
+            [for id in var.elasticache_cluster_ids : ["AWS/ElastiCache", "Evictions", "CacheClusterId", id]]
+          )
+        }
+      })
+    ] : [],
+    local.msk_enabled ? [
+      jsonencode({
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          title  = "MSK - consumer lag / disk usage"
+          view   = "timeSeries"
+          region = data.aws_region.current.name
+          metrics = [
+            ["AWS/Kafka", "MaxOffsetLag", "Cluster Name", var.msk_cluster_name],
+            ["AWS/Kafka", "KafkaDataLogsDiskUsed", "Cluster Name", var.msk_cluster_name]
+          ]
+        }
+      })
+    ] : []
+  )
+}
+
 resource "aws_cloudwatch_dashboard" "this" {
   dashboard_name = "${var.project_name}-${var.environment}-observability"
 
+  # "widgets" se reconstruye decodificando cada widget serializado: el campo
+  # que CloudWatch espera es una lista de OBJETOS, no de strings JSON. jsondecode
+  # sobre cada elemento de dashboard_widget_jsons deshace la serialización
+  # individual una vez que ya pasamos el problema de unificación de tipos de
+  # HCL -- en este punto cada widget vuelve a ser un objeto, pero todos con
+  # exactamente el mismo esquema dinámico (any), así que "jsonencode" exterior
+  # ya no tiene que unificarlos a un tipo HCL común.
   dashboard_body = jsonencode({
-    widgets = concat(
-      local.alb_enabled ? [
-        {
-          type   = "metric"
-          x      = 0
-          y      = 0
-          width  = 12
-          height = 6
-          properties = {
-            title  = "ALB - p95 latency (EC-LAT-03)"
-            view   = "timeSeries"
-            region = data.aws_region.current.name
-            metrics = [
-              ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, { stat = "p95" }]
-            ]
-          }
-        },
-        {
-          type   = "metric"
-          x      = 12
-          y      = 0
-          width  = 12
-          height = 6
-          properties = {
-            title  = "ALB - 5xx count"
-            view   = "timeSeries"
-            region = data.aws_region.current.name
-            metrics = [
-              ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum" }]
-            ]
-          }
-        }
-      ] : [],
-      length(var.rds_alarm_keys) > 0 ? [
-        {
-          type   = "metric"
-          x      = 0
-          y      = 6
-          width  = 12
-          height = 6
-          properties = {
-            title  = "RDS - CPUUtilization"
-            view   = "timeSeries"
-            region = data.aws_region.current.name
-            metrics = [
-              for id in var.rds_instance_ids : ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", id]
-            ]
-          }
-        }
-      ] : [],
-      length(var.elasticache_alarm_keys) > 0 ? [
-        {
-          type   = "metric"
-          x      = 12
-          y      = 6
-          width  = 12
-          height = 6
-          properties = {
-            title  = "ElastiCache - memory % / evictions"
-            view   = "timeSeries"
-            region = data.aws_region.current.name
-            metrics = concat(
-              [for id in var.elasticache_cluster_ids : ["AWS/ElastiCache", "DatabaseMemoryUsagePercentage", "CacheClusterId", id]],
-              [for id in var.elasticache_cluster_ids : ["AWS/ElastiCache", "Evictions", "CacheClusterId", id]]
-            )
-          }
-        }
-      ] : [],
-      local.msk_enabled ? [
-        {
-          type   = "metric"
-          x      = 0
-          y      = 12
-          width  = 12
-          height = 6
-          properties = {
-            title  = "MSK - consumer lag / disk usage"
-            view   = "timeSeries"
-            region = data.aws_region.current.name
-            metrics = [
-              ["AWS/Kafka", "MaxOffsetLag", "Cluster Name", var.msk_cluster_name],
-              ["AWS/Kafka", "KafkaDataLogsDiskUsed", "Cluster Name", var.msk_cluster_name]
-            ]
-          }
-        }
-      ] : []
-    )
+    widgets = [for w in local.dashboard_widget_jsons : jsondecode(w)]
   })
 }
 

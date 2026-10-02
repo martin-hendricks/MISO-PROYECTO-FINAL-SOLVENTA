@@ -337,11 +337,26 @@ resource "aws_apigatewayv2_api" "this" {
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-api" })
 }
 
+# VPC Link privado (EC-SEG-07): el único camino que el API Gateway tiene
+# hacia el ALB interno. Antes la integración era HTTP_PROXY directo a la IP
+# pública del ALB, lo que dejaba un segundo camino de entrada que no pasaba
+# por este Gateway ni por su WAF/throttling.
+resource "aws_apigatewayv2_vpc_link" "alb" {
+  name               = "${var.project_name}-${var.environment}-apigw-vpclink"
+  subnet_ids         = var.vpc_link_subnet_ids
+  security_group_ids = var.vpc_link_security_group_ids
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-apigw-vpclink" })
+}
+
 resource "aws_apigatewayv2_integration" "alb_proxy" {
   api_id             = aws_apigatewayv2_api.this.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "http://${var.alb_dns_name}:${var.alb_listener_port}/{proxy}"
+  integration_uri    = var.alb_listener_arn
+
+  connection_type = "VPC_LINK"
+  connection_id   = aws_apigatewayv2_vpc_link.alb.id
 
   payload_format_version = "1.0"
 }

@@ -88,6 +88,24 @@ variable "rds_cpu_threshold_percent" {
   default     = 80
 }
 
+variable "enable_polizas_replica_lag_alarm" {
+  type        = bool
+  description = "Whether to create the DBPolizas replica lag alarm. Must be a value known at plan time, not derived from polizas_replica_instance_id (that id only exists after apply)."
+  default     = true
+}
+
+variable "polizas_replica_instance_id" {
+  type        = string
+  description = "Identifier of the DBPolizas active read replica (rds_polizas module output), monitored by the ReplicaLag alarm. Only used when enable_polizas_replica_lag_alarm is true."
+  default     = ""
+}
+
+variable "polizas_replica_lag_threshold_seconds" {
+  type        = number
+  description = "ReplicaLag threshold (seconds) for the DBPolizas replica, tied to the EC-LAT-10 RPO budget (<= 30 s)."
+  default     = 30
+}
+
 variable "elasticache_cluster_ids" {
   type        = list(string)
   description = "ElastiCache Redis cluster IDs to monitor for high memory/evictions (e.g. CacheOF, CacheOD). Must be a value known at plan time: a static list, not one built directly from resource attributes that only exist after apply (see elasticache_alarm_keys)."

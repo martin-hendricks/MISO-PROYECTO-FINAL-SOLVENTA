@@ -13,9 +13,9 @@ variable "vpc_id" {
   description = "VPC where the ALB and its target group are created."
 }
 
-variable "public_subnet_ids" {
+variable "subnet_ids" {
   type        = list(string)
-  description = "Public subnet IDs (at least two AZs) where the internet-facing ALB is placed."
+  description = "Subnet IDs (at least two AZs) where the ALB is placed. Internal by design (EC-SEG-07): the only path in is through the API Gateway VPC Link, so this should be the private application subnets, not the public ones."
 }
 
 variable "security_group_ids" {

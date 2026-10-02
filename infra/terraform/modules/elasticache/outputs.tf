@@ -23,3 +23,8 @@ output "auth_token" {
   sensitive   = true
   description = "Redis AUTH token used by CacheOF/CacheOD clients."
 }
+
+output "member_cluster_ids" {
+  value       = aws_elasticache_replication_group.this.member_clusters
+  description = "Real per-node cache cluster ids (e.g. <replication_group_id>-001), the value CloudWatch's CacheClusterId dimension actually expects. replication_group_id itself is not a valid value for that dimension."
+}

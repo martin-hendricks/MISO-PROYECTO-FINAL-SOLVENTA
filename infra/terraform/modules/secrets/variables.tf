@@ -45,6 +45,19 @@ variable "siniestros_db_credentials" {
   sensitive   = true
 }
 
+variable "compartida_db_credentials" {
+  type = object({
+    username = string
+    password = string
+    host     = optional(string)
+    port     = optional(number)
+    dbname   = optional(string)
+  })
+  description = "Optional initial master credentials for DBCompartida. When null, the secret is created empty (no version) and the value is set out-of-band."
+  default     = null
+  sensitive   = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."
