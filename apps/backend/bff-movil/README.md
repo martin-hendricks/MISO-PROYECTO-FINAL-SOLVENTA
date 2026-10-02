@@ -4,4 +4,4 @@ Backend for Frontend del canal móvil: payloads acotados para aviso, billetera y
 
 **Stack:** Python (FastAPI)
 
-Pendiente de implementación.
+Contrato: `specs/001-bff-unit-checks/contracts/bff-movil.md`
