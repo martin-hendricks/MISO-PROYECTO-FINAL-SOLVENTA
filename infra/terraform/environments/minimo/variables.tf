@@ -94,13 +94,13 @@ variable "polizas_db_username" {
 variable "polizas_instance_class" {
   type        = string
   description = "Clase de instancia de la primaria de pólizas."
-  default     = "db.t4g.medium"
+  default     = "db.t3.medium"
 }
 
 variable "polizas_replica_instance_class" {
   type        = string
   description = "Clase de instancia de la réplica de lectura de pólizas. Esta réplica sirve tráfico real (EC-LAT-10), así que no conviene dimensionarla por debajo de la primaria."
-  default     = "db.t4g.medium"
+  default     = "db.t3.medium"
 }
 
 variable "polizas_allocated_storage" {
@@ -142,7 +142,7 @@ variable "siniestros_db_username" {
 variable "siniestros_instance_class" {
   type        = string
   description = "Clase de instancia de siniestros."
-  default     = "db.t4g.medium"
+  default     = "db.t3.medium"
 }
 
 variable "siniestros_allocated_storage" {
@@ -172,7 +172,7 @@ variable "compartida_db_username" {
 variable "compartida_instance_class" {
   type        = string
   description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible."
-  default     = "db.t4g.medium"
+  default     = "db.t3.medium"
 }
 
 variable "compartida_allocated_storage" {
