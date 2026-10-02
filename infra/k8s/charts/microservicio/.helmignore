@@ -1,0 +1,21 @@
+# Patrones estándar de Helm para excluir archivos del paquete del chart
+.DS_Store
+# Archivos de control de versiones
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+# Archivos generados por editores comunes
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+# Directorios específicos de editores/IDEs
+.project
+.idea/
+*.tmproj
+.vscode/

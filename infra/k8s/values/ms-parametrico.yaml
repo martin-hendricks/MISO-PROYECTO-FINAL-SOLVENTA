@@ -1,0 +1,93 @@
+# ms-parametrico — seguros paramétricos (Grupo B)
+#
+# Consume TopicoTelemetria de MSK a alto volumen (EC-ESC-03: 1.000.000 de
+# eventos de telemetría en 10 min), por lo que necesita IRSA para autenticarse
+# contra MSK con IAM (no hay usuario/password: es SASL/IAM). También consume
+# el secreto de telemetria_iot para el proveedor de telemetría del vehículo.
+# Recursos dimensionados para picos de consumo de Kafka, no para latencia p95.
+
+nombre: ms-parametrico
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-parametrico"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 3
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "500m"
+    memory: "768Mi"
+  limits:
+    cpu: "1200m"
+    memory: "1.5Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 15
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 3
+  maxReplicas: 12
+  targetCPU: 70
+  targetMemory: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-telemetria_iot-credentials
+      nombreLocal: ms-parametrico-telemetria-iot
+      claves:
+        - clientId
+        - clientSecret
+
+serviceAccount:
+  crear: true
+  nombre: ms-parametrico
+  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."ms-parametrico"'
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""  # TODO: reemplazar por msk.bootstrap_brokers_sasl_iam (output de Terraform)
+  - nombre: MSK_TOPIC
+    valor: "TopicoTelemetria"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"
+  - nombre: MSK_CONSUMER_GROUP
+    valor: "ms-parametrico-cg"
