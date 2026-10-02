@@ -2,11 +2,20 @@ name: Backend unit tests
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - develop
+      - main
+      - "release/**"
+      - "hotfix/**"
     paths:
       - "apps/backend/**"
   push:
-    branches: [main]
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
     paths:
       - "apps/backend/**"
 

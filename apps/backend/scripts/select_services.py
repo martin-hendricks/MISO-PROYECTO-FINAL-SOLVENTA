@@ -10,6 +10,9 @@ from pathlib import Path
 REQUIRED = ("bff-web", "bff-movil")
 IGNORED = {"scripts", "specs"}
 BACKEND_PREFIX = "apps/backend/"
+HISTORICAL = {"develop", "main"}
+PUBLISHED_PREFIXES = ("release/", "hotfix/")
+FEATURE_PREFIX = "feature/"
 
 
 def _touches(service: str, changed_paths: list[str]) -> bool:
@@ -35,18 +38,36 @@ def _skip_reason(service_dir: Path) -> str | None:
     return None
 
 
+def _is_published(branch: str) -> bool:
+    return branch in HISTORICAL or branch.startswith(PUBLISHED_PREFIXES)
+
+
+def _is_pull_request_base(branch: str) -> bool:
+    return _is_published(branch)
+
+
+def _always_runs_gateways(event: str, branch: str) -> bool:
+    return event == "push" and _is_published(branch)
+
+
+def _uses_path_filter(event: str, branch: str) -> bool:
+    if event == "push" and branch.startswith(FEATURE_PREFIX):
+        return True
+    return event == "pull_request" and _is_pull_request_base(branch)
+
+
 def select(
     event: str,
     branch: str,
     changed_paths: list[str],
     backend_root: Path,
 ) -> dict:
-    if branch != "main" or event not in {"pull_request", "push"}:
+    if not _always_runs_gateways(event, branch) and not _uses_path_filter(event, branch):
         return {"run": [], "skip": []}
 
     run: list[str] = []
     skip: list[dict[str, str]] = []
-    if event == "push":
+    if _always_runs_gateways(event, branch):
         run.extend(REQUIRED)
     else:
         run.extend(name for name in REQUIRED if _touches(name, changed_paths))

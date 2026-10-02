@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-- Version change: unratified template → 1.0.0
+- Version change: unratified template → 1.0.0 → 1.1.0
 - Modified principles:
   - [PRINCIPLE_1_NAME] → I. Modular FastAPI Services
   - [PRINCIPLE_2_NAME] → II. One Domain Core Behind the Edge
@@ -11,6 +11,9 @@ Sync Impact Report
   - Architectural Constraints
   - Development Workflow and Quality Gates
 - Removed sections: none (placeholder headings were replaced in place)
+- 1.1.0 guidance: Development Workflow and Quality Gates now names
+  Gitflow roles for main, develop, feature, release, and hotfix.
+  support/ is not used. No principle was renamed or removed.
 - Follow-up TODOs: none
 - Sources: FastAPI Bigger Applications; Solventa wiki (team agreements);
   Estrategia de pruebas v3
@@ -181,9 +184,20 @@ Technology and structure are mandatory for this backend.
 ## Development Workflow and Quality Gates
 
 Team agreements on the Solventa wiki govern how backend work is integrated.
+Integration follows Gitflow. `support/` branches are not used.
 
-- Branches follow feature branching from `develop`. New work starts from
-  `develop` and merges back only through a pull request.
+- `main` records production releases and MUST be tagged with a version. It
+  is not the feature integration branch.
+- `develop` integrates completed features.
+- A `feature/*` branch MUST start from `develop` and MUST merge only into
+  `develop` through a pull request. It MUST NOT merge into `main`.
+- A `release/*` branch MUST start from `develop` when a release is being
+  prepared. Only fixes, documentation, and other release tasks MAY land
+  there. It MUST merge into `main` and back into `develop` through pull
+  requests, and then it is deleted. `main` MUST be tagged.
+- A `hotfix/*` branch is the only branch that MUST start from `main`. It
+  MUST merge into `main` and into `develop`, or into the open `release/*`
+  when one exists, through pull requests. `main` MUST be tagged.
 - A pull request MUST be approved by at least one other teammate before merge.
 - Definition of Ready: the item is a user story or task on the GitHub Project
   board, prioritized, clear, and carrying acceptance criteria. It MUST NOT
@@ -227,4 +241,4 @@ Compliance is reviewed on every backend pull request against the principles
 and both constraint sections above. The runtime guidance file is
 `.specify/memory/constitution.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-01 | **Last Amended**: 2026-10-01
+**Version**: 1.1.0 | **Ratified**: 2026-10-01 | **Last Amended**: 2026-10-01

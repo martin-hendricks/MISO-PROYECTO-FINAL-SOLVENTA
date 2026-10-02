@@ -44,14 +44,16 @@ Use the paths in [contracts/bff-web.md](contracts/bff-web.md) and [contracts/bff
 
 The workflow file is `.github/workflows/backend-unit-tests.yml` at the git root.
 
-- A pull request into `main` runs a gateway only when that gateway's files changed.
-- A push to `main` runs both gateways even when their files did not change.
+- A pull request into `develop`, `main`, `release/*`, or `hotfix/*` runs a gateway only when that gateway's files changed.
+- A push to `feature/*` uses that same path filter.
+- A push to `develop`, `main`, `release/*`, or `hotfix/*` runs both gateways even when their files did not change.
 - Another directory under `apps/backend` runs only when it changed and already has a test file. A domain with no tests is skipped and the job stays green. The skip reason is in the job summary.
 - The job fails if a selected tree contains `sleep(`, collects zero tests, or fails `pytest`.
+- A branch outside this set selects nothing. `support/` is not used.
 
 ## Branch protection (people apply this)
 
-On `main`:
+On `develop` and on `main`:
 
 1. Require the unit-test status check.
 2. Require at least one approving review.

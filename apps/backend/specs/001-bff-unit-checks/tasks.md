@@ -90,18 +90,18 @@ description: "Task list for channel gateways and merge checks"
 
 ## Phase 4: User Story 2 - A gateway change is checked before merge (Priority: P2)
 
-**Goal**: A pull request into `main` runs pytest for each changed gateway, and a push to `main` runs both gateways even when neither directory changed
+**Goal**: A pull request into `develop`, `main`, `release/*`, or `hotfix/*`, and a push to `feature/*`, runs pytest for each changed gateway. A push to `develop`, `main`, `release/*`, or `hotfix/*` runs both gateways even when neither directory changed
 
-**Independent Test**: Run the selector tests. A changed-path set of only `apps/backend/bff-web` on a pull request into `main` selects `bff-web`. A push to `main` with no gateway paths selects both `bff-web` and `bff-movil`. A pull request that does not target `main` selects nothing.
+**Independent Test**: Run the selector tests. A changed-path set of only `apps/backend/bff-web` on a pull request into `develop` selects `bff-web`. A push to `main` with no gateway paths selects both `bff-web` and `bff-movil`. A push to `release/*` or `hotfix/*` does the same. A push to `feature/*` that changes only `bff-web` selects `bff-web`. A pull request into a branch outside this set selects nothing.
 
 ### Tests for User Story 2
 
-- [X] T029 [P] [US2] Add selector tests for pull-request path filtering into `main` and the `main` push rule in `apps/backend/scripts/tests/test_select_required.py`
+- [X] T029 [P] [US2] Add selector tests for pull-request path filtering into `develop`, `main`, `release/*`, and `hotfix/*`, the always-both push rule for those lines, and the `feature/*` path filter in `apps/backend/scripts/tests/test_select_required.py`
 
 ### Implementation for User Story 2
 
-- [X] T030 [P] [US2] Implement required-gateway selection in `apps/backend/scripts/select_services.py` for `pull_request` events targeting `main` and `push` events to `main`
-- [X] T031 [US2] Add `.github/workflows/backend-unit-tests.yml` at the git root that triggers on `pull_request` into `main` and `push` to `main` for paths `apps/backend/**`, uses Python 3.10 or newer, installs the selected gateway `test` extra, imports `app.main:app`, fails if `tests/` contains `sleep(`, runs `pytest` excluding markers `integration` and `contract`, fails when zero tests are collected, uploads a JUnit report, and uploads coverage without a percentage gate
+- [X] T030 [P] [US2] Implement required-gateway selection in `apps/backend/scripts/select_services.py` for pull requests into `develop`, `main`, `release/*`, and `hotfix/*`, pushes to those lines, and path-filtered pushes to `feature/*`
+- [X] T031 [US2] Add `.github/workflows/backend-unit-tests.yml` at the git root that triggers on `pull_request` into `develop`, `main`, `release/**`, and `hotfix/**`, and on `push` to `develop`, `main`, `feature/**`, `release/**`, and `hotfix/**`, for paths `apps/backend/**`, uses Python 3.10 or newer, installs the selected gateway `test` extra, imports `app.main:app`, fails if `tests/` contains `sleep(`, runs `pytest` excluding markers `integration` and `contract`, fails when zero tests are collected, uploads a JUnit report, and uploads coverage without a percentage gate
 
 **Checkpoint**: The workflow runs the two gateways in process and does not start a database, cache, bus, or container.
 

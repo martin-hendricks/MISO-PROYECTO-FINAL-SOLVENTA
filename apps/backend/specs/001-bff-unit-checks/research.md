@@ -70,27 +70,29 @@
 
 Selection:
 
-- On a pull request into `main`, run `bff-web` or `bff-movil` only when that directory changed. Run another `apps/backend/*` directory only when it changed and `tests/` contains at least one test file.
-- On a push to `main`, always run both gateways, even when neither directory changed. Optional domains still run only when they changed and already have tests.
-- Pull requests and pushes that are not for `main` do not run this check.
+- On a pull request into `develop`, `main`, `release/*`, or `hotfix/*`, run `bff-web` or `bff-movil` only when that directory changed. Run another `apps/backend/*` directory only when it changed and `tests/` contains at least one test file.
+- On a push to `feature/*`, use that same path filter.
+- On a push to `develop`, `main`, `release/*`, or `hotfix/*`, always run both gateways, even when neither directory changed. Optional domains still run only when they changed and already have tests.
+- Pull requests and pushes for any other branch do not run this check. `support/` is not a trigger.
 - If an optional domain has tests but no `pyproject.toml` or no `app/main.py`, skip it and write the reason into the job summary. Do not fail the job for that skip.
 - A selected service that collects zero tests fails the job.
 - The job does not start containers, databases, or network services.
+- A missing `feature/`, `release/`, or `hotfix/` prefix does not fail the job. Reviewers enforce merge direction.
 
 **Rationale**: Matches the spec's required and optional checks. `pytest` and `TestClient` exercise the ASGI app in the runner process, which is the constitution's unit-test rule. The workflow must live at the git root or GitHub will not run it.
 
-**Alternatives considered**: Running the suite inside the future runtime image (does not prove the unit checks, and this branch has no image). Failing the job when a domain has no tests (blocks this branch). A coverage percentage gate (the spec forbids it). Triggering on `develop` (the spec says that branch is not used).
+**Alternatives considered**: Running the suite inside the future runtime image (does not prove the unit checks, and this branch has no image). Failing the job when a domain has no tests (blocks this branch). A coverage percentage gate (the spec forbids it). Failing a job because a branch name lacks a Gitflow prefix (the tutorial also allows unprefixed names without the git-flow extension).
 
-## Decision: Integrate on main
+## Decision: Integrate with Gitflow
 
-**Decision**: Short-lived branches merge to `main` under trunk-based or GitLab flow. The workflow `on` block is pull requests targeting `main` and pushes to `main`. Branch protection for people is documented against `main`.
+**Decision**: `develop` integrates features. `main` records production releases. `feature/*` starts from `develop` and merges only into `develop`. `release/*` starts from `develop` and merges into `main` and back into `develop`. `hotfix/*` starts from `main` and merges into `main` and into `develop`, or into the open `release/*`. The workflow `on` block is pull requests into `develop`, `main`, `release/**`, and `hotfix/**`, and pushes to `develop`, `main`, `feature/**`, `release/**`, and `hotfix/**`. Branch protection for people is documented against `develop` and `main`.
 
-**Rationale**: The spec clarification of 2026-10-01 names `main` as the only integration branch. Both chosen flows share that branch. GitLab flow does not add a second long-lived branch for this check.
+**Rationale**: The spec clarification names Gitflow, including feature, release, and hotfix. Pushes to `develop`, `main`, `release/*`, and `hotfix/*` are published history or the line about to become it, so both gateways run. A feature push and a pull request stay path-filtered.
 
-**Alternatives considered**: GitFlow with `develop` (rejected by the spec). A production branch in addition to `main` (not requested; this check does not deploy).
+**Alternatives considered**: Trunk-based or GitLab flow with only `main` (rejected by the spec). Treating `support/` as a sixth line (the Atlassian tutorial lists it in `git flow init` and does not define its flow).
 
 ## Decision: Branch protection is a human note
 
-**Decision**: Document the `main` rule in `quickstart.md`: the unit-test check is required, and one teammate must approve. Do not add a bot that changes repository settings.
+**Decision**: Document the `develop` and `main` rule in `quickstart.md`: the unit-test check is required, and one teammate must approve. `release/*` and `hotfix/*` use the same check when they are merged. Do not add a bot that changes repository settings.
 
 **Rationale**: The spec requires the rule to be recorded and forbids automating it.

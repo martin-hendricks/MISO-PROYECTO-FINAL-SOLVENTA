@@ -15,7 +15,7 @@
 - Q: Which gateway should answer automatic payment, renew/modify/cancel, and providers with assistance? → A: Both gateways return the automatic-payment body. Only the web gateway accepts renew, modify, and cancel. The mobile gateway accepts the assistance request, and the web gateway returns the operations status.
 - Q: Which mocked answers must each contract return in this feature? → A: The success example plus every alternate body already written on the Contratos BFF page. Slow is the degraded premium, not a pause.
 - Q: Must the web gateway refuse a customer token on advisor and operator screens? → A: A customer token opens only customer screens. An advisor token opens the advisor portfolio, the client file, and assisted sale. An operator token opens the operator queue, renew/modify/cancel, and the assistance status. Any other mix is refused. The mobile gateway stays a customer channel.
-- Q: Which branch must the automated check validate? → A: `main`. Short-lived branches merge to `main` under trunk-based or GitLab flow. The check runs on proposals into `main` and on publishes to `main`. `develop` is not the integration branch.
+- Q: Which branches must the automated check validate? → A: Gitflow. `develop` integrates features. `main` records production releases. A `feature/*` push, and a proposal into `develop`, `main`, `release/*`, or `hotfix/*`, runs a gateway only when that directory changed. A push to `develop`, `main`, `release/*`, or `hotfix/*` runs both gateways even when neither changed. Any other branch selects nothing. `support/` is not used.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -47,7 +47,7 @@ A caller using the web channel, and a caller using the mobile channel, each reac
 
 ### User Story 2 - A gateway change is checked before merge (Priority: P2)
 
-A contributor proposes a change to a channel gateway. Before the change can join `main`, an automated check runs that gateway's behavior checks in isolation. A failed check, an empty check set, a gateway that cannot be loaded, or a check that pauses for a fixed time blocks the change. A reviewer still has to approve the change; the automated result does not replace that approval.
+A contributor proposes a change to a channel gateway. Before the change can join `develop` or `main`, an automated check runs that gateway's behavior checks in isolation. A failed check, an empty check set, a gateway that cannot be loaded, or a check that pauses for a fixed time blocks the change. A reviewer still has to approve the change; the automated result does not replace that approval.
 
 **Why this priority**: The team treats a change as unfinished until its behavior checks pass. This story makes that rule visible on the proposal.
 
@@ -57,7 +57,7 @@ A contributor proposes a change to a channel gateway. Before the change can join
 
 1. **Given** a proposal that changes only the web gateway, **When** the automated check runs, **Then** it runs the web gateway's behavior checks and does not fail because some other domain has no checks.
 2. **Given** a proposal that changes only the mobile gateway, **When** the automated check runs, **Then** it runs the mobile gateway's behavior checks and does not require the web gateway to have changed.
-3. **Given** a change published on `main` that changes neither gateway, **When** the automated check runs, **Then** it still runs both gateways' behavior checks.
+3. **Given** a change published on `develop`, `main`, a `release/*` branch, or a `hotfix/*` branch that changes neither gateway, **When** the automated check runs, **Then** it still runs both gateways' behavior checks.
 4. **Given** a gateway selected to run whose behavior checks fail, collect nothing, cannot load the gateway, or pause for a fixed time, **When** the check finishes, **Then** the proposal is marked failed.
 5. **Given** a gateway behavior check, **When** it runs, **Then** it uses stand-ins for identity and for downstream collaborators and does not contact an outside system, a database, a cache, or a message bus.
 6. **Given** a finished check, **When** a reviewer opens the proposal, **Then** a record lists which checks passed or failed. A coverage summary may be attached, and a coverage number by itself does not fail the proposal.
@@ -117,7 +117,7 @@ Other backend domains already exist as named areas, but they are not built in th
 - **FR-006**: Downstream work invoked by a gateway MUST be replaceable by a stand-in during behavior checks, so a check can run without the real collaborator.
 - **FR-007**: A change proposal that modifies the web gateway MUST run that gateway's behavior checks before the change is eligible to merge.
 - **FR-008**: A change proposal that modifies the mobile gateway MUST run that gateway's behavior checks before the change is eligible to merge.
-- **FR-009**: A change published on `main` that modifies neither gateway MUST still run both gateways' behavior checks.
+- **FR-009**: A change published on `develop`, `main`, a `release/*` branch, or a `hotfix/*` branch that modifies neither gateway MUST still run both gateways' behavior checks. A push to a `feature/*` branch MUST run a gateway only when that directory changed.
 - **FR-010**: When a gateway is selected to run, the proposal MUST fail if any of its behavior checks fail, if no check is collected, if the gateway cannot be loaded, or if a selected check pauses for a fixed time.
 - **FR-011**: Gateway behavior checks MUST run without contacting an outside system, a database, a cache, or a message bus. Identity and downstream collaborators MUST be stand-ins.
 - **FR-012**: The system MUST keep a readable record of pass and fail for each check that ran. A coverage summary MAY be stored. A coverage percentage MUST NOT, by itself, fail the proposal.
@@ -125,7 +125,7 @@ Other backend domains already exist as named areas, but they are not built in th
 - **FR-014**: A domain with no behavior checks, with checks but no runnable application, or without a package definition MUST be skipped. The skip reason MUST be visible, and the skip MUST NOT fail the proposal.
 - **FR-015**: After a domain gains behavior checks, a failing check on a later proposal that changes that domain MUST fail the proposal.
 - **FR-016**: A domain added later that follows the same presence rules as today's domains MUST be discovered by the existing check definition. The definition MUST NOT need to be edited to name that domain.
-- **FR-017**: The team MUST record, for people to apply, that `main` accepts a change only when this check has passed and at least one other teammate has approved it. Proposals into `main` and publishes to `main` MUST run the check. This feature MUST NOT install a bot that applies that rule.
+- **FR-017**: The team MUST record, for people to apply, that `develop` and `main` accept a change only when this check has passed and at least one other teammate has approved it. Proposals into `develop`, `main`, `release/*`, or `hotfix/*`, and publishes to `develop`, `main`, `release/*`, `hotfix/*`, or `feature/*`, MUST run the check under the selection rules in FR-009. This feature MUST NOT install a bot that applies that rule.
 - **FR-018**: This feature MUST NOT add behavior, folders, or checks implementation for the partner channel or for any domain service. It MUST NOT add a performance, security-scan, channel-screen, or deployment check. It MUST NOT add a style or type gate unless that domain already requires one.
 - **FR-019**: The web gateway MUST answer, with mocked bodies from Contratos BFF, these contracts: web sign-in, web registration, web quote, web issue and query, operator claim queue, web traceability of automatic payment, web mortgage offer, web home, advisor portfolio, client file, renew/modify/cancel, and the operations status of assistance.
 - **FR-020**: The mobile gateway MUST answer, with mocked bodies from Contratos BFF, these contracts: mobile sign-in, mobile registration with life-check, mobile quote, accept/issue/wallet, claim notice with evidence and status, mobile mortgage offer, in-app validity notices, mobile home, push-token registration, automatic payment, and the customer assistance request.
@@ -140,7 +140,7 @@ Other backend domains already exist as named areas, but they are not built in th
 - **Screen contract**: One payload pair from Contratos BFF, assigned to the web gateway, the mobile gateway, or both as in FR-021. The body fields and enumerated values are fixed by that page.
 - **Money fact**: A numeric amount and a currency code returned together so the channel can format them. It is not a display string and it does not include a locale.
 - **Backend domain**: An existing named area of the backend other than the two gateways. It may or may not already contain behavior checks.
-- **Change proposal**: A proposed modification to a gateway or a domain, reviewed before it joins `main`.
+- **Change proposal**: A proposed modification to a gateway or a domain, reviewed before it joins `develop` or `main`.
 - **Check result**: Pass, fail, or skip-with-reason for one gateway or domain on a proposal. Skip-with-reason does not fail the proposal.
 
 ## Success Criteria *(mandatory)*
@@ -158,7 +158,7 @@ Other backend domains already exist as named areas, but they are not built in th
 
 ## Assumptions
 
-- The integration branch is `main`. Work uses short-lived branches under trunk-based or GitLab flow. The automated check validates proposals into `main` and publishes to `main`. `develop` is not used for this feature.
+- Integration follows Gitflow. `develop` integrates features. `main` records production releases. `feature/*` starts from `develop` and merges only into `develop`. `release/*` starts from `develop` and merges into `main` and back into `develop`. `hotfix/*` starts from `main` and merges into `main` and into `develop`, or into the open `release/*`. The automated check follows FR-009 and FR-017. `support/` is not used.
 - Sign-in returns mocked tokens. This feature does not call an identity service. Mock sign-in accepts any email and password, grants the requested web role when that role is allowed, and grants a customer token on mobile. A token stays valid until its stated expiry. Protected contracts check that token and the role inside it.
 - "Narrower" mobile responses means the mobile bodies published on Contratos BFF, which omit web-only back-office fields. The phone keeps its own offline copy of the policy list; the gateway has one body for that list.
 - Contratos BFF is the field catalog at the Solventa wiki page of that name. This feature mocks every contract on that page. It does not add a contract the page does not list.
