@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response, status
 from app.aggregators.componer import componer
 from app.clients.ms_ejemplo import ClienteMsEjemplo
 from app.dependencies import obtener_cliente_ejemplo
+from app.seguridad import identidad_actual
 
 from .schemas import (
     EjemploVista,
@@ -14,9 +15,11 @@ from .schemas import (
     RegistrarEjemploEntrada,
 )
 
-router = APIRouter(prefix="/v1")
+router = APIRouter(prefix="/v1", dependencies=[Depends(identidad_actual)])
 Ejemplos = Annotated[ClienteMsEjemplo, Depends(obtener_cliente_ejemplo)]
 ERRORES = {
+    401: {"description": "Token ausente, expirado o inválido"},
+    403: {"description": "Alcance insuficiente"},
     404: {"model": ErrorVista},
     422: {"model": ErrorVista},
     503: {"model": ErrorVista},

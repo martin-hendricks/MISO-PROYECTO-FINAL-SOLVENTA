@@ -6,6 +6,10 @@ class Settings(BaseSettings):
 
     service_name: str = "bff-arquetipo"
 
+    jwt_public_key: str = ""
+    jwt_issuer: str = "ms-identidad"
+    jwt_audience: str = "solventa"
+
     ms_ejemplo_url: str = "http://localhost:8000"
 
     timeout_nucleo_s: float = 1.0

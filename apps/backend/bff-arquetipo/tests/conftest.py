@@ -9,6 +9,10 @@ from app.config import Settings
 from app.dependencies import obtener_cliente_ejemplo
 from app.main import crear_app
 
+from .emisor import EmisorDePrueba
+
+EMISOR = EmisorDePrueba()
+
 EJEMPLO = {
     "id": "0b6f6c2e-6a43-4a43-9b0e-1f7c2a0d4c11",
     "referencia": "REF-1",
@@ -49,7 +53,7 @@ def nucleo() -> NucleoSimulado:
 
 @pytest.fixture
 def app(nucleo):
-    app = crear_app(Settings(timeout_opcional_s=0.2))
+    app = crear_app(Settings(jwt_public_key=EMISOR.llave_publica_pem, timeout_opcional_s=0.2))
     http = httpx.AsyncClient(transport=httpx.MockTransport(nucleo), base_url="http://ms-ejemplo")
     app.dependency_overrides[obtener_cliente_ejemplo] = lambda: ClienteMsEjemplo(http, "corr-test")
     return app
@@ -58,3 +62,7 @@ def app(nucleo):
 @pytest.fixture
 def client(app) -> TestClient:
     return TestClient(app)
+
+
+def auth(rol: str = "cliente", sujeto: str = "USR-1") -> dict[str, str]:
+    return {"Authorization": f"Bearer {EMISOR.emitir(sujeto, rol)}"}

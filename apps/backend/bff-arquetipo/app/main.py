@@ -9,8 +9,16 @@ from app.api.v1 import rutas
 from app.clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from app.config import Settings
 from app.observabilidad import instrumentar
+from app.seguridad import ValidadorJWT, configurar_seguridad
 
 logger = logging.getLogger(__name__)
+
+
+def _validador(config: Settings) -> ValidadorJWT | None:
+    if not config.jwt_public_key.strip():
+        logger.warning("JWT_PUBLIC_KEY no configurada: las rutas /v1 responderán 503")
+        return None
+    return ValidadorJWT(config.jwt_public_key, emisor=config.jwt_issuer, audiencia=config.jwt_audience)
 
 
 def crear_app(config: Settings | None = None) -> FastAPI:
@@ -24,6 +32,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
     app.state.config = config
+    configurar_seguridad(app, _validador(config))
     instrumentar(app)
     app.include_router(rutas.router)
 

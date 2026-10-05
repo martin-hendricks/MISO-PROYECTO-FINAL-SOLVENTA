@@ -7,6 +7,9 @@ services:
     environment:
       SERVICE_NAME: bff-arquetipo
       MS_EJEMPLO_URL: http://ms-ejemplo:8000
+      JWT_ISSUER: ms-identidad
+      JWT_AUDIENCE: solventa
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
     ports:
       - "8080:8080"
     depends_on:
