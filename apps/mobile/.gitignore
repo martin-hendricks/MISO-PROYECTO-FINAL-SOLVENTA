@@ -31,7 +31,18 @@ output-metadata.json
 
 # OS
 .DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
 
-# Local Cursor and Speckit files. specs/ stays tracked.
+# Kotlin / Android build leftovers
+out/
+*.class
+*.jar
+.env*
+
+# Local Cursor, Speckit, and spec folders.
 .cursor/
 .specify/
+specs/
