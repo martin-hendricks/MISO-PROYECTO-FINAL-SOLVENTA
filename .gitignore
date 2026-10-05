@@ -4,6 +4,11 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+junit.xml
+.env
 
 # Node / Angular
 node_modules/
@@ -36,3 +41,6 @@ captures/
 .DS_Store
 *.swp
 .vscode/
+
+# Claude Code (local, no se publica)
+.claude/

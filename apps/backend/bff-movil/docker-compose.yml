@@ -1,0 +1,40 @@
+services:
+  bff:
+    build:
+      context: ..
+      dockerfile: bff-movil/Dockerfile
+      target: runtime
+    environment:
+      SERVICE_NAME: bff-movil
+      MS_EJEMPLO_URL: http://ms-ejemplo:8000
+      JWT_ISSUER: ms-identidad
+      JWT_AUDIENCE: solventa
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ms-ejemplo
+
+  ms-ejemplo:
+    build:
+      context: ../ms-arquetipo
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ../ms-arquetipo/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
