@@ -53,6 +53,7 @@ def test_hs256_con_la_llave_publica_como_secreto_se_rechaza(emisor, validador):
         ({"aud": "otra-audiencia"}, "token_invalido"),
         ({"iss": "otro-emisor"}, "token_invalido"),
         ({"typ": "refresh"}, "tipo_no_access"),
+        ({"rol": "superusuario"}, "rol_desconocido"),
     ],
 )
 def test_claims_incorrectos_se_rechazan(emisor, validador, extra, motivo):

@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -28,6 +29,25 @@ def test_token_expirado_no_alcanza_el_nucleo(client, nucleo):
 
     assert respuesta.status_code == 401
     assert nucleo.peticiones == []
+
+
+def test_asesor_no_puede_aprobar_aunque_llame_directo(client, nucleo):
+    respuesta = client.post(f"/v1/ejemplos/{EJEMPLO['id']}/aprobacion", headers=auth("asesor"))
+
+    assert respuesta.status_code == 403
+    assert nucleo.peticiones == []
+
+
+def test_operador_si_puede_aprobar(client):
+    respuesta = client.post(f"/v1/ejemplos/{EJEMPLO['id']}/aprobacion", headers=auth("operador"))
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "aprobado"
+
+
+@pytest.mark.parametrize("rol", ["operador", "socio"])
+def test_roles_fuera_de_inicio(client, rol):
+    assert client.get("/v1/inicio", headers=auth(rol)).status_code == 403
 
 
 def test_sin_llave_publica_falla_cerrado():

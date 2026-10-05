@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response, status
 from app.aggregators.componer import componer
 from app.clients.ms_ejemplo import ClienteMsEjemplo
 from app.dependencies import obtener_cliente_ejemplo
-from app.seguridad import identidad_actual
+from app.seguridad import identidad_actual, requiere_rol
 
 from .schemas import (
     EjemploVista,
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(identidad_actual)])
 Ejemplos = Annotated[ClienteMsEjemplo, Depends(obtener_cliente_ejemplo)]
 ERRORES = {
     401: {"description": "Token ausente, expirado o inválido"},
-    403: {"description": "Alcance insuficiente"},
+    403: {"description": "Rol o alcance insuficiente"},
     404: {"model": ErrorVista},
     422: {"model": ErrorVista},
     503: {"model": ErrorVista},
@@ -31,6 +31,7 @@ ERRORES = {
     response_model=InicioVista,
     response_model_by_alias=True,
     responses=ERRORES,
+    dependencies=[Depends(requiere_rol("cliente", "asesor"))],
 )
 async def inicio(request: Request, ejemplos: Ejemplos):
     config = request.app.state.config
@@ -54,6 +55,7 @@ async def inicio(request: Request, ejemplos: Ejemplos):
     response_model=EjemploVista,
     response_model_by_alias=True,
     responses=ERRORES,
+    dependencies=[Depends(requiere_rol("cliente", "asesor", "operador"))],
 )
 async def consultar(ejemplo_id: str, ejemplos: Ejemplos):
     return EjemploVista.desde_nucleo(await ejemplos.obtener(ejemplo_id))
@@ -65,6 +67,7 @@ async def consultar(ejemplo_id: str, ejemplos: Ejemplos):
     response_model_by_alias=True,
     status_code=status.HTTP_201_CREATED,
     responses=ERRORES,
+    dependencies=[Depends(requiere_rol("cliente", "asesor"))],
 )
 async def registrar(
     entrada: RegistrarEjemploEntrada,
@@ -83,6 +86,7 @@ async def registrar(
     response_model=EjemploVista,
     response_model_by_alias=True,
     responses=ERRORES,
+    dependencies=[Depends(requiere_rol("operador"))],
 )
 async def aprobar(ejemplo_id: str, ejemplos: Ejemplos):
     return EjemploVista.desde_nucleo(await ejemplos.aprobar(ejemplo_id))

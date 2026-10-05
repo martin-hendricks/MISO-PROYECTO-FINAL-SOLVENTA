@@ -52,6 +52,26 @@ async def identidad_actual(
     return identidad
 
 
+def requiere_rol(*roles: str):
+    permitidos = frozenset(roles)
+
+    async def verificar(
+        request: Request, identidad: Annotated[Identidad, Depends(identidad_actual)]
+    ) -> Identidad:
+        if identidad.rol not in permitidos:
+            registrar_rechazo(
+                accion=_accion(request),
+                motivo="rol_no_permitido",
+                usuario=identidad.sujeto,
+                rol=identidad.rol,
+                correlacion=_correlacion(request),
+            )
+            raise PROHIBIDO
+        return identidad
+
+    return verificar
+
+
 def requiere_alcance(*alcances: str):
     requeridos = frozenset(alcances)
 

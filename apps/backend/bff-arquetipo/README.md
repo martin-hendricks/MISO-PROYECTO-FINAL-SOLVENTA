@@ -7,12 +7,13 @@ Un BFF es el **borde de un canal**: expone la API que necesitan las pantallas de
 | Sí hace | No hace |
 | --- | --- |
 | Valida el JWT de `ms-identidad` en **cada** petición: firma RS256, expiración, emisor, audiencia y alcances (HU-74) | Emitir tokens (eso es `ms-identidad`) |
+| Autoriza por **rol** en servidor: `cliente`, `asesor`, `operador`, `socio` (HU-75) | Confiar en un rol que mande el cliente |
 | Compone varias llamadas **en paralelo** y degrada partes opcionales | Reglas de negocio (son del núcleo) |
 | Recorta y renombra el payload para la vista (camelCase) | Tener base de datos propia |
 | Versiona el contrato (`/v1`) | Llamar a OF/OD/KYC/pasarela o publicar en el bus |
 | Reenvía `Idempotency-Key` y `X-Correlation-Id` al núcleo | Mostrar al canal qué servicio interno falló |
 
-Todo `/v1` exige un JWT válido: un token ausente, expirado o mal firmado responde 401 sin detalles y el rechazo se audita sin escribir el token. Sin llave pública configurada, las rutas protegidas responden 503 (falla cerrada). La autorización por rol se agrega en HU-75.
+Todo `/v1` exige un JWT válido: un token ausente, expirado o mal firmado responde 401 sin detalles y el rechazo se audita sin escribir el token. Sin llave pública configurada, las rutas protegidas responden 503 (falla cerrada). Cada ruta declara los roles que la pueden ejecutar con `requiere_rol(...)`; el rol sale del token, nunca del cuerpo ni de una cabecera, y una acción fuera de rol responde 403 y se audita con usuario, rol y acción.
 
 ## Estructura
 
@@ -22,8 +23,8 @@ app/
 ├── config.py            URLs del núcleo, llave pública JWT, timeouts
 ├── dependencies.py      raíz de composición de los clientes
 ├── observabilidad.py    /health, /metrics, X-Correlation-Id
-├── api/v1/rutas.py      contrato del canal: todo el router exige JWT
-├── seguridad/           validador JWT, dependencias FastAPI y auditoría de rechazos
+├── api/v1/rutas.py      contrato del canal: todo el router exige JWT; cada ruta declara roles
+├── seguridad/           validador JWT, roles, dependencias FastAPI y auditoría de rechazos
 ├── api/v1/schemas.py    payloads de la vista (camelCase, campos nuevos opcionales)
 ├── clients/             un cliente por microservicio (solo operaciones del canal)
 └── aggregators/         componer(): fuente principal + opcionales en paralelo

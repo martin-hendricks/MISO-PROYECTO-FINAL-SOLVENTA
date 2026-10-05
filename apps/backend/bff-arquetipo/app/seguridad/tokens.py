@@ -6,6 +6,7 @@ from typing import Any
 
 import jwt
 
+ROLES = frozenset({"cliente", "asesor", "operador", "socio"})
 ALGORITMO = "RS256"
 
 
@@ -59,10 +60,14 @@ class ValidadorJWT:
         if claims.get("typ") != "access":
             raise TokenInvalido("tipo_no_access")
 
+        rol = claims.get("rol")
+        if rol not in ROLES:
+            raise TokenInvalido("rol_desconocido")
+
         alcances = claims.get("scope", "")
         return Identidad(
             sujeto=str(claims["sub"]),
-            rol=str(claims.get("rol", "")),
+            rol=rol,
             alcances=frozenset(alcances.split()) if isinstance(alcances, str) else frozenset(),
             claims=claims,
         )

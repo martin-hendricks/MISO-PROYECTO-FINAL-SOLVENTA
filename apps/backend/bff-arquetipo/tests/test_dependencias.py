@@ -9,6 +9,7 @@ from app.seguridad import (
     configurar_seguridad,
     identidad_actual,
     requiere_alcance,
+    requiere_rol,
 )
 
 from .emisor import EmisorDePrueba
@@ -25,6 +26,10 @@ def _app(con_validador: bool = True) -> FastAPI:
     @router.get("/yo")
     async def yo(identidad=Depends(identidad_actual)):
         return {"sujeto": identidad.sujeto, "rol": identidad.rol}
+
+    @router.post("/avisos/decision", dependencies=[Depends(requiere_rol("operador"))])
+    async def decidir():
+        return {"ok": True}
 
     @router.get("/reportes", dependencies=[Depends(requiere_alcance("reportes:leer"))])
     async def reportes():
@@ -61,10 +66,31 @@ def test_expirado_es_401_sin_detalles(client):
     assert respuesta.json() == {"detail": "No autorizado"}
 
 
+def test_asesor_no_puede_decidir_un_aviso(client):
+    respuesta = client.post("/avisos/decision", headers=_auth(emisor.emitir(rol="asesor")))
+    assert respuesta.status_code == 403
+
+
+def test_operador_si_puede_decidir(client):
+    respuesta = client.post("/avisos/decision", headers=_auth(emisor.emitir(rol="operador")))
+    assert respuesta.status_code == 200
+
+
 def test_alcance_insuficiente_es_403(client):
     sin = client.get("/reportes", headers=_auth(emisor.emitir(rol="asesor")))
     con = client.get("/reportes", headers=_auth(emisor.emitir(rol="asesor", alcances=("reportes:leer",))))
     assert (sin.status_code, con.status_code) == (403, 200)
+
+
+def test_rechazo_por_rol_se_audita_con_usuario_y_rol(client, caplog):
+    token = emisor.emitir("USR-7", rol="asesor")
+    with caplog.at_level(logging.WARNING, logger="solventa.auditoria"):
+        client.post("/avisos/decision", headers={**_auth(token), "X-Correlation-Id": "c-1"})
+
+    registro = caplog.text
+    assert "rol_no_permitido" in registro
+    assert "USR-7" in registro and "asesor" in registro and "POST /avisos/decision" in registro
+    assert token not in registro
 
 
 def test_rechazo_se_audita_sin_escribir_el_token(client, caplog):
