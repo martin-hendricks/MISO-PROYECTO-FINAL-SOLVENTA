@@ -9,7 +9,7 @@ from app.api.v1 import rutas
 from app.clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from app.config import Settings
 from app.observabilidad import instrumentar
-from app.seguridad import ValidadorJWT, configurar_seguridad
+from solventa_seguridad import ValidadorJWT, configurar_seguridad
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,8 @@ apps/
 ├── mobile/         # Cliente móvil — Android Kotlin/Jetpack Compose
 └── backend/        # Python/FastAPI, un folder por servicio (ver apps/backend/README.md)
     ├── ms-arquetipo/       # Plantilla de microservicio (hexagonal + SQLAlchemy async)
-    ├── bff-arquetipo/      # Plantilla de BFF (composición, sin BD)
+    ├── bff-arquetipo/      # Plantilla de BFF (JWT/RBAC, composición, sin BD)
+    ├── libs/solventa-seguridad/  # Validador JWT RS256 + RBAC compartido por los BFF
     ├── scripts/nuevo-servicio.sh # Genera un ms-*/bff-* desde su arquetipo
     ├── ms-cotizacion/
     ├── ms-suscripcion/

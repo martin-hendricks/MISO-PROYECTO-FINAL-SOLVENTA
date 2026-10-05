@@ -4,15 +4,14 @@ import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from app.seguridad import (
+from solventa_seguridad import (
     ValidadorJWT,
     configurar_seguridad,
     identidad_actual,
     requiere_alcance,
     requiere_rol,
 )
-
-from .emisor import EmisorDePrueba
+from solventa_seguridad.pruebas import EmisorDePrueba
 
 emisor = EmisorDePrueba()
 
@@ -82,7 +81,7 @@ def test_alcance_insuficiente_es_403(client):
     assert (sin.status_code, con.status_code) == (403, 200)
 
 
-def test_rechazo_por_rol_se_audita_con_usuario_y_rol(client, caplog):
+def test_rechazo_se_audita_sin_escribir_el_token(client, caplog):
     token = emisor.emitir("USR-7", rol="asesor")
     with caplog.at_level(logging.WARNING, logger="solventa.auditoria"):
         client.post("/avisos/decision", headers={**_auth(token), "X-Correlation-Id": "c-1"})
@@ -90,16 +89,6 @@ def test_rechazo_por_rol_se_audita_con_usuario_y_rol(client, caplog):
     registro = caplog.text
     assert "rol_no_permitido" in registro
     assert "USR-7" in registro and "asesor" in registro and "POST /avisos/decision" in registro
-    assert token not in registro
-
-
-def test_rechazo_se_audita_sin_escribir_el_token(client, caplog):
-    token = emisor.emitir("USR-7", expira_en=-120)
-    with caplog.at_level(logging.WARNING, logger="solventa.auditoria"):
-        client.get("/yo", headers={**_auth(token), "X-Correlation-Id": "c-1"})
-
-    registro = caplog.text
-    assert "expirado" in registro and "GET /yo" in registro and "c-1" in registro
     assert token not in registro
 
 

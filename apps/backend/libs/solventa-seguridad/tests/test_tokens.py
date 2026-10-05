@@ -1,9 +1,8 @@
 import jwt
 import pytest
 
-from app.seguridad import TokenInvalido, ValidadorJWT
-
-from .emisor import EmisorDePrueba
+from solventa_seguridad import TokenInvalido, ValidadorJWT
+from solventa_seguridad.pruebas import EmisorDePrueba
 
 
 @pytest.fixture(scope="module")

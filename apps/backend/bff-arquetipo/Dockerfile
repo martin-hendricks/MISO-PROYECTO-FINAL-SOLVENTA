@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /srv
+COPY libs/solventa-seguridad ./libs/solventa-seguridad
 COPY bff-arquetipo/pyproject.toml ./bff-arquetipo/
 COPY bff-arquetipo/app ./bff-arquetipo/app
 WORKDIR /srv/bff-arquetipo

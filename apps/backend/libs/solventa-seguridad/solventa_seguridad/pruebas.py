@@ -6,7 +6,7 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from app.seguridad.tokens import ALGORITMO
+from .tokens import ALGORITMO
 
 EMISOR_PRUEBAS = "ms-identidad"
 AUDIENCIA_PRUEBAS = "solventa"

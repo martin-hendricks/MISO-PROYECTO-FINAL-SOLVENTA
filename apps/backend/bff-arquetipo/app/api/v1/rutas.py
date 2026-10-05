@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response, status
 from app.aggregators.componer import componer
 from app.clients.ms_ejemplo import ClienteMsEjemplo
 from app.dependencies import obtener_cliente_ejemplo
-from app.seguridad import identidad_actual, requiere_rol
+from solventa_seguridad import identidad_actual, requiere_rol
 
 from .schemas import (
     EjemploVista,

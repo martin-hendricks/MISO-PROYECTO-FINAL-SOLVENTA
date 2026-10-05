@@ -8,8 +8,7 @@ from app.clients.ms_ejemplo import ClienteMsEjemplo
 from app.config import Settings
 from app.dependencies import obtener_cliente_ejemplo
 from app.main import crear_app
-
-from .emisor import EmisorDePrueba
+from solventa_seguridad.pruebas import EmisorDePrueba
 
 EMISOR = EmisorDePrueba()
 

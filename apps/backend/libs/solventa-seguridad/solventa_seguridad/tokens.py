@@ -59,7 +59,6 @@ class ValidadorJWT:
 
         if claims.get("typ") != "access":
             raise TokenInvalido("tipo_no_access")
-
         rol = claims.get("rol")
         if rol not in ROLES:
             raise TokenInvalido("rol_desconocido")
