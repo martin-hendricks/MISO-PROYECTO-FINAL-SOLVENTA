@@ -49,7 +49,15 @@ jobs:
           printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
       - name: Run unit tests
         working-directory: apps/mobile/Solventa
-        run: ./gradlew :app:testDebugUnitTest
+        run: ./gradlew :app:createDebugUnitTestCoverageReport
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-coverage
+          path: apps/mobile/Solventa/app/build/reports/coverage/test/debug/
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload test report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -103,8 +111,9 @@ jobs:
     steps:
       - name: Require unit tests when Solventa changed
         run: |
+          changes="${{ needs.changes.result }}"
           result="${{ needs.unit-tests.result }}"
-          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+          if [ "$changes" != "success" ] || [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
             exit 1
           fi
 
@@ -116,7 +125,8 @@ jobs:
     steps:
       - name: Require E2E when Solventa changed
         run: |
+          changes="${{ needs.changes.result }}"
           result="${{ needs.e2e.result }}"
-          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+          if [ "$changes" != "success" ] || [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
             exit 1
           fi

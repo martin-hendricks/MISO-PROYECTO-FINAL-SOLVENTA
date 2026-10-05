@@ -20,11 +20,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableUnitTestCoverage = true
+        }
         release {
             optimization {
                 enable = false
             }
         }
+    }
+    testCoverage {
+        jacocoVersion = libs.versions.jacoco.get()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
