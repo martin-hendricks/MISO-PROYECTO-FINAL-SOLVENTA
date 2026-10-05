@@ -36,7 +36,7 @@ La dependencia va **hacia adentro**: `api → application → domain`, e `infras
 
 ## Desarrollo
 
-**Requisitos:** Python 3.12+.
+**Requisitos:** Python 3.12+ (o solo Docker).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
@@ -59,7 +59,26 @@ pytest -m "not integration and not contract" --cov           # unitarias: sin BD
 Integración contra un PostgreSQL 16 con el DDL de `db/` aplicado:
 
 ```bash
+docker compose up -d db                                      # PostgreSQL local con el DDL de db/
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa pytest -m integration
 ```
 
 En CI (`.github/workflows/backend-ci.yml`) las unitarias corren con cobertura de sentencias y ramas publicada como artefacto, y la integración contra PostgreSQL 16 como servicio del job.
+
+Las mismas pruebas dentro de la imagen (igual en local y en CI, HU-71):
+
+```bash
+docker build --target test -t ms-arquetipo:test . && docker run --rm ms-arquetipo:test
+```
+
+## Ejecutar con Docker (HU-71)
+
+```bash
+docker compose up --build          # servicio en :8000 + PostgreSQL 16 con el DDL de db/
+```
+
+La imagen fija el runtime (`python:3.12.7-slim-bookworm`, nunca `latest`) y corre con un usuario sin privilegios.
+
+## Despliegue
+
+Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/NN_ms_<nombre>.sql` del repo y se aplica sobre su propia instancia o schema RDS.
