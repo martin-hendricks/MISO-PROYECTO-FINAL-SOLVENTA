@@ -42,5 +42,5 @@ Cada proyecto: `pip install -e ".[test]" && pytest -m "not integration and not c
 
 | Servicio | Estado |
 | --- | --- |
-| `bff-web`, `bff-movil` | Generados del arquetipo; falta reemplazar el ejemplo por los contratos de HU-121… |
+| `bff-web`, `bff-movil` | Solo README; se implementan sobre `bff-arquetipo` y `libs/solventa-seguridad` en sus HU |
 | `ms-*` restantes | Solo README; generar con el script al tomar su HU |
