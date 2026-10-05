@@ -36,3 +36,7 @@ captures/
 .DS_Store
 *.swp
 .vscode/
+
+# Cursor y especificaciones locales (Spec Kit)
+.cursor/
+specs/
