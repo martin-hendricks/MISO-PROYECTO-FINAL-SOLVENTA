@@ -30,12 +30,12 @@ Copia el arquetipo, lo renombra y conserva el `README.md` que ya tenga la carpet
 
 Cada proyecto: `pip install -e ".[test]" && pytest -m "not integration and not contract" --cov`.
 
-[`backend-ci.yml`](../../.github/workflows/backend-ci.yml) descubre todo proyecto con `pyproject.toml`, corre su suite unitaria con cobertura de ramas (publicada como artefacto) y, en los `ms-*` con `db/`, la integración contra PostgreSQL 16. Un test rojo falla el pipeline (HU-85).
+El CI de backend es el workflow `backend-unit-tests.yml` del PR #10: corre las pruebas unitarias de los servicios que cambiaron, con cobertura y reporte JUnit. Un test rojo falla el pipeline (HU-85).
 
 | Marcador | Corre en |
 | --- | --- |
 | *(sin marcador)* | Workflow unitario: sin red ni BD |
-| `integration` | Job de integración con PostgreSQL |
+| `integration` | En local, contra un PostgreSQL con el DDL del servicio (aún no corre en CI) |
 | `contract` | Verificación Pact (HU-88), pendiente |
 
 ## Estado
