@@ -1,4 +1,7 @@
 -- ms_consentimiento: consentimientos de uso de datos (Open Finance / Open Data).
+-- Requiere PostgreSQL 13+ (gen_random_uuid() nativo).
+
+CREATE SCHEMA IF NOT EXISTS ms_consentimiento;
 
 CREATE TABLE ms_consentimiento.consentimiento_datos (
     consentimiento_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),

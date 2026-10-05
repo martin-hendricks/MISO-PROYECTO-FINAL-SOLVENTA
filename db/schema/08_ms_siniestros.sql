@@ -1,4 +1,7 @@
 -- ms_siniestros: reclamaciones, evidencias y evaluación.
+-- Requiere PostgreSQL 13+ (gen_random_uuid() nativo).
+
+CREATE SCHEMA IF NOT EXISTS ms_siniestros;
 
 CREATE TABLE ms_siniestros.reclamacion (
     reclamacion_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),

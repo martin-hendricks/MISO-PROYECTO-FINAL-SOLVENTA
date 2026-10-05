@@ -1,4 +1,7 @@
 -- ms_pagos: medios de pago, pagos (recaudo de prima / indemnización) y transacciones con pasarela.
+-- Requiere PostgreSQL 13+ (gen_random_uuid() nativo).
+
+CREATE SCHEMA IF NOT EXISTS ms_pagos;
 
 CREATE TABLE ms_pagos.medio_pago (
     medio_pago_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,7 +22,10 @@ CREATE TABLE ms_pagos.pago (
     monto           NUMERIC(14,2) NOT NULL,
     concepto        TEXT          NOT NULL,
     estado          TEXT          NOT NULL,
-    fecha           TIMESTAMPTZ   NOT NULL DEFAULT now()
+    fecha           TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    -- Recaudo de prima o indemnización de reclamación, nunca ambos ni ninguno.
+    CONSTRAINT ck_pago_referencia CHECK (num_nonnulls(prima_id, reclamacion_id) = 1),
+    CONSTRAINT ck_pago_monto      CHECK (monto > 0)
 );
 
 COMMENT ON COLUMN ms_pagos.pago.prima_id       IS 'ref lógica opcional -> ms_polizas.prima.prima_id';

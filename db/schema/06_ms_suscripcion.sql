@@ -1,4 +1,7 @@
 -- ms_suscripcion: decisión de suscripción sobre una solicitud y un perfil.
+-- Requiere PostgreSQL 13+ (gen_random_uuid() nativo).
+
+CREATE SCHEMA IF NOT EXISTS ms_suscripcion;
 
 CREATE TABLE ms_suscripcion.suscripcion (
     suscripcion_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),

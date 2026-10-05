@@ -1,10 +1,14 @@
 -- ms_parametrico: eventos paramétricos disparados por telemetría (EC-ESC-03).
+-- Requiere PostgreSQL 13+ (gen_random_uuid() nativo).
+
+CREATE SCHEMA IF NOT EXISTS ms_parametrico;
 
 CREATE TABLE ms_parametrico.evento_parametrico (
     evento_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     evento_externo_id  TEXT          NOT NULL,
     reclamacion_id     UUID,
     tipo_evento        TEXT          NOT NULL,
+    -- Excepción a NUMERIC(14,2): son mediciones de telemetría, no montos.
     umbral             NUMERIC(14,4) NOT NULL,
     valor_observado    NUMERIC(14,4) NOT NULL,
     disparado_en       TIMESTAMPTZ   NOT NULL DEFAULT now(),
