@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import JSON, MetaData, Numeric, String, func, select
+from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -24,6 +24,7 @@ ESQUEMA = "ms_arquetipo"
 
 class Base(DeclarativeBase):
     metadata = MetaData(schema=ESQUEMA)
+    type_annotation_map = {datetime: DateTime(timezone=True)}
 
 
 class EjemploFila(Base):
