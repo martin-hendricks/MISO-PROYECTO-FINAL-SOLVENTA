@@ -63,9 +63,9 @@ docker compose up -d db                                      # PostgreSQL local 
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa pytest -m integration
 ```
 
-En CI (`.github/workflows/backend-ci.yml`) las unitarias corren con cobertura de sentencias y ramas publicada como artefacto, y la integración contra PostgreSQL 16 como servicio del job.
+En CI las unitarias corren con el workflow de backend del PR #10 (`backend-unit-tests.yml`), con cobertura y reporte JUnit. Las pruebas marcadas `integration` por ahora se corren en local.
 
-Las mismas pruebas dentro de la imagen (igual en local y en CI, HU-71):
+Las mismas pruebas dentro de la imagen base (HU-71):
 
 ```bash
 docker build --target test -t ms-arquetipo:test . && docker run --rm ms-arquetipo:test
