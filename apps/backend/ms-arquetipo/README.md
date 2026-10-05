@@ -62,4 +62,4 @@ Integración contra un PostgreSQL 16 con el DDL de `db/` aplicado:
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa pytest -m integration
 ```
 
-En CI (`.github/workflows/backend-ci.yml`) las unitarias corren con cobertura de sentencias y ramas publicada como artefacto, y la integración contra PostgreSQL 16 como servicio del job.
+En CI las unitarias corren con el workflow de backend del PR #10 (`backend-unit-tests.yml`), con cobertura y reporte JUnit. Las pruebas marcadas `integration` por ahora se corren en local.
