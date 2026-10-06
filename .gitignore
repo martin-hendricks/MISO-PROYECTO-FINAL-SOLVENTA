@@ -39,8 +39,19 @@ captures/
 
 # OS / editores
 .DS_Store
+Thumbs.db
+*.tmp
 *.swp
 .vscode/
+
+.cursor/
+specs/
+
+# Kotlin / JVM build leftovers
+out/
+*.class
+*.jar
+.env*
 .claude/
 
 # Cursor y especificaciones locales (Spec Kit)
