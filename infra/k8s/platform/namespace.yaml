@@ -1,0 +1,27 @@
+# Namespaces de la plataforma.
+#
+# `solventa`: donde viven los 14 microservicios/BFFs/adaptadores de la
+# aplicación (fuera del alcance de Terraform, según la frontera del PLAN.md).
+# `solventa-observability`: espacio separado para el stack de
+# Prometheus/Grafana que complementa a CloudWatch (ver módulo `observability`
+# de Terraform). Se separa del namespace de la app para poder aplicar
+# NetworkPolicies y cuotas de recursos distintas sin mezclar workloads.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: solventa
+  labels:
+    app.kubernetes.io/part-of: solventa
+    app.kubernetes.io/managed-by: helm
+    solventa.io/entorno: minimo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: solventa-observability
+  labels:
+    app.kubernetes.io/part-of: solventa
+    app.kubernetes.io/managed-by: helm
+    solventa.io/entorno: minimo
+    solventa.io/proposito: observabilidad

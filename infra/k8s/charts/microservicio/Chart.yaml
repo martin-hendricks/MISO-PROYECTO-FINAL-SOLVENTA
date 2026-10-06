@@ -1,0 +1,21 @@
+apiVersion: v2
+name: microservicio
+description: >-
+  Chart genérico de Helm para los componentes desplegables de Solventa
+  (aseguradora digital sobre AWS EKS). Se instancia una vez por cada uno de
+  los 14 componentes (microservicios, BFFs y adaptadores) mediante un archivo
+  de values propio por componente. Este chart NO contiene valores específicos
+  de ningún componente: solo la plantilla común (Deployment, Service, HPA,
+  ExternalSecret, ServiceAccount para IRSA, PodDisruptionBudget) y sus
+  defaults razonables, respetando el contrato de infraestructura definido en
+  infra/terraform (node groups A/B de EKS, Secrets Manager, ECR, CloudWatch).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - solventa
+  - microservicio
+  - eks
+home: https://github.com/martin-hendricks/MISO-PROYECTO-FINAL-SOLVENTA
+maintainers:
+  - name: Solventa Platform Team

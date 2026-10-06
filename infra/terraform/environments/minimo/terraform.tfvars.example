@@ -1,0 +1,51 @@
+# Copiar a terraform.tfvars y ajustar.
+#
+# Los defaults de variables.tf ya levantan el ambiente completo; este archivo
+# sirve para las dos cosas que conviene revisar antes de aplicar: el acceso al
+# clúster y el gasto.
+
+aws_region   = "us-east-1"
+project_name = "solventa"
+environment  = "minimo"
+
+extra_tags = {
+  Curso = "MISW4501"
+  HU    = "HU-78"
+}
+
+# ---------------------------------------------------------------------------
+# Acceso
+# ---------------------------------------------------------------------------
+
+# El default deja la API de Kubernetes abierta a internet. Restringir a las IPs
+# del equipo antes de dejar el ambiente arriba.
+# eks_public_access_cidrs = ["203.0.113.10/32"]
+
+# Correo que recibe las alarmas. AWS envía una confirmación de suscripción.
+# alarm_email = "equipo@ejemplo.com"
+
+# ---------------------------------------------------------------------------
+# Perfil de bajo costo
+# ---------------------------------------------------------------------------
+#
+# Descomentar este bloque para corridas de prueba. Advertencia: apagar la
+# réplica de pólizas incumple EC-LAT-10 y deja de evidenciar la redundancia
+# activa, así que no sirve para la evidencia formal de HU-78.
+#
+# single_nat_gateway          = true
+# polizas_create_read_replica = false
+# polizas_multi_az            = false
+# msk_number_of_broker_nodes  = 2
+# msk_broker_instance_type    = "kafka.t3.small"
+# node_group_a_desired_size   = 1
+# node_group_a_min_size       = 1
+# node_group_b_desired_size   = 1
+# node_group_b_min_size       = 1
+# redis_num_cache_clusters    = 1
+
+# ---------------------------------------------------------------------------
+# Dominio
+# ---------------------------------------------------------------------------
+
+# Sin certificado, el ALB queda solo con listener HTTP.
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxx"
