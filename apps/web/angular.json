@@ -87,7 +87,7 @@
               "src/app/features/user/**",
               "src/app/features/cms/**"
             ],
-            "coverageReporters": ["text-summary"],
+            "coverageReporters": ["text-summary", "lcovonly"],
             "coverageThresholds": {
               "statements": 100,
               "branches": 100,
