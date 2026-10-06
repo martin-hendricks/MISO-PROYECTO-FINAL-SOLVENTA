@@ -4,15 +4,20 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import android.content.Intent
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ActivityScenario
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import org.junit.After
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,7 +25,24 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CustomerShellTest {
     @get:Rule
-    val rule = createAndroidComposeRule<MainActivity>()
+    val rule = createEmptyComposeRule()
+
+    private lateinit var scenario: ActivityScenario<MainActivity>
+
+    @Before
+    fun leaveSplash() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
+        scenario = ActivityScenario.launch(intent)
+        rule.waitUntil(timeoutMillis = 5_000) {
+            rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @After
+    fun closeShell() {
+        scenario.close()
+    }
 
     @Test
     fun givenSignedIn_whenShellOpens_thenExactlyFourDestinations() {
@@ -80,7 +102,7 @@ class CustomerShellTest {
     fun givenRoot_whenSystemBack_thenDestinationDoesNotChange() {
         rule.onNodeWithText("Pólizas").performClick()
         rule.runOnIdle {
-            rule.activity.onBackPressedDispatcher.onBackPressed()
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         }
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
