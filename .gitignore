@@ -8,6 +8,7 @@ venv/
 .coverage
 coverage.xml
 junit.xml
+.env
 
 # Node / Angular
 node_modules/
@@ -40,6 +41,7 @@ captures/
 .DS_Store
 *.swp
 .vscode/
+.claude/
 
 # Cursor y especificaciones locales (Spec Kit)
 .cursor/
