@@ -29,4 +29,21 @@ class SplashViewModelTest {
         assertEquals(1_500L, waited)
         assertEquals(SplashUiState.Finished(PostSplashStep.Login), viewModel.state.value)
     }
+
+    @Test
+    fun givenFinishedSplash_whenStartRunsAgain_thenHoldIsNotRepeated() = runBlocking {
+        var waits = 0
+        val viewModel = SplashViewModel(
+            session = StartupSession.ExistingAccount,
+            resolve = ResolvePostSplashStep(),
+            holdMillis = 10L,
+            awaitHold = { waits += 1 },
+        )
+
+        viewModel.start()
+        viewModel.start()
+
+        assertEquals(1, waits)
+        assertEquals(SplashUiState.Finished(PostSplashStep.Login), viewModel.state.value)
+    }
 }

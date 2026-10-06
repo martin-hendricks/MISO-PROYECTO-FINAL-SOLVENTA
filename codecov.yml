@@ -35,3 +35,10 @@ flag_management:
       paths:
         - apps/mobile/.*
       carryforward: true
+
+# Compose screens and MainActivity run on device. Connected tests cover them;
+# the unit-test JaCoCo report excludes the same files.
+ignore:
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/MainActivity.kt"
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/CustomerShell.kt"
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/SplashScreen.kt"
