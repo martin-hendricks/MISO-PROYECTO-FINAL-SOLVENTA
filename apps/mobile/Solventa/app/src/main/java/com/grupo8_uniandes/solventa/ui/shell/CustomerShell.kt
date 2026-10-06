@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -46,12 +45,15 @@ fun CustomerShell(
     enterSignedInShell: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    if (!enterSignedInShell) {
-        PreLoginAfterSplash(
-            startupSession = startupSession,
-            splashHoldMillis = splashHoldMillis,
-            modifier = modifier,
-        )
+    val splashViewModel = remember(startupSession, splashHoldMillis) {
+        SplashViewModel(session = startupSession, holdMillis = splashHoldMillis)
+    }
+    val splashState by splashViewModel.state.collectAsState()
+    LaunchedEffect(splashViewModel, enterSignedInShell) {
+        if (!enterSignedInShell) splashViewModel.start()
+    }
+    if (!enterSignedInShell && splashState is SplashUiState.Showing) {
+        SplashScreen(modifier = modifier)
         return
     }
 
@@ -111,28 +113,6 @@ fun CustomerShell(
         consumeBack.remove()
         consumeBack.isEnabled = mode == ShellMode.Root || mode == ShellMode.Issuance
         dispatcher?.addCallback(consumeBack)
-    }
-}
-
-@Composable
-private fun PreLoginAfterSplash(
-    startupSession: StartupSession,
-    splashHoldMillis: Long,
-    modifier: Modifier,
-) {
-    val splashViewModel = remember(startupSession, splashHoldMillis) {
-        SplashViewModel(session = startupSession, holdMillis = splashHoldMillis)
-    }
-    val splashState by splashViewModel.state.collectAsState()
-    LaunchedEffect(splashViewModel) {
-        splashViewModel.start()
-    }
-    when (val current = splashState) {
-        SplashUiState.Showing -> SplashScreen(modifier = modifier)
-        is SplashUiState.Finished -> when (current.step) {
-            PostSplashStep.LanguageAndRegion -> LanguageRegionPlaceholder(modifier)
-            PostSplashStep.Login -> LoginPlaceholder(modifier)
-        }
     }
 }
 

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -47,15 +48,14 @@ class SplashFirstUseTest {
     val rule = createEmptyComposeRule()
 
     @Test
-    fun givenFirstUse_whenStartupFinishes_thenLanguageAndRegion() {
+    fun givenFirstUse_whenStartupFinishes_thenInicio() {
         ActivityScenario.launch<MainActivity>(splashIntent(holdMillis = 0L)).use {
-            rule.waitForTag("screen_idioma_region")
+            rule.waitForTag("screen_inicio")
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-            rule.onNodeWithTag("screen_idioma_region").assertIsDisplayed()
-            rule.onNodeWithText("Idioma y región").assertIsDisplayed()
-            rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
-            rule.onAllNodesWithText("es-CO").assertCountEquals(0)
-            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+            rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+            rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+            rule.onNodeWithTag("tab_Inicio").assertIsSelected()
+            rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
         }
     }
@@ -67,17 +67,17 @@ class SplashExistingAccountTest {
     val rule = createEmptyComposeRule()
 
     @Test
-    fun givenExistingAccount_whenStartupFinishes_thenLogin() {
+    fun givenExistingAccount_whenStartupFinishes_thenInicio() {
         val intent = splashIntent(holdMillis = 0L)
             .putExtra(MainActivity.EXTRA_EXISTING_ACCOUNT, true)
         ActivityScenario.launch<MainActivity>(intent).use {
-            rule.waitForTag("screen_login")
+            rule.waitForTag("screen_inicio")
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-            rule.onNodeWithTag("screen_login").assertIsDisplayed()
-            rule.onNodeWithText("Ingresar").assertIsDisplayed()
-            rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
-            rule.onAllNodesWithTag("solventa_text_field").assertCountEquals(0)
-            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+            rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+            rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+            rule.onNodeWithTag("tab_Inicio").assertIsSelected()
+            rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
+            rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
         }
     }
 }
