@@ -1,0 +1,30 @@
+# El ambiente mínimo usa state LOCAL por decisión (ver ../../README.md).
+#
+# Si el equipo necesita compartir el state —más de una persona aplicando sobre
+# el mismo ambiente—, renombra este archivo a backend.tf, crea el bucket y
+# migra:
+#
+#   aws s3api create-bucket \
+#     --bucket solventa-tfstate-<sufijo> \
+#     --region us-east-1
+#
+#   aws s3api put-bucket-versioning \
+#     --bucket solventa-tfstate-<sufijo> \
+#     --versioning-configuration Status=Enabled
+#
+#   terraform init -migrate-state
+#
+# La migración mueve el state existente sin recrear un solo recurso.
+#
+# No hace falta tabla de DynamoDB: desde Terraform 1.10, `use_lockfile = true`
+# hace el bloqueo con un objeto en el mismo bucket.
+#
+# terraform {
+#   backend "s3" {
+#     bucket       = "solventa-tfstate-<sufijo>"
+#     key          = "minimo/terraform.tfstate"
+#     region       = "us-east-1"
+#     encrypt      = true
+#     use_lockfile = true
+#   }
+# }
