@@ -32,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,6 +60,16 @@ jobs:
           path: apps/mobile/Solventa/app/build/reports/coverage/test/debug/
           if-no-files-found: error
           retention-days: 14
+      - name: Upload coverage to Codecov
+        if: success()
+        uses: codecov/codecov-action@v5
+        with:
+          files: apps/mobile/Solventa/app/build/reports/coverage/test/debug/report.xml
+          flags: mobile
+          disable_search: true
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test report
         if: failure()
         uses: actions/upload-artifact@v4
