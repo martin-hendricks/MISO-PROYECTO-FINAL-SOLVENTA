@@ -131,3 +131,13 @@ jobs:
           name: coverage-reports
           path: apps/backend/**/coverage.xml
           if-no-files-found: ignore
+
+      - name: Upload coverage to Codecov
+        if: always() && steps.select.outputs.matrix != '[]'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: apps/backend
+          flags: backend
+          fail_ci_if_error: false
+          handle_no_reports_found: true
