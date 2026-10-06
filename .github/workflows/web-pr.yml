@@ -36,6 +36,16 @@ jobs:
         env:
           CHROME_BIN: ${{ env.CHROME_BIN }}
 
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/web/coverage/solventa-web/lcov.info
+          flags: web
+          fail_ci_if_error: false
+          handle_no_reports_found: true
+
   e2e:
     name: e2e
     needs: unit-tests

@@ -1,0 +1,143 @@
+name: Backend unit tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/**"
+  push:
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/**"
+
+jobs:
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Select services
+        id: select
+        run: python apps/backend/scripts/select_services.py
+
+      - name: Write skip reasons
+        if: steps.select.outputs.skip != '[]'
+        env:
+          SKIP_JSON: ${{ steps.select.outputs.skip }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          skips = json.loads(os.environ["SKIP_JSON"])
+          lines = ["## Optional domains skipped", ""]
+          for item in skips:
+              lines.append(f"- `{item['service']}`: {item['reason']}")
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          with open(summary, "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Run selected services
+        if: steps.select.outputs.matrix != '[]'
+        env:
+          SOLVENTA_TOKEN_SECRET: test-secret
+          MATRIX_JSON: ${{ steps.select.outputs.matrix }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          services = json.loads(os.environ["MATRIX_JSON"])
+          failed = False
+          for service in services:
+              work = os.path.join("apps", "backend", service)
+              print(f"::group::{service}")
+              venv = os.path.join(work, ".venv")
+              created = subprocess.run([sys.executable, "-m", "venv", venv], cwd=work)
+              python = os.path.join(venv, "bin", "python")
+              install = subprocess.run(
+                  [python, "-m", "pip", "install", "-e", ".[test]", "pytest-cov"],
+                  cwd=work,
+              )
+              imported = subprocess.run(
+                  [python, "-c", "from app.main import app"],
+                  cwd=work,
+              )
+              if created.returncode != 0 or install.returncode != 0 or imported.returncode != 0:
+                  failed = True
+                  print("::endgroup::")
+                  continue
+              scan = subprocess.run(
+                  ["grep", "-R", "--include=*.py", "-n", "sleep(", "tests"],
+                  cwd=work,
+              )
+              if scan.returncode == 0:
+                  print("sleep() is not allowed in unit tests")
+                  failed = True
+                  print("::endgroup::")
+                  continue
+              tested = subprocess.run(
+                  [
+                      python,
+                      "-m",
+                      "pytest",
+                      "tests",
+                      "-m",
+                      "not integration and not contract",
+                      "--junitxml=junit.xml",
+                      "--cov",
+                      "--cov-report=xml",
+                  ],
+                  cwd=work,
+              )
+              if tested.returncode != 0:
+                  failed = True
+              print("::endgroup::")
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: Upload JUnit reports
+        if: always() && steps.select.outputs.matrix != '[]'
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-reports
+          path: apps/backend/**/junit.xml
+          if-no-files-found: error
+
+      - name: Upload coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: apps/backend/**/coverage.xml
+          if-no-files-found: ignore
+
+      - name: Upload coverage to Codecov
+        if: always() && steps.select.outputs.matrix != '[]'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: apps/backend
+          flags: backend
+          fail_ci_if_error: false
+          handle_no_reports_found: true
