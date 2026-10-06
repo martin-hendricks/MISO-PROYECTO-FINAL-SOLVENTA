@@ -1,0 +1,9 @@
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-cotizacion
+    ports:
+      - "8000:8000"

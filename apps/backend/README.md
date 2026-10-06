@@ -42,4 +42,5 @@ El CI de backend es el workflow `backend-unit-tests.yml` del PR #10: corre las p
 | Servicio | Estado |
 | --- | --- |
 | `bff-web`, `bff-movil` | Solo README; se implementan sobre `bff-arquetipo` en sus HU |
+| `ms-cotizacion` | HU-3 en curso: `POST /v1/cotizaciones` con catálogo provisional y stubs de HU-4/HU-5 (ver su README) |
 | `ms-*` restantes | Solo README; generar con el script al tomar su HU |
