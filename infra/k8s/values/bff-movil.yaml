@@ -1,0 +1,83 @@
+# bff-movil — BFF de la app Android (Grupo B)
+#
+# Análogo a bff-web pero para el cliente móvil: payloads más pequeños y
+# adaptados a conexiones intermitentes. Recibe tráfico del ALB. Recursos y
+# HPA muy similares a bff-web; se mantiene como archivo separado porque
+# evoluciona a un ritmo distinto (versión de API móvil vs. web).
+
+nombre: bff-movil
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-bff-movil"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "250m"
+    memory: "384Mi"
+  limits:
+    cpu: "600m"
+    memory: "768Mi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 65
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: bff-movil
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local"
+  - nombre: MS_COTIZACION_URL
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+  - nombre: MS_POLIZAS_URL
+    valor: "http://ms-polizas.solventa.svc.cluster.local"

@@ -1,0 +1,69 @@
+# Ingress del AWS Load Balancer Controller.
+#
+# Esquema de rutas elegido: por PATH sobre un único ALB compartido, no por
+# host. Razón: en el ambiente mínimo no hay dominios/certificados ACM
+# definidos todavía (el borde real de nombre de dominio lo resuelve
+# CloudFront + API Gateway, módulo `edge` de Terraform, que es quien queda
+# expuesto a Internet). Este ALB interno de aplicación solo necesita repartir
+# tráfico entre los tres puntos de entrada que sí corren en EKS:
+#
+#   /web    -> bff-web      (portal Angular, vía CloudFront)
+#   /movil  -> bff-movil    (app Android)
+#   /socios -> api-socios   (30+ socios de distribución, vía API Gateway)
+#
+# Los tres Ingress comparten un solo ALB gracias a
+# `alb.ingress.kubernetes.io/group.name`: el controlador crea un único
+# Application Load Balancer y un Listener por grupo, en vez de un ALB por
+# Ingress (ahorro de costo y de configuración DNS).
+#
+# target-type "ip" porque los pods usan VPC CNI (IP de pod enrutable
+# directamente), evitando el salto extra por NodePort.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: solventa-ingress
+  namespace: solventa
+  labels:
+    app.kubernetes.io/part-of: solventa
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: solventa-front
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # TODO: una vez exista certificado ACM para el dominio definitivo, agregar
+    # alb.ingress.kubernetes.io/certificate-arn y
+    # alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    alb.ingress.kubernetes.io/success-codes: "200"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /web
+            pathType: Prefix
+            backend:
+              service:
+                name: bff-web
+                port:
+                  number: 8080
+          - path: /movil
+            pathType: Prefix
+            backend:
+              service:
+                name: bff-movil
+                port:
+                  number: 8080
+          - path: /socios
+            pathType: Prefix
+            backend:
+              service:
+                name: api-socios
+                port:
+                  number: 8080

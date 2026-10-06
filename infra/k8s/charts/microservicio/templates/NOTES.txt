@@ -1,0 +1,41 @@
+Componente Solventa desplegado: {{ include "microservicio.name" . }}
+Release: {{ .Release.Name }} (namespace: {{ .Release.Namespace }})
+Grupo de escalado EKS: {{ .Values.grupoEscalado }}
+
+Recursos creados:
+  - Deployment/{{ include "microservicio.fullname" . }}
+  - Service/{{ include "microservicio.fullname" . }} (puerto {{ .Values.puerto }}, métricas {{ .Values.puertoMetricas }})
+{{- if .Values.hpa.habilitado }}
+  - HorizontalPodAutoscaler/{{ include "microservicio.fullname" . }} ({{ .Values.hpa.minReplicas }}-{{ .Values.hpa.maxReplicas }} réplicas)
+{{- end }}
+{{- if .Values.podDisruptionBudget.habilitado }}
+  - PodDisruptionBudget/{{ include "microservicio.fullname" . }} (minAvailable: {{ .Values.podDisruptionBudget.minAvailable }})
+{{- end }}
+{{- if .Values.externalSecrets.habilitado }}
+  - ExternalSecret(s) proyectando: {{ range .Values.externalSecrets.remoteSecrets }}{{ .nombreRemoto }} {{ end }}
+{{- end }}
+{{- if .Values.serviceAccount.crear }}
+  - ServiceAccount/{{ include "microservicio.serviceAccountName" . }}{{ if .Values.serviceAccount.roleArn }} (IRSA: {{ .Values.serviceAccount.roleArn }}){{ end }}
+{{- end }}
+
+Verificación rápida:
+
+  # Ver los pods de este componente
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+  # Confirmar el nodo/grupo de escalado donde quedaron agendados
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -o wide
+
+  # Ver logs del componente (también disponibles en CloudWatch bajo
+  # /solventa/minimo/{{ include "microservicio.name" . }})
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail=100 -f
+
+{{- if .Values.hpa.habilitado }}
+
+  # Ver el estado del HPA (EC-ESC-02: capacidad ampliada en <= 60s)
+  kubectl get hpa -n {{ .Release.Namespace }} {{ include "microservicio.fullname" . }} -w
+{{- end }}
+
+  # Confirmar el reparto entre AZs (EC-DISP-06)
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} \
+    -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,ZONE:.metadata.labels."topology\.kubernetes\.io/zone"
