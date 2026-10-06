@@ -1,0 +1,16 @@
+{
+  "shell": {
+    "portal": "Solventa",
+    "market": "México",
+    "nav": {
+      "user": "Cliente",
+      "cms": "CMS"
+    },
+    "user": {
+      "title": "Portal del cliente"
+    },
+    "cms": {
+      "title": "Back-office"
+    }
+  }
+}

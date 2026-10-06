@@ -1,0 +1,81 @@
+# ms-suscripcion — suscripción y emisión de póliza (Grupo B)
+#
+# Orquesta la emisión de la póliza tras la cotización y el perfilamiento.
+# Objetivo EC-LAT-06: p99 de emisión <= 3 s. No es tan sensible a latencia
+# individual como cotización/perfilamiento (el presupuesto de 3 s es de punta
+# a punta), por eso recursos y HPA son moderados. Escribe hacia ms-polizas.
+
+nombre: ms-suscripcion
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-suscripcion"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "300m"
+    memory: "512Mi"
+  limits:
+    cpu: "800m"
+    memory: "1Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 65
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: ms-suscripcion
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MS_POLIZAS_URL
+    valor: "http://ms-polizas.solventa.svc.cluster.local"
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local"

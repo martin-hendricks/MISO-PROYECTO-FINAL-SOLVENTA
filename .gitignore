@@ -42,3 +42,7 @@ captures/
 *.swp
 .vscode/
 .claude/
+
+# Cursor y especificaciones locales (Spec Kit)
+.cursor/
+specs/

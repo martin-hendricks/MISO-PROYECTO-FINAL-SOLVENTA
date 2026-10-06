@@ -1,0 +1,83 @@
+# bff-web — BFF del portal Angular (Grupo B)
+#
+# Punto de entrada del tráfico web: recibe las peticiones que el ALB enruta
+# desde CloudFront/API Gateway hacia la SPA. Baja carga computacional (agrega
+# y transforma respuestas de los microservicios), pero necesita buena
+# capacidad de réplicas porque multiplica el tráfico de usuarios finales.
+
+nombre: bff-web
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-bff-web"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 3
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "300m"
+    memory: "384Mi"
+  limits:
+    cpu: "700m"
+    memory: "768Mi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPU: 65
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: bff-web
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 2
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local"
+  - nombre: MS_COTIZACION_URL
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+  - nombre: MS_POLIZAS_URL
+    valor: "http://ms-polizas.solventa.svc.cluster.local"

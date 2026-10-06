@@ -1,0 +1,97 @@
+# ms-cotizacion — MotorRating (Grupo A, cómputo intensivo)
+#
+# Servicio más crítico en latencia de todo Solventa (EC-LAT-01: p95 <= 250 ms)
+# y el que absorbe el pico de EC-ESC-01 (500 -> 50.000 cotizaciones/min,
+# sostenido 30 min). Corre en el Node Group A (c6i.xlarge, taint dedicado) junto
+# con ms-perfilamiento. Recursos generosos y HPA agresivo por CPU para poder
+# escalar horizontalmente dentro de la ventana de <= 60 s de EC-ESC-02.
+# Depende de CacheOF (Redis) para no golpear a Open Finance en cada cotización
+# y del secreto de credenciales de open_finance.
+
+nombre: ms-cotizacion
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-cotizacion"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD, no aquí
+  pullPolicy: IfNotPresent
+
+replicas: 4
+grupoEscalado: "a"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "4Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: true
+    path: /health/live
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 12
+
+hpa:
+  habilitado: true
+  minReplicas: 4
+  maxReplicas: 20
+  targetCPU: 55
+  targetMemory: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-open_finance-credentials
+      nombreLocal: ms-cotizacion-open-finance
+      claves:
+        - clientId
+        - clientSecret
+
+serviceAccount:
+  crear: true
+  nombre: ms-cotizacion
+  roleArn: ""  # No requiere IRSA: solo consume Redis (CacheOF) y el secreto vía External Secrets
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 2
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: REDIS_CACHE_OF_HOST
+    valor: "cache-of.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
+  - nombre: REDIS_CACHE_OF_TTL_SECONDS
+    valor: "300"
+  - nombre: NODE_GROUP
+    valor: "a"
