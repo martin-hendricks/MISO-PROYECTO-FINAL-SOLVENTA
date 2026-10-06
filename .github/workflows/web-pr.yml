@@ -1,0 +1,100 @@
+name: Web
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - 'release/**'
+      - 'hotfix/**'
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/web-pr.yml'
+
+jobs:
+  unit-tests:
+    name: unit-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - uses: browser-actions/setup-chrome@v1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run unit tests
+        run: pnpm test
+        env:
+          CHROME_BIN: ${{ env.CHROME_BIN }}
+
+  e2e:
+    name: e2e
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build and start the nginx image
+        working-directory: .
+        run: |
+          docker build -t solventa-web apps/web
+          docker run -d --name solventa-web -p 8080:80 solventa-web
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/ >/dev/null && exit 0
+            sleep 1
+          done
+          docker logs solventa-web
+          exit 1
+      - name: Run Cucumber
+        run: pnpm e2e
+        env:
+          BASE_URL: http://localhost:8080
+
+  web-unit-tests:
+    name: web-unit-tests
+    needs: [unit-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require unit tests when the web app changed
+        run: |
+          result="${{ needs.unit-tests.result }}"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
+
+  web-e2e:
+    name: web-e2e
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require E2E when the web app changed
+        run: |
+          result="${{ needs.e2e.result }}"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi

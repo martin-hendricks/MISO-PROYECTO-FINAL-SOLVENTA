@@ -1,0 +1,91 @@
+# ms-pagos — pagos, alcance PCI-DSS (Grupo B)
+#
+# Procesa cobros contra la pasarela de pago externa y consume ColaPagos de
+# MSK, por lo que necesita IRSA para autenticación IAM contra el cluster de
+# Kafka. Alcance PCI-DSS: recursos moderados pero con foco en disponibilidad
+# (PDB) más que en autoescalado agresivo, ya que el volumen de pagos es menor
+# y más constante que el de cotizaciones.
+
+nombre: ms-pagos
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-pagos"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "300m"
+    memory: "512Mi"
+  limits:
+    cpu: "800m"
+    memory: "1Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPU: 65
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-pasarela_pago-credentials
+      nombreLocal: ms-pagos-pasarela
+      claves:
+        - clientId
+        - clientSecret
+
+serviceAccount:
+  crear: true
+  nombre: ms-pagos
+  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."ms-pagos"'
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""  # TODO: reemplazar por msk.bootstrap_brokers_sasl_iam (output de Terraform)
+  - nombre: MSK_TOPIC
+    valor: "ColaPagos"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"

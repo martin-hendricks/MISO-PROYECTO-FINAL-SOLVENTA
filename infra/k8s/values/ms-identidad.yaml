@@ -1,0 +1,83 @@
+# ms-identidad — IDP / emisión y validación de JWT (Grupo B)
+#
+# Dependencia transversal: TODOS los demás componentes lo consultan para
+# validar tokens en cada request. Un fallo aquí tira el sistema completo, así
+# que lleva el minReplicas más alto de los servicios "normales" (fuera de
+# cotización/perfilamiento) y un PodDisruptionBudget estricto para que nunca
+# queden menos de 2 réplicas disponibles durante un rollout o un drenado de
+# nodo.
+
+nombre: ms-identidad
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-identidad"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 4
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "400m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 4
+  maxReplicas: 12
+  targetCPU: 60
+  targetMemory: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: ms-identidad
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 2
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: JWT_ISSUER
+    valor: "https://identidad.solventa.internal"
+  - nombre: JWT_ACCESS_TOKEN_TTL_SECONDS
+    valor: "900"

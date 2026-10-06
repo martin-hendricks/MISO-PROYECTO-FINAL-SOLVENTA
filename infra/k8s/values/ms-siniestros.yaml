@@ -1,0 +1,92 @@
+# ms-siniestros — reclamaciones (Grupo B)
+#
+# A diferencia de ms-polizas, aquí NO hay endpoint de lectura separado: la
+# réplica de DBSiniestros es un standby PASIVO (EC-DISP-06/07), no sirve
+# tráfico. Escribe evidencia de siniestros a S3, por eso necesita IRSA
+# (serviceAccount.roleArn) para asumir un rol con permisos de escritura sobre
+# el bucket de evidencias.
+
+nombre: ms-siniestros
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-siniestros"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "300m"
+    memory: "512Mi"
+  limits:
+    cpu: "800m"
+    memory: "1Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPU: 65
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-siniestros-db-credentials
+      nombreLocal: ms-siniestros-db
+      claves:
+        - username
+        - password
+        - host
+        - port
+        - dbname
+
+serviceAccount:
+  crear: true
+  nombre: ms-siniestros
+  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."ms-siniestros"'
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: DB_SINIESTROS_HOST
+    valor: "siniestros.solventa.internal"  # TODO: reemplazar por rds_siniestros.endpoint (output de Terraform)
+  - nombre: S3_EVIDENCIAS_BUCKET
+    valor: ""  # TODO: reemplazar por s3_evidencias.bucket_id (output de Terraform)
