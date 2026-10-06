@@ -33,7 +33,7 @@ tests/contract/          verificación Pact (HU-88), excluida del workflow unita
 
 ## Desarrollo
 
-**Requisitos:** Python 3.12+.
+**Requisitos:** Python 3.12+ (o solo Docker).
 
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
@@ -54,3 +54,21 @@ pytest -m "not integration and not contract" --cov
 ```
 
 El núcleo se simula con `httpx.MockTransport`: sin red.
+
+En la imagen (contexto `apps/backend`):
+
+```bash
+docker build -f Dockerfile --target test -t bff-arquetipo:test .. && docker run --rm bff-arquetipo:test
+```
+
+## Ejecutar con Docker (HU-71)
+
+```bash
+docker compose up --build          # BFF :8080 + núcleo de ejemplo (ms-arquetipo + PostgreSQL)
+```
+
+El contexto de build es `apps/backend`, para que las imágenes de los BFF puedan incluir código compartido del backend.
+
+## Despliegue
+
+Imagen `runtime` detrás del `:ApiGateway` (ALB + WAF) hacia EKS (§1.1.3). El canal solo conoce la URL del gateway.
