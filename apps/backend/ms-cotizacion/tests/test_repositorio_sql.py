@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.application import casos_uso
 from app.config import Settings
+from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_memoria import CatalogoEnMemoria
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
 
@@ -54,3 +55,19 @@ async def test_obtener_vigente_devuelve_la_ultima_version_sembrada(uow):
 
     assert regla.producto == "soat-motocicleta"
     assert resultado.prima_total == resultado.prima_neta + resultado.gastos_expedicion
+
+
+async def test_cotizar_persiste_oferta_completa(uow, catalogo):
+    clave = f"it-{uuid4()}"
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1)
+
+    resultado = await casos_uso.cotizar(
+        uow, catalogo, adaptador, Settings(), clave,
+        uuid4(), uuid4(), uuid4(), "soat-motocicleta", "app-socio", DATOS_VALIDOS,
+    )
+
+    assert resultado.creada
+    async with uow() as tx:
+        oferta_persistida = await tx.ofertas.obtener_por_solicitud(resultado.solicitud.id)
+    assert oferta_persistida is not None
+    assert oferta_persistida.prima == resultado.oferta.prima

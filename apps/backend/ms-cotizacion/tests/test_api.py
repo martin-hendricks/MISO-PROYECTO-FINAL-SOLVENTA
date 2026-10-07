@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import uuid4
 
 CABECERAS = {"Idempotency-Key": "clave-de-prueba-0001"}
@@ -16,13 +17,16 @@ def _payload(**overrides):
     return base
 
 
-def test_solicitud_valida_devuelve_cotizacion_id_201(client):
+def test_solicitud_valida_devuelve_oferta_en_el_mismo_flujo(client):
     respuesta = client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS)
 
     assert respuesta.status_code == 201
     cuerpo = respuesta.json()
     assert "cotizacion_id" in cuerpo
-    assert cuerpo["estado"] == "recibida"
+    assert cuerpo["estado"] == "cotizada"
+    assert Decimal(cuerpo["prima"]) == Decimal(cuerpo["prima_neta"]) + Decimal(cuerpo["gastos_expedicion"])
+    assert "moneda" in cuerpo and "vence_en" in cuerpo
+    assert cuerpo["factor_riesgo_origen"] in ("real", "respaldo")
 
 
 def test_reintento_con_misma_clave_devuelve_200(client):

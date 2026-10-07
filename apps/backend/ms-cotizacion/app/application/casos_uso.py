@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
 from app.config import Settings
 from app.domain.errores import ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
+from app.domain.oferta import Oferta, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
@@ -95,3 +97,61 @@ async def combinar_factor_riesgo(
     orquesta junto con calcular_prima_solicitud."""
     factor = await _obtener_factor_con_respaldo(config, adaptador, usuario_id, producto)
     return aplicar_factor_riesgo(resultado, factor), factor
+
+
+@dataclass(frozen=True)
+class RegistroOferta:
+    solicitud: SolicitudCotizacion
+    oferta: Oferta
+    creada: bool
+
+
+async def cotizar(
+    uow: FabricaUnidadDeTrabajo,
+    catalogo: CatalogoProductos,
+    adaptador_riesgo: AdaptadorPerfilRiesgo,
+    config: Settings,
+    idempotency_key: str,
+    usuario_id: UUID,
+    socio_id: UUID,
+    consentimiento_id: UUID,
+    producto: str,
+    canal: str,
+    datos_riesgo: dict[str, Any],
+) -> RegistroOferta:
+    """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
+    flujo de recibir_solicitud, sin exigir una segunda llamada."""
+    async with uow() as tx:
+        existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
+        if existente is not None:
+            oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
+            return RegistroOferta(existente, oferta_existente, creada=False)
+
+    solicitud = SolicitudCotizacion.crear(
+        idempotency_key, usuario_id, socio_id, consentimiento_id, producto, canal, datos_riesgo, catalogo
+    )
+    # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
+    # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
+    regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
+    resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
+    definicion = catalogo.obtener(producto)
+    oferta = Oferta.emitir(
+        solicitud, regla, resultado, factor, definicion.coberturas, timedelta(minutes=config.oferta_vigencia_minutos)
+    )
+    solicitud.marcar_cotizada()
+
+    async with uow() as tx:
+        await tx.solicitudes.agregar(solicitud)
+        await tx.ofertas.agregar(oferta)
+        await tx.outbox.agregar(solicitud_recibida(solicitud))
+        await tx.outbox.agregar(oferta_emitida(oferta))
+        try:
+            await tx.confirmar()
+            return RegistroOferta(solicitud, oferta, creada=True)
+        except ClaveIdempotenciaDuplicada:
+            pass
+
+    async with uow() as tx:
+        ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
+        ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
+    return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
