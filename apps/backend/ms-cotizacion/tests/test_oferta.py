@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
-from app.domain.oferta import Oferta
+from app.domain.oferta import ConsultaOferta, Oferta
 from app.domain.rating import ReglaRating, ResultadoPrima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo
 
@@ -40,3 +40,21 @@ def test_oferta_no_vigente_despues_de_vencer():
     oferta = Oferta.emitir(SOLICITUD, REGLA, RESULTADO, FACTOR, ["muerte"], timedelta(minutes=60))
 
     assert not oferta.vigente(ahora=oferta.vence_en + timedelta(seconds=1))
+
+
+def test_consulta_oferta_vigente_no_marca_vencida():
+    oferta = Oferta.emitir(SOLICITUD, REGLA, RESULTADO, FACTOR, ["muerte"], timedelta(minutes=60))
+
+    consulta = ConsultaOferta.desde(oferta, ahora=oferta.vence_en - timedelta(seconds=1))
+
+    assert not consulta.vencida
+    assert consulta.oferta.prima == oferta.prima
+
+
+def test_consulta_oferta_vencida_marca_vencida_con_precio_original():
+    oferta = Oferta.emitir(SOLICITUD, REGLA, RESULTADO, FACTOR, ["muerte"], timedelta(minutes=60))
+
+    consulta = ConsultaOferta.desde(oferta, ahora=oferta.vence_en + timedelta(seconds=1))
+
+    assert consulta.vencida
+    assert consulta.oferta.prima == oferta.prima

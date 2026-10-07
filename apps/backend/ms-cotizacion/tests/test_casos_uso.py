@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -5,7 +6,7 @@ import pytest
 
 from app.application import casos_uso
 from app.config import Settings
-from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion
 from app.domain.riesgo import OrigenFactorRiesgo
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
@@ -123,3 +124,44 @@ async def test_cotizar_con_factor_de_respaldo_completa_oferta(uow, catalogo):
 
     assert resultado.creada
     assert resultado.oferta.factor_riesgo_origen == OrigenFactorRiesgo.RESPALDO
+
+
+async def test_reconsultar_no_invoca_motor_de_rating_ni_adaptador(uow, catalogo, monkeypatch):
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0"))
+    registrada = await _cotizar(uow, catalogo, adaptador)
+
+    def _falla_si_se_invoca(*args, **kwargs):
+        raise AssertionError("reconsultar_oferta no debe invocar el motor de rating ni el adaptador")
+
+    monkeypatch.setattr(casos_uso, "calcular_prima_solicitud", _falla_si_se_invoca)
+    monkeypatch.setattr(casos_uso, "combinar_factor_riesgo", _falla_si_se_invoca)
+
+    resultado = await casos_uso.reconsultar_oferta(uow, registrada.solicitud.id)
+
+    assert resultado.consulta.oferta.id == registrada.oferta.id
+
+
+async def test_reconsulta_repetida_es_estable(uow, catalogo):
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0"))
+    registrada = await _cotizar(uow, catalogo, adaptador)
+
+    primera = await casos_uso.reconsultar_oferta(uow, registrada.solicitud.id)
+    segunda = await casos_uso.reconsultar_oferta(uow, registrada.solicitud.id)
+
+    assert primera == segunda
+
+
+async def test_reconsultar_id_inexistente_lanza_no_encontrado(uow):
+    with pytest.raises(NoEncontrado):
+        await casos_uso.reconsultar_oferta(uow, uuid4())
+
+
+async def test_reconsultar_oferta_vencida_devuelve_vencida_true_con_precio_original(uow, catalogo, almacen):
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0"))
+    registrada = await _cotizar(uow, catalogo, adaptador)
+    almacen.ofertas[registrada.oferta.id].vence_en = datetime.now(UTC) - timedelta(seconds=1)
+
+    resultado = await casos_uso.reconsultar_oferta(uow, registrada.solicitud.id)
+
+    assert resultado.consulta.vencida
+    assert resultado.consulta.oferta.prima == registrada.oferta.prima
