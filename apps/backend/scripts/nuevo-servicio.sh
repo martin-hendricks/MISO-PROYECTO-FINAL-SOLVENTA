@@ -51,7 +51,8 @@ tar -C "$origen" \
   -cf - . | tar -C "$destino" -xf -
 
 grep -rlI -e "$arquetipo" -e "$arquetipo_snake" "$destino" | while IFS= read -r archivo; do
-  sed -i "s/${arquetipo}/${nombre}/g; s/${arquetipo_snake}/${nombre_snake}/g" "$archivo"
+  sed -i.bak "s/${arquetipo}/${nombre}/g; s/${arquetipo_snake}/${nombre_snake}/g" "$archivo"
+  rm -f "${archivo}.bak"
 done
 find "$destino" -depth -name "*${arquetipo_snake}*" | while IFS= read -r ruta; do
   mv "$ruta" "$(dirname "$ruta")/$(basename "$ruta" | sed "s/${arquetipo_snake}/${nombre_snake}/g")"
