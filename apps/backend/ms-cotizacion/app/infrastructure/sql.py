@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -17,6 +18,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
 from app.domain.modelos import EstadoSolicitud, EventoDominio, SolicitudCotizacion
+from app.domain.rating import ReglaRating
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 ESQUEMA = "ms_cotizacion"
@@ -40,6 +42,15 @@ class SolicitudFila(Base):
     datos_riesgo: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     estado: Mapped[str]
     creada_en: Mapped[datetime]
+
+
+class ReglaRatingFila(Base):
+    __tablename__ = "regla_rating"
+
+    regla_id: Mapped[UUID] = mapped_column(primary_key=True)
+    producto: Mapped[str]
+    version: Mapped[str]
+    formula: Mapped[str]
 
 
 class OutboxFila(Base):
@@ -103,6 +114,22 @@ class RepositorioSolicitudesSQL:
         fila.estado = solicitud.estado.value
 
 
+class RepositorioReglasRatingSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def obtener_vigente(self, producto: str) -> ReglaRating | None:
+        fila = await self._s.scalar(
+            select(ReglaRatingFila)
+            .where(ReglaRatingFila.producto == producto)
+            .order_by(ReglaRatingFila.version.desc())
+            .limit(1)
+        )
+        if fila is None:
+            return None
+        return ReglaRating(id=fila.regla_id, producto=fila.producto, version=fila.version, formula=json.loads(fila.formula))
+
+
 class OutboxSQL:
     def __init__(self, sesion: AsyncSession) -> None:
         self._s = sesion
@@ -120,6 +147,7 @@ class UnidadDeTrabajoSQL:
     async def __aenter__(self) -> UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.solicitudes = RepositorioSolicitudesSQL(self._sesion)
+        self.reglas_rating = RepositorioReglasRatingSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

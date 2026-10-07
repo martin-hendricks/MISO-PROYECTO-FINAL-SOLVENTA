@@ -47,3 +47,10 @@ async def test_recibir_solicitud_idempotente_y_outbox_en_la_misma_transaccion(uo
             {"id": primero.solicitud.id},
         )
     assert eventos == 1
+
+
+async def test_obtener_vigente_devuelve_la_ultima_version_sembrada(uow):
+    regla, resultado = await casos_uso.calcular_prima_solicitud(uow, "soat-motocicleta", {"cilindraje_cc": 150})
+
+    assert regla.producto == "soat-motocicleta"
+    assert resultado.prima_total == resultado.prima_neta + resultado.gastos_expedicion
