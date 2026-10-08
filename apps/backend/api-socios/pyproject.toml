@@ -1,15 +1,14 @@
 [project]
-name = "ms-cotizacion"
+name = "api-socios"
 version = "0.1.0"
-description = "Cotización de Solventa: catálogo de productos y motor de rating (hexagonal + SQLAlchemy async)"
+description = "API de socios de Solventa: catálogo y cotización embebida para terceros (borde de canal, sin base de datos)"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115,<1.0",
   "uvicorn[standard]>=0.30,<1.0",
   "pydantic>=2.9,<3",
   "pydantic-settings>=2.5,<3",
-  "sqlalchemy[asyncio]>=2.0.30,<2.1",
-  "asyncpg>=0.30,<1.0",
+  "httpx>=0.27,<1.0",
   "prometheus-client>=0.21,<1.0",
 ]
 
@@ -18,7 +17,6 @@ test = [
   "pytest>=8",
   "pytest-asyncio>=0.24",
   "pytest-cov>=5",
-  "httpx>=0.27,<1.0",
 ]
 
 # Pruebas de contrato Pact (HU-2): pytest -m contract
@@ -40,8 +38,8 @@ entrypoint = "app.main:app"
 pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
-  "integration: requiere PostgreSQL (DATABASE_URL); excluida del workflow unitario",
-  "contract: excluida del workflow unitario",
+  "integration: excluida del workflow unitario",
+  "contract: verificación Pact (HU-88); excluida del workflow unitario",
 ]
 
 [tool.coverage.run]

@@ -45,7 +45,7 @@ def test_producto_inexistente(catalogo):
 
 def test_el_catalogo_no_expone_alta_ni_edicion(catalogo):
     publicas = {nombre for nombre in dir(catalogo) if not nombre.startswith("_")}
-    assert publicas == {"obtener"}
+    assert publicas == {"obtener", "listar"}
 
 
 def test_un_segundo_ramo_es_dato_no_codigo():

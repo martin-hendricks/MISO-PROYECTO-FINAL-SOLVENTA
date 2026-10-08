@@ -54,3 +54,4 @@ def test_un_segundo_ramo_persistido_se_sirve_sin_cambiar_codigo():
     assert catalogo.obtener("asistencia-viaje").moneda == "USD"
     assert catalogo.obtener("soat-motocicleta").moneda == "COP"
     assert catalogo.obtener("no-existe") is None
+    assert [p.producto for p in catalogo.listar()] == ["soat-motocicleta", "asistencia-viaje"]

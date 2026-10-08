@@ -11,8 +11,11 @@ tipo="$1"
 nombre="$2"
 
 [[ "$tipo" == "ms" || "$tipo" == "bff" ]] || uso
-if [[ ! "$nombre" =~ ^${tipo}-[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
-  echo "Nombre inválido: '$nombre' debe empezar por '${tipo}-' y usar minúsculas, números y guiones." >&2
+# Un borde de canal de terceros (api-socios) es un BFF: sale de bff-arquetipo.
+prefijos="$tipo"
+[[ "$tipo" == "bff" ]] && prefijos="bff|api"
+if [[ ! "$nombre" =~ ^(${prefijos})-[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
+  echo "Nombre inválido: '$nombre' debe empezar por '${prefijos//|/- o }-' y usar minúsculas, números y guiones." >&2
   exit 2
 fi
 if [[ "$nombre" == "${tipo}-arquetipo" ]]; then

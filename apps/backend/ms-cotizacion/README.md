@@ -10,13 +10,14 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 | HU | Jira | Qué resuelve |
 | --- | --- | --- |
 | HU-1 · Catálogo mínimo (1 ramo) | [SOLV-94](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-94) | Catálogo persistido con el ramo **SOAT motocicleta**: coberturas fijas, sus límites (en SMLDV), la moneda y el rango válido de cada dato del riesgo. Se consulta por código con `casos_uso.consultar_producto`; un código inexistente lanza `ProductoNoEncontrado` (`producto_no_encontrado`, 404). |
+| HU-2 · Publicar catálogo al socio | [SOLV-95](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-95) | Consulta interna `GET /v1/productos` y `GET /v1/productos/{codigo}` que consume `:APISocios`. Verifica el pacto de `api-socios` (`tests/contract/`). |
 
 ### Catálogo de productos (HU-1)
 
 - **Persistido** en `ms_cotizacion.producto`, `cobertura_producto` y `dato_riesgo_producto` (`db/05_ms_cotizacion_catalogo.sql`, extensión aditiva del DDL oficial `db/schema/04_ms_cotizacion.sql`, con la semilla de SOAT motocicleta).
-- **Solo lectura en ejecución:** `CatalogoSQL` lo carga una vez al arrancar (si está vacío, el servicio no arranca) y lo sirve desde memoria, sin un viaje a la BD por cotización (EC-LAT-01). El puerto `CatalogoProductos` solo expone `obtener`; no hay alta ni edición desde ningún canal.
+- **Solo lectura en ejecución:** `CatalogoSQL` lo carga una vez al arrancar (si está vacío, el servicio no arranca) y lo sirve desde memoria, sin un viaje a la BD por cotización (EC-LAT-01). El puerto `CatalogoProductos` solo expone `obtener` y `listar`; no hay alta ni edición desde ningún canal.
 - **Un ramo nuevo es dato, no código** (EC-MOD-01): se agregan filas al catálogo y el contrato no cambia.
-- Sin endpoint HTTP propio: la publicación del catálogo es HU-2 (SOLV-95).
+- La consulta HTTP es interna (HU-2): el socio llega por `api-socios`, nunca directo.
 
 ## Desarrollo
 
@@ -38,6 +39,13 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 
 ```bash
 pytest -m "not integration and not contract" --cov           # unitarias: sin BD ni red
+```
+
+Contrato Pact (HU-2): verifica que el núcleo cumple el pacto que publica `api-socios` en `api-socios/pacts/`:
+
+```bash
+pip install -e ".[test,contract]"
+pytest -m contract
 ```
 
 Integración contra un PostgreSQL 16 con el DDL de `db/` aplicado:
