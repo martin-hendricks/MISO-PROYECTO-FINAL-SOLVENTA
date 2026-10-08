@@ -1,59 +1,42 @@
-from uuid import uuid4
+from dataclasses import FrozenInstanceError
+from decimal import Decimal
 
 import pytest
 
-from app.domain.errores import ReglaDeNegocioViolada
-from app.domain.modelos import SolicitudCotizacion
-from app.infrastructure.catalogo_memoria import CatalogoEnMemoria
+from app.domain.catalogo import RangoNumerico, ValoresPermitidos
 
-DATOS_VALIDOS = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
+from .dobles import SOAT_MOTOCICLETA
 
 
-def _crear(catalogo, **overrides):
-    datos_riesgo = overrides.pop("datos_riesgo", DATOS_VALIDOS)
-    producto = overrides.pop("producto", "soat-motocicleta")
-    return SolicitudCotizacion.crear(
-        idempotency_key="clave-0001",
-        usuario_id=uuid4(),
-        socio_id=uuid4(),
-        consentimiento_id=uuid4(),
-        producto=producto,
-        canal="app-socio",
-        datos_riesgo=datos_riesgo,
-        catalogo=catalogo,
-    )
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [(50, True), ("1800", True), (125.5, True), (49, False), (1801, False), ("abc", False), (None, False), (True, False)],
+)
+def test_rango_numerico_incluye_los_extremos_y_rechaza_lo_no_numerico(valor, esperado):
+    assert RangoNumerico(Decimal("50"), Decimal("1800")).valido(valor) is esperado
 
 
-def test_crear_solicitud_valida():
-    solicitud = _crear(CatalogoEnMemoria())
+def test_valores_permitidos():
+    ciudades = ValoresPermitidos(("bogota", "cali"))
 
-    assert solicitud.estado.value == "recibida"
-    assert solicitud.producto == "soat-motocicleta"
-    assert solicitud.datos_riesgo == DATOS_VALIDOS
-
-
-def test_producto_inexistente_lanza_regla_de_negocio():
-    with pytest.raises(ReglaDeNegocioViolada) as exc:
-        _crear(CatalogoEnMemoria(), producto="producto-inexistente")
-
-    assert exc.value.codigo == "producto_no_encontrado"
+    assert ciudades.valido("cali")
+    assert not ciudades.valido("Cali")
+    assert ciudades.describir_rango() == "uno de: bogota, cali"
 
 
-def test_dato_riesgo_fuera_de_rango_nombra_campo_y_rango():
-    datos = {**DATOS_VALIDOS, "cilindraje_cc": 5000}
+def test_la_definicion_del_producto_es_de_solo_lectura():
+    with pytest.raises(FrozenInstanceError):
+        SOAT_MOTOCICLETA.moneda = "USD"
+    with pytest.raises(TypeError):
+        SOAT_MOTOCICLETA.datos_riesgo["nuevo"] = RangoNumerico(Decimal("0"), Decimal("1"))
+    with pytest.raises(AttributeError):
+        SOAT_MOTOCICLETA.coberturas.append(SOAT_MOTOCICLETA.coberturas[0])
 
-    with pytest.raises(ReglaDeNegocioViolada) as exc:
-        _crear(CatalogoEnMemoria(), datos_riesgo=datos)
 
-    assert exc.value.codigo == "dato_riesgo_fuera_de_rango"
-    assert "cilindraje_cc" in exc.value.mensaje
-
-
-def test_dato_riesgo_faltante():
-    datos = {k: v for k, v in DATOS_VALIDOS.items() if k != "modelo_anio"}
-
-    with pytest.raises(ReglaDeNegocioViolada) as exc:
-        _crear(CatalogoEnMemoria(), datos_riesgo=datos)
-
-    assert exc.value.codigo == "dato_riesgo_faltante"
-    assert "modelo_anio" in exc.value.mensaje
+def test_codigos_de_coberturas_en_orden():
+    assert SOAT_MOTOCICLETA.codigos_coberturas == [
+        "gastos_medicos",
+        "incapacidad_permanente",
+        "muerte",
+        "gastos_transporte",
+    ]

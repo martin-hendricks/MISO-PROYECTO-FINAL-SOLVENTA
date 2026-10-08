@@ -2,9 +2,21 @@ import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from sqlalchemy import DateTime
+
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
 from app.domain.rating import ReglaRating
-from app.infrastructure.sql import ReglaRatingFila, SolicitudFila, _a_dominio
+from app.infrastructure.sql import Base, ReglaRatingFila, SolicitudFila, _a_dominio
+
+
+def test_todas_las_fechas_se_mapean_como_timestamptz():
+    columnas = [
+        f"{tabla.name}.{columna.name}"
+        for tabla in Base.metadata.tables.values()
+        for columna in tabla.columns
+        if isinstance(columna.type, DateTime) and not columna.type.timezone
+    ]
+    assert columnas == []
 
 
 def test_solicitud_fila_a_dominio_ida_y_vuelta():

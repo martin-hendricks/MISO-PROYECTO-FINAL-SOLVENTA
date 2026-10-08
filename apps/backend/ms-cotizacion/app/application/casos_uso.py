@@ -1,97 +1,16 @@
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass
-from typing import Any
-from uuid import UUID
-
-from app.config import Settings
-from app.domain.errores import ReglaDeNegocioViolada
-from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
-from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
-from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
+from app.domain.catalogo import DefinicionProducto
+from app.domain.errores import ProductoNoEncontrado
 from app.ports.catalogo import CatalogoProductos
-from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
-from app.ports.riesgo import AdaptadorPerfilRiesgo
 
 
-@dataclass(frozen=True)
-class RegistroSolicitud:
-    solicitud: SolicitudCotizacion
-    creada: bool
+def consultar_producto(catalogo: CatalogoProductos, producto: str) -> DefinicionProducto:
+    definicion = catalogo.obtener(producto)
+    if definicion is None:
+        raise ProductoNoEncontrado(producto)
+    return definicion
 
 
-async def recibir_solicitud(
-    uow: FabricaUnidadDeTrabajo,
-    catalogo: CatalogoProductos,
-    idempotency_key: str,
-    usuario_id: UUID,
-    socio_id: UUID,
-    consentimiento_id: UUID,
-    producto: str,
-    canal: str,
-    datos_riesgo: dict[str, Any],
-) -> RegistroSolicitud:
-    async with uow() as tx:
-        existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
-        if existente is not None:
-            return RegistroSolicitud(existente, creada=False)
-
-        solicitud = SolicitudCotizacion.crear(
-            idempotency_key, usuario_id, socio_id, consentimiento_id, producto, canal, datos_riesgo, catalogo
-        )
-        await tx.solicitudes.agregar(solicitud)
-        await tx.outbox.agregar(solicitud_recibida(solicitud))
-        try:
-            await tx.confirmar()
-            return RegistroSolicitud(solicitud, creada=True)
-        except ClaveIdempotenciaDuplicada:
-            pass
-
-    async with uow() as tx:
-        ganador = await tx.solicitudes.obtener_por_clave(idempotency_key)
-    if ganador is None:
-        raise RuntimeError("Clave duplicada sin registro visible")
-    return RegistroSolicitud(ganador, creada=False)
-
-
-async def calcular_prima_solicitud(
-    uow: FabricaUnidadDeTrabajo, producto: str, datos_riesgo: dict[str, Any]
-) -> tuple[ReglaRating, ResultadoPrima]:
-    """Solo lectura + cálculo puro: no escribe outbox ni cambia estado. El evento de
-    oferta se publica en HU-99/SOLV-99 cuando se persiste la Oferta completa."""
-    async with uow() as tx:
-        regla = await tx.reglas_rating.obtener_vigente(producto)
-    if regla is None:
-        raise ReglaDeNegocioViolada("regla_rating_no_configurada", f"No hay regla de rating vigente para '{producto}'")
-    resultado = calcular_prima(regla, datos_riesgo)
-    return regla, resultado
-
-
-async def _obtener_factor_con_respaldo(
-    config: Settings, adaptador: AdaptadorPerfilRiesgo, usuario_id: UUID, producto: str
-) -> FactorRiesgo:
-    try:
-        valor = await asyncio.wait_for(
-            adaptador.obtener_factor(usuario_id, producto),
-            timeout=config.factor_riesgo_timeout_maximo_ms / 1000,
-        )
-        return FactorRiesgo(valor=valor, origen=OrigenFactorRiesgo.REAL)
-    except Exception:
-        # Ancho deliberado: el Gherkin exige degradar igual si el adaptador "falla o
-        # llega tarde", sin distinguir el tipo de fallo. El core no debe acoplarse a
-        # qué excepciones lanza un proveedor real de Open Finance — ver ports/riesgo.py.
-        return FactorRiesgo(valor=config.factor_riesgo_valor_respaldo, origen=OrigenFactorRiesgo.RESPALDO)
-
-
-async def combinar_factor_riesgo(
-    config: Settings,
-    adaptador: AdaptadorPerfilRiesgo,
-    usuario_id: UUID,
-    producto: str,
-    resultado: ResultadoPrima,
-) -> tuple[ResultadoPrima, FactorRiesgo]:
-    """Cálculo + resiliencia pura: no escribe outbox ni persiste nada. HU-99/SOLV-99 la
-    orquesta junto con calcular_prima_solicitud."""
-    factor = await _obtener_factor_con_respaldo(config, adaptador, usuario_id, producto)
-    return aplicar_factor_riesgo(resultado, factor), factor
+def listar_productos(catalogo: CatalogoProductos) -> list[DefinicionProducto]:
+    return catalogo.listar()

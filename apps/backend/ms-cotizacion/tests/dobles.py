@@ -1,10 +1,45 @@
 from copy import deepcopy
+from decimal import Decimal
 from uuid import UUID, uuid4
 
+from app.domain.catalogo import (
+    Cobertura,
+    DefinicionProducto,
+    RangoNumerico,
+    UnidadLimite,
+    ValoresPermitidos,
+)
 from app.domain.modelos import EventoDominio, SolicitudCotizacion
 from app.domain.rating import ReglaRating
-from app.infrastructure.catalogo_memoria import CatalogoEnMemoria
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
+
+SOAT_MOTOCICLETA = DefinicionProducto(
+    producto="soat-motocicleta",
+    nombre="SOAT motocicleta",
+    moneda="COP",
+    coberturas=(
+        Cobertura("gastos_medicos", "Gastos médicos", Decimal("800"), UnidadLimite.SMLDV),
+        Cobertura("incapacidad_permanente", "Incapacidad permanente", Decimal("180"), UnidadLimite.SMLDV),
+        Cobertura("muerte", "Muerte y gastos funerarios", Decimal("750"), UnidadLimite.SMLDV),
+        Cobertura("gastos_transporte", "Gastos de transporte", Decimal("10"), UnidadLimite.SMLDV),
+    ),
+    datos_riesgo={
+        "cilindraje_cc": RangoNumerico(Decimal("50"), Decimal("1800")),
+        "modelo_anio": RangoNumerico(Decimal("2000"), Decimal("2026")),
+        "ciudad_circulacion": ValoresPermitidos(("bogota", "medellin", "cali", "barranquilla", "bucaramanga")),
+    },
+)
+
+
+class CatalogoEnMemoria:
+    def __init__(self, *productos: DefinicionProducto) -> None:
+        self._productos = {p.producto: p for p in productos or (SOAT_MOTOCICLETA,)}
+
+    def obtener(self, producto: str) -> DefinicionProducto | None:
+        return self._productos.get(producto)
+
+    def listar(self) -> list[DefinicionProducto]:
+        return list(self._productos.values())
 
 
 class AlmacenEnMemoria:
@@ -81,10 +116,6 @@ class UnidadDeTrabajoEnMemoria:
         self.almacen.eventos.extend(self.eventos_pendientes)
         self.pendientes.clear()
         self.eventos_pendientes.clear()
-
-
-def catalogo_de_prueba() -> CatalogoEnMemoria:
-    return CatalogoEnMemoria()
 
 
 def regla_rating_soat_motocicleta() -> ReglaRating:

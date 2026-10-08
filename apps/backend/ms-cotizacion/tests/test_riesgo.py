@@ -6,7 +6,7 @@ from app.config import Settings
 from app.domain.rating import ResultadoPrima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
-from app.application import casos_uso
+from app.application import casos_uso_cotizaciones as casos_uso
 
 RESULTADO_BASE = ResultadoPrima(prima_neta=Decimal("100.00"), gastos_expedicion=Decimal("10.00"), moneda="COP")
 

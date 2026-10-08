@@ -1,0 +1,430 @@
+{
+  "consumer": {
+    "name": "api-socios"
+  },
+  "interactions": [
+    {
+      "description": "una consulta de soat-motocicleta",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/productos/soat-motocicleta"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "coberturas": [
+              {
+                "codigo": "gastos_medicos",
+                "limite": "800",
+                "nombre": "Gastos médicos",
+                "unidad_limite": "SMLDV"
+              }
+            ],
+            "datos_riesgo": [
+              {
+                "maximo": "1800",
+                "minimo": "50",
+                "nombre": "cilindraje_cc",
+                "tipo": "rango"
+              },
+              {
+                "nombre": "ciudad_circulacion",
+                "tipo": "valores",
+                "valores": [
+                  "bogota"
+                ]
+              }
+            ],
+            "moneda": "COP",
+            "nombre": "SOAT motocicleta",
+            "producto": "soat-motocicleta"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.coberturas": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].codigo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.coberturas[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].unidad_limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(SMLDV|MONEDA)$"
+                }
+              ]
+            },
+            "$.datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "arrayContains",
+                  "variants": [
+                    {
+                      "index": 0,
+                      "rules": {
+                        "$.maximo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.minimo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "index": 1,
+                      "rules": {
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        },
+                        "$.valores": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una consulta de un producto que no existe",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/productos/no-existe"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "codigo": "producto_no_encontrado",
+            "mensaje": "Producto 'no-existe' no existe"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.mensaje": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una consulta del catálogo de productos",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/productos"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "coberturas": [
+                {
+                  "codigo": "gastos_medicos",
+                  "limite": "800",
+                  "nombre": "Gastos médicos",
+                  "unidad_limite": "SMLDV"
+                }
+              ],
+              "datos_riesgo": [
+                {
+                  "maximo": "1800",
+                  "minimo": "50",
+                  "nombre": "cilindraje_cc",
+                  "tipo": "rango"
+                },
+                {
+                  "nombre": "ciudad_circulacion",
+                  "tipo": "valores",
+                  "valores": [
+                    "bogota"
+                  ]
+                }
+              ],
+              "moneda": "COP",
+              "nombre": "SOAT motocicleta",
+              "producto": "soat-motocicleta"
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].coberturas": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].coberturas[*].codigo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].coberturas[*].limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$[*].coberturas[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].coberturas[*].unidad_limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(SMLDV|MONEDA)$"
+                }
+              ]
+            },
+            "$[*].datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "arrayContains",
+                  "variants": [
+                    {
+                      "index": 0,
+                      "rules": {
+                        "$.maximo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.minimo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "index": 1,
+                      "rules": {
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        },
+                        "$.valores": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "$[*].moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "ms-cotizacion"
+  }
+}
