@@ -102,3 +102,6 @@ class CatalogoSQL:
 
     def obtener(self, producto: str) -> DefinicionProducto | None:
         return self._productos.get(producto)
+
+    def listar(self) -> list[DefinicionProducto]:
+        return list(self._productos.values())

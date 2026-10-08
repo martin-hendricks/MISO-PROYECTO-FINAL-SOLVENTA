@@ -10,3 +10,7 @@ def consultar_producto(catalogo: CatalogoProductos, producto: str) -> Definicion
     if definicion is None:
         raise ProductoNoEncontrado(producto)
     return definicion
+
+
+def listar_productos(catalogo: CatalogoProductos) -> list[DefinicionProducto]:
+    return catalogo.listar()
