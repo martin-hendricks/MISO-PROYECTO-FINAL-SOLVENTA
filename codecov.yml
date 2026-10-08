@@ -1,23 +1,25 @@
 coverage:
   status:
+    # Cobertura mínima exigida: 80 %. Por debajo de ese valor el check falla.
     project:
       default:
-        informational: true
+        target: 80%
       backend:
         flags:
           - backend
-        informational: true
+        target: 80%
       web:
         flags:
           - web
-        informational: true
+        target: 80%
       mobile:
         flags:
           - mobile
-        informational: true
+        target: 80%
+    # El código nuevo o modificado en el PR también debe tener al menos 80 %.
     patch:
       default:
-        informational: true
+        target: 80%
 
 flag_management:
   default_rules:
