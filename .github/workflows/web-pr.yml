@@ -7,6 +7,7 @@ on:
       - main
       - 'release/**'
       - 'hotfix/**'
+    types: [opened, synchronize, closed]
     paths:
       - 'apps/web/**'
       - '.github/workflows/web-pr.yml'
@@ -14,12 +15,15 @@ on:
 jobs:
   unit-tests:
     name: unit-tests
+    if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: apps/web/package.json
@@ -49,12 +53,15 @@ jobs:
   e2e:
     name: e2e
     needs: unit-tests
+    if: (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.pull_request.merged == true) && needs.unit-tests.result == 'success'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: apps/web/package.json
@@ -86,7 +93,7 @@ jobs:
   web-unit-tests:
     name: web-unit-tests
     needs: [unit-tests]
-    if: always()
+    if: always() && (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Require unit tests when the web app changed
@@ -99,7 +106,7 @@ jobs:
   web-e2e:
     name: web-e2e
     needs: [e2e]
-    if: always()
+    if: always() && (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - name: Require E2E when the web app changed
