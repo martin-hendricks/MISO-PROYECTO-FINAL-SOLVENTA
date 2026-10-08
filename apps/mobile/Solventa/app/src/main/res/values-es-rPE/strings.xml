@@ -26,4 +26,17 @@
     <string name="quote_title">Cotización</string>
     <string name="policy_detail_title">Detalle de póliza</string>
     <string name="claims_placeholder">Avisos de siniestro</string>
+    <string name="idioma_title">Idioma y región</string>
+    <string name="idioma_heading">Paso 1 de 3 · Elige país e idioma</string>
+    <string name="idioma_helper">Elegir país cambia el idioma de la app y el formato de moneda y fecha. Los montos que ves al lado de cada opción son ejemplos de formato, no el precio de tu seguro.</string>
+    <string name="region_name_co">Español · Colombia</string>
+    <string name="region_name_mx">Español · México</string>
+    <string name="region_name_cl">Español · Chile</string>
+    <string name="region_name_pe">Español · Perú</string>
+    <string name="region_example_co">es-CO · COP · 07/09/2026 · $48.900</string>
+    <string name="region_example_mx">es-MX · MXN · 09/07/2026 · $1,234.56</string>
+    <string name="region_example_cl">es-CL · CLP · 07-09-2026 · $48.900</string>
+    <string name="region_example_pe">es-PE · PEN · 07/09/2026 · S/ 48.90</string>
+    <string name="action_continuar_region">Continuar</string>
+    <string name="action_listo">Listo</string>
 </resources>

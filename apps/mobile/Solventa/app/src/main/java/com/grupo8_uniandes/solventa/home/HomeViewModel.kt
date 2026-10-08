@@ -14,7 +14,7 @@ data class HomeSummary(
     val policy: PolicySummary? = null,
 )
 
-data class ProfileEntry(val id: String, val label: String)
+data class ProfileEntry(val id: String)
 
 data class HomeUiState(
     val summary: HomeSummary = HomeSummary(),
@@ -29,6 +29,6 @@ class HomeViewModel @JvmOverloads constructor(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     val profileEntries: List<ProfileEntry> = listOf(
-        ProfileEntry(id = "IdiomaRegion", label = "Idioma y región"),
+        ProfileEntry(id = "IdiomaRegion"),
     )
 }

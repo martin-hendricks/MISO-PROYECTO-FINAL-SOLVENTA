@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -16,13 +17,15 @@ fun SolventaListRow(
     label: String,
     modifier: Modifier = Modifier,
     testTag: String = "solventa_list_row",
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = SolventaSpacing.minTouch)
             .padding(horizontal = SolventaSpacing.gutter)
-            .testTag(testTag),
+            .testTag(testTag)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
