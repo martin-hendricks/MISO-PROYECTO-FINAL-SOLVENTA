@@ -1,13 +1,5 @@
--- Extensión local de ms-cotizacion sobre el DDL oficial (db/schema/04_ms_cotizacion.sql).
--- No modifica el archivo oficial: lo complementa de forma aditiva y no destructiva.
--- Catálogo mínimo de productos (HU-1/SOLV-94): un ramo con coberturas fijas, sus límites,
--- su moneda y el rango válido de cada dato del riesgo. Es de solo lectura en ejecución:
--- el servicio lo carga al arrancar y ningún canal da de alta ni edita productos.
--- Agregar un ramo es insertar filas aquí, no cambiar código (EC-MOD-01).
-
 CREATE TABLE ms_cotizacion.producto (
     producto_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- Mismo valor que solicitud_cotizacion.producto y regla_rating.producto.
     codigo       TEXT NOT NULL,
     nombre       TEXT NOT NULL,
     ramo         TEXT NOT NULL,
@@ -21,8 +13,6 @@ CREATE TABLE ms_cotizacion.cobertura_producto (
     codigo        TEXT          NOT NULL,
     nombre        TEXT          NOT NULL,
     limite        NUMERIC(14,2) NOT NULL CHECK (limite > 0),
-    -- SMLDV: salarios mínimos legales diarios vigentes (así fija la norma los topes del SOAT).
-    -- MONEDA: el límite está expresado en la moneda del producto.
     unidad_limite TEXT          NOT NULL CHECK (unidad_limite IN ('SMLDV', 'MONEDA')),
     orden         SMALLINT      NOT NULL,
     CONSTRAINT uq_cobertura_producto_codigo UNIQUE (producto_id, codigo)
@@ -46,7 +36,6 @@ CREATE TABLE ms_cotizacion.dato_riesgo_producto (
 CREATE INDEX ix_cobertura_producto ON ms_cotizacion.cobertura_producto (producto_id);
 CREATE INDEX ix_dato_riesgo_producto ON ms_cotizacion.dato_riesgo_producto (producto_id);
 
--- Semilla: SOAT motocicleta. Topes de cobertura en SMLDV según el Decreto 056 de 2015.
 WITH soat AS (
     INSERT INTO ms_cotizacion.producto (codigo, nombre, ramo, moneda)
     VALUES ('soat-motocicleta', 'SOAT motocicleta', 'soat', 'COP')
