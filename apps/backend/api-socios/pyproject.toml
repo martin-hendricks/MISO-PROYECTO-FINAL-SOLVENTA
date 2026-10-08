@@ -19,7 +19,6 @@ test = [
   "pytest-cov>=5",
 ]
 
-# Pruebas de contrato Pact (HU-2): pytest -m contract
 contract = [
   "pact-python>=2.2,<3",
 ]

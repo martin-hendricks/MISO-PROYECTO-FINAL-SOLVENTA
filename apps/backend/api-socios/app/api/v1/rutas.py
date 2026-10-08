@@ -7,8 +7,6 @@ from app.dependencies import obtener_cliente_cotizacion
 
 from .schemas import CatalogoVista, ErrorVista, ProductoVista
 
-# Contrato versionado de solo lectura para socios (HU-2). La credencial de socio
-# (requiere_rol("socio") de solventa_seguridad) se agrega en este router cuando entre HU-76.
 router = APIRouter(prefix="/v1")
 Cotizacion = Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)]
 ERRORES = {404: {"model": ErrorVista}, 503: {"model": ErrorVista}}

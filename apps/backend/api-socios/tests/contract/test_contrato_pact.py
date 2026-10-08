@@ -1,10 +1,3 @@
-"""Contrato Pact (CDC) de :APISocios con ms-cotizacion para el catálogo (HU-2 / SOLV-95, PI-01).
-
-api-socios es el consumidor: este test genera el pacto en api-socios/pacts/ y
-ms-cotizacion lo verifica en tests/contract/. Correr con `pytest -m contract`
-(requiere `pip install -e ".[test,contract]"`).
-"""
-
 from decimal import Decimal
 from pathlib import Path
 

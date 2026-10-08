@@ -1,4 +1,3 @@
-# Característica: Publicar catálogo al socio (HU-2 / SOLV-95)
 import httpx
 
 from .conftest import PRODUCTO
@@ -19,10 +18,8 @@ PRODUCTO_PUBLICADO = {
 
 
 def test_socio_consulta_el_catalogo(client):
-    # Cuando solicita el catálogo a la API de socios
     respuesta = client.get("/v1/catalogo")
 
-    # Entonces recibe producto, coberturas, límites y moneda
     assert respuesta.status_code == 200
     assert respuesta.json() == {"productos": [PRODUCTO_PUBLICADO]}
 

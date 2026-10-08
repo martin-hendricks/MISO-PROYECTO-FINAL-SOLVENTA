@@ -9,7 +9,6 @@ from app.config import Settings
 from app.dependencies import obtener_cliente_cotizacion
 from app.main import crear_app
 
-# Respuesta de ms-cotizacion (GET /v1/productos/{codigo}), con un campo interno que no debe llegar al socio.
 PRODUCTO = {
     "producto": "soat-motocicleta",
     "nombre": "SOAT motocicleta",

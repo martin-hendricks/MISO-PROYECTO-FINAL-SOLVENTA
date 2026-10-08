@@ -11,11 +11,6 @@ class ModeloVista(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
 
 
-# Contrato público del catálogo para socios (HU-2). Es propio de Solventa: no replica el
-# modelo del núcleo ni sus tablas. Un campo nuevo siempre entra como opcional (EC-MOD-01);
-# quitar o renombrar uno es /v2.
-
-
 class LimiteVista(ModeloVista):
     valor: Decimal
     unidad: str

@@ -8,7 +8,6 @@ from app.ports.catalogo import CatalogoProductos
 
 from .schemas import ErrorSalida, ProductoSalida
 
-# Consulta interna del catálogo (HU-1). La consume :APISocios (HU-2); el canal nunca llega aquí directo.
 router = APIRouter(prefix="/v1/productos", tags=["productos"])
 Catalogo = Annotated[CatalogoProductos, Depends(obtener_catalogo)]
 

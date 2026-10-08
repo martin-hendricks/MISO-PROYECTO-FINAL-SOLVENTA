@@ -1,10 +1,3 @@
-"""Verificación de proveedor: ms-cotizacion cumple el pacto que publica :APISocios (HU-2, PI-01).
-
-El pacto lo genera y versiona api-socios en api-socios/pacts/. Si un cambio del catálogo
-rompe lo que el socio consume, esta prueba falla. Correr con `pytest -m contract`
-(requiere `pip install -e ".[test,contract]"`).
-"""
-
 import threading
 from pathlib import Path
 

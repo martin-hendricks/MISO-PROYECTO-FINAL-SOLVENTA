@@ -11,7 +11,6 @@ tipo="$1"
 nombre="$2"
 
 [[ "$tipo" == "ms" || "$tipo" == "bff" ]] || uso
-# Un borde de canal de terceros (api-socios) es un BFF: sale de bff-arquetipo.
 prefijos="$tipo"
 [[ "$tipo" == "bff" ]] && prefijos="bff|api"
 if [[ ! "$nombre" =~ ^(${prefijos})-[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
