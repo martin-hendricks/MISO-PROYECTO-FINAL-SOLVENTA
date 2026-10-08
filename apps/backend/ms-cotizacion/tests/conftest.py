@@ -8,12 +8,7 @@ from app.dependencies import obtener_adaptador_perfil_riesgo, obtener_catalogo, 
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.main import crear_app
 
-from .dobles import (
-    AlmacenEnMemoria,
-    UnidadDeTrabajoEnMemoria,
-    catalogo_de_prueba,
-    regla_rating_soat_motocicleta,
-)
+from .dobles import AlmacenEnMemoria, CatalogoEnMemoria, UnidadDeTrabajoEnMemoria, regla_rating_soat_motocicleta
 
 
 @pytest.fixture
@@ -30,8 +25,8 @@ def uow(almacen):
 
 
 @pytest.fixture
-def catalogo():
-    return catalogo_de_prueba()
+def catalogo() -> CatalogoEnMemoria:
+    return CatalogoEnMemoria()
 
 
 @pytest.fixture
