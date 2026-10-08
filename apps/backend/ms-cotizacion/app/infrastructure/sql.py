@@ -175,11 +175,11 @@ class RepositorioSolicitudesSQL:
                 creada_en=solicitud.creada_en,
             )
         )
-        # Flush inmediato: cotizar() agrega la oferta en la misma transacción y su FK
-        # (oferta_seguro.solicitud_id) exige que esta fila ya exista en la BD. Sin este
-        # flush, el unit-of-work de SQLAlchemy puede reordenar el INSERT de oferta_seguro
-        # antes que el de solicitud_cotizacion (no hay relationship() ORM entre ambas),
-        # violando la FK.
+        # Flush inmediato: cotizar() (HU-99) agrega la oferta en la misma transacción y
+        # su FK (oferta_seguro.solicitud_id) exige que esta fila ya exista en la BD. Sin
+        # este flush, el unit-of-work de SQLAlchemy puede reordenar el INSERT de
+        # oferta_seguro antes que el de solicitud_cotizacion (no hay relationship() ORM
+        # entre ambas), violando la FK.
         await self._s.flush()
 
     async def actualizar(self, solicitud: SolicitudCotizacion) -> None:

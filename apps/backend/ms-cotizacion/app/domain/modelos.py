@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from .errores import ReglaDeNegocioViolada, TransicionInvalida
+from .errores import ProductoNoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 
 if TYPE_CHECKING:
     from app.ports.catalogo import CatalogoProductos
@@ -45,7 +45,7 @@ class SolicitudCotizacion:
     ) -> SolicitudCotizacion:
         definicion = catalogo.obtener(producto)
         if definicion is None:
-            raise ReglaDeNegocioViolada("producto_no_encontrado", f"Producto '{producto}' no existe en el catálogo")
+            raise ProductoNoEncontrado(producto)
 
         for campo, regla in definicion.datos_riesgo.items():
             if campo not in datos_riesgo:

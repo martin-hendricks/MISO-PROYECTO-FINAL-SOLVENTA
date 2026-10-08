@@ -1,55 +1,67 @@
-from datetime import datetime
+from __future__ import annotations
+
 from decimal import Decimal
-from typing import Any
-from uuid import UUID
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from app.domain.modelos import SolicitudCotizacion
-from app.domain.oferta import ConsultaOferta, Oferta
-
-
-class SolicitarCotizacionEntrada(BaseModel):
-    usuario_id: UUID
-    socio_id: UUID
-    consentimiento_id: UUID
-    producto: str = Field(min_length=1, max_length=80)
-    canal: str = Field(min_length=1, max_length=40)
-    datos_riesgo: dict[str, Any] = Field(default_factory=dict)
+from app.domain.catalogo import (
+    Cobertura,
+    DefinicionDatoRiesgo,
+    DefinicionProducto,
+    RangoNumerico,
+    ValoresPermitidos,
+)
 
 
-class CotizacionSalida(BaseModel):
-    cotizacion_id: UUID
-    estado: str
-    producto: str
-    creada_en: datetime
-    prima: Decimal
-    prima_neta: Decimal
-    gastos_expedicion: Decimal
-    moneda: str
-    vence_en: datetime
-    factor_riesgo_origen: str
-    vencida: bool = False
+class CoberturaSalida(BaseModel):
+    codigo: str
+    nombre: str
+    limite: Decimal
+    unidad_limite: str
 
     @classmethod
-    def desde(cls, solicitud: SolicitudCotizacion, oferta: Oferta) -> "CotizacionSalida":
+    def desde(cls, cobertura: Cobertura) -> CoberturaSalida:
         return cls(
-            cotizacion_id=solicitud.id,
-            estado=solicitud.estado.value,
-            producto=solicitud.producto,
-            creada_en=solicitud.creada_en,
-            prima=oferta.prima,
-            prima_neta=oferta.prima_neta,
-            gastos_expedicion=oferta.gastos_expedicion,
-            moneda=oferta.moneda,
-            vence_en=oferta.vence_en,
-            factor_riesgo_origen=oferta.factor_riesgo_origen.value,
+            codigo=cobertura.codigo,
+            nombre=cobertura.nombre,
+            limite=cobertura.limite,
+            unidad_limite=cobertura.unidad_limite.value,
         )
 
+
+class DatoRiesgoSalida(BaseModel):
+    nombre: str
+    tipo: Literal["rango", "valores"]
+    minimo: Decimal | None = None
+    maximo: Decimal | None = None
+    valores: list[str] | None = None
+
     @classmethod
-    def desde_consulta(cls, solicitud: SolicitudCotizacion, consulta: ConsultaOferta) -> "CotizacionSalida":
-        base = cls.desde(solicitud, consulta.oferta)
-        return base.model_copy(update={"vencida": consulta.vencida})
+    def desde(cls, nombre: str, dato: DefinicionDatoRiesgo) -> DatoRiesgoSalida:
+        if isinstance(dato, RangoNumerico):
+            return cls(nombre=nombre, tipo="rango", minimo=dato.minimo, maximo=dato.maximo)
+        if isinstance(dato, ValoresPermitidos):
+            return cls(nombre=nombre, tipo="valores", valores=list(dato.valores))
+        raise TypeError(f"Dato de riesgo sin representación pública: {type(dato).__name__}")
+
+
+class ProductoSalida(BaseModel):
+    producto: str
+    nombre: str
+    moneda: str
+    coberturas: list[CoberturaSalida]
+    datos_riesgo: list[DatoRiesgoSalida]
+
+    @classmethod
+    def desde(cls, definicion: DefinicionProducto) -> ProductoSalida:
+        return cls(
+            producto=definicion.producto,
+            nombre=definicion.nombre,
+            moneda=definicion.moneda,
+            coberturas=[CoberturaSalida.desde(c) for c in definicion.coberturas],
+            datos_riesgo=[DatoRiesgoSalida.desde(n, d) for n, d in definicion.datos_riesgo.items()],
+        )
 
 
 class ErrorSalida(BaseModel):

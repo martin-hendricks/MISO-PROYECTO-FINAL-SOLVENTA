@@ -21,3 +21,11 @@ class TransicionInvalida(ErrorDominio):
 
 class NoEncontrado(ErrorDominio):
     codigo = "no_encontrado"
+
+
+class ProductoNoEncontrado(NoEncontrado):
+    codigo = "producto_no_encontrado"
+
+    def __init__(self, producto: str) -> None:
+        super().__init__(f"Producto '{producto}' no existe en el catálogo")
+        self.producto = producto

@@ -4,10 +4,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from app.application import casos_uso
+from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
-from app.infrastructure.catalogo_memoria import CatalogoEnMemoria
+from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
 
 pytestmark = [
@@ -26,8 +26,12 @@ async def uow():
 
 
 @pytest.fixture
-def catalogo():
-    return CatalogoEnMemoria()
+async def catalogo():
+    motor = crear_motor(Settings())
+    try:
+        yield await CatalogoSQL.cargar(motor)
+    finally:
+        await motor.dispose()
 
 
 async def test_recibir_solicitud_idempotente_y_outbox_en_la_misma_transaccion(uow, catalogo):
