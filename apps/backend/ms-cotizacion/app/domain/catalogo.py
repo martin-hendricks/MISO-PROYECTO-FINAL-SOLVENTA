@@ -56,8 +56,6 @@ class ValoresPermitidos:
 
 @dataclass(frozen=True)
 class DefinicionProducto:
-    """Producto del catálogo. Inmutable: el catálogo es de solo lectura en ejecución (HU-1)."""
-
     producto: str
     nombre: str
     moneda: str

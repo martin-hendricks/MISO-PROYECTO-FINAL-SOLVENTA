@@ -84,13 +84,6 @@ def a_definicion(fila: ProductoFila) -> DefinicionProducto:
 
 
 class CatalogoSQL:
-    """Catálogo persistido en el almacén de ms-cotizacion (HU-1).
-
-    Se lee una sola vez al arrancar y se sirve desde memoria: el catálogo es de solo lectura
-    en ejecución y así la cotización no paga un viaje a la BD (EC-LAT-01). Un producto nuevo
-    se incorpora con filas en db/, no con código (EC-MOD-01).
-    """
-
     def __init__(self, productos: Iterable[DefinicionProducto]) -> None:
         self._productos = {p.producto: p for p in productos}
 

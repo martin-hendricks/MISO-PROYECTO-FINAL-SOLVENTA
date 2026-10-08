@@ -23,6 +23,4 @@ __all__ = [
 
 
 class CatalogoProductos(Protocol):
-    """Solo lectura: no hay operación de alta ni de edición de productos (HU-1)."""
-
     def obtener(self, producto: str) -> DefinicionProducto | None: ...
