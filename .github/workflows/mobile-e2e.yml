@@ -1,0 +1,50 @@
+name: Mobile E2E
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types: [closed]
+    paths:
+      - 'apps/mobile/Solventa/**'
+      - '.github/workflows/mobile-e2e.yml'
+
+jobs:
+  android-e2e:
+    name: android-e2e
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            apps/mobile/Solventa/**/*.gradle*
+            apps/mobile/Solventa/**/*.gradle.kts
+            apps/mobile/Solventa/gradle/libs.versions.toml
+            apps/mobile/Solventa/gradle/wrapper/gradle-wrapper.properties
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' 24333f8a63b6825ea9c5514f83c2829b004d1fee > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          working-directory: apps/mobile/Solventa
+          script: ./gradlew :app:connectedDebugAndroidTest
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-report
+          path: apps/mobile/Solventa/app/build/reports/androidTests/connected/
