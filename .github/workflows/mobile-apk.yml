@@ -1,4 +1,4 @@
-name: Solventa APK
+name: Mobile APK
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - 'apps/mobile/Solventa/**'
-      - '.github/workflows/solventa-apk.yml'
+      - '.github/workflows/mobile-apk.yml'
 
 jobs:
   apk:

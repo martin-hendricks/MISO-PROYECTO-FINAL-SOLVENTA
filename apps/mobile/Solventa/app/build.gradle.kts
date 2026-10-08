@@ -21,11 +21,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableUnitTestCoverage = true
+        }
         release {
             optimization {
                 enable = false
             }
         }
+    }
+    testCoverage {
+        jacocoVersion = libs.versions.jacoco.get()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -56,4 +62,22 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// AGP 9 only exposes the JaCoCo version. Compose screens and the activity run on a
+// device, so connected tests cover them and the unit-test report leaves them out.
+val unitTestCoverageExcludedSources = setOf(
+    "MainActivity.kt",
+    "CustomerShell.kt",
+    "SplashScreen.kt",
+)
+
+val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {
+    report.set(layout.buildDirectory.file("reports/coverage/test/debug/report.xml"))
+    excludedSources.set(unitTestCoverageExcludedSources)
+    dependsOn("createDebugUnitTestCoverageReport")
+}
+
+tasks.matching { it.name == "createDebugUnitTestCoverageReport" }.configureEach {
+    finalizedBy(filterDebugUnitTestCoverageReport)
 }

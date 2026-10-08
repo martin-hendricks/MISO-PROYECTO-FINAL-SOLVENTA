@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.R
@@ -38,9 +40,24 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
 
 @Composable
 fun CustomerShell(
-    signedIn: Boolean = true,
+    startupSession: StartupSession = StartupSession.FirstUse,
+    splashHoldMillis: Long = SplashHoldMillis,
+    enterSignedInShell: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val splashViewModel = remember(startupSession, splashHoldMillis) {
+        SplashViewModel(session = startupSession, holdMillis = splashHoldMillis)
+    }
+    val splashState by splashViewModel.state.collectAsState()
+    LaunchedEffect(splashViewModel, enterSignedInShell) {
+        if (!enterSignedInShell) splashViewModel.start()
+    }
+    if (!enterSignedInShell && splashState is SplashUiState.Showing) {
+        SplashScreen(modifier = modifier)
+        return
+    }
+
+    val signedIn = true
     val navController = rememberNavController()
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsState()
