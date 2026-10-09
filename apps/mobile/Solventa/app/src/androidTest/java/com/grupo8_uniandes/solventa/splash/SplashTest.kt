@@ -89,7 +89,7 @@ class SplashPermissionTest {
     val rule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun givenInstall_whenPackageInspected_thenNoCameraPhotosOrGps() {
+    fun givenInstall_whenPackageInspected_thenNoPhotosOrGps() {
         val context = rule.activity
         @Suppress("DEPRECATION")
         val info = context.packageManager.getPackageInfo(
@@ -98,7 +98,6 @@ class SplashPermissionTest {
         )
         val requested = info.requestedPermissions?.toSet().orEmpty()
         listOf(
-            Manifest.permission.CAMERA,
             Manifest.permission.READ_MEDIA_IMAGES,
             Manifest.permission.READ_EXTERNAL_STORAGE,
             Manifest.permission.ACCESS_FINE_LOCATION,

@@ -39,4 +39,21 @@
     <string name="region_example_pe">es-PE · PEN · 07/09/2026 · S/ 48.90</string>
     <string name="action_continuar_region">Continuar</string>
     <string name="action_listo">Listo</string>
+    <string name="onboarding_wordmark">Solventa</string>
+    <string name="onboarding_step">1 de 2 · Cuenta</string>
+    <string name="onboarding_title">Crea tu cuenta</string>
+    <string name="onboarding_intro">Datos, documento y contraseña para ingresar después.</string>
+    <string name="onboarding_photo">Foto de una sola cara, sin flash.</string>
+    <string name="onboarding_nombre">Nombre</string>
+    <string name="onboarding_nombre_hint">Como aparece en tu documento</string>
+    <string name="onboarding_apellidos">Apellidos</string>
+    <string name="onboarding_correo">Correo electrónico</string>
+    <string name="onboarding_correo_hint">El mismo que usarás para ingresar</string>
+    <string name="onboarding_correo_error">El correo no es válido.</string>
+    <string name="onboarding_tipo">Tipo</string>
+    <string name="onboarding_numero">Número de documento</string>
+    <string name="onboarding_contrasena">Contraseña</string>
+    <string name="action_continuar_onboarding">Continuar</string>
+    <string name="action_ya_tengo_cuenta">Ya tengo cuenta</string>
+    <string name="login_placeholder">Login</string>
 </resources>

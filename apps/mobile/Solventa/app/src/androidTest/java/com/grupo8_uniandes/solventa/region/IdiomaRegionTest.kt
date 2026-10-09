@@ -58,7 +58,6 @@ class IdiomaRegionTest {
         rule.onNodeWithTag("region_es_CO").assertIsSelected()
         rule.onNodeWithTag("region_check", useUnmergedTree = true).assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
-        assertFalse(requestedPermissions().contains(Manifest.permission.CAMERA))
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_MEDIA_IMAGES))
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_EXTERNAL_STORAGE))
         assertFalse(requestedPermissions().contains(Manifest.permission.ACCESS_FINE_LOCATION))
@@ -72,11 +71,11 @@ class IdiomaRegionTest {
     }
 
     @Test
-    fun givenPicker_whenContinuar_thenHomeWithoutPermissions() {
+    fun givenPicker_whenContinuar_thenOnboardingWithoutPermissions() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_inicio")
-        rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+        rule.waitForTag("screen_onboarding")
+        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
     }
@@ -95,10 +94,11 @@ class IdiomaRegionTest {
     fun givenContinuar_whenRelaunched_thenPickerStaysClosed() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_inicio")
+        rule.waitForTag("screen_onboarding")
         rule.activityRule.scenario.recreate()
-        rule.waitForTag("screen_inicio")
+        rule.waitForTag("screen_onboarding")
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
 
     @Test
