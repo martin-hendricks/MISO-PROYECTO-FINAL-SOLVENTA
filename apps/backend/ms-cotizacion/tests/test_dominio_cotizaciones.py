@@ -2,8 +2,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain.errores import ProductoNoEncontrado, ReglaDeNegocioViolada
-from app.domain.modelos import SolicitudCotizacion
+from app.domain.errores import ProductoNoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
+from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
 
 from .dobles import CatalogoEnMemoria
 
@@ -58,3 +58,13 @@ def test_dato_riesgo_faltante():
 
     assert exc.value.codigo == "dato_riesgo_faltante"
     assert "modelo_anio" in exc.value.mensaje
+
+
+def test_marcar_cotizada_en_estado_invalido_lanza_transicion_invalida():
+    solicitud = _crear(CatalogoEnMemoria())
+    solicitud.marcar_cotizada()
+
+    with pytest.raises(TransicionInvalida):
+        solicitud.marcar_cotizada()
+
+    assert solicitud.estado is EstadoSolicitud.COTIZADA
