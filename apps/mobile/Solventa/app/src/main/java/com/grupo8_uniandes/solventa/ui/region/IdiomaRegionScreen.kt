@@ -27,7 +27,6 @@ import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
-import com.grupo8_uniandes.solventa.ui.components.SolventaIconButton
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 
@@ -36,7 +35,6 @@ fun IdiomaRegionScreen(
     draft: Region,
     onSelect: (Region) -> Unit,
     onContinue: () -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -48,19 +46,11 @@ fun IdiomaRegionScreen(
             .testTag("screen_idioma_region"),
         verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s16),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SolventaIconButton(
-                icon = painterResource(R.drawable.back),
-                contentDescription = stringResource(R.string.action_back),
-                onClick = onBack,
-                testTag = "idioma_back",
-            )
-            Text(
-                text = stringResource(R.string.idioma_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+        Text(
+            text = stringResource(R.string.idioma_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Text(
             text = stringResource(R.string.idioma_heading),
             style = MaterialTheme.typography.headlineMedium,

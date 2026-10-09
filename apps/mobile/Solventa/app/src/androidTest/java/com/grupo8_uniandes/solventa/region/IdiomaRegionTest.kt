@@ -102,9 +102,9 @@ class IdiomaRegionTest {
     }
 
     @Test
-    fun givenPicker_whenBackPressed_thenScreenStays() {
+    fun givenPicker_whenShown_thenBackControlIsAbsent() {
         rule.waitForTag("screen_idioma_region")
-        rule.onNodeWithTag("idioma_back").performClick()
+        rule.onAllNodesWithTag("idioma_back").assertCountEquals(0)
         rule.onNodeWithTag("screen_idioma_region").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }

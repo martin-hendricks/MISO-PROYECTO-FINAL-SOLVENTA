@@ -109,7 +109,6 @@ private fun FirstLaunchLanguage(
         draft = state.choice.draftRegion,
         onSelect = viewModel::select,
         onContinue = viewModel::confirm,
-        onBack = {},
         modifier = modifier,
     )
 }
