@@ -2,6 +2,9 @@ package com.grupo8_uniandes.solventa.shell
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
@@ -9,6 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -64,7 +68,7 @@ class PerfilScreenTest {
     fun givenProfile_whenSheetDismissed_thenAppliedRegionStaysColombia() {
         rule.setContent {
             SolventaTheme {
-                PerfilScreen()
+                PerfilScreen(modifier = Modifier)
             }
         }
 
@@ -100,4 +104,39 @@ class PerfilScreenTest {
     private fun appliedTag(): String? =
         context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE)
             .getString(KeyAppliedRegion, null)
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w480dp-h2000dp")
+class PerfilScreenWithoutActivityTest {
+    @get:Rule
+    val rule = createComposeRule()
+
+    private val context = ApplicationProvider.getApplicationContext<Context>()
+
+    @Before
+    fun clearPrefs() {
+        context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    @Test
+    fun givenNoActivity_whenListo_thenAppliedRegionIsStored() {
+        rule.setContent {
+            SolventaTheme {
+                CompositionLocalProvider(LocalContext provides context) {
+                    PerfilScreen()
+                }
+            }
+        }
+
+        rule.onNodeWithText("Idioma y región").performClick()
+        rule.onNodeWithText("Español · México").performClick()
+        rule.onNodeWithTag("action_listo").performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(
+            "es-MX",
+            context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE)
+                .getString(KeyAppliedRegion, null),
+        )
+    }
 }

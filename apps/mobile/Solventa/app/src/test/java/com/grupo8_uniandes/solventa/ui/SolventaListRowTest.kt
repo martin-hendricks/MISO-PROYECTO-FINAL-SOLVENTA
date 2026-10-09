@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui
 
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -22,11 +23,11 @@ class SolventaListRowTest {
     fun givenNoClick_whenShown_thenRowStays() {
         rule.setContent {
             SolventaTheme {
-                SolventaListRow(label = "Idioma y región", testTag = "profile_entry")
+                SolventaListRow(label = "Idioma y región")
             }
         }
 
-        rule.onNodeWithTag("profile_entry").assertExists()
+        rule.onNodeWithTag("solventa_list_row").assertExists()
     }
 
     @Test
@@ -36,6 +37,7 @@ class SolventaListRowTest {
             SolventaTheme {
                 SolventaListRow(
                     label = "Idioma y región",
+                    modifier = Modifier,
                     testTag = "profile_entry",
                     onClick = { clicks += 1 },
                 )

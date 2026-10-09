@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.navigation
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -40,7 +41,8 @@ class CustomerNavHostTest {
                 CustomerNavHost(
                     navController = rememberNavController(),
                     homeState = HomeUiState(),
-                    contentPadding = PaddingValues(0.dp),
+                    contentPadding = PaddingValues(8.dp),
+                    modifier = Modifier,
                     startDestination = PerfilRoute,
                 )
             }

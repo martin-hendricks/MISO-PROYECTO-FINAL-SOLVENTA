@@ -1,5 +1,7 @@
 package com.grupo8_uniandes.solventa.region
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,6 +16,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionScreen
+import com.grupo8_uniandes.solventa.ui.region.RegionOptionCopy
+import com.grupo8_uniandes.solventa.ui.region.RegionOptionRow
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -56,5 +60,30 @@ class IdiomaRegionScreenTest {
         rule.onNodeWithTag("action_continuar").performClick()
         assertEquals(Region.Mexico, draft)
         assertEquals(1, continued)
+    }
+
+    @Test
+    fun givenExplicitModifier_whenRowShown_thenSelectedStateStays() {
+        rule.setContent {
+            SolventaTheme {
+                Column {
+                    IdiomaRegionScreen(
+                        draft = Region.Chile,
+                        onSelect = {},
+                        onContinue = {},
+                        modifier = Modifier,
+                    )
+                    RegionOptionRow(
+                        option = RegionOptionCopy(Region.Peru, "Español · Perú", "S/ 48.90 PEN"),
+                        selected = true,
+                        onSelect = {},
+                        modifier = Modifier,
+                    )
+                }
+            }
+        }
+
+        rule.onNodeWithTag("screen_idioma_region").assertIsDisplayed()
+        rule.onAllNodesWithTag("region_es_PE").assertCountEquals(2)
     }
 }

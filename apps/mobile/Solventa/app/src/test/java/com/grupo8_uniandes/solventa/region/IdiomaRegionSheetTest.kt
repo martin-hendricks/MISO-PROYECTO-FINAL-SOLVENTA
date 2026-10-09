@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.region
 
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -39,6 +40,7 @@ class IdiomaRegionSheetTest {
                     onSelect = {},
                     onListo = {},
                     onDismiss = {},
+                    modifier = Modifier,
                 )
             }
         }
