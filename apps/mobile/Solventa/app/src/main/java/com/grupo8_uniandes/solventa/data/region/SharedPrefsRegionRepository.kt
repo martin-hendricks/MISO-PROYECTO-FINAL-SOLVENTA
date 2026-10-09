@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.data.region
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.RegionChoice
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
@@ -11,11 +12,13 @@ internal const val KeyDraftRegion = "draft_region"
 internal const val KeyFirstLaunchCompleted = "first_launch_completed"
 
 class SharedPrefsRegionRepository(
-    context: Context,
+    private val prefs: SharedPreferences,
 ) : RegionRepository {
-    private val prefs = context.applicationContext.getSharedPreferences(
-        RegionPrefsFile,
-        Context.MODE_PRIVATE,
+    constructor(context: Context) : this(
+        context.applicationContext.getSharedPreferences(
+            RegionPrefsFile,
+            Context.MODE_PRIVATE,
+        ),
     )
 
     override fun read(): RegionChoice = RegionChoice(
@@ -56,8 +59,12 @@ class SharedPrefsRegionRepository(
     }
 }
 
-fun readAppliedLanguageTag(context: Context): String {
-    val raw = context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE)
-        .getString(KeyAppliedRegion, null)
+fun readAppliedLanguageTag(context: Context): String =
+    readAppliedLanguageTag(
+        context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE),
+    )
+
+internal fun readAppliedLanguageTag(prefs: SharedPreferences): String {
+    val raw = prefs.getString(KeyAppliedRegion, null)
     return Region.fromStored(raw).languageTag
 }

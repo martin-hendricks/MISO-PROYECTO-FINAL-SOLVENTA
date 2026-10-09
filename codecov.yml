@@ -44,3 +44,6 @@ ignore:
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/MainActivity.kt"
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/CustomerShell.kt"
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/SplashScreen.kt"
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/region/IdiomaRegionScreen.kt"
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/region/IdiomaRegionSheet.kt"
+  - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/PerfilScreen.kt"

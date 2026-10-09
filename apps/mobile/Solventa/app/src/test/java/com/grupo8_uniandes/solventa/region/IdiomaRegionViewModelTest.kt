@@ -90,4 +90,32 @@ class IdiomaRegionViewModelTest {
         assertTrue(repository.choice.firstLaunchCompleted)
         assertEquals(RegionEffect.CloseSheet, viewModel.state.value.effect)
     }
+
+    @Test
+    fun givenFirstLaunch_whenDismissed_thenEffectStaysEmpty() {
+        val viewModel = IdiomaRegionViewModel(FakeRegionRepository(), RegionSurface.FirstLaunch)
+
+        viewModel.dismiss()
+
+        assertNull(viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenProfile_whenSynced_thenDraftFollowsAppliedRegion() {
+        val repository = FakeRegionRepository(
+            RegionChoice(
+                appliedRegion = Region.Chile,
+                draftRegion = Region.Mexico,
+                firstLaunchCompleted = true,
+            ),
+        )
+        val viewModel = IdiomaRegionViewModel(repository, RegionSurface.Profile)
+        repository.choice = repository.choice.copy(appliedRegion = Region.Peru)
+
+        viewModel.syncToApplied()
+
+        assertEquals(Region.Peru, viewModel.state.value.choice.draftRegion)
+        assertEquals(Region.Peru, repository.choice.appliedRegion)
+        assertNull(viewModel.state.value.effect)
+    }
 }

@@ -14,14 +14,18 @@ fun formatPremium(amount: BigDecimal, currencyCode: String, region: Region): Str
     val number = NumberFormat.getNumberInstance(Locale.forLanguageTag(region.languageTag))
     number.minimumFractionDigits = fractionDigits
     number.maximumFractionDigits = fractionDigits
-    if (number is DecimalFormat) {
-        number.roundingMode = RoundingMode.HALF_UP
-    }
-    val formatted = number.format(amount)
+    val formatted = number.halfUp().format(amount)
     val symbol = when (currencyCode) {
         "COP", "MXN", "CLP" -> "$"
         "PEN" -> "S/ "
         else -> ""
     }
     return symbol + formatted + " " + currencyCode
+}
+
+internal fun NumberFormat.halfUp(): NumberFormat {
+    if (this is DecimalFormat) {
+        roundingMode = RoundingMode.HALF_UP
+    }
+    return this
 }

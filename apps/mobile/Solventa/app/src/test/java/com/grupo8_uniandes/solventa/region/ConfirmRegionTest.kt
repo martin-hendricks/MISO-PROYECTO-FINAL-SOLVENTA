@@ -18,6 +18,14 @@ class ConfirmRegionTest {
     }
 
     @Test
+    fun givenKnownTag_whenParsed_thenThatRegion() {
+        assertEquals(Region.Colombia, Region.fromStored("es-CO"))
+        assertEquals(Region.Mexico, Region.fromStored("es-MX"))
+        assertEquals(Region.Chile, Region.fromStored("es-CL"))
+        assertEquals(Region.Peru, Region.fromStored("es-PE"))
+    }
+
+    @Test
     fun givenFreshChoice_whenRowStaged_thenDraftChangesAndAppliedStaysColombia() {
         val repository = FakeRegionRepository()
         val staged = StageRegion(repository)(Region.Mexico)

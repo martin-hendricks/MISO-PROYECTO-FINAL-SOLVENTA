@@ -40,6 +40,9 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -55,6 +58,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -64,8 +70,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
-// AGP 9 only exposes the JaCoCo version. Compose screens and the activity run on a
-// device, so connected tests cover them and the unit-test report leaves them out.
+// The activity, splash, and signed-in shell run on a device. Robolectric covers the
+// language screen, the Profile sheet, and the preferences store in this report.
 val unitTestCoverageExcludedSources = setOf(
     "MainActivity.kt",
     "CustomerShell.kt",

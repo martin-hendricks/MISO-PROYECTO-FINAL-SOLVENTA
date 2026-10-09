@@ -2,9 +2,14 @@ package com.grupo8_uniandes.solventa.region
 
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.formatPremium
+import com.grupo8_uniandes.solventa.domain.region.halfUp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Test
 import java.math.BigDecimal
+import java.text.FieldPosition
+import java.text.NumberFormat
+import java.text.ParsePosition
 
 class FormatPremiumTest {
     @Test
@@ -47,5 +52,26 @@ class FormatPremiumTest {
             "10.00 USD",
             formatPremium(BigDecimal("10.00"), "USD", Region.Mexico),
         )
+    }
+
+    @Test
+    fun givenPlainNumberFormat_whenHalfUp_thenFormatterIsUnchanged() {
+        val plain = object : NumberFormat() {
+            override fun format(
+                number: Double,
+                toAppendTo: StringBuffer,
+                pos: FieldPosition,
+            ): StringBuffer = toAppendTo.append(number.toString())
+
+            override fun format(
+                number: Long,
+                toAppendTo: StringBuffer,
+                pos: FieldPosition,
+            ): StringBuffer = toAppendTo.append(number.toString())
+
+            override fun parse(source: String, parsePosition: ParsePosition): Number = 0
+        }
+
+        assertSame(plain, plain.halfUp())
     }
 }
