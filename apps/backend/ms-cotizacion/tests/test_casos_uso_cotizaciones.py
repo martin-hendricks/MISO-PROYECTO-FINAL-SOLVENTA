@@ -5,6 +5,7 @@ import pytest
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.domain.errores import ProductoNoEncontrado
 from app.domain.modelos import SolicitudCotizacion
+from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 DATOS_VALIDOS = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
 
@@ -58,3 +59,33 @@ async def test_producto_inexistente_no_genera_cotizacion_id(uow, almacen, catalo
         await _recibir(uow, catalogo, idempotency_key="clave-0002", producto="producto-inexistente")
 
     assert almacen.solicitudes == {}
+
+
+async def test_carrera_sin_ganador_visible_lanza_runtime_error(catalogo):
+    class _RepoSolicitudesSinGanador:
+        async def obtener_por_clave(self, _clave):
+            return None
+
+        async def agregar(self, _solicitud):
+            pass
+
+    class _Outbox:
+        async def agregar(self, _evento):
+            pass
+
+    class _UowSinGanador:
+        def __init__(self):
+            self.solicitudes = _RepoSolicitudesSinGanador()
+            self.outbox = _Outbox()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            pass
+
+        async def confirmar(self):
+            raise ClaveIdempotenciaDuplicada
+
+    with pytest.raises(RuntimeError, match="Clave duplicada sin registro visible"):
+        await _recibir(lambda: _UowSinGanador(), catalogo)
