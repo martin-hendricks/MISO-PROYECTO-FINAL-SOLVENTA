@@ -9,6 +9,7 @@ from app.domain.errores import ProductoNoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion
 from app.domain.riesgo import OrigenFactorRiesgo
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
+from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 DATOS_VALIDOS = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
 
@@ -123,3 +124,54 @@ async def test_cotizar_con_factor_de_respaldo_completa_oferta(uow, catalogo):
 
     assert resultado.creada
     assert resultado.oferta.factor_riesgo_origen == OrigenFactorRiesgo.RESPALDO
+
+
+async def test_carrera_sin_ganador_visible_lanza_runtime_error(catalogo):
+    class _RepoSolicitudesSinGanador:
+        async def obtener_por_clave(self, _clave):
+            return None
+
+        async def agregar(self, _solicitud):
+            pass
+
+    class _Outbox:
+        async def agregar(self, _evento):
+            pass
+
+    class _UowSinGanador:
+        def __init__(self):
+            self.solicitudes = _RepoSolicitudesSinGanador()
+            self.outbox = _Outbox()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            pass
+
+        async def confirmar(self):
+            raise ClaveIdempotenciaDuplicada
+
+    with pytest.raises(RuntimeError, match="Clave duplicada sin registro visible"):
+        await _recibir(lambda: _UowSinGanador(), catalogo)
+
+
+async def test_cotizar_con_carrera_de_idempotencia_devuelve_la_oferta_del_ganador(uow, almacen, catalogo):
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0"))
+    # chocar_en_proximo_commit simula que otra petición concurrente con la MISMA clave ya
+    # ganó la carrera dentro de confirmar(): el check inicial de cotizar() (obtener_por_clave
+    # antes del cálculo) no la ve todavía porque solo se escribe en el almacén justo cuando
+    # confirmar() resuelve el choque, igual que en una carrera real entre dos peticiones.
+    # El doble en memoria no persiste la oferta del ganador fantasma (a diferencia de
+    # Postgres real, donde ambas filas se escriben en la misma transacción ganadora), así
+    # que esta prueba ejercita el camino de relectura (líneas 159-162) sin poder afirmar
+    # sobre el contenido de resultado.oferta.
+    ganador_fantasma = SolicitudCotizacion.crear(
+        "clave-carrera-0001", uuid4(), uuid4(), uuid4(), "soat-motocicleta", "app-socio", DATOS_VALIDOS, catalogo
+    )
+    almacen.chocar_en_proximo_commit = ganador_fantasma
+
+    resultado = await _cotizar(uow, catalogo, adaptador, idempotency_key="clave-carrera-0001")
+
+    assert not resultado.creada
+    assert resultado.solicitud.id == ganador_fantasma.id
