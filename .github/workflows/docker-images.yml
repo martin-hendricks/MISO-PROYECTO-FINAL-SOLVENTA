@@ -1,0 +1,60 @@
+name: Docker images
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/ms-arquetipo/**"
+      - "apps/backend/bff-arquetipo/**"
+      - "apps/backend/.dockerignore"
+      - ".github/workflows/docker-images.yml"
+  push:
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/ms-arquetipo/**"
+      - "apps/backend/bff-arquetipo/**"
+      - "apps/backend/.dockerignore"
+      - ".github/workflows/docker-images.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: image (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: ms-arquetipo
+            context: apps/backend/ms-arquetipo
+            dockerfile: apps/backend/ms-arquetipo/Dockerfile
+          - service: bff-arquetipo
+            context: apps/backend
+            dockerfile: apps/backend/bff-arquetipo/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build --target test -f ${{ matrix.dockerfile }} -t ${{ matrix.service }}:test ${{ matrix.context }}
+
+      - name: Run tests inside the image
+        run: docker run --rm ${{ matrix.service }}:test
+
+      - name: Build runtime image
+        run: docker build --target runtime -f ${{ matrix.dockerfile }} -t ${{ matrix.service }}:runtime ${{ matrix.context }}
+
+      - name: Runtime versions
+        run: |
+          docker run --rm ${{ matrix.service }}:runtime python --version
+          docker run --rm ${{ matrix.service }}:runtime pip freeze
