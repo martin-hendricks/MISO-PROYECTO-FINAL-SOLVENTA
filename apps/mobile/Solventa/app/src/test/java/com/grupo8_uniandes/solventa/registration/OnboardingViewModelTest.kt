@@ -40,7 +40,7 @@ class OnboardingViewModelTest {
         assertTrue(viewModel.state.value.continuarEnabled)
         viewModel.continuar()
 
-        assertEquals(OnboardingEffect.ContinueToHome, viewModel.state.value.effect)
+        assertEquals(OnboardingEffect.ContinueToConsent, viewModel.state.value.effect)
         assertEquals(1, register.drafts.size)
         assertTrue(byteArrayOf(7, 8).contentEquals(register.drafts.single().documentPhoto))
     }

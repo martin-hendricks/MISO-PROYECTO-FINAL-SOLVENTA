@@ -26,6 +26,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
 import com.grupo8_uniandes.solventa.data.region.KeyAppliedRegion
 import com.grupo8_uniandes.solventa.data.region.KeyFirstLaunchCompleted
 import com.grupo8_uniandes.solventa.data.region.RegionPrefsFile
@@ -50,6 +51,7 @@ class OnboardingTest {
     fun resetStores() {
         clearRegionPrefs()
         clearRegistration()
+        clearConsent()
         OnboardingPhotoInjector.next = null
         rule.activityRule.scenario.recreate()
     }
@@ -98,14 +100,17 @@ class OnboardingTest {
     }
 
     @Test
-    fun givenValidFormAndPhoto_whenContinuar_thenHome() {
+    fun givenValidFormAndPhoto_whenContinuar_thenConsent() {
         openAccount()
         fill(email = "camila@correo.com")
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
         rule.onNodeWithTag("action_continuar").performScrollTo().assertIsEnabled()
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_inicio")
+        rule.waitForTag("screen_consentimiento")
+        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
         assertEquals(true, registrationCompleted())
     }
@@ -132,7 +137,9 @@ class OnboardingTest {
         rule.onAllNodesWithTag("field_contrasena").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
         assertEquals(false, registrationCompleted())
+        assertEquals(false, consentRecorded())
     }
 
     @Test
@@ -199,6 +206,17 @@ private fun clearRegistration() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     context.getSharedPreferences(RegistrationPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
     File(context.filesDir, "registration/document.jpg").delete()
+}
+
+private fun clearConsent() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+}
+
+private fun consentRecorded(): Boolean {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val prefs = context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+    return prefs.contains("records") || prefs.contains("state")
 }
 
 private fun registrationCompleted(): Boolean {

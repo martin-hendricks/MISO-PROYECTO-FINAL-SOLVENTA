@@ -2,9 +2,11 @@ package com.grupo8_uniandes.solventa.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,6 +20,7 @@ fun SolventaListRow(
     modifier: Modifier = Modifier,
     testTag: String = "solventa_list_row",
     onClick: (() -> Unit)? = null,
+    value: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -28,6 +31,10 @@ fun SolventaListRow(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        if (value != null) {
+            Spacer(Modifier.weight(1f))
+            Text(value, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }

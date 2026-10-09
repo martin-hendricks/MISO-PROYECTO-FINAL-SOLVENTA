@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
     <exclude domain="sharedpref" path="registration_prefs.xml" />
+    <exclude domain="sharedpref" path="consent_prefs.xml" />
     <exclude domain="file" path="registration/document.jpg" />
 </full-backup-content>

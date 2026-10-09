@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.shell
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.activity.ComponentDialog
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,8 +22,11 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
+import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
 import com.grupo8_uniandes.solventa.data.region.KeyAppliedRegion
 import com.grupo8_uniandes.solventa.data.region.RegionPrefsFile
+import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
@@ -33,6 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowDialog
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w480dp-h2000dp")
@@ -45,6 +50,7 @@ class PerfilScreenTest {
     @Before
     fun clearPrefs() {
         context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @Test
@@ -55,6 +61,7 @@ class PerfilScreenTest {
             }
         }
 
+        rule.onAllNodesWithTag("profile_consent").assertCountEquals(0)
         rule.onNodeWithText("Idioma y región").performClick()
         rule.onNodeWithTag("solventa_bottom_sheet").assertIsDisplayed()
         rule.onNodeWithText("Español · México").performClick()
@@ -101,6 +108,64 @@ class PerfilScreenTest {
         assertEquals("es-CO", appliedTag())
     }
 
+    @Test
+    fun givenGrant_whenRevokedFromSheet_thenHubShowsRevocado() {
+        ChangeDataTreatment(SharedPrefsConsentRepository(context)) { 1L }.grant()
+        rule.setContent {
+            SolventaTheme {
+                PerfilScreen()
+            }
+        }
+
+        rule.onNodeWithTag("profile_entry").assertIsDisplayed()
+        rule.onNodeWithTag("profile_consent").assertIsDisplayed()
+        rule.onNodeWithText("otorgado").assertIsDisplayed()
+        rule.onNodeWithTag("profile_consent").performClick()
+        rule.onNodeWithTag("action_close").performClick()
+        rule.onNodeWithText("otorgado").assertIsDisplayed()
+        rule.onNodeWithTag("profile_consent").performClick()
+        rule.onNodeWithTag("solventa_switch").performClick()
+        rule.onNodeWithTag("action_aceptar_continuar").performClick()
+        rule.onNodeWithText("revocado").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
+
+        rule.onNodeWithTag("profile_consent").performClick()
+        rule.onNodeWithTag("solventa_switch").performClick()
+        rule.onNodeWithTag("action_aceptar_continuar").performClick()
+        rule.onNodeWithText("otorgado").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenGrant_whenScrimOrBack_thenHubStaysOtorgado() {
+        ChangeDataTreatment(SharedPrefsConsentRepository(context)) { 1L }.grant()
+        rule.setContent {
+            SolventaTheme {
+                PerfilScreen()
+            }
+        }
+
+        rule.onNodeWithTag("profile_consent").performClick()
+        rule.onNodeWithTag("solventa_switch").performClick()
+        rule.onNode(isDialog()).performTouchInput {
+            click(Offset(width / 2f, 24f))
+        }
+        rule.waitUntil(timeoutMillis = 8_000) {
+            rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
+        }
+        rule.onNodeWithText("otorgado").assertIsDisplayed()
+
+        rule.onNodeWithTag("profile_consent").performClick()
+        rule.onNodeWithTag("solventa_switch").performClick()
+        (ShadowDialog.getLatestDialog() as ComponentDialog)
+            .onBackPressedDispatcher
+            .onBackPressed()
+        rule.waitUntil(timeoutMillis = 8_000) {
+            rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
+        }
+        rule.onNodeWithText("otorgado").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
+    }
+
     private fun appliedTag(): String? =
         context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE)
             .getString(KeyAppliedRegion, null)
@@ -117,6 +182,7 @@ class PerfilScreenWithoutActivityTest {
     @Before
     fun clearPrefs() {
         context.getSharedPreferences(RegionPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     @Test
