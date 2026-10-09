@@ -4,12 +4,15 @@ from fastapi.testclient import TestClient
 from app.dependencies import obtener_catalogo, obtener_uow
 from app.main import crear_app
 
-from .dobles import AlmacenEnMemoria, CatalogoEnMemoria, UnidadDeTrabajoEnMemoria
+from .dobles import AlmacenEnMemoria, CatalogoEnMemoria, UnidadDeTrabajoEnMemoria, regla_rating_soat_motocicleta
 
 
 @pytest.fixture
 def almacen() -> AlmacenEnMemoria:
-    return AlmacenEnMemoria()
+    almacen = AlmacenEnMemoria()
+    regla = regla_rating_soat_motocicleta()
+    almacen.reglas_rating[regla.id] = regla
+    return almacen
 
 
 @pytest.fixture

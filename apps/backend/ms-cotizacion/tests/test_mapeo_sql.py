@@ -1,10 +1,12 @@
+import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import DateTime
 
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
-from app.infrastructure.sql import Base, SolicitudFila, _a_dominio
+from app.domain.rating import ReglaRating
+from app.infrastructure.sql import Base, ReglaRatingFila, SolicitudFila, _a_dominio
 
 
 def test_todas_las_fechas_se_mapean_como_timestamptz():
@@ -47,3 +49,21 @@ def test_solicitud_fila_a_dominio_ida_y_vuelta():
     reconstruida = _a_dominio(fila)
 
     assert reconstruida == solicitud
+
+
+def test_regla_rating_fila_formula_json_ida_y_vuelta():
+    regla = ReglaRating(
+        id=uuid4(),
+        producto="soat-motocicleta",
+        version="0001",
+        formula={"insumos_requeridos": ["cilindraje_cc"], "base": "120000", "gastos_fijos": "8500", "moneda": "COP"},
+    )
+
+    fila = ReglaRatingFila(
+        regla_id=regla.id, producto=regla.producto, version=regla.version, formula=json.dumps(regla.formula)
+    )
+    reconstruida = ReglaRating(
+        id=fila.regla_id, producto=fila.producto, version=fila.version, formula=json.loads(fila.formula)
+    )
+
+    assert reconstruida == regla

@@ -1,8 +1,14 @@
+import json
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
-from app.infrastructure.sql import RepositorioSolicitudesSQL, SolicitudFila
+from app.infrastructure.sql import (
+    ReglaRatingFila,
+    RepositorioReglasRatingSQL,
+    RepositorioSolicitudesSQL,
+    SolicitudFila,
+)
 
 
 class SesionFalsa:
@@ -86,3 +92,19 @@ async def test_actualizar_cambia_el_estado_de_la_fila():
     await repo.actualizar(solicitud)
 
     assert fila.estado == EstadoSolicitud.COTIZADA.value
+
+
+async def test_obtener_vigente_devuelve_la_regla_deserializada():
+    formula = {"insumos_requeridos": ["cilindraje_cc"], "base": "120000", "gastos_fijos": "8500", "moneda": "COP"}
+    fila = ReglaRatingFila(regla_id=uuid4(), producto="soat-motocicleta", version="0001", formula=json.dumps(formula))
+    repo = RepositorioReglasRatingSQL(SesionFalsa(filas=[fila]))
+
+    regla = await repo.obtener_vigente("soat-motocicleta")
+
+    assert (regla.id, regla.producto, regla.version, regla.formula) == (fila.regla_id, "soat-motocicleta", "0001", formula)
+
+
+async def test_obtener_vigente_sin_regla_configurada_devuelve_none():
+    repo = RepositorioReglasRatingSQL(SesionFalsa())
+
+    assert await repo.obtener_vigente("producto-sin-regla") is None

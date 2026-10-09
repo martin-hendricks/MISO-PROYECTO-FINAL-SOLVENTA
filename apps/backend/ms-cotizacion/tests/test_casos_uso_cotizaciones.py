@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.application import casos_uso_cotizaciones as casos_uso
-from app.domain.errores import ProductoNoEncontrado
+from app.domain.errores import ProductoNoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
@@ -59,6 +59,22 @@ async def test_producto_inexistente_no_genera_cotizacion_id(uow, almacen, catalo
         await _recibir(uow, catalogo, idempotency_key="clave-0002", producto="producto-inexistente")
 
     assert almacen.solicitudes == {}
+
+
+async def test_calcular_prima_solicitud_sin_regla_configurada_lanza_regla_de_negocio(uow):
+    with pytest.raises(ReglaDeNegocioViolada) as exc:
+        await casos_uso.calcular_prima_solicitud(uow, "producto-sin-regla", {})
+
+    assert exc.value.codigo == "regla_rating_no_configurada"
+
+
+async def test_calcular_prima_solicitud_devuelve_regla_y_resultado(uow):
+    regla, resultado = await casos_uso.calcular_prima_solicitud(
+        uow, "soat-motocicleta", {"cilindraje_cc": 150}
+    )
+
+    assert regla.producto == "soat-motocicleta"
+    assert resultado.prima_total == resultado.prima_neta + resultado.gastos_expedicion
 
 
 async def test_carrera_sin_ganador_visible_lanza_runtime_error(catalogo):
