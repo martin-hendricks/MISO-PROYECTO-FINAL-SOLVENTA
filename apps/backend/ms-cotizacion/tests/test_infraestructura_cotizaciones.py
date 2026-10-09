@@ -1,7 +1,9 @@
 import json
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
+from app.dependencies import obtener_adaptador_perfil_riesgo
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
 from app.infrastructure.sql import (
     ReglaRatingFila,
@@ -108,3 +110,10 @@ async def test_obtener_vigente_sin_regla_configurada_devuelve_none():
     repo = RepositorioReglasRatingSQL(SesionFalsa())
 
     assert await repo.obtener_vigente("producto-sin-regla") is None
+
+
+def test_obtener_adaptador_perfil_riesgo_lee_el_estado_de_la_app():
+    estado = SimpleNamespace(adaptador_perfil_riesgo=object())
+    request = SimpleNamespace(app=SimpleNamespace(state=estado))
+
+    assert obtener_adaptador_perfil_riesgo(request) is estado.adaptador_perfil_riesgo
