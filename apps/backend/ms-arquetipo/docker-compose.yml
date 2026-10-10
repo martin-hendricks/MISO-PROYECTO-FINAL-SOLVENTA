@@ -23,7 +23,7 @@ services:
       SERVICE_NAME: ms-arquetipo
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
     ports:
-      - "8000:8000"
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
