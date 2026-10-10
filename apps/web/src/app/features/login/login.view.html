@@ -1,8 +1,8 @@
 <div class="split">
   <section class="brand">
     <p class="brand-name">{{ 'shell.portal' | translate }}</p>
-    <p class="brand-claim">{{ 'login.brand.claim' | translate }}</p>
-    <p class="brand-body">{{ 'login.brand.body' | translate }}</p>
+    <p class="brand-claim">{{ variant.copy + '.claim' | translate }}</p>
+    <p class="brand-body">{{ variant.copy + '.body' | translate }}</p>
   </section>
 
   <main class="panel">
@@ -14,7 +14,7 @@
       (submit)="submit($event)"
     >
       <h1>{{ 'login.title' | translate }}</h1>
-      <p class="hint">{{ 'login.hint' | translate }}</p>
+      <p class="hint">{{ variant.copy + '.hint' | translate }}</p>
 
       @if (vm.failure(); as failure) {
         <p class="banner" role="alert" data-testid="login-error" [attr.data-kind]="failure">
@@ -70,9 +70,11 @@
       >
         {{ (vm.status() === 'submitting' ? 'login.submitting' : 'login.submit') | translate }}
       </button>
-      <button type="button" class="text" data-testid="login-register" disabled>
-        {{ 'login.register' | translate }}
-      </button>
+      @if (variant.canRegister) {
+        <button type="button" class="text" data-testid="login-register" disabled>
+          {{ 'login.register' | translate }}
+        </button>
+      }
     </form>
   </main>
 </div>

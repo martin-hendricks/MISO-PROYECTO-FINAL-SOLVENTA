@@ -1,6 +1,6 @@
 # Solventa — Cliente Web
 
-Portal de escritorio con dos variantes en la misma aplicación: cliente (`/user`) y CMS (`/cms`). Ambas piden sesión; sin ella el portal abre `/login` (HU-103). nginx entrega los archivos estáticos. La autorización por rol queda en `bff-web` (HU-74/75), no en el contenedor.
+Portal de escritorio con dos variantes en la misma aplicación: cliente (`/user`) y back-office de asesor y operador (`/cms`, HU-8). Cada una pide la sesión de su rol: sin ella el cliente llega a `/login` (HU-103) y el back-office a `/cms/login`. nginx entrega los archivos estáticos. La autorización por rol queda en `bff-web` (HU-74/75), no en el contenedor.
 
 **Stack:** Angular + TypeScript, `ngx-translate` (`es-CO`, `es-MX`, `es-CL`, `es-PE`)
 **Pruebas:** Karma (unitarias), Cucumber/Gherkin + Playwright (E2E)
@@ -21,7 +21,7 @@ cd apps/backend/bff-web
 SOLVENTA_TOKEN_SECRET=<secreto-local> uvicorn app.main:app --port 8000
 ```
 
-El stub acepta cualquier correo y contraseña, salvo la contraseña `incorrecta`, que responde 401.
+El stub acepta cualquier correo y contraseña, salvo la contraseña `incorrecta`, que responde 401. En `/cms/login` el rol lo asigna el BFF: un correo que empieza por `operador` entra como operador y cualquier otro como asesor.
 
 ## Imagen
 

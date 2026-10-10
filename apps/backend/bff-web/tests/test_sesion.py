@@ -46,3 +46,24 @@ def test_salida_acepta_cualquier_rol_valido(client):
 
     headers = {"Authorization": f"Bearer {token(client, 'operador')}"}
     assert client.post("/sesion/salida", headers=headers).status_code == 200
+
+
+def test_sin_rol_el_bff_asigna_asesor(client):
+    response = client.post(
+        "/sesion/ingreso",
+        json={"correo": "camila.restrepo@solventa.co", "contrasena": "secreto"},
+    )
+    headers = {"Authorization": f"Bearer {response.json()['accessToken']}"}
+    assert response.status_code == 200
+    assert client.get("/asesor/clientes", headers=headers).status_code == 200
+    assert client.get("/operador/avisos", headers=headers).status_code == 403
+
+
+def test_sin_rol_la_cuenta_de_operador_entra_como_operador(client):
+    response = client.post(
+        "/sesion/ingreso",
+        json={"correo": "Operador.bogota@solventa.co", "contrasena": "secreto"},
+    )
+    headers = {"Authorization": f"Bearer {response.json()['accessToken']}"}
+    assert client.get("/operador/avisos", headers=headers).status_code == 200
+    assert client.get("/asesor/clientes", headers=headers).status_code == 403

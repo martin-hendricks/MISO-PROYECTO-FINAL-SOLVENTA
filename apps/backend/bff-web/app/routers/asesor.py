@@ -11,6 +11,35 @@ router = APIRouter(
 )
 
 
+def _cliente(
+    cliente_id: str,
+    nombre: str,
+    documento: str,
+    canal: str,
+    estado: str,
+    consentimiento: str,
+) -> dict:
+    return {
+        "clienteId": cliente_id,
+        "nombre": nombre,
+        "documento": documento,
+        "correo": f"{nombre.split()[0].lower()}@correo.com",
+        "habeasData": consentimiento != "revocado",
+        "estado": estado,
+        "canal": canal,
+        "consentimiento": consentimiento,
+    }
+
+
+CLIENTES = [
+    _cliente("CLI-18", "Andrés Gómez", "1020334556", "web", "activo", "habeas_data"),
+    _cliente("CLI-19", "Laura Peña", "52448901", "android", "activo", "habeas_data"),
+    _cliente("CLI-20", "Ricardo Salas", "80112334", "web", "activo", "hipotecario_pendiente"),
+    _cliente("CLI-21", "Marcela Ruiz", "41778220", "android", "activo", "habeas_data"),
+    _cliente("CLI-22", "Julián Torres", "79330114", "web", "inactivo", "revocado"),
+]
+
+
 class VentaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     ramo: str
@@ -60,24 +89,13 @@ def cartera() -> dict:
 
 @router.get("/clientes")
 def listar() -> dict:
-    return {
-        "clientes": [
-            {
-                "clienteId": "CLI-18",
-                "nombre": "Camila Restrepo",
-                "documento": "1012345678",
-                "correo": "camila@correo.com",
-                "habeasData": True,
-                "estado": "activo",
-            }
-        ]
-    }
+    return {"clientes": [dict(cliente) for cliente in CLIENTES]}
 
 
 @router.post("/clientes")
 def crear(body: ClienteNuevo) -> dict:
     created = body.model_dump()
-    created["clienteId"] = "CLI-19"
+    created["clienteId"] = "CLI-23"
     return created
 
 

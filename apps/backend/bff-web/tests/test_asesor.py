@@ -55,3 +55,12 @@ def test_cliente_no_abre_pantallas_de_asesor(client):
     headers = _auth(client, "cliente")
     assert client.get("/asesor/cartera", headers=headers).status_code == 403
     assert client.get("/operador/avisos", headers=headers).status_code == 403
+
+
+def test_listado_de_clientes_trae_canal_y_consentimiento(client):
+    clientes = client.get("/asesor/clientes", headers=_auth(client, "asesor")).json()["clientes"]
+    assert len({item["clienteId"] for item in clientes}) == len(clientes) == 5
+    assert {item["canal"] for item in clientes} == {"web", "android"}
+    assert {item["estado"] for item in clientes} == {"activo", "inactivo"}
+    revocado = next(item for item in clientes if item["consentimiento"] == "revocado")
+    assert revocado["habeasData"] is False

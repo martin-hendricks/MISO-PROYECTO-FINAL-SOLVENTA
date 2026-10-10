@@ -1,0 +1,83 @@
+<section data-testid="section-clientes" [attr.data-state]="allowed ? vm.status() : 'no-permission'">
+  @if (!allowed) {
+    <h1>{{ 'backoffice.clientes.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <div class="page-head">
+      <div>
+        <h1>{{ 'backoffice.clientes.title' | translate }}</h1>
+        <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
+      </div>
+      <button type="button" class="filled" data-testid="clientes-new" disabled>
+        {{ 'backoffice.clientes.new' | translate }}
+      </button>
+    </div>
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="clientes-loading">
+          {{ 'backoffice.clientes.loading' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="clientes-error">
+          <p>{{ 'backoffice.clientes.error.body' | translate }}</p>
+          <button type="button" class="outlined" data-testid="clientes-retry" (click)="vm.load()">
+            {{ 'backoffice.clientes.error.retry' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <div class="empty-state" data-testid="clientes-empty">
+          <h2>{{ 'backoffice.clientes.empty.title' | translate }}</h2>
+          <p>{{ 'backoffice.clientes.empty.body' | translate }}</p>
+        </div>
+      }
+      @default {
+        <ul class="kpis">
+          @for (kpi of kpis; track kpi) {
+            <li [attr.data-testid]="'kpi-' + kpi">
+              <span class="kpi-label">{{
+                'backoffice.clientes.kpi.' + kpi + '.label' | translate
+              }}</span>
+              <span class="kpi-value">{{ vm.kpis()[kpi] }}</span>
+              <span class="kpi-hint">{{
+                'backoffice.clientes.kpi.' + kpi + '.hint' | translate
+              }}</span>
+            </li>
+          }
+        </ul>
+
+        <table data-testid="clientes-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'backoffice.clientes.column.cliente' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.documento' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.canal' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.estado' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.consentimiento' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cliente of vm.clientes(); track cliente.clienteId) {
+              <tr [attr.data-testid]="'cliente-' + cliente.clienteId">
+                <th scope="row">{{ cliente.nombre }}</th>
+                <td class="mono">{{ cliente.documento }}</td>
+                <td class="mono">{{ 'backoffice.clientes.canal.' + cliente.canal | translate }}</td>
+                <td>
+                  <span class="badge" [attr.data-estado]="cliente.estado">{{
+                    'backoffice.clientes.estado.' + cliente.estado | translate
+                  }}</span>
+                </td>
+                <td class="mono">
+                  {{ 'backoffice.clientes.consentimiento.' + cliente.consentimiento | translate }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  }
+</section>

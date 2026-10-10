@@ -1,0 +1,16 @@
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  color: var(--sv-error);
+  background: var(--sv-error-container);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.outlined {
+  margin-top: 12px;
+}

@@ -47,7 +47,23 @@ describe('SessionService', () => {
     expect(session.isActive()).toBeTrue();
     expect(session.accessToken()).toBe(pair.accessToken);
     expect(session.role()).toBe('asesor');
+    expect(session.subject()).toBe('camila@correo.com');
+    expect(session.hasRole(['asesor', 'operador'])).toBeTrue();
+    expect(session.hasRole(['cliente'])).toBeFalse();
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBe(JSON.stringify(pair));
+  });
+
+  it('leaves the role out when the BFF assigns it', () => {
+    const { session, http } = setup();
+
+    session.signIn({ email: 'camila.restrepo@solventa.co', password: 'secreto' }).subscribe();
+    const request = http.expectOne('/web/sesion/ingreso');
+    request.flush(fakeTokenPair('asesor'));
+
+    expect(request.request.body).toEqual({
+      correo: 'camila.restrepo@solventa.co',
+      contrasena: 'secreto',
+    });
   });
 
   it('fails when the answer has no readable token', () => {
@@ -88,13 +104,27 @@ describe('SessionService', () => {
     expect(session.isActive()).toBeFalse();
   });
 
-  it('forgets the session on sign out', () => {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fakeTokenPair()));
-    const { session } = setup();
+  it('forgets the session on sign out even if the BFF fails', () => {
+    const pair = fakeTokenPair();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(pair));
+    const { session, http } = setup();
 
     session.signOut();
+    const request = http.expectOne('/web/sesion/salida');
+    request.flush(null, { status: 500, statusText: 'Server Error' });
+
+    expect(request.request.headers.get('Authorization')).toBe(`Bearer ${pair.accessToken}`);
 
     expect(session.isActive()).toBeFalse();
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it('does not call the BFF on sign out without a session', () => {
+    const { session, http } = setup();
+
+    session.signOut();
+
+    http.expectNone('/web/sesion/salida');
+    expect(session.isActive()).toBeFalse();
   });
 });

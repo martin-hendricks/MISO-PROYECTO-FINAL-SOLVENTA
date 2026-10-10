@@ -1,9 +1,11 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { SessionService } from './session.service';
+import { Role, SessionService } from './session.service';
 
-export const requireSession: CanActivateFn = () =>
-  inject(SessionService).isActive() ? true : inject(Router).createUrlTree(['/login']);
+export function requireRole(roles: readonly Role[], loginUrl: string): CanActivateFn {
+  return () => (inject(SessionService).hasRole(roles) ? true : inject(Router).parseUrl(loginUrl));
+}
 
-export const redirectSignedIn: CanActivateFn = () =>
-  inject(SessionService).isActive() ? inject(Router).createUrlTree(['/user']) : true;
+export function redirectSignedIn(roles: readonly Role[], homeUrl: string): CanActivateFn {
+  return () => (inject(SessionService).hasRole(roles) ? inject(Router).parseUrl(homeUrl) : true);
+}
