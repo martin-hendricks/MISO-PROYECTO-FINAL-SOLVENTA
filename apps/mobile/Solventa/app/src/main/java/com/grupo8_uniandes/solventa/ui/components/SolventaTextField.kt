@@ -1,12 +1,14 @@
 package com.grupo8_uniandes.solventa.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.VisualTransformation
 
 enum class SolventaFieldStyle {
     Outlined,
@@ -28,12 +30,19 @@ fun SolventaTextField(
     modifier: Modifier = Modifier,
     style: SolventaFieldStyle = SolventaFieldStyle.Outlined,
     state: SolventaFieldState = SolventaFieldState.Default,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    testTag: String? = null,
 ) {
-    val fieldModifier = modifier.fillMaxWidth().testTag("solventa_text_field")
+    val fieldModifier = modifier.fillMaxWidth().testTag(testTag ?: "solventa_text_field")
     val isError = state == SolventaFieldState.Error
     val readOnly = state == SolventaFieldState.ReadOnly
     val labelContent: @Composable () -> Unit = { Text(label) }
-    val helperContent: @Composable () -> Unit = { Text(helper) }
+    val helperContent: @Composable (() -> Unit)? = if (helper.isEmpty()) {
+        null
+    } else {
+        { Text(helper) }
+    }
     when (style) {
         SolventaFieldStyle.Outlined -> OutlinedTextField(
             value = value,
@@ -43,6 +52,8 @@ fun SolventaTextField(
             label = labelContent,
             supportingText = helperContent,
             isError = isError,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
         )
         SolventaFieldStyle.Filled -> TextField(
             value = value,
@@ -52,6 +63,8 @@ fun SolventaTextField(
             label = labelContent,
             supportingText = helperContent,
             isError = isError,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
         )
     }
 }

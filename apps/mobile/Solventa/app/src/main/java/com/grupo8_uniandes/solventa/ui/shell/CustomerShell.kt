@@ -23,7 +23,9 @@ import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
+import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
+import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeViewModel
@@ -48,17 +50,26 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionEffect
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
+import com.grupo8_uniandes.solventa.ui.registration.LoginPlaceholder
+import com.grupo8_uniandes.solventa.ui.registration.OnboardingEffect
+import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
+import com.grupo8_uniandes.solventa.ui.registration.OnboardingViewModel
 
 @Composable
 fun CustomerShell(
     startupSession: StartupSession = StartupSession.FirstUse,
     splashHoldMillis: Long = SplashHoldMillis,
     enterSignedInShell: Boolean = false,
+    openOnboarding: Boolean = false,
     resumeProfile: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     if (enterSignedInShell) {
         SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
+        return
+    }
+    if (openOnboarding) {
+        OnboardingHost(modifier = modifier)
         return
     }
 
@@ -80,9 +91,15 @@ fun CustomerShell(
         SharedPrefsRegionRepository(context.applicationContext)
     }
     val completed = repository.read().firstLaunchCompleted
+    val registrationDone = remember(context) {
+        SharedPrefsRegistrationRepository(context.applicationContext).read() != null
+    }
     when {
         step == PostSplashStep.LanguageAndRegion && !completed -> {
             FirstLaunchLanguage(repository = repository, modifier = modifier)
+        }
+        step == PostSplashStep.LanguageAndRegion && completed && !registrationDone -> {
+            OnboardingHost(modifier = modifier)
         }
         else -> {
             SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
@@ -101,8 +118,8 @@ private fun FirstLaunchLanguage(
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        if (state.effect == RegionEffect.ContinueToHome) {
-            activity?.openHomeAfterOnboarding()
+        if (state.effect == RegionEffect.ContinueToOnboarding) {
+            activity?.openOnboarding()
         }
     }
     IdiomaRegionScreen(
@@ -111,6 +128,41 @@ private fun FirstLaunchLanguage(
         onContinue = viewModel::confirm,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun OnboardingHost(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val viewModel = remember(context) {
+        OnboardingViewModel(
+            RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
+        )
+    }
+    val state by viewModel.state.collectAsState()
+    val activity = LocalContext.current.findActivity()
+    LaunchedEffect(state.effect) {
+        if (state.effect == OnboardingEffect.ContinueToHome) {
+            activity?.openHomeAfterOnboarding()
+        }
+    }
+    if (state.effect == OnboardingEffect.OpenLogin) {
+        LoginPlaceholder(modifier = modifier)
+    } else {
+        OnboardingScreen(
+            state = state,
+            onGivenName = viewModel::onGivenName,
+            onSurnames = viewModel::onSurnames,
+            onEmail = viewModel::onEmail,
+            onDocumentType = viewModel::onDocumentType,
+            onDocumentNumber = viewModel::onDocumentNumber,
+            onPassword = viewModel::onPassword,
+            onPhotoAttached = viewModel::attachPhoto,
+            onPhotoDeclined = viewModel::photoDeclined,
+            onContinue = viewModel::continuar,
+            onExistingAccount = viewModel::yaTengoCuenta,
+            modifier = modifier,
+        )
+    }
 }
 
 @Composable
@@ -185,6 +237,11 @@ private fun routeTitle(route: Any): String = when (route) {
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
+}
+
+internal fun Activity.openOnboarding() {
+    intent.putExtra(MainActivity.EXTRA_OPEN_ONBOARDING, true)
+    recreate()
 }
 
 internal fun Activity.openHomeAfterOnboarding() {

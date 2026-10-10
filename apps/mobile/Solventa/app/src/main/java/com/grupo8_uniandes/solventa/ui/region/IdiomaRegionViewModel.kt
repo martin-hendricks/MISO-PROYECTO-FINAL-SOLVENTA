@@ -17,7 +17,7 @@ enum class RegionSurface {
 }
 
 sealed interface RegionEffect {
-    data object ContinueToHome : RegionEffect
+    data object ContinueToOnboarding : RegionEffect
 
     data object CloseSheet : RegionEffect
 }
@@ -47,7 +47,7 @@ class IdiomaRegionViewModel(
             RegionSurface.Profile -> confirmFromProfile()
         }
         val effect = when (surface) {
-            RegionSurface.FirstLaunch -> RegionEffect.ContinueToHome
+            RegionSurface.FirstLaunch -> RegionEffect.ContinueToOnboarding
             RegionSurface.Profile -> RegionEffect.CloseSheet
         }
         _state.value = IdiomaRegionUiState(choice, effect)

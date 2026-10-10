@@ -42,7 +42,7 @@ class IdiomaRegionViewModelTest {
 
         assertEquals(Region.Mexico, repository.choice.appliedRegion)
         assertTrue(repository.choice.firstLaunchCompleted)
-        assertEquals(RegionEffect.ContinueToHome, viewModel.state.value.effect)
+        assertEquals(RegionEffect.ContinueToOnboarding, viewModel.state.value.effect)
     }
 
     @Test
