@@ -1,4 +1,5 @@
 name: Backend unit tests
+run-name: "[Backend] ${{ github.event.pull_request.title || github.ref_name }}"
 
 on:
   pull_request:
@@ -20,7 +21,7 @@ on:
 
 jobs:
   unit-tests:
-    name: unit-tests
+    name: backend-pytest
     runs-on: ubuntu-latest
     container:
       image: python:3.12.7-slim-bookworm
@@ -152,3 +153,55 @@ jobs:
           flags: backend
           fail_ci_if_error: false
           handle_no_reports_found: true
+
+      - name: Write test summary
+        if: always() && steps.select.outputs.matrix != '[]'
+        env:
+          MATRIX_JSON: ${{ steps.select.outputs.matrix }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+
+          services = json.loads(os.environ["MATRIX_JSON"])
+          lines = [
+              "## Backend unit tests",
+              "",
+              "| Service | Tests | Failures | Errors | Skipped | Statements | Branches |",
+              "| --- | --- | --- | --- | --- | --- | --- |",
+          ]
+          for service in services:
+              work = os.path.join("apps", "backend", service)
+              junit = os.path.join(work, "junit.xml")
+              coverage = os.path.join(work, "coverage.xml")
+              if not os.path.isfile(junit):
+                  lines.append(f"| `{service}` | not run | | | | | |")
+                  continue
+              root = ET.parse(junit).getroot()
+              suites = [root] if root.tag == "testsuite" else list(root)
+              totals = {key: sum(int(s.get(key, 0)) for s in suites) for key in ("tests", "failures", "errors", "skipped")}
+              statements = branches = "-"
+              if os.path.isfile(coverage):
+                  report = ET.parse(coverage).getroot()
+                  statements = f"{float(report.get('line-rate', 0)) * 100:.1f}%"
+                  branches = f"{float(report.get('branch-rate', 0)) * 100:.1f}%"
+              lines.append(
+                  f"| `{service}` | {totals['tests']} | {totals['failures']} | {totals['errors']} | {totals['skipped']} | {statements} | {branches} |"
+              )
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
+  backend-unit-tests:
+    name: backend-unit-tests
+    needs: [unit-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require unit tests when the backend changed
+        run: |
+          result="${{ needs.unit-tests.result }}"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
