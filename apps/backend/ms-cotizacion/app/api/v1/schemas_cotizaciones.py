@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.domain.modelos import SolicitudCotizacion
-from app.domain.oferta import Oferta
+from app.domain.oferta import ConsultaOferta, Oferta
 
 
 class SolicitarCotizacionEntrada(BaseModel):
@@ -29,6 +29,7 @@ class CotizacionSalida(BaseModel):
     moneda: str
     vence_en: datetime
     factor_riesgo_origen: str
+    vencida: bool = False
 
     @classmethod
     def desde(cls, solicitud: SolicitudCotizacion, oferta: Oferta) -> "CotizacionSalida":
@@ -44,6 +45,11 @@ class CotizacionSalida(BaseModel):
             vence_en=oferta.vence_en,
             factor_riesgo_origen=oferta.factor_riesgo_origen.value,
         )
+
+    @classmethod
+    def desde_consulta(cls, solicitud: SolicitudCotizacion, consulta: ConsultaOferta) -> "CotizacionSalida":
+        base = cls.desde(solicitud, consulta.oferta)
+        return base.model_copy(update={"vencida": consulta.vencida})
 
 
 class ErrorSalida(BaseModel):

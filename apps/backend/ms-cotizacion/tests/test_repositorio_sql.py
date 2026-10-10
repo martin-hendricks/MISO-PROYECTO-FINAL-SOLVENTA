@@ -75,3 +75,18 @@ async def test_cotizar_persiste_oferta_completa(uow, catalogo):
         oferta_persistida = await tx.ofertas.obtener_por_solicitud(resultado.solicitud.id)
     assert oferta_persistida is not None
     assert oferta_persistida.prima == resultado.oferta.prima
+
+
+async def test_reconsultar_oferta_contra_postgres_real(uow, catalogo):
+    clave = f"it-{uuid4()}"
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1)
+
+    registrada = await casos_uso.cotizar(
+        uow, catalogo, adaptador, Settings(), clave,
+        uuid4(), uuid4(), uuid4(), "soat-motocicleta", "app-socio", DATOS_VALIDOS,
+    )
+
+    reconsultada = await casos_uso.reconsultar_oferta(uow, registrada.solicitud.id)
+
+    assert not reconsultada.consulta.vencida
+    assert reconsultada.consulta.oferta.prima == registrada.oferta.prima

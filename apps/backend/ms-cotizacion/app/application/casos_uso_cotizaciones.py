@@ -7,9 +7,9 @@ from typing import Any
 from uuid import UUID
 
 from app.config import Settings
-from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
-from app.domain.oferta import Oferta, oferta_emitida
+from app.domain.oferta import ConsultaOferta, Oferta, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
@@ -160,3 +160,21 @@ async def cotizar(
         ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
         ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
     return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
+
+
+@dataclass(frozen=True)
+class ReconsultaOferta:
+    solicitud: SolicitudCotizacion
+    consulta: ConsultaOferta
+
+
+async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -> ReconsultaOferta:
+    """Lectura pura: no invoca calcular_prima_solicitud ni combinar_factor_riesgo ni el
+    adaptador de perfil. 404 genérico sin distinguir el motivo (solicitud inexistente vs.
+    sin oferta), para no filtrar si la cotización perteneció a otro cliente/socio."""
+    async with uow() as tx:
+        solicitud = await tx.solicitudes.obtener(cotizacion_id)
+        oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
+    if solicitud is None or oferta is None:
+        raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+    return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))

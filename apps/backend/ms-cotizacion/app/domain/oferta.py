@@ -57,6 +57,16 @@ class Oferta:
         return (ahora or datetime.now(UTC)) < self.vence_en
 
 
+@dataclass(frozen=True)
+class ConsultaOferta:
+    oferta: Oferta
+    vencida: bool
+
+    @classmethod
+    def desde(cls, oferta: Oferta, ahora: datetime | None = None) -> ConsultaOferta:
+        return cls(oferta=oferta, vencida=not oferta.vigente(ahora))
+
+
 def oferta_emitida(oferta: Oferta) -> EventoDominio:
     return EventoDominio(
         tipo="OfertaEmitida",

@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Response, status
 
@@ -45,3 +46,9 @@ async def solicitar_cotizacion(
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return CotizacionSalida.desde(resultado.solicitud, resultado.oferta)
+
+
+@router.get("/{cotizacion_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}})
+async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow):
+    resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id)
+    return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
