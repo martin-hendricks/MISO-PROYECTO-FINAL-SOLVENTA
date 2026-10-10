@@ -96,6 +96,40 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun givenEmptyPhoto_whenAttached_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf())
+
+        assertFalse(viewModel.state.value.hasPhoto)
+        assertFalse(viewModel.state.value.continuarEnabled)
+    }
+
+    @Test
+    fun givenSaveRejected_whenContinuar_thenEffectStaysEmpty() {
+        val rejected = OnboardingViewModel(RejectingRegister())
+        rejected.onGivenName("Camila")
+        rejected.onSurnames("Restrepo")
+        rejected.onEmail("camila@correo.com")
+        rejected.onDocumentType("CC")
+        rejected.onDocumentNumber("1023456789")
+        rejected.onPassword("secret")
+        rejected.attachPhoto(byteArrayOf(1))
+
+        rejected.continuar()
+
+        assertNull(rejected.state.value.effect)
+    }
+
+    @Test
+    fun givenLoginEffect_whenAFieldChanges_thenEffectClears() {
+        viewModel.yaTengoCuenta()
+        viewModel.onGivenName("Camila")
+
+        assertNull(viewModel.state.value.effect)
+        assertEquals("Camila", viewModel.state.value.givenName)
+    }
+
+    @Test
     fun givenPartialForm_whenYaTengoCuenta_thenLoginWithoutSave() {
         viewModel.onEmail("camila@correo.com")
 
@@ -113,6 +147,16 @@ class OnboardingViewModelTest {
         viewModel.onDocumentNumber("1023456789")
         viewModel.onPassword("secret")
     }
+}
+
+private class RejectingRegister : RegisterAccount(
+    object : RegistrationRepository {
+        override fun read(): Registration? = null
+
+        override fun save(registration: Registration) = error("a rejected submit does not save")
+    },
+) {
+    override fun submit(draft: AccountDraft): Boolean = false
 }
 
 private class RecordingRegister : RegisterAccount(

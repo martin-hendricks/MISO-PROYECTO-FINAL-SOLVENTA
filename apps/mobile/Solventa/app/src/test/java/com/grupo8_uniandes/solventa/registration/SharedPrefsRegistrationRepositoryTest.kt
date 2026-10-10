@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.registration
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.registration.KeyDocumentNumber
 import com.grupo8_uniandes.solventa.data.registration.KeyDocumentType
@@ -69,6 +70,34 @@ class SharedPrefsRegistrationRepositoryTest {
         assertEquals("camila@correo.com", repository.read()?.email)
     }
 
+    @Test
+    fun givenCompletedFlagWithoutPhoto_whenRead_thenMissing() {
+        prefs().edit().putBoolean(KeyRegistrationCompleted, true).commit()
+
+        assertNull(repository.read())
+    }
+
+    @Test
+    fun givenNullStoredText_whenRead_thenFieldsAreEmpty() {
+        val photo = File(context.filesDir, "registration/document.jpg")
+        photo.parentFile?.mkdirs()
+        photo.writeBytes(byteArrayOf(3))
+        val base = prefs()
+        base.edit().putBoolean(KeyRegistrationCompleted, true).commit()
+        val repository = SharedPrefsRegistrationRepository(NullStringPrefs(base), context.filesDir)
+
+        val stored = repository.read()
+        assertEquals("", stored?.givenName)
+        assertEquals("", stored?.surnames)
+        assertEquals("", stored?.email)
+        assertEquals("", stored?.documentType)
+        assertEquals("", stored?.documentNumber)
+        assertEquals("", stored?.password)
+        assertTrue(byteArrayOf(3).contentEquals(stored?.documentPhoto))
+    }
+
+    private fun prefs() = context.getSharedPreferences(RegistrationPrefsFile, Context.MODE_PRIVATE)
+
     private fun registration(photo: ByteArray) = Registration(
         givenName = "Camila",
         surnames = "Restrepo",
@@ -78,4 +107,10 @@ class SharedPrefsRegistrationRepositoryTest {
         password = "secret",
         documentPhoto = photo,
     )
+}
+
+private class NullStringPrefs(
+    private val base: SharedPreferences,
+) : SharedPreferences by base {
+    override fun getString(key: String?, defValue: String?): String? = null
 }

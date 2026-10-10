@@ -78,12 +78,15 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
 
-// The activity, splash, and signed-in shell run on a device. Robolectric covers the
-// language screen, the Profile sheet, and the preferences store in this report.
+// Same files as `ignore` in the repo codecov.yml. Codecov reads this filtered
+// report.xml, so a file left in only one list makes the two percentages diverge.
 val unitTestCoverageExcludedSources = setOf(
     "MainActivity.kt",
     "CustomerShell.kt",
     "SplashScreen.kt",
+    "IdiomaRegionScreen.kt",
+    "IdiomaRegionSheet.kt",
+    "PerfilScreen.kt",
 )
 
 val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {
