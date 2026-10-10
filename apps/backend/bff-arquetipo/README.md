@@ -72,3 +72,11 @@ El contexto de build es `apps/backend`, para que las imágenes de los BFF puedan
 ## Despliegue
 
 Imagen `runtime` detrás del `:ApiGateway` (ALB + WAF) hacia EKS (§1.1.3). El canal solo conoce la URL del gateway.
+
+La imagen corre con uid 1000 en :8080, como espera el chart `infra/k8s/charts/microservicio`. En el Compose local el núcleo de ejemplo se levanta en :8000 para conservar `MS_EJEMPLO_URL`.
+
+Las dependencias de la imagen se instalan con `requirements.lock` como *constraints*: dos construcciones del mismo commit instalan las mismas versiones. Si cambia `pyproject.toml`, se regenera el lock (sin Docker):
+
+```bash
+uv pip compile pyproject.toml --extra test --python-version 3.12.7 --python-platform x86_64-unknown-linux-gnu -o requirements.lock
+```
