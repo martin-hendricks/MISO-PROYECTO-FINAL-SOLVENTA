@@ -74,10 +74,16 @@ docker build --target test -t ms-arquetipo:test . && docker run --rm ms-arquetip
 ## Ejecutar con Docker (HU-71)
 
 ```bash
-docker compose up --build          # servicio en :8000 + PostgreSQL 16 con el DDL de db/
+docker compose up --build          # servicio en :8080 + PostgreSQL 16 con el DDL de db/
 ```
 
-La imagen fija el runtime (`python:3.12.7-slim-bookworm`, nunca `latest`) y corre con un usuario sin privilegios.
+La imagen fija el runtime (`python:3.12.7-slim-bookworm`, nunca `latest`) y corre con un usuario sin privilegios (uid 1000). El puerto 8080 y el uid son los que espera el chart `infra/k8s/charts/microservicio`; con `uvicorn` local sin Docker el servicio sigue en :8000.
+
+Las dependencias de la imagen se instalan con `requirements.lock` como *constraints*: dos construcciones del mismo commit instalan las mismas versiones. Si cambia `pyproject.toml`, se regenera el lock (sin Docker):
+
+```bash
+uv pip compile pyproject.toml --extra test --python-version 3.12.7 --python-platform x86_64-unknown-linux-gnu -o requirements.lock
+```
 
 ## Despliegue
 
