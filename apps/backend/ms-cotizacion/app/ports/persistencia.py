@@ -5,6 +5,8 @@ from typing import Protocol
 from uuid import UUID
 
 from app.domain.modelos import EventoDominio, SolicitudCotizacion
+from app.ports.oferta import RepositorioOfertas
+from app.ports.rating import RepositorioReglasRating
 
 
 class ClaveIdempotenciaDuplicada(Exception):
@@ -27,6 +29,8 @@ class Outbox(Protocol):
 
 class UnidadDeTrabajo(Protocol):
     solicitudes: RepositorioSolicitudes
+    reglas_rating: RepositorioReglasRating
+    ofertas: RepositorioOfertas
     outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...

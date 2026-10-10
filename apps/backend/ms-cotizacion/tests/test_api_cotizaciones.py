@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 CABECERAS = {"Idempotency-Key": "clave-de-prueba-0001"}
@@ -16,13 +18,16 @@ def _payload(**overrides):
     return base
 
 
-def test_solicitud_valida_devuelve_cotizacion_id_201(client):
+def test_solicitud_valida_devuelve_oferta_en_el_mismo_flujo(client):
     respuesta = client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS)
 
     assert respuesta.status_code == 201
     cuerpo = respuesta.json()
     assert "cotizacion_id" in cuerpo
-    assert cuerpo["estado"] == "recibida"
+    assert cuerpo["estado"] == "cotizada"
+    assert Decimal(cuerpo["prima"]) == Decimal(cuerpo["prima_neta"]) + Decimal(cuerpo["gastos_expedicion"])
+    assert "moneda" in cuerpo and "vence_en" in cuerpo
+    assert cuerpo["factor_riesgo_origen"] in ("real", "respaldo")
 
 
 def test_reintento_con_misma_clave_devuelve_200(client):
@@ -54,3 +59,35 @@ def test_falta_header_idempotency_key_devuelve_422(client):
     respuesta = client.post("/v1/cotizaciones", json=_payload())
 
     assert respuesta.status_code == 422
+
+
+def test_get_cotizacion_devuelve_404_si_no_existe(client):
+    respuesta = client.get(f"/v1/cotizaciones/{uuid4()}")
+
+    assert respuesta.status_code == 404
+    cuerpo = respuesta.json()
+    assert set(cuerpo) == {"codigo", "mensaje"}
+
+
+def test_get_cotizacion_dos_veces_devuelve_el_mismo_cuerpo(client):
+    creada = client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS).json()
+    cotizacion_id = creada["cotizacion_id"]
+
+    primera = client.get(f"/v1/cotizaciones/{cotizacion_id}")
+    segunda = client.get(f"/v1/cotizaciones/{cotizacion_id}")
+
+    assert primera.status_code == 200
+    assert primera.json() == segunda.json()
+
+
+def test_get_cotizacion_vencida_devuelve_vencida_true(client, almacen):
+    creada = client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS).json()
+    oferta_id = next(iter(almacen.ofertas))
+    almacen.ofertas[oferta_id].vence_en = datetime.now(UTC) - timedelta(seconds=1)
+
+    respuesta = client.get(f"/v1/cotizaciones/{creada['cotizacion_id']}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["vencida"] is True
+    assert Decimal(cuerpo["prima"]) == Decimal(creada["prima"])
