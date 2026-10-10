@@ -42,9 +42,9 @@ class SharedPrefsRegistrationRepository(
     }
 
     override fun save(registration: Registration) {
-        val file = photoFile()
-        file.parentFile?.mkdirs()
-        file.writeBytes(registration.documentPhoto)
+        val directory = File(filesDir, "registration")
+        directory.mkdirs()
+        File(directory, "document.jpg").writeBytes(registration.documentPhoto)
         prefs.edit()
             .putString(KeyGivenName, registration.givenName)
             .putString(KeySurnames, registration.surnames)

@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.ui.registration
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,10 +39,14 @@ import java.io.File
 
 /**
  * Instrumented tests set [next] so the photo action can attach or decline
- * without a camera app. Production leaves it null and uses the camera.
+ * without a camera app. Unit tests set [captureUri] so the camera launch
+ * does not ask FileProvider for a content uri. Production leaves both null.
  */
 internal object OnboardingPhotoInjector {
     var next: ByteArray? = null
+
+    /** Unit tests supply a uri so the camera launch does not depend on FileProvider. */
+    var captureUri: Uri? = null
 
     fun consume(): ByteArray? = next.also { next = null }
 }
@@ -79,7 +84,7 @@ fun OnboardingScreen(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            takePicture.launch(captureUri(context, captureFile))
+            launchCapture(context, captureFile, takePicture::launch)
         } else {
             onPhotoDeclined()
         }
@@ -185,7 +190,7 @@ fun OnboardingScreen(
                             Manifest.permission.CAMERA,
                         ) == PackageManager.PERMISSION_GRANTED
                         if (granted) {
-                            takePicture.launch(captureUri(context, captureFile))
+                            launchCapture(context, captureFile, takePicture::launch)
                         } else {
                             requestCamera.launch(Manifest.permission.CAMERA)
                         }
@@ -232,12 +237,30 @@ fun LoginPlaceholder(modifier: Modifier = Modifier) {
     }
 }
 
-private fun captureUri(context: android.content.Context, file: File) =
-    FileProvider.getUriForFile(
+private fun launchCapture(
+    context: android.content.Context,
+    file: File,
+    launch: (Uri) -> Unit,
+) {
+    val override = OnboardingPhotoInjector.captureUri
+    if (override != null) {
+        prepareCaptureFile(file)
+        launch(override)
+    } else {
+        launch(captureUri(context, file))
+    }
+}
+
+internal fun captureUri(context: android.content.Context, file: File): Uri {
+    prepareCaptureFile(file)
+    return FileProvider.getUriForFile(
         context,
         "${context.packageName}.fileprovider",
-        file.apply {
-            parentFile?.mkdirs()
-            if (!exists()) createNewFile()
-        },
+        file,
     )
+}
+
+internal fun prepareCaptureFile(file: File) {
+    file.parentFile?.mkdirs()
+    if (!file.exists()) file.createNewFile()
+}
