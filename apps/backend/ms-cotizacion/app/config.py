@@ -16,3 +16,7 @@ class Settings(BaseSettings):
     # (Open Finance) no necesite conocer la política de resiliencia de Solventa.
     factor_riesgo_timeout_maximo_ms: int = 700
     factor_riesgo_valor_respaldo: Decimal = Decimal("1.0")
+
+    # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
+    # default razonable a confirmar con negocio.
+    oferta_vigencia_minutos: int = 60

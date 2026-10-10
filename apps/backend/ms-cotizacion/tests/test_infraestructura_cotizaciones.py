@@ -3,10 +3,16 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.dependencies import obtener_adaptador_perfil_riesgo
+from decimal import Decimal
+
+from app.dependencies import obtener_adaptador_perfil_riesgo, obtener_config
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion
+from app.domain.oferta import Oferta
+from app.domain.riesgo import OrigenFactorRiesgo
 from app.infrastructure.sql import (
+    OfertaFila,
     ReglaRatingFila,
+    RepositorioOfertasSQL,
     RepositorioReglasRatingSQL,
     RepositorioSolicitudesSQL,
     SolicitudFila,
@@ -25,8 +31,9 @@ class SesionFalsa:
     async def flush(self) -> None:
         self.flushes += 1
 
-    async def get(self, _modelo, _id):
-        return next((f for f in self._filas if f.solicitud_id == _id), None)
+    async def get(self, modelo, id_):
+        pk = modelo.__mapper__.primary_key[0].name
+        return next((f for f in self._filas if getattr(f, pk) == id_), None)
 
     async def scalar(self, _consulta):
         return self._filas[0] if self._filas else None
@@ -117,3 +124,73 @@ def test_obtener_adaptador_perfil_riesgo_lee_el_estado_de_la_app():
     request = SimpleNamespace(app=SimpleNamespace(state=estado))
 
     assert obtener_adaptador_perfil_riesgo(request) is estado.adaptador_perfil_riesgo
+
+
+def test_obtener_config_lee_el_estado_de_la_app():
+    estado = SimpleNamespace(config=object())
+    request = SimpleNamespace(app=SimpleNamespace(state=estado))
+
+    assert obtener_config(request) is estado.config
+
+
+def _oferta() -> Oferta:
+    return Oferta(
+        id=uuid4(),
+        solicitud_id=uuid4(),
+        regla_id=uuid4(),
+        version_regla="0001",
+        prima_neta=Decimal("120000.00"),
+        gastos_expedicion=Decimal("8500.00"),
+        moneda="COP",
+        coberturas=["muerte", "incapacidad_permanente"],
+        factor_riesgo=Decimal("1.1000"),
+        factor_riesgo_origen=OrigenFactorRiesgo.REAL,
+        vence_en=datetime.now(UTC),
+    )
+
+
+async def test_ofertas_agregar_persiste_la_fila():
+    sesion = SesionFalsa()
+    repo = RepositorioOfertasSQL(sesion)
+    oferta = _oferta()
+
+    await repo.agregar(oferta)
+
+    [fila] = sesion.agregados
+    assert isinstance(fila, OfertaFila)
+    assert (fila.oferta_id, fila.solicitud_id) == (oferta.id, oferta.solicitud_id)
+
+
+async def test_ofertas_obtener_inexistente_devuelve_none():
+    repo = RepositorioOfertasSQL(SesionFalsa())
+
+    assert await repo.obtener(uuid4()) is None
+
+
+async def test_ofertas_obtener_por_solicitud_sin_coincidencia_devuelve_none():
+    repo = RepositorioOfertasSQL(SesionFalsa())
+
+    assert await repo.obtener_por_solicitud(uuid4()) is None
+
+
+async def test_ofertas_obtener_devuelve_la_oferta_reconstruida():
+    oferta = _oferta()
+    fila = OfertaFila(
+        oferta_id=oferta.id,
+        solicitud_id=oferta.solicitud_id,
+        regla_id=oferta.regla_id,
+        version_regla=oferta.version_regla,
+        prima=oferta.prima,
+        prima_neta=oferta.prima_neta,
+        gastos_expedicion=oferta.gastos_expedicion,
+        moneda=oferta.moneda,
+        coberturas=",".join(oferta.coberturas),
+        factor_riesgo=oferta.factor_riesgo,
+        factor_riesgo_origen=oferta.factor_riesgo_origen.value,
+        vence_en=oferta.vence_en,
+    )
+    repo = RepositorioOfertasSQL(SesionFalsa(filas=[fila]))
+
+    reconstruida = await repo.obtener_por_solicitud(oferta.solicitud_id)
+
+    assert (reconstruida.id, reconstruida.solicitud_id) == (oferta.id, oferta.solicitud_id)

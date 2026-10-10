@@ -29,6 +29,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.catalogo = await CatalogoSQL.cargar(motor)
         app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoStub()
+        app.state.config = config
         yield
         await motor.dispose()
 

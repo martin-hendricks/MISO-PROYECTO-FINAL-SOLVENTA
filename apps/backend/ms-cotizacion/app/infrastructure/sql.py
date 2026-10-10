@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, MetaData, String, func, select
+from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -18,7 +19,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
 from app.domain.modelos import EstadoSolicitud, EventoDominio, SolicitudCotizacion
+from app.domain.oferta import Oferta
 from app.domain.rating import ReglaRating
+from app.domain.riesgo import OrigenFactorRiesgo
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 ESQUEMA = "ms_cotizacion"
@@ -51,6 +54,70 @@ class ReglaRatingFila(Base):
     producto: Mapped[str]
     version: Mapped[str]
     formula: Mapped[str]
+
+
+class OfertaFila(Base):
+    __tablename__ = "oferta_seguro"
+
+    oferta_id: Mapped[UUID] = mapped_column(primary_key=True)
+    solicitud_id: Mapped[UUID]
+    regla_id: Mapped[UUID]
+    version_regla: Mapped[str]
+    prima: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    prima_neta: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    gastos_expedicion: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    moneda: Mapped[str]
+    coberturas: Mapped[str]
+    factor_riesgo: Mapped[Decimal] = mapped_column(Numeric(6, 4))
+    factor_riesgo_origen: Mapped[str]
+    vence_en: Mapped[datetime]
+
+
+def _oferta_a_dominio(fila: OfertaFila) -> Oferta:
+    return Oferta(
+        id=fila.oferta_id,
+        solicitud_id=fila.solicitud_id,
+        regla_id=fila.regla_id,
+        version_regla=fila.version_regla,
+        prima_neta=fila.prima_neta,
+        gastos_expedicion=fila.gastos_expedicion,
+        moneda=fila.moneda,
+        coberturas=fila.coberturas.split(","),
+        factor_riesgo=fila.factor_riesgo,
+        factor_riesgo_origen=OrigenFactorRiesgo(fila.factor_riesgo_origen),
+        vence_en=fila.vence_en,
+    )
+
+
+class RepositorioOfertasSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def obtener(self, oferta_id: UUID) -> Oferta | None:
+        fila = await self._s.get(OfertaFila, oferta_id)
+        return _oferta_a_dominio(fila) if fila else None
+
+    async def obtener_por_solicitud(self, solicitud_id: UUID) -> Oferta | None:
+        fila = await self._s.scalar(select(OfertaFila).where(OfertaFila.solicitud_id == solicitud_id))
+        return _oferta_a_dominio(fila) if fila else None
+
+    async def agregar(self, oferta: Oferta) -> None:
+        self._s.add(
+            OfertaFila(
+                oferta_id=oferta.id,
+                solicitud_id=oferta.solicitud_id,
+                regla_id=oferta.regla_id,
+                version_regla=oferta.version_regla,
+                prima=oferta.prima,
+                prima_neta=oferta.prima_neta,
+                gastos_expedicion=oferta.gastos_expedicion,
+                moneda=oferta.moneda,
+                coberturas=",".join(oferta.coberturas),
+                factor_riesgo=oferta.factor_riesgo,
+                factor_riesgo_origen=oferta.factor_riesgo_origen.value,
+                vence_en=oferta.vence_en,
+            )
+        )
 
 
 class OutboxFila(Base):
@@ -154,6 +221,7 @@ class UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.solicitudes = RepositorioSolicitudesSQL(self._sesion)
         self.reglas_rating = RepositorioReglasRatingSQL(self._sesion)
+        self.ofertas = RepositorioOfertasSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

@@ -10,6 +10,7 @@ from app.domain.catalogo import (
     ValoresPermitidos,
 )
 from app.domain.modelos import EventoDominio, SolicitudCotizacion
+from app.domain.oferta import Oferta
 from app.domain.rating import ReglaRating
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
@@ -46,6 +47,7 @@ class AlmacenEnMemoria:
     def __init__(self) -> None:
         self.solicitudes: dict[UUID, SolicitudCotizacion] = {}
         self.reglas_rating: dict[str, ReglaRating] = {}
+        self.ofertas: dict[UUID, Oferta] = {}
         self.eventos: list[EventoDominio] = []
         self.chocar_en_proximo_commit: SolicitudCotizacion | None = None
 
@@ -71,6 +73,24 @@ class _RepoSolicitudes:
         self._uow.pendientes[solicitud.id] = solicitud
 
 
+class _RepoOfertas:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    def _vista(self) -> dict[UUID, Oferta]:
+        return {**self._uow.almacen.ofertas, **self._uow.ofertas_pendientes}
+
+    async def obtener(self, oferta_id):
+        o = self._vista().get(oferta_id)
+        return deepcopy(o) if o else None
+
+    async def obtener_por_solicitud(self, solicitud_id):
+        return next((deepcopy(o) for o in self._vista().values() if o.solicitud_id == solicitud_id), None)
+
+    async def agregar(self, oferta):
+        self._uow.ofertas_pendientes[oferta.id] = oferta
+
+
 class _RepoReglasRating:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
         self._uow = uow
@@ -94,9 +114,11 @@ class UnidadDeTrabajoEnMemoria:
     def __init__(self, almacen: AlmacenEnMemoria) -> None:
         self.almacen = almacen
         self.pendientes: dict[UUID, SolicitudCotizacion] = {}
+        self.ofertas_pendientes: dict[UUID, Oferta] = {}
         self.eventos_pendientes: list[EventoDominio] = []
         self.solicitudes = _RepoSolicitudes(self)
         self.reglas_rating = _RepoReglasRating(self)
+        self.ofertas = _RepoOfertas(self)
         self.outbox = _Outbox(self)
 
     async def __aenter__(self):
@@ -104,6 +126,7 @@ class UnidadDeTrabajoEnMemoria:
 
     async def __aexit__(self, *exc):
         self.pendientes.clear()
+        self.ofertas_pendientes.clear()
         self.eventos_pendientes.clear()
 
     async def confirmar(self):
@@ -113,8 +136,10 @@ class UnidadDeTrabajoEnMemoria:
             self.almacen.solicitudes[ganador.id] = ganador
             raise ClaveIdempotenciaDuplicada
         self.almacen.solicitudes.update(self.pendientes)
+        self.almacen.ofertas.update(self.ofertas_pendientes)
         self.almacen.eventos.extend(self.eventos_pendientes)
         self.pendientes.clear()
+        self.ofertas_pendientes.clear()
         self.eventos_pendientes.clear()
 
 
