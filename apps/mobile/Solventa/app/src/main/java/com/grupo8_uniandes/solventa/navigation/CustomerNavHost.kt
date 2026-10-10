@@ -29,10 +29,11 @@ fun CustomerNavHost(
     homeState: HomeUiState,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    startDestination: Any = InicioRoute,
 ) {
     NavHost(
         navController = navController,
-        startDestination = InicioRoute,
+        startDestination = startDestination,
         modifier = modifier.padding(contentPadding),
     ) {
         composable<InicioRoute> {

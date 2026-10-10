@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
+import android.app.Activity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Box
@@ -14,12 +15,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
+import com.grupo8_uniandes.solventa.domain.region.RegionRepository
+import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
+import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -37,35 +43,107 @@ import com.grupo8_uniandes.solventa.navigation.shellMode
 import com.grupo8_uniandes.solventa.navigation.toSolventaRoute
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
+import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionScreen
+import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
+import com.grupo8_uniandes.solventa.ui.region.RegionEffect
+import com.grupo8_uniandes.solventa.ui.region.RegionSurface
+import com.grupo8_uniandes.solventa.ui.region.findActivity
 
 @Composable
 fun CustomerShell(
     startupSession: StartupSession = StartupSession.FirstUse,
     splashHoldMillis: Long = SplashHoldMillis,
     enterSignedInShell: Boolean = false,
+    resumeProfile: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    if (enterSignedInShell) {
+        SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
+        return
+    }
+
     val splashViewModel = remember(startupSession, splashHoldMillis) {
         SplashViewModel(session = startupSession, holdMillis = splashHoldMillis)
     }
     val splashState by splashViewModel.state.collectAsState()
-    LaunchedEffect(splashViewModel, enterSignedInShell) {
-        if (!enterSignedInShell) splashViewModel.start()
+    LaunchedEffect(splashViewModel) {
+        splashViewModel.start()
     }
-    if (!enterSignedInShell && splashState is SplashUiState.Showing) {
+    if (splashState is SplashUiState.Showing) {
         SplashScreen(modifier = modifier)
         return
     }
 
+    val step = (splashState as SplashUiState.Finished).step
+    val context = LocalContext.current
+    val repository = remember(context) {
+        SharedPrefsRegionRepository(context.applicationContext)
+    }
+    val completed = repository.read().firstLaunchCompleted
+    when {
+        step == PostSplashStep.LanguageAndRegion && !completed -> {
+            FirstLaunchLanguage(repository = repository, modifier = modifier)
+        }
+        else -> {
+            SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
+        }
+    }
+}
+
+@Composable
+private fun FirstLaunchLanguage(
+    repository: RegionRepository,
+    modifier: Modifier = Modifier,
+) {
+    val viewModel = remember(repository) {
+        IdiomaRegionViewModel(repository = repository, surface = RegionSurface.FirstLaunch)
+    }
+    val state by viewModel.state.collectAsState()
+    val activity = LocalContext.current.findActivity()
+    LaunchedEffect(state.effect) {
+        if (state.effect == RegionEffect.ContinueToHome) {
+            activity?.openHomeAfterOnboarding()
+        }
+    }
+    IdiomaRegionScreen(
+        draft = state.choice.draftRegion,
+        onSelect = viewModel::select,
+        onContinue = viewModel::confirm,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SignedInShell(
+    modifier: Modifier = Modifier,
+    startOnProfile: Boolean = false,
+) {
     val signedIn = true
     val navController = rememberNavController()
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsState()
     val entry by navController.currentBackStackEntryAsState()
-    val route = entry?.toSolventaRoute() ?: InicioRoute
+    val start = if (startOnProfile) PerfilRoute else InicioRoute
+    val route = entry?.toSolventaRoute() ?: start
     val mode = shellMode(route, signedIn)
     val selected = selectedDestination(route)
     val showBottomBar = mode == ShellMode.Root || mode == ShellMode.Nested
+
+    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val consumeBack = remember {
+        object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() = Unit
+        }
+    }
+    DisposableEffect(dispatcher) {
+        dispatcher?.addCallback(consumeBack)
+        onDispose { consumeBack.remove() }
+    }
+    SideEffect {
+        consumeBack.remove()
+        consumeBack.isEnabled = mode == ShellMode.Root || mode == ShellMode.Issuance
+        dispatcher?.addCallback(consumeBack)
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -88,31 +166,12 @@ fun CustomerShell(
             }
         },
     ) { padding ->
-        if (!signedIn) {
-            Box(Modifier.fillMaxSize())
-        } else {
-            CustomerNavHost(
-                navController = navController,
-                homeState = homeState,
-                contentPadding = padding,
-            )
-        }
-    }
-
-    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    val consumeBack = remember {
-        object : OnBackPressedCallback(false) {
-            override fun handleOnBackPressed() = Unit
-        }
-    }
-    DisposableEffect(dispatcher) {
-        dispatcher?.addCallback(consumeBack)
-        onDispose { consumeBack.remove() }
-    }
-    SideEffect {
-        consumeBack.remove()
-        consumeBack.isEnabled = mode == ShellMode.Root || mode == ShellMode.Issuance
-        dispatcher?.addCallback(consumeBack)
+        CustomerNavHost(
+            navController = navController,
+            homeState = homeState,
+            contentPadding = padding,
+            startDestination = start,
+        )
     }
 }
 
@@ -126,4 +185,14 @@ private fun routeTitle(route: Any): String = when (route) {
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
+}
+
+internal fun Activity.openHomeAfterOnboarding() {
+    intent.putExtra(MainActivity.EXTRA_OPEN_HOME, true)
+    recreate()
+}
+
+internal fun Activity.resumeProfileAfterLocaleChange() {
+    intent.putExtra(MainActivity.EXTRA_RESUME_PROFILE, true)
+    recreate()
 }

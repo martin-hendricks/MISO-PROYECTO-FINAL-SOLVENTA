@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.splash
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertCountEquals
@@ -48,14 +49,14 @@ class SplashFirstUseTest {
     val rule = createEmptyComposeRule()
 
     @Test
-    fun givenFirstUse_whenStartupFinishes_thenInicio() {
+    fun givenFirstUse_whenStartupFinishes_thenIdiomaRegion() {
+        clearRegionPrefs()
         ActivityScenario.launch<MainActivity>(splashIntent(holdMillis = 0L)).use {
-            rule.waitForTag("screen_inicio")
+            rule.waitForTag("screen_idioma_region")
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-            rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
-            rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
-            rule.onNodeWithTag("tab_Inicio").assertIsSelected()
-            rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
+            rule.onNodeWithTag("screen_idioma_region").assertIsDisplayed()
+            rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
+            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
         }
     }
@@ -111,6 +112,11 @@ class SplashPermissionTest {
 private fun splashIntent(holdMillis: Long): Intent =
     Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
         .putExtra(MainActivity.EXTRA_SPLASH_HOLD_MILLIS, holdMillis)
+
+private fun clearRegionPrefs() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    context.getSharedPreferences("region_prefs", Context.MODE_PRIVATE).edit().clear().commit()
+}
 
 private fun ComposeTestRule.waitForTag(tag: String) {
     waitUntil(timeoutMillis = 5_000) {

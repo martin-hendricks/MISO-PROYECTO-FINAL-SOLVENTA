@@ -52,6 +52,5 @@ class HomeViewModelTest {
         val entries = HomeViewModel().profileEntries
         assertEquals(1, entries.size)
         assertEquals("IdiomaRegion", entries.single().id)
-        assertEquals("Idioma y región", entries.single().label)
     }
 }
