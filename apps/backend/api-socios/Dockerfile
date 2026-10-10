@@ -13,7 +13,7 @@ WORKDIR /srv/api-socios
 FROM base AS test
 RUN pip install ".[test]"
 COPY api-socios/tests ./tests
-CMD ["python", "-m", "pytest", "tests", "-m", "not integration and not contract", "--cov"]
+CMD ["python", "-m", "pytest", "tests", "-m", "not integration and not contract", "--allow-hosts=127.0.0.1,::1", "--cov"]
 
 FROM base AS runtime
 RUN pip install . && useradd --uid 10001 --no-create-home app

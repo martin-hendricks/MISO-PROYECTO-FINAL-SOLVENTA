@@ -27,7 +27,7 @@ Copia el arquetipo, lo renombra y conserva el `README.md` que ya tenga la carpet
 
 ## Pruebas y CI
 
-Cada proyecto: `pip install -e ".[test]" && pytest -m "not integration and not contract" --cov`.
+Cada proyecto: `pip install -e ".[test]" && pytest -m "not integration and not contract" --allow-hosts=127.0.0.1,::1 --cov`.
 
 El CI de backend es el workflow `backend-unit-tests.yml` del PR #10: corre las pruebas unitarias de los servicios que cambiaron, con cobertura y reporte JUnit. Un test rojo falla el pipeline (HU-85).
 

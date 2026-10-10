@@ -7,8 +7,6 @@ on:
       - main
       - "release/**"
       - "hotfix/**"
-    paths:
-      - "apps/backend/**"
   push:
     branches:
       - develop
@@ -18,23 +16,35 @@ on:
       - "hotfix/**"
     paths:
       - "apps/backend/**"
+      - ".github/workflows/backend-unit-tests.yml"
 
 jobs:
   unit-tests:
     name: unit-tests
     runs-on: ubuntu-latest
+    container:
+      image: python:3.12.7-slim-bookworm
     steps:
+      - name: Install job tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git curl gnupg ca-certificates
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Trust workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Select services
         id: select
         run: python apps/backend/scripts/select_services.py
+
+      - name: Test service selector
+        run: |
+          python -m pip install pytest
+          python -m pytest apps/backend/scripts/tests -p no:cacheprovider
 
       - name: Write skip reasons
         if: steps.select.outputs.skip != '[]'
@@ -75,7 +85,7 @@ jobs:
               created = subprocess.run([sys.executable, "-m", "venv", venv], cwd=work)
               python = os.path.join(venv, "bin", "python")
               install = subprocess.run(
-                  [python, "-m", "pip", "install", "-e", ".[test]", "pytest-cov"],
+                  [python, "-m", "pip", "install", "-e", ".[test]", "pytest-cov", "pytest-socket"],
                   cwd=work,
               )
               imported = subprocess.run(
@@ -103,8 +113,10 @@ jobs:
                       "tests",
                       "-m",
                       "not integration and not contract",
+                      "--allow-hosts=127.0.0.1,::1",
                       "--junitxml=junit.xml",
                       "--cov",
+                      "--cov-report=term-missing",
                       "--cov-report=xml",
                   ],
                   cwd=work,
@@ -124,13 +136,12 @@ jobs:
           if-no-files-found: error
 
       - name: Upload coverage reports
-        if: always()
-        continue-on-error: true
+        if: always() && steps.select.outputs.matrix != '[]'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: apps/backend/**/coverage.xml
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Upload coverage to Codecov
         if: always() && steps.select.outputs.matrix != '[]'
