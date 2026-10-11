@@ -1,0 +1,83 @@
+<div class="split">
+  <section class="brand">
+    <p class="brand-name">{{ 'shell.portal' | translate }}</p>
+    <p class="brand-claim">{{ 'login.brand.claim' | translate }}</p>
+    <p class="brand-body">{{ 'login.brand.body' | translate }}</p>
+  </section>
+
+  <main class="panel">
+    <form
+      class="card"
+      novalidate
+      data-testid="login-form"
+      [attr.data-status]="vm.status()"
+      (submit)="submit($event)"
+    >
+      <h1>{{ 'login.title' | translate }}</h1>
+      <p class="hint">{{ 'login.hint' | translate }}</p>
+
+      @if (vm.failure(); as failure) {
+        <p class="banner" role="alert" data-testid="login-error" [attr.data-kind]="failure">
+          {{ 'login.error.' + failure | translate }}
+        </p>
+      }
+
+      <div class="field">
+        <label for="login-email">{{ 'login.email' | translate }}</label>
+        <input
+          #email
+          id="login-email"
+          type="email"
+          autocomplete="username"
+          data-testid="login-email"
+          [value]="vm.email()"
+          [attr.aria-invalid]="vm.emailIssue() ? 'true' : null"
+          [attr.aria-describedby]="vm.emailIssue() ? 'login-email-error' : null"
+          (input)="vm.email.set(email.value)"
+        />
+        @if (vm.emailIssue(); as issue) {
+          <p id="login-email-error" class="field-error" data-testid="login-email-error">
+            {{ 'login.error.email.' + issue | translate }}
+          </p>
+        }
+      </div>
+
+      <div class="field">
+        <label for="login-password">{{ 'login.password' | translate }}</label>
+        <input
+          #password
+          id="login-password"
+          type="password"
+          autocomplete="current-password"
+          data-testid="login-password"
+          [value]="vm.password()"
+          [attr.aria-invalid]="vm.passwordMissing() ? 'true' : null"
+          [attr.aria-describedby]="vm.passwordMissing() ? 'login-password-error' : null"
+          (input)="vm.password.set(password.value)"
+        />
+        @if (vm.passwordMissing()) {
+          <p id="login-password-error" class="field-error" data-testid="login-password-error">
+            {{ 'login.error.password.required' | translate }}
+          </p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="filled"
+        data-testid="login-submit"
+        [disabled]="vm.status() === 'submitting'"
+      >
+        {{ (vm.status() === 'submitting' ? 'login.submitting' : 'login.submit') | translate }}
+      </button>
+      <button type="button" class="text" data-testid="login-register" disabled>
+        {{ 'login.register' | translate }}
+      </button>
+    </form>
+  </main>
+</div>
+
+<footer>
+  <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+  <p class="footer-legal">{{ 'login.footer' | translate }}</p>
+</footer>

@@ -12,5 +12,30 @@
     "cms": {
       "title": "Back-office"
     }
+  },
+  "login": {
+    "brand": {
+      "claim": "Tu seguro, en un solo lugar.",
+      "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Tus pólizas, tus avisos y tus pagos automáticos en un solo lugar."
+    },
+    "title": "Iniciar sesión",
+    "hint": "Correo y contraseña. Sin KYC ni biometría en web.",
+    "email": "Correo",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "register": "Crear cuenta",
+    "footer": "© 2026 Solventa. Insurtech para LatAm.",
+    "error": {
+      "credentials": "Correo o contraseña incorrectos.",
+      "network": "No pudimos conectar. Revisa tu conexión e intenta de nuevo.",
+      "email": {
+        "required": "Ingresa tu correo.",
+        "format": "Escribe un correo válido."
+      },
+      "password": {
+        "required": "Ingresa tu contraseña."
+      }
+    }
   }
 }

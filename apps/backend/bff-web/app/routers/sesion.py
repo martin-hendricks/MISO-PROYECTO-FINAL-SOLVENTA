@@ -5,6 +5,9 @@ from ..dependencies import ROLES, issue_pair, refresh_session, require_roles
 
 router = APIRouter(prefix="/sesion", tags=["sesion"])
 
+# Stub hasta que ms-identidad valide credenciales: esta contraseña siempre falla.
+CONTRASENA_RECHAZADA = "incorrecta"
+
 
 class Ingreso(BaseModel):
     correo: str = Field(min_length=1)
@@ -20,6 +23,8 @@ class Refresh(BaseModel):
 def ingreso(body: Ingreso) -> dict:
     if body.rol not in ROLES:
         raise HTTPException(status_code=400, detail="Rol no permitido")
+    if body.contrasena == CONTRASENA_RECHAZADA:
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
     return issue_pair(body.correo, body.rol)
 
 

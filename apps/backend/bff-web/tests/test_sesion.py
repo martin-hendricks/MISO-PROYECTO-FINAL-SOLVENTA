@@ -18,6 +18,15 @@ def test_rol_fuera_de_lista_es_400(client):
     assert response.status_code == 400
 
 
+def test_contrasena_rechazada_es_401_sin_tokens(client):
+    response = client.post(
+        "/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "incorrecta", "rol": "cliente"},
+    )
+    assert response.status_code == 401
+    assert "accessToken" not in response.json()
+
+
 def test_refresh_rota_el_par(client):
     ingreso = client.post(
         "/sesion/ingreso",
