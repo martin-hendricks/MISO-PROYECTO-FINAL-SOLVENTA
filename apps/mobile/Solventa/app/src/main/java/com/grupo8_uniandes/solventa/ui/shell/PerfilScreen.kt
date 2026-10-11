@@ -16,8 +16,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
+import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
+import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.ui.components.SolventaListRow
+import com.grupo8_uniandes.solventa.ui.consent.ConsentSheet
+import com.grupo8_uniandes.solventa.ui.consent.ConsentSurface
+import com.grupo8_uniandes.solventa.ui.consent.ConsentViewModel
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionSheet
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
@@ -33,6 +39,16 @@ fun PerfilScreen(modifier: Modifier = Modifier) {
     }
     val state by viewModel.state.collectAsState()
     var sheetOpen by remember { mutableStateOf(false) }
+    val consentRepository = remember { SharedPrefsConsentRepository(context.applicationContext) }
+    val consentViewModel = remember(consentRepository) {
+        ConsentViewModel(
+            change = ChangeDataTreatment(consentRepository) { System.currentTimeMillis() },
+            initial = consentRepository.read(),
+            surface = ConsentSurface.Profile,
+        )
+    }
+    val consent by consentViewModel.state.collectAsState()
+    var consentSheetOpen by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -51,6 +67,23 @@ fun PerfilScreen(modifier: Modifier = Modifier) {
                 sheetOpen = true
             },
         )
+        if (consent.stored != ConsentState.NotGranted) {
+            SolventaListRow(
+                label = stringResource(R.string.profile_consent),
+                value = stringResource(
+                    if (consent.stored == ConsentState.Granted) {
+                        R.string.consent_state_granted
+                    } else {
+                        R.string.consent_state_revoked
+                    },
+                ),
+                testTag = "profile_consent",
+                onClick = {
+                    consentViewModel.close()
+                    consentSheetOpen = true
+                },
+            )
+        }
     }
     IdiomaRegionSheet(
         visible = sheetOpen,
@@ -63,6 +96,20 @@ fun PerfilScreen(modifier: Modifier = Modifier) {
         onDismiss = {
             viewModel.dismiss()
             sheetOpen = false
+        },
+    )
+    ConsentSheet(
+        visible = consentSheetOpen,
+        switchOn = consent.switchOn,
+        confirmEnabled = consent.confirmEnabled,
+        onSwitch = consentViewModel::onSwitch,
+        onConfirm = {
+            consentViewModel.confirm()
+            consentSheetOpen = false
+        },
+        onClose = {
+            consentViewModel.close()
+            consentSheetOpen = false
         },
     )
 }

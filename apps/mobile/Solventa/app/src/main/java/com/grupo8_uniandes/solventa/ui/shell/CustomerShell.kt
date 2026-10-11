@@ -22,8 +22,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
+import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
+import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
@@ -45,6 +48,10 @@ import com.grupo8_uniandes.solventa.navigation.shellMode
 import com.grupo8_uniandes.solventa.navigation.toSolventaRoute
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
+import com.grupo8_uniandes.solventa.ui.consent.ConsentEffect
+import com.grupo8_uniandes.solventa.ui.consent.ConsentScreen
+import com.grupo8_uniandes.solventa.ui.consent.ConsentSurface
+import com.grupo8_uniandes.solventa.ui.consent.ConsentViewModel
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionScreen
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionEffect
@@ -61,6 +68,7 @@ fun CustomerShell(
     splashHoldMillis: Long = SplashHoldMillis,
     enterSignedInShell: Boolean = false,
     openOnboarding: Boolean = false,
+    openConsent: Boolean = false,
     resumeProfile: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -70,6 +78,10 @@ fun CustomerShell(
     }
     if (openOnboarding) {
         OnboardingHost(modifier = modifier)
+        return
+    }
+    if (openConsent) {
+        ConsentHost(modifier = modifier)
         return
     }
 
@@ -94,12 +106,18 @@ fun CustomerShell(
     val registrationDone = remember(context) {
         SharedPrefsRegistrationRepository(context.applicationContext).read() != null
     }
+    val consentOpen = remember(context) {
+        SharedPrefsConsentRepository(context.applicationContext).read().state != ConsentState.NotGranted
+    }
     when {
         step == PostSplashStep.LanguageAndRegion && !completed -> {
             FirstLaunchLanguage(repository = repository, modifier = modifier)
         }
         step == PostSplashStep.LanguageAndRegion && completed && !registrationDone -> {
             OnboardingHost(modifier = modifier)
+        }
+        step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen -> {
+            ConsentHost(modifier = modifier)
         }
         else -> {
             SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
@@ -141,8 +159,8 @@ private fun OnboardingHost(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        if (state.effect == OnboardingEffect.ContinueToHome) {
-            activity?.openHomeAfterOnboarding()
+        if (state.effect == OnboardingEffect.ContinueToConsent) {
+            activity?.openConsent()
         }
     }
     if (state.effect == OnboardingEffect.OpenLogin) {
@@ -241,6 +259,43 @@ private fun routeTitle(route: Any): String = when (route) {
 
 internal fun Activity.openOnboarding() {
     intent.putExtra(MainActivity.EXTRA_OPEN_ONBOARDING, true)
+    recreate()
+}
+
+@Composable
+private fun ConsentHost(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val repository = remember(context) {
+        SharedPrefsConsentRepository(context.applicationContext)
+    }
+    val viewModel = remember(repository) {
+        ConsentViewModel(
+            change = ChangeDataTreatment(repository) { System.currentTimeMillis() },
+            initial = repository.read(),
+            surface = ConsentSurface.Alta,
+        )
+    }
+    val state by viewModel.state.collectAsState()
+    val activity = LocalContext.current.findActivity()
+    LaunchedEffect(state.effect) {
+        when (state.effect) {
+            ConsentEffect.OpenHome -> activity?.openHomeAfterOnboarding()
+            ConsentEffect.OpenAccount -> activity?.openOnboarding()
+            else -> Unit
+        }
+    }
+    ConsentScreen(
+        switchOn = state.switchOn,
+        confirmEnabled = state.confirmEnabled,
+        onSwitch = viewModel::onSwitch,
+        onConfirm = viewModel::confirm,
+        onBack = viewModel::back,
+        modifier = modifier,
+    )
+}
+
+internal fun Activity.openConsent() {
+    intent.putExtra(MainActivity.EXTRA_OPEN_CONSENT, true)
     recreate()
 }
 

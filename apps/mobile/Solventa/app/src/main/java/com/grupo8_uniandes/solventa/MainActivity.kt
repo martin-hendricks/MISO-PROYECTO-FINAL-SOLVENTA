@@ -30,12 +30,16 @@ class MainActivity : ComponentActivity() {
         val enterSignedInShell = intent.getBooleanExtra(EXTRA_ENTER_SIGNED_IN_SHELL, false)
         val openHome = intent.getBooleanExtra(EXTRA_OPEN_HOME, false)
         val openOnboarding = intent.getBooleanExtra(EXTRA_OPEN_ONBOARDING, false)
+        val openConsent = intent.getBooleanExtra(EXTRA_OPEN_CONSENT, false)
         val resumeProfile = intent.getBooleanExtra(EXTRA_RESUME_PROFILE, false)
         if (openHome) {
             intent.removeExtra(EXTRA_OPEN_HOME)
         }
         if (openOnboarding) {
             intent.removeExtra(EXTRA_OPEN_ONBOARDING)
+        }
+        if (openConsent) {
+            intent.removeExtra(EXTRA_OPEN_CONSENT)
         }
         if (resumeProfile) {
             intent.removeExtra(EXTRA_RESUME_PROFILE)
@@ -47,6 +51,7 @@ class MainActivity : ComponentActivity() {
                     splashHoldMillis = splashHoldMillis,
                     enterSignedInShell = enterSignedInShell || openHome,
                     openOnboarding = openOnboarding,
+                    openConsent = openConsent,
                     resumeProfile = resumeProfile,
                 )
             }
@@ -59,6 +64,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_ENTER_SIGNED_IN_SHELL = "com.grupo8_uniandes.solventa.ENTER_SIGNED_IN_SHELL"
         const val EXTRA_OPEN_HOME = "com.grupo8_uniandes.solventa.OPEN_HOME"
         const val EXTRA_OPEN_ONBOARDING = "com.grupo8_uniandes.solventa.OPEN_ONBOARDING"
+        const val EXTRA_OPEN_CONSENT = "com.grupo8_uniandes.solventa.OPEN_CONSENT"
         const val EXTRA_RESUME_PROFILE = "com.grupo8_uniandes.solventa.RESUME_PROFILE"
     }
 }

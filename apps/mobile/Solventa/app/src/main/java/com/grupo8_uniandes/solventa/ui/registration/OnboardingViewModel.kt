@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 sealed interface OnboardingEffect {
-    data object ContinueToHome : OnboardingEffect
+    data object ContinueToConsent : OnboardingEffect
 
     data object OpenLogin : OnboardingEffect
 }
@@ -62,7 +62,7 @@ class OnboardingViewModel(
         if (!current.continuarEnabled) return
         val saved = registerAccount.submit(current.toDraft(photo))
         if (saved) {
-            _state.value = current.copy(effect = OnboardingEffect.ContinueToHome)
+            _state.value = current.copy(effect = OnboardingEffect.ContinueToConsent)
         }
     }
 

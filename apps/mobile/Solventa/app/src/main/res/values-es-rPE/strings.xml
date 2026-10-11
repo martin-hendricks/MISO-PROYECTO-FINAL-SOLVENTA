@@ -56,4 +56,12 @@
     <string name="action_continuar_onboarding">Continuar</string>
     <string name="action_ya_tengo_cuenta">Ya tengo cuenta</string>
     <string name="login_placeholder">Login</string>
+    <string name="consent_title">Consentimiento</string>
+    <string name="consent_heading">Tratamiento de datos</string>
+    <string name="consent_body">Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).</string>
+    <string name="action_aceptar_continuar">Aceptar y continuar</string>
+    <string name="profile_consent">Consentimiento de datos</string>
+    <string name="consent_state_granted">otorgado</string>
+    <string name="consent_state_revoked">revocado</string>
+    <string name="action_close">Cerrar</string>
 </resources>
