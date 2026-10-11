@@ -80,4 +80,4 @@ if [[ "$tipo" == "ms" ]]; then
 else
   echo "  3. Crea un cliente por microservicio en app/clients/ según la matriz canal → BFF → servicios."
 fi
-echo "  4. cd apps/backend/$nombre && pip install -e \".[test]\" && pytest -m \"not integration and not contract\" --cov"
+echo "  4. cd apps/backend/$nombre && pip install -e \".[test]\" && pytest -m \"not integration and not contract\" --allow-hosts=127.0.0.1,::1 --cov"

@@ -12,7 +12,7 @@ COPY app ./app
 FROM base AS test
 RUN pip install -c requirements.lock ".[test]"
 COPY tests ./tests
-CMD ["python", "-m", "pytest", "tests", "-m", "not integration and not contract", "--cov"]
+CMD ["python", "-m", "pytest", "tests", "-m", "not integration and not contract", "--allow-hosts=127.0.0.1,::1", "--cov"]
 
 FROM base AS runtime
 RUN pip install -c requirements.lock . && useradd --uid 1000 --no-create-home app
