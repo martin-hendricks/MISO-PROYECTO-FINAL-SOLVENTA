@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.consent
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
 import com.grupo8_uniandes.solventa.data.consent.KeyConsentRecords
@@ -112,6 +113,42 @@ class SharedPrefsConsentRepositoryTest {
     }
 
     @Test
+    fun givenGranted_whenRevokeResultIsNotRevoked_thenLineStaysGrant() {
+        ChangeDataTreatment(repository) { 1L }.grant()
+
+        repository.append(
+            ConsentRecord(
+                action = ConsentAction.Revoke,
+                atMillis = 2L,
+                resulting = ConsentState.Granted,
+            ),
+        )
+
+        val records = context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+            .getString(KeyConsentRecords, null)
+        assertEquals("GRANT|1|granted", records)
+    }
+
+    @Test
+    fun givenNullRecords_whenReadAndGrant_thenEmptyBecomesGrantLine() {
+        val base = context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+        val repository = SharedPrefsConsentRepository(NullStringPrefs(base))
+
+        assertTrue(repository.read().records.isEmpty())
+        assertEquals(ConsentState.NotGranted, repository.read().state)
+        repository.append(
+            ConsentRecord(
+                action = ConsentAction.Grant,
+                atMillis = 4L,
+                resulting = ConsentState.Granted,
+            ),
+        )
+
+        assertEquals("GRANT|4|granted", base.getString(KeyConsentRecords, null))
+        assertEquals("granted", base.getString(KeyConsentState, null))
+    }
+
+    @Test
     fun givenGrantRecordWithRevokedResult_whenAppend_thenStoreStaysEmpty() {
         repository.append(
             ConsentRecord(
@@ -127,4 +164,10 @@ class SharedPrefsConsentRepositoryTest {
     private fun prefsKeys(): Set<String> {
         return context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).all.keys
     }
+}
+
+private class NullStringPrefs(
+    private val base: SharedPreferences,
+) : SharedPreferences by base {
+    override fun getString(key: String?, defValue: String?): String? = null
 }

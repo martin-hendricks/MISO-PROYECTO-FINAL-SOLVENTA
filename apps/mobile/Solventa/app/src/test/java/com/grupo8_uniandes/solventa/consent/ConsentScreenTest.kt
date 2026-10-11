@@ -1,9 +1,13 @@
 package com.grupo8_uniandes.solventa.consent
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -13,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.grupo8_uniandes.solventa.ui.components.SolventaSwitch
+import com.grupo8_uniandes.solventa.ui.consent.ConsentBody
 import com.grupo8_uniandes.solventa.ui.consent.ConsentScreen
 import com.grupo8_uniandes.solventa.ui.consent.ConsentSheet
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -82,6 +87,43 @@ class ConsentScreenTest {
         rule.onNodeWithContentDescription("Cerrar").assertIsDisplayed()
         rule.onNodeWithTag("action_close").performClick()
         assertEquals(1, closes)
+    }
+
+    @Test
+    fun givenExplicitModifier_whenShown_thenConsentStaysVisible() {
+        rule.setContent {
+            SolventaTheme {
+                Column {
+                    ConsentScreen(
+                        switchOn = false,
+                        confirmEnabled = false,
+                        onSwitch = {},
+                        onConfirm = {},
+                        onBack = {},
+                        modifier = Modifier,
+                    )
+                    ConsentBody(
+                        switchOn = true,
+                        confirmEnabled = true,
+                        onSwitch = {},
+                        onConfirm = {},
+                        modifier = Modifier,
+                    )
+                    ConsentSheet(
+                        visible = true,
+                        switchOn = false,
+                        confirmEnabled = false,
+                        onSwitch = {},
+                        onConfirm = {},
+                        onClose = {},
+                        modifier = Modifier,
+                    )
+                }
+            }
+        }
+
+        rule.onAllNodesWithTag("solventa_switch").assertCountEquals(3)
+        rule.onNodeWithTag("solventa_bottom_sheet").assertIsDisplayed()
     }
 
     @Test
