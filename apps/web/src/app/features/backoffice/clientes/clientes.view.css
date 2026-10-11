@@ -1,0 +1,87 @@
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.kpis li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--sv-surface-container-low);
+}
+
+.kpi-label,
+.kpi-hint {
+  color: var(--sv-on-surface-variant);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.kpi-value {
+  color: var(--sv-primary);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 40px;
+}
+
+table {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  border-spacing: 0;
+  background: var(--sv-surface-container-lowest);
+}
+
+th,
+td {
+  padding: 16px 20px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  text-align: left;
+}
+
+thead th {
+  color: var(--sv-on-surface-variant);
+  background: var(--sv-surface-container);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+tbody th,
+tbody td {
+  border-top: 1px solid var(--sv-outline-variant);
+}
+
+tbody th {
+  font-weight: 500;
+}
+
+.mono {
+  font-family: var(--sv-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  color: var(--sv-on-surface-variant);
+  background: var(--sv-surface-container);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.badge[data-estado='activo'] {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+}

@@ -1,0 +1,36 @@
+<header class="top-nav" data-testid="top-nav-admin">
+  <p class="brand">{{ 'shell.portal' | translate }}</p>
+  <span class="tag" data-testid="backoffice-tag">{{ 'backoffice.tag' | translate }}</span>
+  <nav [attr.aria-label]="'backoffice.nav.label' | translate">
+    @for (section of sections; track section) {
+      <a
+        [routerLink]="['/cms', section]"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        [attr.data-testid]="'nav-' + section"
+      >
+        {{ 'backoffice.nav.' + section | translate }}
+      </a>
+    }
+  </nav>
+  <div class="session">
+    <p class="role" data-testid="role-selector" [attr.data-role]="role()">
+      <span class="visually-hidden">{{ 'backoffice.role.label' | translate }}</span>
+      {{ 'backoffice.role.' + role() | translate }}
+      <span aria-hidden="true">▾</span>
+    </p>
+    <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
+      {{ 'backoffice.signOut' | translate }}
+    </button>
+    <span class="avatar" aria-hidden="true"></span>
+  </div>
+</header>
+
+<main>
+  <router-outlet />
+</main>
+
+<footer>
+  <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+  <p class="footer-legal">{{ 'login.footer' | translate }}</p>
+</footer>

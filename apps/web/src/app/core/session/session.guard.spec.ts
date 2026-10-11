@@ -1,19 +1,25 @@
 import { TestBed } from '@angular/core/testing';
 import {
   ActivatedRouteSnapshot,
+  CanActivateFn,
   provideRouter,
   RouterStateSnapshot,
   UrlTree,
 } from '@angular/router';
-import { redirectSignedIn, requireSession } from './session.guard';
-import { SessionService } from './session.service';
+import { redirectSignedIn, requireRole } from './session.guard';
+import { Role, SessionService } from './session.service';
 
 describe('session guards', () => {
-  function run(guard: typeof requireSession, active: boolean) {
+  const staff: readonly Role[] = ['asesor', 'operador'];
+
+  function run(guard: CanActivateFn, role: Role | null) {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: SessionService, useValue: { isActive: () => active } },
+        {
+          provide: SessionService,
+          useValue: { hasRole: (roles: readonly Role[]) => role !== null && roles.includes(role) },
+        },
       ],
     });
     return TestBed.runInInjectionContext(() =>
@@ -21,23 +27,29 @@ describe('session guards', () => {
     );
   }
 
-  it('sends a visitor without session to login', () => {
-    const result = run(requireSession, false);
+  it('sends a visitor without session to the login of the area', () => {
+    const result = run(requireRole(staff, '/cms/login'), null);
 
-    expect(result instanceof UrlTree && result.toString()).toBe('/login');
+    expect(result instanceof UrlTree && result.toString()).toBe('/cms/login');
   });
 
-  it('lets a signed-in customer through', () => {
-    expect(run(requireSession, true)).toBeTrue();
+  it('sends a customer away from the back-office', () => {
+    const result = run(requireRole(staff, '/cms/login'), 'cliente');
+
+    expect(result instanceof UrlTree && result.toString()).toBe('/cms/login');
   });
 
-  it('skips login when the session is already open', () => {
-    const result = run(redirectSignedIn, true);
+  it('lets an allowed role through', () => {
+    expect(run(requireRole(staff, '/cms/login'), 'operador')).toBeTrue();
+  });
+
+  it('skips login when the session of the area is already open', () => {
+    const result = run(redirectSignedIn(['cliente'], '/user'), 'cliente');
 
     expect(result instanceof UrlTree && result.toString()).toBe('/user');
   });
 
-  it('shows login to a visitor without session', () => {
-    expect(run(redirectSignedIn, false)).toBeTrue();
+  it('shows login to a session of another area', () => {
+    expect(run(redirectSignedIn(['cliente'], '/user'), 'asesor')).toBeTrue();
   });
 });

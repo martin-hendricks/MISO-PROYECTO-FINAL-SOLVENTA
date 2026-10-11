@@ -8,7 +8,8 @@ export type Role = 'cliente' | 'asesor' | 'operador';
 export interface Credentials {
   email: string;
   password: string;
-  role: Role;
+  /** Left out in the back-office: the BFF assigns the role of the account. */
+  role?: Role;
 }
 
 interface TokenPair {
@@ -68,17 +69,23 @@ export class SessionService {
 
   readonly accessToken = computed(() => this.pair()?.accessToken ?? null);
   readonly role = computed(() => this.claims()?.rol ?? null);
+  readonly subject = computed(() => this.claims()?.sub ?? null);
 
   isActive(): boolean {
     const claims = this.claims();
     return claims !== null && claims.exp * 1000 > Date.now();
   }
 
+  hasRole(roles: readonly Role[]): boolean {
+    const role = this.role();
+    return this.isActive() && role !== null && roles.includes(role);
+  }
+
   signIn(credentials: Credentials): Observable<void> {
     const body = {
       correo: credentials.email,
       contrasena: credentials.password,
-      rol: credentials.role,
+      ...(credentials.role ? { rol: credentials.role } : {}),
     };
     return this.http.post<TokenPair>(`${this.baseUrl}/sesion/ingreso`, body).pipe(
       map((pair) => {
@@ -92,6 +99,15 @@ export class SessionService {
   }
 
   signOut(): void {
+    const token = this.accessToken();
+    if (token) {
+      // Best effort: the local session ends even if the BFF cannot be reached.
+      this.http
+        .post(`${this.baseUrl}/sesion/salida`, null, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .subscribe({ error: () => undefined });
+    }
     this.pair.set(null);
     persist(null);
   }

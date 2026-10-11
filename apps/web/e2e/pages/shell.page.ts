@@ -7,14 +7,6 @@ export class ShellPage {
     return this.page.getByTestId('user-shell');
   }
 
-  private cmsShell() {
-    return this.page.getByTestId('cms-shell');
-  }
-
-  private cmsNav() {
-    return this.page.getByTestId('nav-cms');
-  }
-
   async open(): Promise<void> {
     const baseUrl = process.env['BASE_URL'] ?? 'http://localhost:8080';
     await this.page.goto(baseUrl);
@@ -22,14 +14,5 @@ export class ShellPage {
 
   async expectUserShell(): Promise<void> {
     await this.userShell().waitFor({ state: 'visible' });
-  }
-
-  async openCms(): Promise<void> {
-    await this.cmsNav().click();
-    await this.page.waitForURL('**/cms');
-  }
-
-  async expectCmsShell(): Promise<void> {
-    await this.cmsShell().waitFor({ state: 'visible' });
   }
 }

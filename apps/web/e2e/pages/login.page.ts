@@ -3,10 +3,10 @@ import { Page } from 'playwright';
 
 const INGRESO = '**/web/sesion/ingreso';
 
-function tokenPair() {
+export function tokenPair(rol: 'cliente' | 'asesor' | 'operador' = 'cliente') {
   const claims = {
     sub: 'camila@correo.com',
-    rol: 'cliente',
+    rol,
     typ: 'access',
     exp: Math.floor(Date.now() / 1000) + 900,
   };

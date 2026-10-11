@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../core/session/session.service';
+import { LoginVariant } from './login.variant';
 import { LoginViewModel } from './login.viewmodel';
 
 @Component({
@@ -13,9 +14,14 @@ import { LoginViewModel } from './login.viewmodel';
 })
 export class LoginView {
   private readonly router = inject(Router);
-  protected readonly vm = new LoginViewModel(inject(SessionService), () => {
-    void this.router.navigateByUrl('/user');
-  });
+  protected readonly variant = inject(ActivatedRoute).snapshot.data['login'] as LoginVariant;
+  protected readonly vm = new LoginViewModel(
+    inject(SessionService),
+    () => {
+      void this.router.navigateByUrl(this.variant.home);
+    },
+    this.variant.role,
+  );
 
   protected submit(event: Event): void {
     event.preventDefault();

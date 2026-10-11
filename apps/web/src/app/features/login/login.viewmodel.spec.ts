@@ -1,12 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { Credentials } from '../../core/session/session.service';
+import { Credentials, Role } from '../../core/session/session.service';
 import { LoginViewModel } from './login.viewmodel';
 
-function setup(result: Observable<void> = of(undefined)) {
+function setup(result: Observable<void> = of(undefined), role: Role | null = 'cliente') {
   const signIn = jasmine.createSpy('signIn').and.returnValue(result);
   const onSignedIn = jasmine.createSpy('onSignedIn');
-  const viewModel = new LoginViewModel({ signIn }, onSignedIn);
+  const viewModel = new LoginViewModel({ signIn }, onSignedIn, role ?? undefined);
   return { viewModel, signIn, onSignedIn };
 }
 
@@ -61,6 +61,19 @@ describe('LoginViewModel', () => {
     expect(onSignedIn).toHaveBeenCalledTimes(1);
     expect(viewModel.status()).toBe('idle');
     expect(viewModel.failure()).toBeNull();
+  });
+
+  it('lets the BFF assign the role when the channel has none', () => {
+    const { viewModel, signIn } = setup(of(undefined), null);
+    fill(viewModel, 'camila.restrepo@solventa.co');
+
+    viewModel.submit();
+
+    expect(signIn).toHaveBeenCalledOnceWith({
+      email: 'camila.restrepo@solventa.co',
+      password: 'secreto',
+      role: undefined,
+    });
   });
 
   it('ignores a second submit while the first is in flight', () => {

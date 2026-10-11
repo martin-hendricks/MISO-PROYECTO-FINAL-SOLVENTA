@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Credentials } from '../../core/session/session.service';
+import { Credentials, Role } from '../../core/session/session.service';
 
 export type LoginStatus = 'idle' | 'submitting' | 'error';
 export type LoginFailure = 'credentials' | 'network';
@@ -41,6 +41,7 @@ export class LoginViewModel {
   constructor(
     private readonly session: SignIn,
     private readonly onSignedIn: () => void,
+    private readonly role?: Role,
   ) {}
 
   submit(): void {
@@ -55,7 +56,7 @@ export class LoginViewModel {
     }
     this.statusState.set('submitting');
     this.session
-      .signIn({ email: this.email().trim(), password: this.password(), role: 'cliente' })
+      .signIn({ email: this.email().trim(), password: this.password(), role: this.role })
       .subscribe({
         next: () => {
           this.statusState.set('idle');

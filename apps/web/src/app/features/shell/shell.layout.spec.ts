@@ -4,7 +4,7 @@ import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
 import { ShellLayout } from './shell.layout';
 
 describe('ShellLayout', () => {
-  it('links the user and CMS shells', async () => {
+  it('links the customer shell', async () => {
     await TestBed.configureTestingModule({
       imports: [ShellLayout],
       providers: [provideRouter([]), ...provideSolventaI18n()],
@@ -14,6 +14,6 @@ describe('ShellLayout', () => {
     const host = fixture.nativeElement as HTMLElement;
 
     expect(host.querySelector('[data-testid="nav-user"]')?.getAttribute('href')).toBe('/user');
-    expect(host.querySelector('[data-testid="nav-cms"]')?.getAttribute('href')).toBe('/cms');
+    expect(host.querySelector('[data-testid="nav-cms"]')).toBeNull();
   });
 });

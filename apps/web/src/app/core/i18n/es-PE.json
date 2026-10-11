@@ -3,23 +3,24 @@
     "portal": "Solventa",
     "market": "Perú",
     "nav": {
-      "user": "Cliente",
-      "cms": "CMS"
+      "user": "Cliente"
     },
     "user": {
       "title": "Portal del cliente"
-    },
-    "cms": {
-      "title": "Back-office"
     }
   },
   "login": {
-    "brand": {
+    "customer": {
       "claim": "Tu seguro, en un solo lugar.",
-      "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Tus pólizas, tus avisos y tus pagos automáticos en un solo lugar."
+      "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Tus pólizas, tus avisos y tus pagos automáticos en un solo lugar.",
+      "hint": "Correo y contraseña. Sin KYC ni biometría en web."
+    },
+    "backoffice": {
+      "claim": "Portal de asesor y operador.",
+      "body": "Cotiza, emite y atiende avisos de terceros. Este acceso no es el canal del asegurado.",
+      "hint": "Correo corporativo. El rol (asesor u operador) lo asigna Solventa."
     },
     "title": "Iniciar sesión",
-    "hint": "Correo y contraseña. Sin KYC ni biometría en web.",
     "email": "Correo",
     "password": "Contraseña",
     "submit": "Entrar",
@@ -36,6 +37,80 @@
       "password": {
         "required": "Ingresa tu contraseña."
       }
+    }
+  },
+  "backoffice": {
+    "tag": "Back-office",
+    "nav": {
+      "label": "Secciones del back-office",
+      "clientes": "Clientes",
+      "cotizaciones": "Cotizaciones",
+      "polizas": "Pólizas",
+      "avisos": "Avisos"
+    },
+    "role": {
+      "label": "Rol:",
+      "asesor": "Asesor",
+      "operador": "Operador"
+    },
+    "signOut": "Cerrar sesión",
+    "clientes": {
+      "title": "Clientes",
+      "new": "Nuevo cliente",
+      "kpi": {
+        "active": { "label": "Clientes activos", "hint": "web y móvil" },
+        "web": { "label": "Canal web", "hint": "portal web" },
+        "android": { "label": "Canal Android", "hint": "app Android" },
+        "pendingConsent": { "label": "Consentimiento pendiente", "hint": "perfil hipotecario" }
+      },
+      "column": {
+        "cliente": "Cliente",
+        "documento": "Documento",
+        "canal": "Canal",
+        "estado": "Estado",
+        "consentimiento": "Consentimiento"
+      },
+      "canal": {
+        "web": "Web",
+        "android": "Android"
+      },
+      "estado": {
+        "activo": "Activo",
+        "inactivo": "Inactivo"
+      },
+      "consentimiento": {
+        "habeas_data": "Habeas data",
+        "hipotecario_pendiente": "Hipotecario pendiente",
+        "revocado": "Revocado"
+      },
+      "loading": "Cargando clientes…",
+      "empty": {
+        "title": "Aún no tienes clientes",
+        "body": "Los clientes que registres aparecerán aquí."
+      },
+      "error": {
+        "body": "No pudimos cargar los clientes.",
+        "retry": "Reintentar"
+      }
+    },
+    "cotizaciones": {
+      "title": "Cotizaciones"
+    },
+    "polizas": {
+      "title": "Pólizas"
+    },
+    "avisos": {
+      "title": "Avisos de siniestro"
+    },
+    "pending": {
+      "title": "Sección en preparación",
+      "body": "Pronto podrás gestionar esta sección desde aquí."
+    },
+    "noPermission": {
+      "subtitle": "Sección restringida por rol.",
+      "title": "No tienes permiso para ver esta sección",
+      "body": "Tu rol actual es {{current}}. Esta sección es exclusiva del rol {{required}}. Solicita el cambio de rol al administrador.",
+      "home": "Volver al inicio"
     }
   }
 }
