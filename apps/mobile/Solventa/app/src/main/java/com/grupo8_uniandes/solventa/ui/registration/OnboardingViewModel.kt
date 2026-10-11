@@ -70,6 +70,11 @@ class OnboardingViewModel(
         _state.value = _state.value.copy(effect = OnboardingEffect.OpenLogin)
     }
 
+    fun dismissLogin() {
+        if (_state.value.effect != OnboardingEffect.OpenLogin) return
+        _state.value = _state.value.copy(effect = null)
+    }
+
     private fun edit(change: (OnboardingUiState) -> OnboardingUiState) {
         val next = change(_state.value).copy(effect = null)
         _state.value = present(next)
