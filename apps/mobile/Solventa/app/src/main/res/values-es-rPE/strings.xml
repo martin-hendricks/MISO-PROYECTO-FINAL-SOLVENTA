@@ -25,6 +25,7 @@
     <string name="issued_status">Exitosa</string>
     <string name="quote_title">Cotización</string>
     <string name="policy_detail_title">Detalle de póliza</string>
+    <string name="home_vida_crediticia">Vida Crediticia</string>
     <string name="claims_placeholder">Avisos de siniestro</string>
     <string name="idioma_title">Idioma y región</string>
     <string name="idioma_heading">Paso 1 de 3 · Elige país e idioma</string>
