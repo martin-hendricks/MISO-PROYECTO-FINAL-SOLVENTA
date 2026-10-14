@@ -1,6 +1,7 @@
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
 import { Browser, chromium, Page } from 'playwright';
 import { BackofficePage } from '../pages/backoffice.page';
+import { CotizacionPage } from '../pages/cotizacion.page';
 import { LoginPage } from '../pages/login.page';
 import { ShellPage } from '../pages/shell.page';
 
@@ -10,6 +11,7 @@ export class PortalWorld extends World {
   shell!: ShellPage;
   login!: LoginPage;
   backoffice!: BackofficePage;
+  cotizacion!: CotizacionPage;
 
   constructor(options: IWorldOptions) {
     super(options);
@@ -21,6 +23,7 @@ export class PortalWorld extends World {
     this.shell = new ShellPage(this.page);
     this.login = new LoginPage(this.page);
     this.backoffice = new BackofficePage(this.page);
+    this.cotizacion = new CotizacionPage(this.page);
   }
 
   async closeBrowser(): Promise<void> {

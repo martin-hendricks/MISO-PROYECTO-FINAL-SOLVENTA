@@ -64,3 +64,53 @@ def test_listado_de_clientes_trae_canal_y_consentimiento(client):
     assert {item["estado"] for item in clientes} == {"activo", "inactivo"}
     revocado = next(item for item in clientes if item["consentimiento"] == "revocado")
     assert revocado["habeasData"] is False
+
+
+def _venta_a_tercero(**cambios):
+    body = {
+        "cliente": {"nombre": "Andrés Gómez Molina", "documento": "1020334556"},
+        "ramo": "dispositivo",
+        "vigenciaMeses": 12,
+        "datosRiesgo": {
+            "tipo": "telefono",
+            "valorAsegurado": 1200000,
+            "marca": "Samsung",
+            "modelo": "Galaxy A54",
+        },
+    }
+    body.update(cambios)
+    return body
+
+
+def test_venta_a_tercero_desglosa_la_oferta_en_firme(client):
+    offer = client.post(
+        "/asesor/cotizaciones", headers=_auth(client, "asesor"), json=_venta_a_tercero()
+    ).json()
+    assert offer["cotizacionId"]
+    assert offer["estado"] == "oferta_vigente"
+    assert offer["primaNeta"] + offer["gastosExpedicion"] == offer["prima"]
+    assert offer["vigenciaMeses"] == 12
+    assert offer["moneda"] == "COP"
+    assert "locale" not in offer
+
+
+def test_reconsulta_del_asesor_no_recalcula(client):
+    headers = _auth(client, "asesor")
+    offer = client.post("/asesor/cotizaciones", headers=headers, json=_venta_a_tercero()).json()
+    again = client.get(f"/asesor/cotizaciones/{offer['cotizacionId']}", headers=headers).json()
+    for campo in ("cotizacionId", "prima", "primaNeta", "gastosExpedicion", "moneda", "venceEn"):
+        assert again[campo] == offer[campo]
+
+
+def test_venta_sin_cliente_es_422(client):
+    response = client.post(
+        "/asesor/cotizaciones",
+        headers=_auth(client, "asesor"),
+        json=_venta_a_tercero(cliente=None),
+    )
+    assert response.status_code == 422
+
+
+def test_cliente_no_reconsulta_cotizaciones_del_asesor(client):
+    response = client.get("/asesor/cotizaciones/COT-1042", headers=_auth(client, "cliente"))
+    assert response.status_code == 403

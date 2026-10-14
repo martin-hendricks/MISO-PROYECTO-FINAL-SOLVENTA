@@ -1,0 +1,270 @@
+<section
+  data-testid="section-cotizacion"
+  [attr.data-state]="allowed ? vm.status() : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.cotizacion.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <a class="back" data-testid="cotizacion-back" routerLink="/cms/cotizaciones">
+      <span aria-hidden="true">←</span> {{ 'backoffice.cotizaciones.title' | translate }}
+    </a>
+    <h1>
+      {{ 'backoffice.cotizacion.title' | translate }} ·
+      {{ 'backoffice.cotizacion.ramo.' + ramo | translate }}
+    </h1>
+    <p class="subtitle">{{ 'backoffice.cotizacion.subtitle' | translate }}</p>
+
+    <div class="body">
+      <form class="card" novalidate data-testid="cotizacion-form" (submit)="calculate($event)">
+        <fieldset [disabled]="vm.status() === 'submitting'">
+          <legend>{{ 'backoffice.cotizacion.cliente.title' | translate }}</legend>
+          <div class="row">
+            <div class="field">
+              <label for="cotizacion-nombre">{{
+                'backoffice.cotizacion.cliente.nombre' | translate
+              }}</label>
+              <input
+                #nombre
+                id="cotizacion-nombre"
+                type="text"
+                autocomplete="off"
+                data-testid="cotizacion-nombre"
+                [value]="vm.form().nombre"
+                (input)="vm.patch({ nombre: nombre.value })"
+              />
+            </div>
+            <div class="field">
+              <label for="cotizacion-documento">{{
+                'backoffice.cotizacion.cliente.documento' | translate
+              }}</label>
+              <input
+                #documento
+                id="cotizacion-documento"
+                type="text"
+                autocomplete="off"
+                data-testid="cotizacion-documento"
+                [value]="vm.form().documento"
+                (input)="vm.patch({ documento: documento.value })"
+              />
+            </div>
+          </div>
+
+          <div class="field" role="group" aria-labelledby="cotizacion-ramo-label">
+            <span id="cotizacion-ramo-label" class="label">{{
+              'backoffice.cotizacion.ramo.label' | translate
+            }}</span>
+            <div class="chips">
+              @for (option of ramos; track option) {
+                <button
+                  type="button"
+                  class="chip"
+                  [attr.data-testid]="'cotizacion-ramo-' + option"
+                  [attr.aria-pressed]="option === ramo"
+                  [disabled]="option !== ramo"
+                >
+                  {{ 'backoffice.cotizacion.ramo.' + option | translate }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="cotizacion-vigencia">{{
+              'backoffice.cotizacion.vigencia.label' | translate
+            }}</label>
+            <select
+              #vigencia
+              id="cotizacion-vigencia"
+              data-testid="cotizacion-vigencia"
+              (change)="vm.patch({ vigenciaMeses: +vigencia.value })"
+            >
+              @for (meses of vigencias; track meses) {
+                <option [value]="meses" [selected]="meses === vm.form().vigenciaMeses">
+                  {{ 'backoffice.cotizacion.vigencia.meses' | translate: { meses } }}
+                </option>
+              }
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset [disabled]="vm.status() === 'submitting'">
+          <legend>
+            {{ 'backoffice.cotizacion.riesgo.title' | translate }} ·
+            {{ 'backoffice.cotizacion.ramo.' + ramo | translate | lowercase }}
+          </legend>
+          <div class="row">
+            <div class="field">
+              <label for="cotizacion-tipo">{{
+                'backoffice.cotizacion.riesgo.tipo.label' | translate
+              }}</label>
+              <select
+                #tipo
+                id="cotizacion-tipo"
+                data-testid="cotizacion-tipo"
+                (change)="vm.patch({ tipo: $any(tipo.value) })"
+              >
+                @for (option of tipos; track option) {
+                  <option [value]="option" [selected]="option === vm.form().tipo">
+                    {{ 'backoffice.cotizacion.riesgo.tipo.' + option | translate }}
+                  </option>
+                }
+              </select>
+            </div>
+            <div class="field" [class.invalid]="vm.valorOutOfRange()">
+              <label for="cotizacion-valor">{{
+                'backoffice.cotizacion.riesgo.valor' | translate
+              }}</label>
+              <input
+                #valor
+                id="cotizacion-valor"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                data-testid="cotizacion-valor"
+                [value]="vm.form().valorAsegurado"
+                [attr.aria-invalid]="vm.valorOutOfRange() ? 'true' : null"
+                [attr.aria-describedby]="vm.valorOutOfRange() ? 'cotizacion-valor-error' : null"
+                (input)="vm.patch({ valorAsegurado: valor.value })"
+              />
+              @if (vm.valorOutOfRange()) {
+                <p
+                  id="cotizacion-valor-error"
+                  class="field-error"
+                  data-testid="cotizacion-valor-error"
+                >
+                  {{ 'backoffice.cotizacion.riesgo.valorRango' | translate: rango }}
+                </p>
+              }
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="cotizacion-marca">{{
+                'backoffice.cotizacion.riesgo.marca' | translate
+              }}</label>
+              <input
+                #marca
+                id="cotizacion-marca"
+                type="text"
+                autocomplete="off"
+                data-testid="cotizacion-marca"
+                [value]="vm.form().marca"
+                (input)="vm.patch({ marca: marca.value })"
+              />
+            </div>
+            <div class="field">
+              <label for="cotizacion-modelo">{{
+                'backoffice.cotizacion.riesgo.modelo' | translate
+              }}</label>
+              <input
+                #modelo
+                id="cotizacion-modelo"
+                type="text"
+                autocomplete="off"
+                data-testid="cotizacion-modelo"
+                [value]="vm.form().modelo"
+                (input)="vm.patch({ modelo: modelo.value })"
+              />
+            </div>
+          </div>
+        </fieldset>
+
+        @if (vm.status() === 'error') {
+          <p class="banner" role="alert" data-testid="cotizacion-error">
+            {{ 'backoffice.cotizacion.error' | translate }}
+          </p>
+        }
+
+        <div class="actions">
+          <button
+            type="submit"
+            class="filled"
+            data-testid="cotizacion-calcular"
+            [disabled]="!vm.canCalculate()"
+          >
+            {{
+              (vm.status() === 'submitting'
+                ? 'backoffice.cotizacion.calculando'
+                : 'backoffice.cotizacion.calcular'
+              ) | translate
+            }}
+          </button>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="cotizacion-limpiar"
+            [disabled]="vm.status() === 'submitting'"
+            (click)="vm.clear()"
+          >
+            {{ 'backoffice.cotizacion.limpiar' | translate }}
+          </button>
+        </div>
+      </form>
+
+      @if (oferta(); as firme) {
+        <aside
+          class="panel offer"
+          aria-live="polite"
+          data-testid="cotizacion-oferta"
+          [attr.data-cotizacion-id]="firme.cotizacionId"
+        >
+          <h2>{{ 'backoffice.cotizacion.oferta.title' | translate }}</h2>
+          <p class="total" data-testid="oferta-prima">{{ firme.prima }}</p>
+          <dl>
+            <div>
+              <dt>{{ 'backoffice.cotizacion.oferta.primaNeta' | translate }}</dt>
+              <dd data-testid="oferta-prima-neta">{{ firme.primaNeta }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'backoffice.cotizacion.oferta.gastosExpedicion' | translate }}</dt>
+              <dd data-testid="oferta-gastos">{{ firme.gastosExpedicion }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'backoffice.cotizacion.vigencia.label' | translate }}</dt>
+              <dd data-testid="oferta-vigencia">
+                {{
+                  'backoffice.cotizacion.vigencia.meses' | translate: { meses: firme.vigenciaMeses }
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>{{ 'backoffice.cotizacion.oferta.venceEn' | translate }}</dt>
+              <dd data-testid="oferta-vence">{{ firme.venceEn }}</dd>
+            </div>
+          </dl>
+          @if (vm.canIssue()) {
+            <a
+              class="filled"
+              data-testid="cotizacion-emitir"
+              routerLink="/cms/polizas"
+              [queryParams]="{ cotizacion: firme.cotizacionId }"
+            >
+              {{ 'backoffice.cotizacion.oferta.emitir' | translate }}
+            </a>
+          } @else {
+            <button type="button" class="filled" data-testid="cotizacion-emitir" disabled>
+              {{ 'backoffice.cotizacion.oferta.emitir' | translate }}
+            </button>
+          }
+          <button type="button" class="text" data-testid="cotizacion-enviar" disabled>
+            {{ 'backoffice.cotizacion.oferta.enviar' | translate }}
+          </button>
+        </aside>
+      } @else {
+        <aside class="panel" aria-live="polite" data-testid="cotizacion-sin-oferta">
+          <h2>{{ 'backoffice.cotizacion.sinOferta.title' | translate }}</h2>
+          <p>
+            {{
+              (vm.valorOutOfRange()
+                ? 'backoffice.cotizacion.sinOferta.corrige'
+                : 'backoffice.cotizacion.sinOferta.completa'
+              ) | translate
+            }}
+          </p>
+        </aside>
+      }
+    </div>
+  }
+</section>

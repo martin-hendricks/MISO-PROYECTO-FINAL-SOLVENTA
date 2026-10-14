@@ -1,0 +1,21 @@
+<section data-testid="section-cotizaciones" [attr.data-state]="allowed ? 'pending' : 'no-permission'">
+  @if (!allowed) {
+    <h1>{{ 'backoffice.cotizaciones.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <div class="page-head">
+      <div>
+        <h1>{{ 'backoffice.cotizaciones.title' | translate }}</h1>
+        <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
+      </div>
+      <a class="filled" data-testid="cotizaciones-new" routerLink="nueva">
+        {{ 'backoffice.cotizaciones.new' | translate }}
+      </a>
+    </div>
+    <div class="empty-state" data-testid="section-pending">
+      <h2>{{ 'backoffice.pending.title' | translate }}</h2>
+      <p>{{ 'backoffice.pending.body' | translate }}</p>
+    </div>
+  }
+</section>

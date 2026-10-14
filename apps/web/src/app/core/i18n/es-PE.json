@@ -94,7 +94,60 @@
       }
     },
     "cotizaciones": {
-      "title": "Cotizaciones"
+      "title": "Cotizaciones",
+      "new": "Nueva cotización"
+    },
+    "cotizacion": {
+      "title": "Nueva cotización",
+      "subtitle": "Los datos del cliente alimentan el motor de prima. El formulario de riesgo cambia con el ramo, igual que en el canal del asegurado.",
+      "cliente": {
+        "title": "Datos del cliente",
+        "nombre": "Nombre completo",
+        "documento": "Documento"
+      },
+      "ramo": {
+        "label": "Ramo",
+        "dispositivo": "Dispositivo",
+        "viaje": "Viaje",
+        "vida": "Vida",
+        "clima": "Clima y vuelos",
+        "pagos": "Pagos",
+        "hipotecario": "Hipotecario"
+      },
+      "vigencia": {
+        "label": "Vigencia",
+        "meses": "{{meses}} meses"
+      },
+      "riesgo": {
+        "title": "Datos del riesgo",
+        "tipo": {
+          "label": "Tipo de dispositivo",
+          "telefono": "Teléfono",
+          "tablet": "Tableta",
+          "portatil": "Portátil"
+        },
+        "valor": "Valor asegurado",
+        "valorRango": "El valor asegurado debe estar entre {{min}} y {{max}} {{moneda}}.",
+        "marca": "Marca",
+        "modelo": "Modelo"
+      },
+      "calcular": "Calcular prima",
+      "calculando": "Calculando…",
+      "limpiar": "Limpiar",
+      "error": "No pudimos calcular la prima. Intenta de nuevo.",
+      "oferta": {
+        "title": "Oferta en firme",
+        "primaNeta": "Prima neta",
+        "gastosExpedicion": "Gastos de expedición",
+        "venceEn": "Oferta vigente hasta",
+        "emitir": "Continuar a emisión",
+        "enviar": "Enviar oferta al cliente"
+      },
+      "sinOferta": {
+        "title": "Sin oferta",
+        "completa": "Completa los datos del cliente y del riesgo para calcular la prima.",
+        "corrige": "Corrige los datos del riesgo para calcular la prima."
+      }
     },
     "polizas": {
       "title": "Pólizas"

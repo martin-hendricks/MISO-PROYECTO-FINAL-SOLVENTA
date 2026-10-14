@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ..dependencies import require_roles
 from .cliente import OFFER, _offer
@@ -40,10 +40,26 @@ CLIENTES = [
 ]
 
 
+GASTOS_EXPEDICION = 16500
+
+
+class Tercero(BaseModel):
+    nombre: str = Field(min_length=1)
+    documento: str = Field(min_length=1)
+
+
 class VentaAsistida(BaseModel):
-    clienteId: str = Field(min_length=1)
+    clienteId: str | None = Field(default=None, min_length=1)
+    cliente: Tercero | None = None
     ramo: str
+    vigenciaMeses: int = Field(default=12, gt=0)
     datosRiesgo: dict
+
+    @model_validator(mode="after")
+    def _a_nombre_de_alguien(self) -> "VentaAsistida":
+        if self.clienteId is None and self.cliente is None:
+            raise ValueError("La venta asistida necesita clienteId o cliente")
+        return self
 
 
 class ClienteNuevo(BaseModel):
@@ -59,11 +75,25 @@ class Desactivar(BaseModel):
     estado: str
 
 
+def _oferta(cotizacion_id: str) -> dict:
+    offer = _offer(cotizacion_id)
+    offer["primaNeta"] = offer["prima"] - GASTOS_EXPEDICION
+    offer["gastosExpedicion"] = GASTOS_EXPEDICION
+    offer["vigenciaMeses"] = 12
+    return offer
+
+
 @router.post("/cotizaciones")
 def venta(body: VentaAsistida) -> dict:
-    offer = _offer(OFFER["cotizacionId"])
+    offer = _oferta(OFFER["cotizacionId"])
     offer["ramo"] = body.ramo
+    offer["vigenciaMeses"] = body.vigenciaMeses
     return offer
+
+
+@router.get("/cotizaciones/{cotizacion_id}")
+def reconsultar(cotizacion_id: str) -> dict:
+    return _oferta(cotizacion_id)
 
 
 @router.get("/cartera")
