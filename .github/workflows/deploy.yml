@@ -1,0 +1,106 @@
+# Ubicación en el repo: .github/workflows/deploy.yml
+#
+# CD: publica la imagen runtime en ECR y la despliega al clúster EKS vía
+# helm upgrade. Corre después de docker-images.yml, que ya construye y
+# testea la imagen en cada PR/push; este workflow solo empuja a ECR y
+# despliega en push directo a develop/main (no en PRs: un PR todavía no
+# está integrado, no debería tocar el clúster).
+#
+# Requiere, ya creados por infra/terraform/modules/github_actions_cd:
+#   - El proveedor OIDC de GitHub Actions y el rol de IAM.
+#   - El access entry de EKS que autoriza a ese rol en el namespace
+#     solventa (AmazonEKSEditPolicy).
+#
+# Variables/secrets que debe configurar el equipo en GitHub (Settings ->
+# Environments), una vez exista la cuenta de AWS real:
+#   AWS_REGION                      (variable, ej. us-east-1)
+#   AWS_ACCOUNT_ID                  (secret)
+#   EKS_CLUSTER_NAME                (variable, ej. solventa-minimo-eks)
+#   GITHUB_ACTIONS_CD_ROLE_ARN      (secret, output github_actions_cd_role_arn de Terraform)
+#
+# Solo incluye en la matrix los componentes que hoy tienen repositorio ECR
+# propio (módulo ecr) y values/<componente>.yaml (infra/k8s/values/):
+# api-socios y ms-cotizacion. ms-arquetipo/bff-arquetipo son la plantilla
+# para copiar al crear un microservicio nuevo, no un servicio desplegable;
+# sigue bastando con que docker-images.yml los construya y testee. Los
+# demás componentes del diagrama de despliegue (ms-polizas, ms-siniestros,
+# etc.) se agregan a esta matrix cuando tengan su propio Dockerfile.
+
+name: Deploy
+run-name: "[Deploy] ${{ github.ref_name }} @ ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "apps/backend/api-socios/**"
+      - "apps/backend/ms-cotizacion/**"
+      - "apps/backend/.dockerignore"
+      - "infra/k8s/charts/microservicio/**"
+      - "infra/k8s/values/api-socios.yaml"
+      - "infra/k8s/values/ms-cotizacion.yaml"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+  id-token: write # requerido por aws-actions/configure-aws-credentials para canjear el JWT de OIDC
+
+jobs:
+  deploy:
+    name: deploy (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-socios
+            context: apps/backend
+            dockerfile: apps/backend/api-socios/Dockerfile
+            values: infra/k8s/values/api-socios.yaml
+          - service: ms-cotizacion
+            context: apps/backend/ms-cotizacion
+            dockerfile: apps/backend/ms-cotizacion/Dockerfile
+            values: infra/k8s/values/ms-cotizacion.yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login a ECR
+        run: |
+          aws ecr get-login-password --region "${{ vars.AWS_REGION }}" \
+            | docker login --username AWS --password-stdin \
+              "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
+
+      - name: Build imagen runtime
+        env:
+          IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/solventa-minimo-${{ matrix.service }}
+        run: |
+          docker build --target runtime \
+            -f ${{ matrix.dockerfile }} -t "$IMAGE:${{ github.sha }}" ${{ matrix.context }}
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Push a ECR
+        run: docker push "$IMAGE:${{ github.sha }}"
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Desplegar con Helm
+        run: |
+          helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
+            --namespace solventa \
+            --values ${{ matrix.values }} \
+            --set imagen.repositorio="$IMAGE" \
+            --set imagen.tag=${{ github.sha }} \
+            --wait --timeout 3m
+
+      - name: Verificar rollout
+        run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
