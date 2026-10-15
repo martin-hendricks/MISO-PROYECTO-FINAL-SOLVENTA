@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/android-hu-90-login-correo-contrasena
     paths:
       - 'apps/mobile/Solventa/**'
       - '.github/workflows/mobile-apk.yml'
