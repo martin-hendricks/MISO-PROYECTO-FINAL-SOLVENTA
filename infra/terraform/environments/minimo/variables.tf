@@ -400,3 +400,25 @@ variable "k8s_namespace" {
   description = "Namespace de Kubernetes donde corren los microservicios. Forma parte de la trust policy de IRSA, así que debe coincidir con infra/k8s/platform/namespace.yaml."
   default     = "solventa"
 }
+
+# ---------------------------------------------------------------------------
+# CI/CD
+# ---------------------------------------------------------------------------
+
+variable "github_org" {
+  type        = string
+  description = "Organización o usuario de GitHub propietario del repositorio autorizado a asumir el rol de CI/CD."
+  default     = "martin-hendricks"
+}
+
+variable "github_repo" {
+  type        = string
+  description = "Nombre del repositorio de GitHub (sin el prefijo org/) autorizado a asumir el rol de CI/CD."
+  default     = "MISO-PROYECTO-FINAL-SOLVENTA"
+}
+
+variable "github_cd_branches" {
+  type        = list(string)
+  description = "Ramas cuyos workflows de GitHub Actions pueden asumir el rol de CI/CD (push directo o merge). Un push a cualquier otra rama no puede autenticarse como este rol."
+  default     = ["develop", "main"]
+}

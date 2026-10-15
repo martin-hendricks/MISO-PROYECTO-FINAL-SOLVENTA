@@ -300,6 +300,24 @@ module "irsa_aplicacion" {
   tags                  = var.extra_tags
 }
 
+# Rol que asumen los workflows de GitHub Actions para publicar imágenes en
+# ECR y desplegarlas en el clúster (helm upgrade), vía OIDC -- sin access
+# keys de larga duración. Ver infra/terraform/modules/github_actions_cd.
+module "github_actions_cd" {
+  source = "../../modules/github_actions_cd"
+
+  project_name        = var.project_name
+  environment         = var.environment
+  github_org          = var.github_org
+  github_repo         = var.github_repo
+  github_branches     = var.github_cd_branches
+  ecr_repository_arns = values(module.ecr.repository_arns)
+  eks_cluster_arn     = module.eks.cluster_arn
+  eks_cluster_name    = module.eks.cluster_name
+  k8s_namespace       = var.k8s_namespace
+  tags                = var.extra_tags
+}
+
 # ---------------------------------------------------------------------------
 # Borde y almacenamiento
 # ---------------------------------------------------------------------------
