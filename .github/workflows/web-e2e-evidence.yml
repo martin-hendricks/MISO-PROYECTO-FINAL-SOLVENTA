@@ -1,4 +1,4 @@
-name: Web unit+E2E+evidence
+name: Web evidence (manual)
 run-name: "[Web evidence] ${{ github.ref_name }} ${{ inputs.tags }}"
 
 on:

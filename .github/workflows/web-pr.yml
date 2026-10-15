@@ -1,4 +1,4 @@
-name: Web unit+E2E
+name: Web PR
 
 on:
   pull_request:
