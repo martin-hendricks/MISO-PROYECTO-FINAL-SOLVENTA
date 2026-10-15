@@ -99,6 +99,10 @@ resource "aws_eks_cluster" "this" {
     public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
   encryption_config {
     provider {
       key_arn = var.kms_key_arn

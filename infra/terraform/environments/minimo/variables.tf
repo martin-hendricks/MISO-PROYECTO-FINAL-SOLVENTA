@@ -230,7 +230,7 @@ variable "redis_snapshot_retention_limit" {
 variable "kafka_version" {
   type        = string
   description = "Versión de Kafka del clúster MSK."
-  default     = "3.6.0"
+  default     = "3.9.x"
 }
 
 variable "msk_number_of_broker_nodes" {

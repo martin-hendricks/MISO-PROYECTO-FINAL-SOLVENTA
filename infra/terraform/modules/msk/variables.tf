@@ -21,7 +21,7 @@ variable "security_group_ids" {
 variable "kafka_version" {
   type        = string
   description = "MSK Kafka version."
-  default     = "3.6.0"
+  default     = "3.9.x"
 }
 
 variable "number_of_broker_nodes" {
