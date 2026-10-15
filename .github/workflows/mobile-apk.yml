@@ -3,7 +3,6 @@ name: Mobile APK
 on:
   push:
     branches:
-      - develop
       - main
     paths:
       - 'apps/mobile/Solventa/**'
@@ -40,3 +39,49 @@ jobs:
           path: apps/mobile/Solventa/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Upload APK to Bitrise Release Management
+        env:
+          AUTHORIZATION_TOKEN: ${{ secrets.BITRISE_ACCESS_TOKEN }}
+          CONNECTED_APP_ID: a4239051-03bb-49d1-b92e-c9f3001af1c7
+          ARTIFACT_PATH: apps/mobile/Solventa/app/build/outputs/apk/debug/app-debug.apk
+          BRANCH: ${{ github.ref_name }}
+          WORKFLOW: mobile-apk
+        run: |
+          set -euo pipefail
+          file_name=$(basename "$ARTIFACT_PATH")
+          file_size=$(stat -c%s "$ARTIFACT_PATH")
+          artifact_id=$(uuidgen | tr '[:upper:]' '[:lower:]')
+          info=$(curl -fsS \
+            -H "Authorization: ${AUTHORIZATION_TOKEN}" \
+            "https://api.bitrise.io/release-management/v2/apps/v1/installable-artifacts/${artifact_id}/upload-url?app_id=${CONNECTED_APP_ID}&file_name=${file_name}&file_size_bytes=${file_size}&branch=${BRANCH}&workflow=${WORKFLOW}")
+          upload_url=$(jq -er '.url' <<<"$info")
+          method=$(jq -er '.method' <<<"$info")
+          header_args=()
+          while IFS= read -r line; do
+            [ -n "$line" ] && header_args+=(-H "$line")
+          done < <(jq -r '
+            if (.headers | type) == "array" then
+              .headers[] | "\(.name): \(.value)"
+            elif (.headers | type) == "object" then
+              .headers | to_entries[]
+              | "\(.key): \(.value | if type == "object" then .value else . end)"
+            else
+              empty
+            end
+          ' <<<"$info")
+          curl -fsS -X "$method" "${header_args[@]}" --upload-file "$ARTIFACT_PATH" "$upload_url"
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            status_body=$(curl -fsS \
+              -H "Authorization: ${AUTHORIZATION_TOKEN}" \
+              "https://api.bitrise.io/release-management/v2/apps/v1/installable-artifacts/${artifact_id}/status")
+            status=$(jq -r '.status' <<<"$status_body")
+            echo "$status_body"
+            case "$status" in
+              processed_valid) exit 0 ;;
+              processed_invalid) exit 1 ;;
+              uploaded|upload_requested) sleep 2 ;;
+              *) exit 1 ;;
+            esac
+          done
+          echo "Bitrise did not finish processing the APK."
+          exit 1
