@@ -310,7 +310,7 @@ module "github_actions_cd" {
   environment         = var.environment
   github_org          = var.github_org
   github_repo         = var.github_repo
-  github_branches     = var.github_cd_branches
+  github_environments = var.github_cd_environments
   ecr_repository_arns = values(module.ecr.repository_arns)
   eks_cluster_arn     = module.eks.cluster_arn
   eks_cluster_name    = module.eks.cluster_name

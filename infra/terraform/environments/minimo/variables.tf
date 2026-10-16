@@ -417,8 +417,8 @@ variable "github_repo" {
   default     = "MISO-PROYECTO-FINAL-SOLVENTA"
 }
 
-variable "github_cd_branches" {
+variable "github_cd_environments" {
   type        = list(string)
-  description = "Ramas cuyos workflows de GitHub Actions pueden asumir el rol de CI/CD (push directo o merge). Un push a cualquier otra rama no puede autenticarse como este rol."
-  default     = ["develop", "main"]
+  description = "GitHub Environments cuyos workflows de GitHub Actions pueden asumir el rol de CI/CD. deploy.yml declara environment: desarrollo|produccion en sus jobs; un job sin ese environment no puede autenticarse como este rol."
+  default     = ["desarrollo", "produccion"]
 }
