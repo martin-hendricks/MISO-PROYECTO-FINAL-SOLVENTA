@@ -44,6 +44,11 @@ on:
       - "infra/k8s/values/api-socios.yaml"
       - "infra/k8s/values/ms-cotizacion.yaml"
       - ".github/workflows/deploy.yml"
+  # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
+  # tras un cambio de infraestructura que no toca ningún path del trigger de
+  # push, como el rol IAM o el access entry de EKS) sin depender de un commit
+  # real en apps/backend/.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
