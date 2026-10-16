@@ -37,9 +37,19 @@ locals {
   # rama aquí (como en un primer intento) hace que AWS rechace el
   # AssumeRoleWithWebIdentity con "Not authorized" aunque el ARN del rol y
   # el push sean correctos.
+  #
+  # Además, confirmado en CloudTrail, el sub real que GitHub envía incluye
+  # los IDs numéricos de la organización y del repositorio como sufijo del
+  # nombre (repo:<org>@<org_id>/<repo>@<repo_id>:environment:<nombre>), no
+  # solo repo:<org>/<repo>:environment:<nombre>. Esos IDs no son
+  # predecibles de antemano ni estables si el repo se transfiere, así que
+  # se toleran con un wildcard (StringLike) en vez de hardcodearlos. El "@"
+  # es literal: exige que el nombre de org/repo termine exactamente ahí
+  # antes del wildcard, para que "martin-hendricks" no matchee como prefijo
+  # de otra organización con un nombre más largo.
   subject_claims = [
     for env in var.github_environments :
-    "repo:${var.github_org}/${var.github_repo}:environment:${env}"
+    "repo:${var.github_org}@*/${var.github_repo}@*:environment:${env}"
   ]
 }
 
@@ -81,7 +91,7 @@ data "aws_iam_policy_document" "assume_role" {
     }
 
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values   = local.subject_claims
     }
