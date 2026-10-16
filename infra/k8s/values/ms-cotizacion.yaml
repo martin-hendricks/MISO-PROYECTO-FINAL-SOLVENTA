@@ -74,6 +74,10 @@ externalSecrets:
       claves:
         - clientId
         - clientSecret
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-cotizacion-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -95,3 +99,8 @@ variablesEntorno:
     valor: "300"
   - nombre: NODE_GROUP
     valor: "a"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-cotizacion-db
+    claveSecreto: database_url

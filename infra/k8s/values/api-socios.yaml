@@ -28,12 +28,16 @@ recursos:
     memory: "768Mi"
 
 probes:
+  # api-socios expone un único endpoint /health (apps/backend/api-socios/app/observabilidad.py),
+  # sin distinguir liveness de readiness como sí hace ms-cotizacion. Apuntar
+  # los probes a /health/live y /health/ready (que no existen) hacía que
+  # ambos devolvieran 404 y el pod entrara en CrashLoopBackOff.
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:
