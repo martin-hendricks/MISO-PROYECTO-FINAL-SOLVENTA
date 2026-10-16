@@ -170,12 +170,21 @@ resource "aws_iam_role_policy_attachment" "eks_describe" {
 # ---------------------------------------------------------------------------
 #
 # Lo anterior permite resolver el kubeconfig; esto autoriza lo que el rol
-# puede hacer una vez autenticado contra la API de Kubernetes. Se usa
-# AmazonEKSEditPolicy (lee/escribe recursos de aplicación: Deployments,
-# Services, ConfigMaps, HPA, etc., pero no RBAC ni recursos a nivel de
-# clúster) con el scope acotado al namespace `solventa`, el mismo que crea
-# infra/k8s/platform/namespace.yaml. El rol de CD nunca recibe acceso a
-# kube-system ni a los namespaces de otros componentes de la plataforma.
+# puede hacer una vez autenticado contra la API de Kubernetes.
+#
+# Scope a nivel de CLÚSTER (no acotado al namespace `solventa`) a propósito:
+# el mismo workflow de despliegue también crea el namespace `solventa` y el
+# ClusterSecretStore si todavía no existen (paso de bootstrap idempotente en
+# deploy.yml) -- ambos son recursos a nivel de clúster, no de namespace, así
+# que un scope "namespace" no alcanzaría para crearlos. Decisión consciente
+# de simplicidad operativa sobre mínimo privilegio estricto para este
+# ambiente: un solo rol para todo el workflow, en vez de dos roles (uno de
+# bootstrap cluster-admin y otro de deploy acotado a namespace) que se
+# asumen en pasos distintos del mismo job.
+#
+# AmazonEKSEditPolicy: lee/escribe recursos de aplicación (Deployments,
+# Services, ConfigMaps, HPA, Namespaces, etc.), pero no toca RBAC
+# (Roles/ClusterRoles/bindings) ni borra el propio clúster.
 
 resource "aws_eks_access_entry" "github_actions_cd" {
   cluster_name  = var.eks_cluster_name
@@ -191,8 +200,7 @@ resource "aws_eks_access_policy_association" "github_actions_cd" {
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
 
   access_scope {
-    type       = "namespace"
-    namespaces = [var.k8s_namespace]
+    type = "cluster"
   }
 
   depends_on = [aws_eks_access_entry.github_actions_cd]

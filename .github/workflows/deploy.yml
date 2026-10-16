@@ -8,8 +8,10 @@
 #
 # Requiere, ya creados por infra/terraform/modules/github_actions_cd:
 #   - El proveedor OIDC de GitHub Actions y el rol de IAM.
-#   - El access entry de EKS que autoriza a ese rol en el namespace
-#     solventa (AmazonEKSEditPolicy).
+#   - El access entry de EKS que autoriza a ese rol con scope de clúster
+#     (AmazonEKSEditPolicy) -- necesario porque el job "bootstrap" crea el
+#     namespace solventa y el ClusterSecretStore si todavía no existen,
+#     ambos recursos a nivel de clúster, no de namespace.
 #
 # Variables/secrets que debe configurar el equipo en GitHub (Settings ->
 # Environments), una vez exista la cuenta de AWS real:
@@ -48,8 +50,30 @@ permissions:
   id-token: write # requerido por aws-actions/configure-aws-credentials para canjear el JWT de OIDC
 
 jobs:
+  bootstrap:
+    name: bootstrap cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.GITHUB_ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Crear namespace y ClusterSecretStore si faltan
+        run: |
+          kubectl apply -f infra/k8s/platform/namespace.yaml
+          kubectl apply -f infra/k8s/platform/clustersecretstore.yaml
+
   deploy:
     name: deploy (${{ matrix.service }})
+    needs: bootstrap
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
     strategy:

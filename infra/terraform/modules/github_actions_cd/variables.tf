@@ -39,12 +39,6 @@ variable "eks_cluster_name" {
   description = "Name of the EKS cluster (eks module output `cluster_name`), needed to create the access entry that authorizes this role inside the cluster's Kubernetes API."
 }
 
-variable "k8s_namespace" {
-  type        = string
-  description = "Kubernetes namespace this role is authorized to manage (must match infra/k8s/platform/namespace.yaml). Scoped so a compromised CI role cannot touch kube-system or other namespaces."
-  default     = "solventa"
-}
-
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."
