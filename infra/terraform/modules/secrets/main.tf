@@ -91,6 +91,13 @@ resource "aws_secretsmanager_secret_version" "compartida_db" {
     host     = try(var.compartida_db_credentials.host, null)
     port     = try(var.compartida_db_credentials.port, null)
     dbname   = try(var.compartida_db_credentials.dbname, null)
+    # URL de conexión ya armada, para microservicios (ms-cotizacion, etc.)
+    # cuya app espera una única variable DATABASE_URL en vez de componer la
+    # URL a partir de host/port/user/password por separado. El chart
+    # genérico solo sabe mapear una clave de un Secret a una variable de
+    # entorno; esta clave evita tener que cambiar esa app por cada
+    # consumidor de DBCompartida.
+    database_url = "postgresql+asyncpg://${var.compartida_db_credentials.username}:${var.compartida_db_credentials.password}@${try(var.compartida_db_credentials.host, "")}:${try(var.compartida_db_credentials.port, "")}/${try(var.compartida_db_credentials.dbname, "")}"
   })
 }
 
