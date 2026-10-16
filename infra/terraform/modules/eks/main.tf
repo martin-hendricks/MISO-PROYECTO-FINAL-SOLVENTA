@@ -99,6 +99,10 @@ resource "aws_eks_cluster" "this" {
     public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
   encryption_config {
     provider {
       key_arn = var.kms_key_arn
@@ -350,4 +354,37 @@ resource "aws_eks_addon" "ebs_csi_driver" {
     aws_eks_node_group.grupo_b,
     aws_iam_role_policy_attachment.ebs_csi_driver,
   ]
+}
+
+# ---------------------------------------------------------------------------
+# Acceso de administrador para quien aplica Terraform
+# ---------------------------------------------------------------------------
+#
+# Con authentication_mode = API_AND_CONFIG_MAP, a diferencia del modo legado
+# basado solo en el ConfigMap aws-auth, crear el clúster ya NO otorga
+# system:masters implícito al principal de IAM que lo creó. Sin este access
+# entry, el provider helm (y cualquier kubectl manual) recibe "the server
+# has asked for the client to provide credentials" aunque las credenciales
+# de AWS sean válidas: son válidas para IAM, pero no están autorizadas
+# dentro de la API de Kubernetes.
+data "aws_caller_identity" "current" {}
+
+resource "aws_eks_access_entry" "terraform_admin" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-eks-terraform-admin" })
+}
+
+resource "aws_eks_access_policy_association" "terraform_admin" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_caller_identity.current.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.terraform_admin]
 }

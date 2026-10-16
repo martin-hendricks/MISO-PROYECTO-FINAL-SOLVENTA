@@ -122,3 +122,8 @@ output "irsa_role_arns" {
   value       = module.irsa_aplicacion.role_arns
   description = "ARN del rol IRSA por componente. Cada valor va en serviceAccount.roleArn del archivo correspondiente de infra/k8s/values/."
 }
+
+output "github_actions_cd_role_arn" {
+  value       = module.github_actions_cd.role_arn
+  description = "ARN del rol que asume GitHub Actions por OIDC. Va en el campo role-to-assume de aws-actions/configure-aws-credentials dentro del workflow de despliegue."
+}
