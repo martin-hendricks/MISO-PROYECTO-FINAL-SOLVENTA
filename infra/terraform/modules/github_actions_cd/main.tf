@@ -189,9 +189,19 @@ resource "aws_iam_role_policy_attachment" "eks_describe" {
 # bootstrap cluster-admin y otro de deploy acotado a namespace) que se
 # asumen en pasos distintos del mismo job.
 #
-# AmazonEKSEditPolicy: lee/escribe recursos de aplicación (Deployments,
-# Services, ConfigMaps, HPA, Namespaces, etc.), pero no toca RBAC
-# (Roles/ClusterRoles/bindings) ni borra el propio clúster.
+# AmazonEKSClusterAdminPolicy (no AmazonEKSEditPolicy): el bootstrap de
+# deploy.yml aplica infra/k8s/platform/clustersecretstore.yaml, un CRD de
+# External Secrets Operator (external-secrets.io/v1beta1), no un recurso
+# core de Kubernetes. AmazonEKSEditPolicy solo cubre recursos de aplicación
+# nativos (Deployments, Services, ConfigMaps, HPA, Namespaces...); no
+# conoce CRDs de terceros, así que un `kubectl apply` sobre
+# ClusterSecretStore fallaba con "forbidden" aunque el AssumeRoleWithWebIdentity
+# ya funcionara. ClusterAdminPolicy (sin llegar a AdminPolicy, que además
+# puede modificar RBAC de otros principals) cubre cualquier CRD presente o
+# futuro sin tener que enumerar API groups uno por uno -- misma decisión de
+# simplicidad operativa sobre mínimo privilegio estricto que ya se tomó
+# para var.eks_cluster_name arriba y para el usuario que aplica Terraform
+# (ver aws_eks_access_entry.terraform_admin en modules/eks/main.tf).
 
 resource "aws_eks_access_entry" "github_actions_cd" {
   cluster_name  = var.eks_cluster_name
@@ -204,7 +214,7 @@ resource "aws_eks_access_entry" "github_actions_cd" {
 resource "aws_eks_access_policy_association" "github_actions_cd" {
   cluster_name  = var.eks_cluster_name
   principal_arn = aws_iam_role.github_actions_cd.arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
