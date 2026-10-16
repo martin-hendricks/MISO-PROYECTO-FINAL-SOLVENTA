@@ -18,7 +18,12 @@ imagen:
 replicas: 4
 grupoEscalado: "a"
 
-puerto: 8080
+# apps/backend/ms-cotizacion/Dockerfile expone y arranca uvicorn en 8000
+# (a diferencia del resto de servicios del repo, que usan 8080). El Service
+# y las probes deben apuntar al puerto real o el pod queda Running pero
+# nunca Ready (confirmado en el cluster: Uvicorn escuchando en :8000
+# mientras Service/probes golpeaban :8080).
+puerto: 8000
 puertoMetricas: 9090
 
 recursos:
@@ -30,17 +35,22 @@ recursos:
     memory: "4Gi"
 
 probes:
+  # ms-cotizacion expone un único endpoint /health
+  # (apps/backend/ms-cotizacion/app/observabilidad.py), sin distinguir
+  # liveness de readiness. Apuntar a /health/live y /health/ready (que no
+  # existen) devolvía 404 en los tres probes y el pod nunca llegaba a Ready
+  # (confirmado en los logs del contenedor en el cluster).
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 15
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 5
   startup:
     habilitado: true
-    path: /health/live
+    path: /health
     initialDelaySeconds: 0
     periodSeconds: 5
     failureThreshold: 12
