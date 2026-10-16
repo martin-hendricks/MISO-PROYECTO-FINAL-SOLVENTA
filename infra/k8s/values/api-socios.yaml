@@ -83,6 +83,12 @@ variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local"
   - nombre: MS_COTIZACION_URL
-    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+    # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
+    # no en el 80 por defecto de HTTP. Sin el puerto explícito, el cliente
+    # HTTP de api-socios (httpx.AsyncClient con este base_url) nunca
+    # conecta y GET /v1/catalogo responde 503 "servicio_no_disponible"
+    # (confirmado contra el cluster: ms-cotizacion:8000/v1/productos
+    # responde 200 directamente, pero vía api-socios fallaba).
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: RATE_LIMIT_POR_SOCIO_RPM
     valor: "600"
