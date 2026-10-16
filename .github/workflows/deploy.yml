@@ -18,7 +18,7 @@
 #   AWS_REGION                      (variable, ej. us-east-1)
 #   AWS_ACCOUNT_ID                  (secret)
 #   EKS_CLUSTER_NAME                (variable, ej. solventa-minimo-eks)
-#   GITHUB_ACTIONS_CD_ROLE_ARN      (secret, output github_actions_cd_role_arn de Terraform)
+#   ACTIONS_CD_ROLE_ARN      (secret, output ACTIONS_CD_ROLE_ARN de Terraform)
 #
 # Solo incluye en la matrix los componentes que hoy tienen repositorio ECR
 # propio (módulo ecr) y values/<componente>.yaml (infra/k8s/values/):
@@ -60,7 +60,7 @@ jobs:
       - name: Autenticar contra AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.GITHUB_ACTIONS_CD_ROLE_ARN }}
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Configurar kubectl
@@ -94,7 +94,7 @@ jobs:
       - name: Autenticar contra AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.GITHUB_ACTIONS_CD_ROLE_ARN }}
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login a ECR
