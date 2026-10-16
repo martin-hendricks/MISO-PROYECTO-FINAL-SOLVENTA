@@ -24,6 +24,12 @@ variable "github_branches" {
   default     = ["develop", "main"]
 }
 
+variable "github_environments" {
+  type        = list(string)
+  description = "GitHub Environments whose jobs may assume this role. Jobs that declare `environment:` get a sub claim of the form repo:<org>/<repo>:environment:<name> instead of the branch ref."
+  default     = ["desarrollo", "produccion"]
+}
+
 variable "ecr_repository_arns" {
   type        = list(string)
   description = "ARNs of the ECR repositories (ecr module output `repository_arns`) this role may push/pull images to."

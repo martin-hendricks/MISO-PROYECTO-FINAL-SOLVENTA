@@ -417,6 +417,12 @@ variable "github_repo" {
   default     = "MISO-PROYECTO-FINAL-SOLVENTA"
 }
 
+variable "github_cd_environments" {
+  type        = list(string)
+  description = "GitHub Environments (usados en deploy.yml vía `environment:`) cuyos jobs pueden asumir el rol de CI/CD. Limitar qué ramas despliegan en cada uno se configura en GitHub -> Settings -> Environments."
+  default     = ["desarrollo", "produccion"]
+}
+
 variable "github_cd_branches" {
   type        = list(string)
   description = "Ramas cuyos workflows de GitHub Actions pueden asumir el rol de CI/CD (push directo o merge). Un push a cualquier otra rama no puede autenticarse como este rol."

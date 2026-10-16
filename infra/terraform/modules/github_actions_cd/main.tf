@@ -27,13 +27,23 @@ locals {
 
   role_name = "${var.project_name}-${var.environment}-github-actions-cd"
 
-  # El JWT de GitHub Actions trae el claim `sub` con esta forma exacta para
-  # un push/merge en una rama (no un PR, no un tag, no un environment):
-  # repo:<org>/<repo>:ref:refs/heads/<rama>.
-  subject_claims = [
-    for branch in var.github_branches :
-    "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/${branch}"
-  ]
+  # El JWT de GitHub Actions trae el claim `sub` con una de estas formas:
+  #   - job sin `environment:`  -> repo:<org>/<repo>:ref:refs/heads/<rama>
+  #   - job con `environment:`  -> repo:<org>/<repo>:environment:<nombre>
+  # Cuando el job declara un environment, GitHub reemplaza el ref por el
+  # environment en el `sub`, así que ambos formatos deben estar permitidos.
+  # Restringir qué ramas pueden usar cada environment se hace en GitHub
+  # (Settings -> Environments -> Deployment branches).
+  subject_claims = concat(
+    [
+      for branch in var.github_branches :
+      "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/${branch}"
+    ],
+    [
+      for env in var.github_environments :
+      "repo:${var.github_org}/${var.github_repo}:environment:${env}"
+    ]
+  )
 }
 
 # ---------------------------------------------------------------------------
