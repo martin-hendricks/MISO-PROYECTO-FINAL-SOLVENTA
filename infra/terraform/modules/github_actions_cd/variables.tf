@@ -18,10 +18,10 @@ variable "github_repo" {
   description = "GitHub repository name (without the org/ prefix) allowed to assume this role."
 }
 
-variable "github_branches" {
+variable "github_environments" {
   type        = list(string)
-  description = "Branches whose workflow runs may assume this role (trust policy sub condition). A push/merge on any other branch cannot authenticate as this role."
-  default     = ["develop", "main"]
+  description = "GitHub Environments whose workflow runs may assume this role (trust policy sub condition: repo:<org>/<repo>:environment:<name>). A job without a matching `environment:` cannot authenticate as this role."
+  default     = ["desarrollo", "produccion"]
 }
 
 variable "ecr_repository_arns" {

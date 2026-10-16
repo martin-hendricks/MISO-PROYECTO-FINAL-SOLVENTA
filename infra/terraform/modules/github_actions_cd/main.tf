@@ -4,8 +4,9 @@
 # (cuando el workflow declara `permissions.id-token: write`). Este módulo
 # registra ese emisor como un proveedor OIDC de IAM y crea un rol que solo
 # ese JWT puede asumir -- y solo cuando el JWT dice que viene de este
-# repositorio, en una de las ramas listadas en var.github_branches. Ninguna
-# otra rama, fork o repositorio puede autenticarse como este rol.
+# repositorio, en uno de los GitHub Environments listados en
+# var.github_environments. Ningún otro repositorio, fork o job sin
+# environment puede autenticarse como este rol.
 #
 # El rol resultante es exactamente lo que necesita el workflow de
 # despliegue (.github/workflows/deploy.yml, aún no creado): empujar
@@ -27,12 +28,18 @@ locals {
 
   role_name = "${var.project_name}-${var.environment}-github-actions-cd"
 
-  # El JWT de GitHub Actions trae el claim `sub` con esta forma exacta para
-  # un push/merge en una rama (no un PR, no un tag, no un environment):
-  # repo:<org>/<repo>:ref:refs/heads/<rama>.
+  # Cuando un job de GitHub Actions declara `environment: <nombre>`, el
+  # claim `sub` del JWT deja de tener la forma basada en rama
+  # (repo:<org>/<repo>:ref:refs/heads/<rama>) y pasa a esta otra:
+  # repo:<org>/<repo>:environment:<nombre>. deploy.yml declara
+  # `environment: desarrollo|produccion` en sus jobs, así que la condición
+  # debe matchear por environment, no por rama -- usar la forma basada en
+  # rama aquí (como en un primer intento) hace que AWS rechace el
+  # AssumeRoleWithWebIdentity con "Not authorized" aunque el ARN del rol y
+  # el push sean correctos.
   subject_claims = [
-    for branch in var.github_branches :
-    "repo:${var.github_org}/${var.github_repo}:ref:refs/heads/${branch}"
+    for env in var.github_environments :
+    "repo:${var.github_org}/${var.github_repo}:environment:${env}"
   ]
 }
 
@@ -83,7 +90,7 @@ data "aws_iam_policy_document" "assume_role" {
 
 resource "aws_iam_role" "github_actions_cd" {
   name               = local.role_name
-  description        = "Asumible solo por GitHub Actions del repo ${var.github_org}/${var.github_repo}, ramas: ${join(", ", var.github_branches)}."
+  description        = "Asumible solo por GitHub Actions del repo ${var.github_org}/${var.github_repo}, environments: ${join(", ", var.github_environments)}."
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 
   tags = merge(local.common_tags, { Name = local.role_name })
