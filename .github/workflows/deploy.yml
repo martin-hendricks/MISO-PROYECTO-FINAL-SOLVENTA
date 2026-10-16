@@ -27,6 +27,13 @@
 # sigue bastando con que docker-images.yml los construya y testee. Los
 # demás componentes del diagrama de despliegue (ms-polizas, ms-siniestros,
 # etc.) se agregan a esta matrix cuando tengan su propio Dockerfile.
+#
+# matrix.dbSecret: nombre del Secret de Kubernetes (nombreLocal en
+# values/<componente>.yaml, bajo externalSecrets.remoteSecrets) que trae
+# database_url, para el componente que tenga apps/backend/<servicio>/db/
+# con scripts SQL. Vacío ("") para componentes sin BD propia -- el paso
+# "Migraciones de base de datos" se salta por completo en ese caso. Ver
+# infra/k8s/platform/run-migrations.sh y migraciones-job.yaml.
 
 name: Deploy
 run-name: "[Deploy] ${{ github.ref_name }} @ ${{ github.sha }}"
@@ -89,10 +96,12 @@ jobs:
             context: apps/backend
             dockerfile: apps/backend/api-socios/Dockerfile
             values: infra/k8s/values/api-socios.yaml
+            dbSecret: "" # sin carpeta db/: no consume BD propia
           - service: ms-cotizacion
             context: apps/backend/ms-cotizacion
             dockerfile: apps/backend/ms-cotizacion/Dockerfile
             values: infra/k8s/values/ms-cotizacion.yaml
+            dbSecret: ms-cotizacion-db
     steps:
       - uses: actions/checkout@v4
 
@@ -122,6 +131,12 @@ jobs:
       - name: Configurar kubectl
         run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
 
+      # Sin --wait a propósito: el ExternalSecret con database_url (que crea
+      # este mismo helm upgrade) debe existir ANTES de correr las
+      # migraciones, pero el Deployment no puede quedar Ready todavía si la
+      # tabla que su readiness probe necesita aún no existe -- "helm upgrade
+      # --wait" esperaría ahí hasta hacer timeout, sin llegar nunca al paso
+      # de migraciones. El rollout se verifica después, ya con la BD al día.
       - name: Desplegar con Helm
         run: |
           helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
@@ -129,7 +144,48 @@ jobs:
             --values ${{ matrix.values }} \
             --set imagen.repositorio="$IMAGE" \
             --set imagen.tag=${{ github.sha }} \
-            --wait --timeout 3m
+            --timeout 3m
+
+      # Corre después del helm upgrade (que ya creó el ExternalSecret con
+      # database_url) y antes de esperar el rollout. No es un initContainer
+      # del Deployment: con varias réplicas, un initContainer correría las
+      # migraciones en paralelo en cada pod -- un Job único, aparte, las
+      # corre una sola vez. Solo para servicios con carpeta db/
+      # (matrix.dbSecret no vacío). El ConfigMap combina el script
+      # run-migrations.sh y los .sql del servicio; ambos quedan versionados
+      # en el repo, no en el chart de Helm genérico. kubectl wait falla el
+      # job de GitHub Actions si el Job de Kubernetes no termina en 2 min o
+      # termina en error -- un SQL que rompe la migración bloquea el
+      # despliegue en vez de dejar corriendo una imagen contra un esquema
+      # desactualizado.
+      - name: Migraciones de base de datos
+        if: matrix.dbSecret != ''
+        run: |
+          command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
+
+          # helm upgrade corrió sin --wait: el ExternalSecret existe desde
+          # que Helm renderizó los manifiestos, pero todavía puede tardar
+          # unos segundos en sincronizar de verdad contra AWS Secrets
+          # Manager (visto en el cluster: pasa por SecretSyncedError antes
+          # de quedar Ready). Sin esta espera, el Job de migraciones podría
+          # arrancar con un Secret de Kubernetes vacío o inexistente.
+          kubectl wait --for=condition=Ready --timeout=60s \
+            externalsecret/${{ matrix.dbSecret }} -n solventa
+
+          kubectl create configmap ${{ matrix.service }}-migrations \
+            --namespace solventa \
+            --from-file=infra/k8s/platform/run-migrations.sh \
+            --from-file=apps/backend/${{ matrix.service }}/db/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl delete job ${{ matrix.service }}-migrate -n solventa --ignore-not-found
+
+          SERVICIO=${{ matrix.service }} DB_SECRET_NAME=${{ matrix.dbSecret }} \
+            envsubst < infra/k8s/platform/migraciones-job.yaml | kubectl apply -f -
+
+          kubectl wait --for=condition=complete --timeout=120s \
+            job/${{ matrix.service }}-migrate -n solventa \
+            || { kubectl logs job/${{ matrix.service }}-migrate -n solventa; exit 1; }
 
       - name: Verificar rollout
         run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
