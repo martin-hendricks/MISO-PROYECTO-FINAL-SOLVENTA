@@ -1,0 +1,227 @@
+{
+  "info": {
+    "name": "Solventa",
+    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue validado contra el cluster real (solventa-minimo-eks) antes de agregarse aquí -- ver infra/k8s/README.md para el contexto de despliegue. Usar junto con el environment Solventa - cluster interno.postman_environment.json.\n\nAcceso: hoy los Services son ClusterIP (sin exposición externa), así que estas requests solo corren desde dentro del cluster (ej. un pod temporal con curl) o vía `kubectl port-forward`. Ver el campo baseUrlApiSocios/baseUrlMsCotizacion del environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "api-socios",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlApiSocios}}/health",
+              "host": ["{{baseUrlApiSocios}}"],
+              "path": ["health"]
+            },
+            "description": "Liveness/readiness único (sin distinguir /live y /ready -- ver apps/backend/api-socios/app/observabilidad.py)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Catálogo (proxy a ms-cotizacion)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlApiSocios}}/v1/catalogo",
+              "host": ["{{baseUrlApiSocios}}"],
+              "path": ["v1", "catalogo"]
+            },
+            "description": "api-socios llama internamente a ms-cotizacion (MS_COTIZACION_URL). Si responde 503 \"servicio_no_disponible\", revisar que esa variable de entorno tenga el puerto :8000 -- ver infra/k8s/values/api-socios.yaml."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('trae productos', () => pm.expect(pm.response.json().productos.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto por código",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlApiSocios}}/v1/catalogo/{{productoCodigo}}",
+              "host": ["{{baseUrlApiSocios}}"],
+              "path": ["v1", "catalogo", "{{productoCodigo}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ms-cotizacion",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/health",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/productos",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "productos"]
+            },
+            "description": "Datos semilla cargados por la migración apps/backend/ms-cotizacion/db/05_ms_cotizacion_catalogo.sql (ver infra/k8s/platform/run-migrations.sh)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('trae al menos un producto', () => pm.expect(body.length).to.be.above(0));",
+                  "if (body.length > 0) pm.collectionVariables.set('productoCodigo', body[0].producto);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto por código",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/productos/{{productoCodigo}}",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "productos", "{{productoCodigo}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Solicitar cotización",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Obligatoria, entre 8 y 128 caracteres. Reenviar la misma clave con el mismo body devuelve la cotización ya creada (200) en vez de duplicarla (201)."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": \"{{$guid}}\",\n  \"socio_id\": \"{{$guid}}\",\n  \"consentimiento_id\": \"{{$guid}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones"]
+            },
+            "description": "datos_riesgo debe calzar con los datoRiesgo del producto (ver 'Listar productos'). Para soat-motocicleta: cilindraje_cc (50-1800), ciudad_circulacion (bogota/medellin/cali/barranquilla/bucaramanga), modelo_anio (2000-2026)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created (o 200 si la Idempotency-Key ya se usó)', () => {",
+                  "  pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('trae cotizacion_id', () => pm.expect(body.cotizacion_id).to.be.a('string'));",
+                  "pm.collectionVariables.set('cotizacionId', body.cotizacion_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reconsultar oferta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/{{cotizacionId}}",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones", "{{cotizacionId}}"]
+            },
+            "description": "Requiere haber corrido 'Solicitar cotización' antes en la misma sesión de Postman (llena {{cotizacionId}} automáticamente)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "productoCodigo", "value": "soat-motocicleta" },
+    { "key": "cotizacionId", "value": "" }
+  ]
+}
