@@ -58,6 +58,27 @@ variable "compartida_db_credentials" {
   sensitive   = true
 }
 
+variable "seed_external_provider_placeholders" {
+  type        = bool
+  description = <<-EOT
+    When true, each external provider secret (open_finance, open_data,
+    kyc_aml, pasarela_pago, firma_electronica, telemetria_iot,
+    reaseguro_acord) is seeded with an obvious, non-functional placeholder
+    JSON ({clientId: "PENDIENTE_<provider>", clientSecret: "PENDIENTE_<provider>"})
+    instead of being left empty. Lets ms-cotizacion and other adapters
+    boot in a fresh apply without a manual secretsmanager put-secret-value
+    step -- useful for the minimo/pruebas environment, where nobody has the
+    real third-party credentials yet.
+
+    Set to false for any environment where getting a real credential in by
+    mistake-of-omission is a real risk (shared/staging/prod): then these
+    secrets are created empty, same as the DB credentials when their
+    *_db_credentials var is null, and setting the real value is a deliberate
+    out-of-band step every time.
+  EOT
+  default     = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."
