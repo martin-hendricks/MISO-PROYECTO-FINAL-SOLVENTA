@@ -50,6 +50,7 @@ on:
       - "infra/k8s/charts/microservicio/**"
       - "infra/k8s/values/api-socios.yaml"
       - "infra/k8s/values/ms-cotizacion.yaml"
+      - "infra/k8s/platform/ingress.yaml"
       - ".github/workflows/deploy.yml"
   # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
   # tras un cambio de infraestructura que no toca ningún path del trigger de
@@ -189,3 +190,31 @@ jobs:
 
       - name: Verificar rollout
         run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
+
+  # Job aparte, no un paso dentro de "deploy": el Ingress es un único
+  # recurso para todos los servicios (infra/k8s/platform/ingress.yaml), no
+  # uno por entrada de la matrix -- aplicarlo dentro de "deploy" lo
+  # reintentaría una vez por servicio en paralelo. needs: deploy para que
+  # corra después de que los Services ya existan (aunque el AWS Load
+  # Balancer Controller tolera apuntar a un Service que todavía no existe,
+  # como bff-web/bff-movil hoy: el target group queda vacío hasta que
+  # aparezca).
+  ingress:
+    name: ingress del ALB
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Aplicar Ingress
+        run: kubectl apply -f infra/k8s/platform/ingress.yaml
