@@ -10,7 +10,6 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,7 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -29,7 +27,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.core.app.ActivityOptionsCompat
 import androidx.test.core.app.ApplicationProvider
-import com.grupo8_uniandes.solventa.ui.registration.LoginPlaceholder
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingUiState
@@ -264,20 +261,6 @@ class OnboardingScreenTest {
         } finally {
             loose.delete()
         }
-    }
-
-    @Test
-    fun givenModifier_whenLoginPlaceholderShown_thenLoginCopyStays() {
-        rule.setContent {
-            SolventaTheme {
-                Column {
-                    LoginPlaceholder(modifier = Modifier)
-                    LoginPlaceholder()
-                }
-            }
-        }
-
-        rule.onAllNodesWithText("Login").assertCountEquals(2)
     }
 
     private fun seedCapture(bytes: ByteArray) {

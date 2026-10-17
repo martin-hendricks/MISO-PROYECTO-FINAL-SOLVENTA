@@ -28,9 +28,11 @@ import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRep
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
+import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
+import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -41,6 +43,7 @@ import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
+import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.openDestination
 import com.grupo8_uniandes.solventa.navigation.selectedDestination
@@ -57,7 +60,9 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionEffect
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
-import com.grupo8_uniandes.solventa.ui.registration.LoginPlaceholder
+import com.grupo8_uniandes.solventa.ui.login.LoginEffect
+import com.grupo8_uniandes.solventa.ui.login.LoginScreen
+import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingEffect
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingViewModel
@@ -119,6 +124,9 @@ fun CustomerShell(
         step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen -> {
             ConsentHost(modifier = modifier)
         }
+        step == PostSplashStep.Login -> {
+            LoginHost(modifier = modifier, onLeaveToAccount = null)
+        }
         else -> {
             SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
         }
@@ -164,7 +172,7 @@ private fun OnboardingHost(modifier: Modifier = Modifier) {
         }
     }
     if (state.effect == OnboardingEffect.OpenLogin) {
-        LoginPlaceholder(modifier = modifier)
+        LoginHost(modifier = modifier, onLeaveToAccount = viewModel::dismissLogin)
     } else {
         OnboardingScreen(
             state = state,
@@ -184,14 +192,16 @@ private fun OnboardingHost(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SignedInShell(
+internal fun SignedInShell(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean = false,
+    homeState: HomeUiState? = null,
 ) {
     val signedIn = true
     val navController = rememberNavController()
     val homeViewModel: HomeViewModel = viewModel()
-    val homeState by homeViewModel.state.collectAsState()
+    val collectedHome by homeViewModel.state.collectAsState()
+    val homeStateResolved = homeState ?: collectedHome
     val entry by navController.currentBackStackEntryAsState()
     val start = if (startOnProfile) PerfilRoute else InicioRoute
     val route = entry?.toSolventaRoute() ?: start
@@ -238,7 +248,7 @@ private fun SignedInShell(
     ) { padding ->
         CustomerNavHost(
             navController = navController,
-            homeState = homeState,
+            homeState = homeStateResolved,
             contentPadding = padding,
             startDestination = start,
         )
@@ -249,12 +259,48 @@ private fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     CotizacionRoute -> stringResource(R.string.quote_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
-    EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
+    is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
+    is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
     PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
+}
+
+@Composable
+private fun LoginHost(
+    modifier: Modifier = Modifier,
+    onLeaveToAccount: (() -> Unit)?,
+) {
+    val context = LocalContext.current
+    val viewModel = remember(context) {
+        LoginViewModel(SignIn(SharedPrefsRegistrationRepository(context.applicationContext)))
+    }
+    val state by viewModel.state.collectAsState()
+    val activity = LocalContext.current.findActivity()
+    LaunchedEffect(state.effect) {
+        if (state.effect == LoginEffect.OpenHome) {
+            activity?.openHomeAfterOnboarding()
+        }
+    }
+    LoginScreen(
+        email = state.email,
+        password = state.password,
+        failure = state.failure,
+        onEmail = viewModel::onEmail,
+        onPassword = viewModel::onPassword,
+        onIngresar = viewModel::ingresar,
+        onBack = { onLeaveToAccount?.invoke() },
+        onCreateAccount = {
+            if (onLeaveToAccount != null) {
+                onLeaveToAccount()
+            } else {
+                activity?.openOnboarding()
+            }
+        },
+        modifier = modifier,
+    )
 }
 
 internal fun Activity.openOnboarding() {

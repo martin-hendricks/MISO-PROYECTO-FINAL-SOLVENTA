@@ -39,13 +39,19 @@ class ShellModeTest {
         val detail = PolizaDetalleRoute(policyId = "SOL-0001")
         assertEquals(ShellMode.Nested, shellMode(detail, signedIn = true))
         assertEquals(Destination.Polizas, selectedDestination(detail))
+        val claim = SiniestroDetalleRoute(claimId = "CLM-1")
+        assertEquals(ShellMode.Nested, shellMode(claim, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(claim))
     }
 
     @Test
     fun givenIssuance_whenSignedIn_thenNoSelectedDestination() {
-        assertEquals(ShellMode.Issuance, shellMode(EmisionEnCursoRoute, signedIn = true))
+        assertEquals(EmisionEnCursoRoute("Q-1"), EmisionEnCursoRoute("Q-1").copy())
+        assertEquals("", EmisionEnCursoRoute().offerId)
+        assertEquals(SiniestroDetalleRoute("CLM-1"), SiniestroDetalleRoute("CLM-1").copy(claimId = "CLM-1"))
+        assertEquals(ShellMode.Issuance, shellMode(EmisionEnCursoRoute(), signedIn = true))
         assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute, signedIn = true))
-        assertNull(selectedDestination(EmisionEnCursoRoute))
+        assertNull(selectedDestination(EmisionEnCursoRoute()))
         assertNull(selectedDestination(PolizaEmitidaRoute))
     }
 }

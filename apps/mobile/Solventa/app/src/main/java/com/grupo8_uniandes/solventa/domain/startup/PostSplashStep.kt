@@ -4,6 +4,6 @@ enum class PostSplashStep {
     /** Language-and-region picker (HU-94). Not Inicio. */
     LanguageAndRegion,
 
-    /** Login placeholder. Not the HU-90 form. */
+    /** Sign-in form (HU-90). Not Inicio. */
     Login,
 }
