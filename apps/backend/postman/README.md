@@ -4,19 +4,31 @@ Colección manual contra los microservicios desplegados en EKS, para probar de p
 
 ## Archivos
 
-- `Solventa.postman_collection.json` — requests, agrupadas por servicio (`api-socios`, `ms-cotizacion`).
-- `Solventa - cluster interno.postman_environment.json` — URLs base vía `kubectl port-forward`.
+- `Solventa.postman_collection.json` — requests, agrupadas por servicio (`api-socios`, `ms-cotizacion`). Cada carpeta usa su propia variable de base URL (`baseUrlApiSocios`, `baseUrlMsCotizacion`), resuelta distinto según el environment.
+- `Solventa - API Gateway.postman_environment.json` — **recomendado**: ambas variables apuntan al endpoint público del API Gateway. Prueba la cadena real (API Gateway → VPC Link → ALB → `TargetGroupBinding` → pods, ver `infra/terraform/modules/alb` e `infra/k8s/platform/target-group-bindings.yaml`). No requiere `kubectl` ni estar en la VPC.
+- `Solventa - cluster interno.postman_environment.json` — cada variable apunta a un puerto local distinto vía `kubectl port-forward`, para depurar un servicio directo sin pasar por el API Gateway/ALB. No sirve para los dos `Health` (ver más abajo).
 
-## Uso
+## Uso — vía API Gateway (recomendado)
 
-Los Services son `ClusterIP` (sin exposición externa todavía — no hay dominio/ALB público configurado), así que hace falta reenviar el puerto antes de correr la colección:
+1. Obtén el endpoint actual (cambia en cada `terraform apply`/`destroy`, el ID del API Gateway es aleatorio):
+   ```bash
+   terraform -chdir=infra/terraform/environments/minimo output -raw api_gateway_endpoint
+   ```
+2. Actualiza `baseUrlApiSocios` y `baseUrlMsCotizacion` en el environment **Solventa - API Gateway** con ese valor (sin el `/` final).
+3. En Postman: **Import** la colección y los dos environments, selecciona **Solventa - API Gateway**, y corre la colección (Runner, o request por request).
+
+Los endpoints `Health` (`/health` de cada servicio) no tienen Listener Rule en el ALB — solo `/v1/catalogo`, `/v1/productos`, `/v1/cotizaciones` — así que vía este environment caen en la regla `default` del ALB y dan `503`. Úsalos con el environment de cluster interno.
+
+## Uso — vía cluster interno (depuración directa)
+
+Los Services son `ClusterIP` (sin exposición externa por sí solos), así que hace falta reenviar el puerto:
 
 ```bash
 kubectl port-forward -n solventa svc/api-socios 18080:8080 &
 kubectl port-forward -n solventa svc/ms-cotizacion 18000:8000 &
 ```
 
-Luego, en Postman: **Import** los dos `.json`, selecciona el environment **Solventa - cluster interno**, y corre la colección (Runner, o request por request).
+Luego, en Postman: selecciona el environment **Solventa - cluster interno**, y corre la colección.
 
 ## Orden recomendado
 

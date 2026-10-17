@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Solventa",
-    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue validado contra el cluster real (solventa-minimo-eks) antes de agregarse aquí -- ver infra/k8s/README.md para el contexto de despliegue. Usar junto con el environment Solventa - cluster interno.postman_environment.json.\n\nAcceso: hoy los Services son ClusterIP (sin exposición externa), así que estas requests solo corren desde dentro del cluster (ej. un pod temporal con curl) o vía `kubectl port-forward`. Ver el campo baseUrlApiSocios/baseUrlMsCotizacion del environment.",
+    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue validado contra el cluster real (solventa-minimo-eks) antes de agregarse aquí -- ver infra/k8s/README.md para el contexto de despliegue.\n\nCada carpeta (api-socios, ms-cotizacion) usa su propia variable de base URL (baseUrlApiSocios, baseUrlMsCotizacion), resuelta distinto según el environment activo:\n\n- **Solventa - API Gateway** (recomendado): ambas variables apuntan al mismo endpoint público del API Gateway (terraform output api_gateway_endpoint) -- el path distingue el servicio. Prueba la cadena real: API Gateway -> VPC Link -> ALB (infra/terraform/modules/alb, TargetGroupBinding en infra/k8s/platform/) -> pods. No requiere kubectl ni VPN.\n- **Solventa - cluster interno**: cada variable apunta a un puerto local distinto vía `kubectl port-forward` (dos port-forwards separados, sin dominio compartido), para depurar un servicio directo sin pasar por el API Gateway/ALB.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -15,10 +15,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlApiSocios}}/health",
-              "host": ["{{baseUrlApiSocios}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrlApiSocios}}"
+              ],
+              "path": [
+                "health"
+              ]
             },
-            "description": "Liveness/readiness único (sin distinguir /live y /ready -- ver apps/backend/api-socios/app/observabilidad.py)."
+            "description": "Liveness/readiness único (sin distinguir /live y /ready -- ver apps/backend/api-socios/app/observabilidad.py).\n\n⚠️ Solo funciona con el environment 'Solventa - cluster interno'. El ALB (infra/terraform/modules/alb, var.alb_routes) no tiene Listener Rule para /health -- solo para /v1/catalogo, /v1/productos, /v1/cotizaciones -- así que vía 'Solventa - API Gateway' esta request cae en la regla default del ALB (target group genérico vacío) y da 503, no un error claro de ruta inexistente."
           },
           "event": [
             {
@@ -39,8 +43,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlApiSocios}}/v1/catalogo",
-              "host": ["{{baseUrlApiSocios}}"],
-              "path": ["v1", "catalogo"]
+              "host": [
+                "{{baseUrlApiSocios}}"
+              ],
+              "path": [
+                "v1",
+                "catalogo"
+              ]
             },
             "description": "api-socios llama internamente a ms-cotizacion (MS_COTIZACION_URL). Si responde 503 \"servicio_no_disponible\", revisar que esa variable de entorno tenga el puerto :8000 -- ver infra/k8s/values/api-socios.yaml."
           },
@@ -63,8 +72,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlApiSocios}}/v1/catalogo/{{productoCodigo}}",
-              "host": ["{{baseUrlApiSocios}}"],
-              "path": ["v1", "catalogo", "{{productoCodigo}}"]
+              "host": [
+                "{{baseUrlApiSocios}}"
+              ],
+              "path": [
+                "v1",
+                "catalogo",
+                "{{productoCodigo}}"
+              ]
             }
           },
           "event": [
@@ -90,9 +105,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlMsCotizacion}}/health",
-              "host": ["{{baseUrlMsCotizacion}}"],
-              "path": ["health"]
-            }
+              "host": [
+                "{{baseUrlMsCotizacion}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "⚠️ Solo funciona con el environment 'Solventa - cluster interno'. El ALB (infra/terraform/modules/alb, var.alb_routes) no tiene Listener Rule para /health -- solo para /v1/catalogo, /v1/productos, /v1/cotizaciones -- así que vía 'Solventa - API Gateway' esta request cae en la regla default del ALB (target group genérico vacío) y da 503, no un error claro de ruta inexistente."
           },
           "event": [
             {
@@ -113,8 +133,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlMsCotizacion}}/v1/productos",
-              "host": ["{{baseUrlMsCotizacion}}"],
-              "path": ["v1", "productos"]
+              "host": [
+                "{{baseUrlMsCotizacion}}"
+              ],
+              "path": [
+                "v1",
+                "productos"
+              ]
             },
             "description": "Datos semilla cargados por la migración apps/backend/ms-cotizacion/db/05_ms_cotizacion_catalogo.sql (ver infra/k8s/platform/run-migrations.sh)."
           },
@@ -139,8 +164,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlMsCotizacion}}/v1/productos/{{productoCodigo}}",
-              "host": ["{{baseUrlMsCotizacion}}"],
-              "path": ["v1", "productos", "{{productoCodigo}}"]
+              "host": [
+                "{{baseUrlMsCotizacion}}"
+              ],
+              "path": [
+                "v1",
+                "productos",
+                "{{productoCodigo}}"
+              ]
             }
           },
           "event": [
@@ -159,7 +190,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
               {
                 "key": "Idempotency-Key",
                 "value": "{{$guid}}",
@@ -169,12 +203,21 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"usuario_id\": \"{{$guid}}\",\n  \"socio_id\": \"{{$guid}}\",\n  \"consentimiento_id\": \"{{$guid}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones",
-              "host": ["{{baseUrlMsCotizacion}}"],
-              "path": ["v1", "cotizaciones"]
+              "host": [
+                "{{baseUrlMsCotizacion}}"
+              ],
+              "path": [
+                "v1",
+                "cotizaciones"
+              ]
             },
             "description": "datos_riesgo debe calzar con los datoRiesgo del producto (ver 'Listar productos'). Para soat-motocicleta: cilindraje_cc (50-1800), ciudad_circulacion (bogota/medellin/cali/barranquilla/bucaramanga), modelo_anio (2000-2026)."
           },
@@ -201,8 +244,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/{{cotizacionId}}",
-              "host": ["{{baseUrlMsCotizacion}}"],
-              "path": ["v1", "cotizaciones", "{{cotizacionId}}"]
+              "host": [
+                "{{baseUrlMsCotizacion}}"
+              ],
+              "path": [
+                "v1",
+                "cotizaciones",
+                "{{cotizacionId}}"
+              ]
             },
             "description": "Requiere haber corrido 'Solicitar cotización' antes en la misma sesión de Postman (llena {{cotizacionId}} automáticamente)."
           },
@@ -221,7 +270,13 @@
     }
   ],
   "variable": [
-    { "key": "productoCodigo", "value": "soat-motocicleta" },
-    { "key": "cotizacionId", "value": "" }
+    {
+      "key": "productoCodigo",
+      "value": "soat-motocicleta"
+    },
+    {
+      "key": "cotizacionId",
+      "value": ""
+    }
   ]
 }
