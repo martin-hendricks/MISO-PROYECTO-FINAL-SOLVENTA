@@ -61,9 +61,9 @@ class OnboardingScreenTest {
         show(OnboardingUiState())
 
         rule.onNodeWithText("Solventa").assertIsDisplayed()
-        rule.onNodeWithText("1 de 2 · Cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Datos, documento y contraseña para ingresar después.").assertIsDisplayed()
+        rule.onNodeWithText("Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.").assertIsDisplayed()
         rule.onNodeWithText("Como aparece en tu documento").assertIsDisplayed()
         rule.onNodeWithText("El mismo que usarás para ingresar").assertIsDisplayed()
         rule.onNodeWithTag("action_continuar").assertIsNotEnabled()

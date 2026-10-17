@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.login
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,6 +42,7 @@ fun LoginScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
             .testTag("screen_login"),
     ) {
         SolventaTopBar(
@@ -58,6 +60,11 @@ fun LoginScreen(
                 text = stringResource(R.string.login_heading),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.login_support),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (failure == LoginFailure.Rejected) {
                 SolventaBanner(

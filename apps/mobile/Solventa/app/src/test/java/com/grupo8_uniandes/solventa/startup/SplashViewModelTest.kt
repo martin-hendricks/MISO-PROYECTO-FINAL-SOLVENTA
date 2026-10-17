@@ -46,4 +46,13 @@ class SplashViewModelTest {
         assertEquals(1, waits)
         assertEquals(SplashUiState.Finished(PostSplashStep.Login), viewModel.state.value)
     }
+
+    @Test
+    fun givenDefaults_whenStarted_thenTheHoldFinishes() = runBlocking {
+        val viewModel = SplashViewModel()
+
+        viewModel.start()
+
+        assertEquals(SplashUiState.Finished(PostSplashStep.LanguageAndRegion), viewModel.state.value)
+    }
 }

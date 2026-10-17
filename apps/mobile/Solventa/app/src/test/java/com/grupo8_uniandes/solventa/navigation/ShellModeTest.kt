@@ -48,4 +48,15 @@ class ShellModeTest {
         assertNull(selectedDestination(EmisionEnCursoRoute))
         assertNull(selectedDestination(PolizaEmitidaRoute))
     }
+
+    @Test
+    fun givenAnUnknownRoute_whenSignedIn_thenItStaysOnTheRoot() {
+        assertEquals(ShellMode.Root, shellMode("otra", signedIn = true))
+        assertNull(selectedDestination("otra"))
+        assertEquals(InicioRoute, Destination.Inicio.rootRoute())
+        assertEquals(PolizasRoute, Destination.Polizas.rootRoute())
+        assertEquals(SiniestrosRoute, Destination.Siniestros.rootRoute())
+        assertEquals(PerfilRoute, Destination.Perfil.rootRoute())
+        assertEquals("SOL-0001", PolizaDetalleRoute().policyId)
+    }
 }

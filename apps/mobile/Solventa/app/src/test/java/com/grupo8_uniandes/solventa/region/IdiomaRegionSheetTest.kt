@@ -66,7 +66,7 @@ class IdiomaRegionSheetTest {
         }
 
         rule.onNodeWithTag("solventa_bottom_sheet").assertIsDisplayed()
-        rule.onAllNodesWithText("Paso 1 de 3 · Elige país e idioma").assertCountEquals(0)
+        rule.onAllNodesWithText("Paso 1 de 4 · Elige país e idioma").assertCountEquals(0)
         rule.onAllNodesWithTag("action_continuar").assertCountEquals(0)
         rule.onNodeWithText("Español · Chile").performClick()
         rule.onNodeWithTag("action_listo").performSemanticsAction(SemanticsActions.OnClick)

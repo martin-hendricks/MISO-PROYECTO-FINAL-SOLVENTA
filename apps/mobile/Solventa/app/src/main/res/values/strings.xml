@@ -27,7 +27,7 @@
     <string name="policy_detail_title">Detalle de póliza</string>
     <string name="claims_placeholder">Avisos de siniestro</string>
     <string name="idioma_title">Idioma y región</string>
-    <string name="idioma_heading">Paso 1 de 3 · Elige país e idioma</string>
+    <string name="idioma_heading">Paso 1 de 4 · Elige país e idioma</string>
     <string name="idioma_helper">Elegir país cambia el idioma de la app y el formato de moneda y fecha. Los montos que ves al lado de cada opción son ejemplos de formato, no el precio de tu seguro.</string>
     <string name="region_name_co">Español · Colombia</string>
     <string name="region_name_mx">Español · México</string>
@@ -40,9 +40,9 @@
     <string name="action_continuar_region">Continuar</string>
     <string name="action_listo">Listo</string>
     <string name="onboarding_wordmark">Solventa</string>
-    <string name="onboarding_step">1 de 2 · Cuenta</string>
+    <string name="onboarding_step">Paso 2 de 4 · Crea tu cuenta</string>
     <string name="onboarding_title">Crea tu cuenta</string>
-    <string name="onboarding_intro">Datos, documento y contraseña para ingresar después.</string>
+    <string name="onboarding_intro">Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.</string>
     <string name="onboarding_photo">Foto de una sola cara, sin flash.</string>
     <string name="onboarding_nombre">Nombre</string>
     <string name="onboarding_nombre_hint">Como aparece en tu documento</string>
@@ -55,7 +55,8 @@
     <string name="onboarding_contrasena">Contraseña</string>
     <string name="action_continuar_onboarding">Continuar</string>
     <string name="action_ya_tengo_cuenta">Ya tengo cuenta</string>
-    <string name="login_heading">Ingresa</string>
+    <string name="login_heading">Ingresa a tus seguros</string>
+    <string name="login_support">Tus pólizas, tus avisos de siniestro y tus pagos automáticos, en un solo lugar.</string>
     <string name="login_email">Correo electrónico</string>
     <string name="login_password">Contraseña</string>
     <string name="action_ingresar">Ingresar</string>

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - develop
+      - feature/android-hu-90-login-correo-contrasena
     paths:
       - 'apps/mobile/Solventa/**'
       - '.github/workflows/mobile-apk.yml'
@@ -31,7 +33,7 @@ jobs:
           printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
       - name: Build debug APK
         working-directory: apps/mobile/Solventa
-        run: ./gradlew :app:assembleDebug
+        run: ./gradlew :app:assembleDebug -PversionCode=${{ github.run_number }}
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:

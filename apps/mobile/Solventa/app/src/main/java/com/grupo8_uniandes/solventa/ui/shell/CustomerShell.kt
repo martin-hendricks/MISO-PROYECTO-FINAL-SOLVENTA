@@ -119,7 +119,7 @@ fun CustomerShell(
         step == PostSplashStep.LanguageAndRegion && completed && !registrationDone -> {
             OnboardingHost(modifier = modifier)
         }
-        step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen -> {
+        step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen && !resumeProfile -> {
             ConsentHost(modifier = modifier)
         }
         step == PostSplashStep.Login -> {
