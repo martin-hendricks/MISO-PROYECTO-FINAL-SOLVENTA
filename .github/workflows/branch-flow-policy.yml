@@ -9,6 +9,7 @@
 # en los rulesets de develop, main y release/**.
 
 name: Branch flow policy
+run-name: "[Policy] ${{ github.event.pull_request.title }}"
 
 on:
   pull_request:

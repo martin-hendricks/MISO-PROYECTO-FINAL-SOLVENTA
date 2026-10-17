@@ -1,0 +1,284 @@
+# Ubicación en el repo: .github/workflows/deploy.yml
+#
+# CD: publica la imagen runtime en ECR y la despliega al clúster EKS vía
+# helm upgrade. Corre después de docker-images.yml, que ya construye y
+# testea la imagen en cada PR/push; este workflow solo empuja a ECR y
+# despliega en push directo a develop/main (no en PRs: un PR todavía no
+# está integrado, no debería tocar el clúster).
+#
+# Requiere, ya creados por infra/terraform/modules/github_actions_cd:
+#   - El proveedor OIDC de GitHub Actions y el rol de IAM.
+#   - El access entry de EKS que autoriza a ese rol con scope de clúster
+#     (AmazonEKSEditPolicy) -- necesario porque el job "bootstrap" crea el
+#     namespace solventa y el ClusterSecretStore si todavía no existen,
+#     ambos recursos a nivel de clúster, no de namespace.
+#
+# Variables/secrets que debe configurar el equipo en GitHub (Settings ->
+# Environments), una vez exista la cuenta de AWS real:
+#   AWS_REGION                      (variable, ej. us-east-1)
+#   AWS_ACCOUNT_ID                  (secret)
+#   EKS_CLUSTER_NAME                (variable, ej. solventa-minimo-eks)
+#   ACTIONS_CD_ROLE_ARN      (secret, output ACTIONS_CD_ROLE_ARN de Terraform)
+#
+# La matrix de "deploy" NO está escrita a mano: el job "discover" la arma
+# en cada corrida, escaneando apps/backend/*/Dockerfile. Un servicio entra
+# a la matrix cuando cumple, a la vez:
+#   1. apps/backend/<servicio>/Dockerfile existe.
+#   2. infra/k8s/values/<servicio>.yaml existe (si falta, se salta ese
+#      servicio con un warning en el log del job "discover" -- no falla
+#      todo el pipeline por un componente a medio preparar).
+#   3. <servicio> no está en la lista de exclusión (ms-arquetipo,
+#      bff-arquetipo: son la plantilla para copiar al crear un
+#      microservicio nuevo, no un servicio desplegable; docker-images.yml
+#      los sigue construyendo y testeando).
+#
+# context se infiere del propio Dockerfile: si su primera línea COPY
+# referencia "<servicio>/..." (como api-socios/bff-arquetipo, que
+# construyen junto a un paquete compartido), el contexto es
+# apps/backend; si no, es apps/backend/<servicio> (caso común, como
+# ms-cotizacion). dbSecret es "<servicio>-db" si existe
+# apps/backend/<servicio>/db/ con scripts SQL, vacío si no -- ver
+# infra/k8s/platform/run-migrations.sh y migraciones-job.yaml.
+#
+# Agregar un servicio nuevo al pipeline, entonces, no toca este archivo:
+# basta con que tenga Dockerfile y su values/<servicio>.yaml.
+
+name: Deploy
+run-name: "[Deploy] ${{ github.ref_name }} @ ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "apps/backend/**"
+      - "infra/k8s/charts/microservicio/**"
+      - "infra/k8s/values/**"
+      - "infra/k8s/platform/ingress.yaml"
+      - "infra/k8s/platform/run-migrations.sh"
+      - "infra/k8s/platform/migraciones-job.yaml"
+      - ".github/workflows/deploy.yml"
+  # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
+  # tras un cambio de infraestructura que no toca ningún path del trigger de
+  # push, como el rol IAM o el access entry de EKS) sin depender de un commit
+  # real en apps/backend/.
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # requerido por aws-actions/configure-aws-credentials para canjear el JWT de OIDC
+
+jobs:
+  # Arma la matrix del job "deploy" escaneando el repo -- ver el comentario
+  # de cabecera de este archivo para las reglas exactas. No necesita AWS ni
+  # kubectl: es puro análisis de archivos del propio checkout.
+  discover:
+    name: descubrir servicios desplegables
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+      has_services: ${{ steps.build.outputs.has_services }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la matrix
+        id: build
+        run: |
+          EXCLUDE="ms-arquetipo bff-arquetipo"
+          entries="[]"
+
+          for dockerfile in apps/backend/*/Dockerfile; do
+            service_dir=$(dirname "$dockerfile")
+            service=$(basename "$service_dir")
+
+            if [[ " $EXCLUDE " == *" $service "* ]]; then
+              continue
+            fi
+
+            values="infra/k8s/values/${service}.yaml"
+            if [[ ! -f "$values" ]]; then
+              echo "::warning::$service tiene Dockerfile pero no $values -- se omite de la matrix hasta que exista."
+              continue
+            fi
+
+            # Si la primera línea COPY del Dockerfile referencia
+            # "<servicio>/...", construye junto a un paquete compartido
+            # (como api-socios/bff-arquetipo) y el contexto real es
+            # apps/backend, no apps/backend/<servicio>.
+            first_copy=$(grep -m1 '^COPY' "$dockerfile" || true)
+            if [[ "$first_copy" == "COPY ${service}/"* ]]; then
+              context="apps/backend"
+            else
+              context="$service_dir"
+            fi
+
+            dbSecret=""
+            if [[ -d "${service_dir}/db" ]]; then
+              dbSecret="${service}-db"
+            fi
+
+            entries=$(jq -c \
+              --arg service "$service" \
+              --arg context "$context" \
+              --arg dockerfile "$dockerfile" \
+              --arg values "$values" \
+              --arg dbSecret "$dbSecret" \
+              '. + [{"service": $service, "context": $context, "dockerfile": $dockerfile, "values": $values, "dbSecret": $dbSecret}]' \
+              <<< "$entries")
+          done
+
+          echo "Servicios descubiertos:"
+          jq -r '.[].service' <<< "$entries"
+
+          matrix=$(jq -c "{include: .}" <<< "$entries")
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+          has_services=$(jq 'length > 0' <<< "$entries")
+          echo "has_services=${has_services}" >> "$GITHUB_OUTPUT"
+
+  bootstrap:
+    name: bootstrap cluster
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Crear namespace y ClusterSecretStore si faltan
+        run: |
+          kubectl apply -f infra/k8s/platform/namespace.yaml
+          kubectl apply -f infra/k8s/platform/clustersecretstore.yaml
+
+  deploy:
+    name: deploy (${{ matrix.service }})
+    needs: [discover, bootstrap]
+    if: needs.discover.outputs.has_services == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login a ECR
+        run: |
+          aws ecr get-login-password --region "${{ vars.AWS_REGION }}" \
+            | docker login --username AWS --password-stdin \
+              "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
+
+      - name: Build imagen runtime
+        env:
+          IMAGE: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/solventa-minimo-${{ matrix.service }}
+        run: |
+          docker build --target runtime \
+            -f ${{ matrix.dockerfile }} -t "$IMAGE:${{ github.sha }}" ${{ matrix.context }}
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Push a ECR
+        run: docker push "$IMAGE:${{ github.sha }}"
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      # Sin --wait a propósito: el ExternalSecret con database_url (que crea
+      # este mismo helm upgrade) debe existir ANTES de correr las
+      # migraciones, pero el Deployment no puede quedar Ready todavía si la
+      # tabla que su readiness probe necesita aún no existe -- "helm upgrade
+      # --wait" esperaría ahí hasta hacer timeout, sin llegar nunca al paso
+      # de migraciones. El rollout se verifica después, ya con la BD al día.
+      - name: Desplegar con Helm
+        run: |
+          helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
+            --namespace solventa \
+            --values ${{ matrix.values }} \
+            --set imagen.repositorio="$IMAGE" \
+            --set imagen.tag=${{ github.sha }} \
+            --timeout 3m
+
+      # Corre después del helm upgrade (que ya creó el ExternalSecret con
+      # database_url) y antes de esperar el rollout. No es un initContainer
+      # del Deployment: con varias réplicas, un initContainer correría las
+      # migraciones en paralelo en cada pod -- un Job único, aparte, las
+      # corre una sola vez. Solo para servicios con carpeta db/
+      # (matrix.dbSecret no vacío). El ConfigMap combina el script
+      # run-migrations.sh y los .sql del servicio; ambos quedan versionados
+      # en el repo, no en el chart de Helm genérico. kubectl wait falla el
+      # job de GitHub Actions si el Job de Kubernetes no termina en 2 min o
+      # termina en error -- un SQL que rompe la migración bloquea el
+      # despliegue en vez de dejar corriendo una imagen contra un esquema
+      # desactualizado.
+      - name: Migraciones de base de datos
+        if: matrix.dbSecret != ''
+        run: |
+          command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
+
+          # helm upgrade corrió sin --wait: el ExternalSecret existe desde
+          # que Helm renderizó los manifiestos, pero todavía puede tardar
+          # unos segundos en sincronizar de verdad contra AWS Secrets
+          # Manager (visto en el cluster: pasa por SecretSyncedError antes
+          # de quedar Ready). Sin esta espera, el Job de migraciones podría
+          # arrancar con un Secret de Kubernetes vacío o inexistente.
+          kubectl wait --for=condition=Ready --timeout=60s \
+            externalsecret/${{ matrix.dbSecret }} -n solventa
+
+          kubectl create configmap ${{ matrix.service }}-migrations \
+            --namespace solventa \
+            --from-file=infra/k8s/platform/run-migrations.sh \
+            --from-file=apps/backend/${{ matrix.service }}/db/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl delete job ${{ matrix.service }}-migrate -n solventa --ignore-not-found
+
+          SERVICIO=${{ matrix.service }} DB_SECRET_NAME=${{ matrix.dbSecret }} \
+            envsubst < infra/k8s/platform/migraciones-job.yaml | kubectl apply -f -
+
+          kubectl wait --for=condition=complete --timeout=120s \
+            job/${{ matrix.service }}-migrate -n solventa \
+            || { kubectl logs job/${{ matrix.service }}-migrate -n solventa; exit 1; }
+
+      - name: Verificar rollout
+        run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
+
+  # Job aparte, no un paso dentro de "deploy": el Ingress es un único
+  # recurso para todos los servicios (infra/k8s/platform/ingress.yaml), no
+  # uno por entrada de la matrix -- aplicarlo dentro de "deploy" lo
+  # reintentaría una vez por servicio en paralelo. needs: deploy para que
+  # corra después de que los Services ya existan (aunque el AWS Load
+  # Balancer Controller tolera apuntar a un Service que todavía no existe,
+  # como bff-web/bff-movil hoy: el target group queda vacío hasta que
+  # aparezca).
+  ingress:
+    name: ingress del ALB
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Aplicar Ingress
+        run: kubectl apply -f infra/k8s/platform/ingress.yaml

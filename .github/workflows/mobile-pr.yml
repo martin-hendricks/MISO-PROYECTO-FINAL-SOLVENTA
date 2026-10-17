@@ -1,0 +1,95 @@
+name: Mobile
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - 'release/**'
+      - 'hotfix/**'
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/mobile/Solventa/**'
+      - '.github/workflows/mobile-pr.yml'
+
+jobs:
+  changes:
+    name: detect-mobile-changes
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'apps/mobile/Solventa/**'
+              - '.github/workflows/mobile-pr.yml'
+
+  unit-tests:
+    name: unit-tests
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            apps/mobile/Solventa/**/*.gradle*
+            apps/mobile/Solventa/**/*.gradle.kts
+            apps/mobile/Solventa/gradle/libs.versions.toml
+            apps/mobile/Solventa/gradle/wrapper/gradle-wrapper.properties
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' 24333f8a63b6825ea9c5514f83c2829b004d1fee > "$ANDROID_HOME/licenses/android-sdk-license"
+          printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+      - name: Run unit tests
+        working-directory: apps/mobile/Solventa
+        run: ./gradlew :app:createDebugUnitTestCoverageReport
+      - name: Upload coverage report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-coverage
+          path: apps/mobile/Solventa/app/build/reports/coverage/test/debug/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload coverage to Codecov
+        if: success()
+        uses: codecov/codecov-action@v5
+        with:
+          files: apps/mobile/Solventa/app/build/reports/coverage/test/debug/report.xml
+          flags: mobile
+          disable_search: true
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: apps/mobile/Solventa/app/build/reports/tests/testDebugUnitTest/
+
+  mobile-unit-tests:
+    name: mobile-unit-tests
+    needs: [changes, unit-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require unit tests when the mobile app changed
+        run: |
+          changes="${{ needs.changes.result }}"
+          result="${{ needs.unit-tests.result }}"
+          if [ "$changes" != "success" ] || [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi
