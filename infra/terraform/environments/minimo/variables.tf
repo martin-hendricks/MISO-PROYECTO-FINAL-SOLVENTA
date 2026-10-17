@@ -241,14 +241,14 @@ variable "msk_number_of_broker_nodes" {
 
 variable "msk_broker_instance_type" {
   type        = string
-  description = "Tipo de instancia de los brokers de MSK."
-  default     = "kafka.m5.large"
+  description = "Tipo de instancia de los brokers de MSK. kafka.t3.small para el ambiente mínimo/demo; compatible porque kafka_version (3.9.x, sin sufijo .kraft) usa ZooKeeper, no KRaft -- kafka.t3.small no es seleccionable en modo KRaft. Diseño original: kafka.m5.large, para throughput real bajo EC-ESC-03."
+  default     = "kafka.t3.small"
 }
 
 variable "msk_ebs_volume_size" {
   type        = number
-  description = "Volumen EBS en GB por broker, dimensionado para la retención duradera de BusEventos, ColaPagos y TopicoTelemetria."
-  default     = 100
+  description = "Volumen EBS en GB por broker. 20 para el ambiente mínimo/demo, donde no se acumula suficiente dato para justificar 100GB x N brokers. Diseño original: 100, dimensionado para la retención duradera de BusEventos, ColaPagos y TopicoTelemetria con carga real."
+  default     = 20
 }
 
 # ---------------------------------------------------------------------------
