@@ -1,54 +1,22 @@
 import assert from 'node:assert/strict';
 import { Page } from 'playwright';
-import { tokenPair } from './login.page';
+import { Role } from '../support/doubles/bff';
+import { Client } from '../support/data/generators';
 
-type StaffRole = 'asesor' | 'operador';
-type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos';
-
-const CLIENTES = [
-  ['CLI-18', 'Andrés Gómez', 'web', 'activo', 'habeas_data'],
-  ['CLI-19', 'Laura Peña', 'android', 'activo', 'habeas_data'],
-  ['CLI-20', 'Ricardo Salas', 'web', 'activo', 'hipotecario_pendiente'],
-  ['CLI-21', 'Marcela Ruiz', 'android', 'activo', 'habeas_data'],
-  ['CLI-22', 'Julián Torres', 'web', 'inactivo', 'revocado'],
-].map(([clienteId, nombre, canal, estado, consentimiento]) => ({
-  clienteId,
-  nombre,
-  documento: '1020334556',
-  canal,
-  estado,
-  consentimiento,
-}));
+export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos';
 
 export class BackofficePage {
   constructor(private readonly page: Page) {}
-
-  private baseUrl(): string {
-    return process.env['BASE_URL'] ?? 'http://localhost:8080';
-  }
 
   private section(name: Section) {
     return this.page.getByTestId(`section-${name}`);
   }
 
   async open(): Promise<void> {
-    await this.page.goto(`${this.baseUrl()}/cms`);
+    await this.page.goto('/cms');
   }
 
-  async signInAs(role: StaffRole): Promise<void> {
-    await this.page.route('**/web/sesion/ingreso', (route) =>
-      route.fulfill({ json: tokenPair(role) }),
-    );
-    await this.page.route('**/web/sesion/salida', (route) =>
-      route.fulfill({ json: { estado: 'aceptada' } }),
-    );
-    await this.page.route('**/web/asesor/clientes', (route) =>
-      route.fulfill({ json: { clientes: CLIENTES } }),
-    );
-    await this.page.goto(`${this.baseUrl()}/cms/login`);
-    await this.page.getByTestId('login-email').fill(`${role}@solventa.co`);
-    await this.page.getByTestId('login-password').fill('secreto');
-    await this.page.getByTestId('login-submit').click();
+  async waitForShell(): Promise<void> {
     await this.page.getByTestId('top-nav-admin').waitFor({ state: 'visible' });
   }
 
@@ -61,9 +29,12 @@ export class BackofficePage {
     await this.page.getByTestId('sign-out').click();
   }
 
-  async expectLogin(): Promise<void> {
-    await this.page.getByTestId('login-form').waitFor({ state: 'visible' });
-    assert.equal(new URL(this.page.url()).pathname, '/cms/login');
+  async goHomeFromNoPermission(): Promise<void> {
+    await this.page.getByTestId('no-permission-home').click();
+  }
+
+  async retryClients(): Promise<void> {
+    await this.page.getByTestId('clientes-retry').click();
   }
 
   async expectShell(): Promise<void> {
@@ -85,12 +56,25 @@ export class BackofficePage {
     assert.equal(await this.page.getByTestId(`nav-${name}`).getAttribute('aria-current'), 'page');
   }
 
-  async expectClients(count: number): Promise<void> {
+  async expectClients(clientes: Client[]): Promise<void> {
     await this.page.getByTestId('clientes-table').waitFor({ state: 'visible' });
-    assert.equal(await this.page.locator('[data-testid="clientes-table"] tbody tr').count(), count);
+    assert.equal(
+      await this.page.locator('[data-testid="clientes-table"] tbody tr').count(),
+      clientes.length,
+    );
+    for (const cliente of clientes) {
+      const row = this.page.getByTestId(`cliente-${cliente.clienteId}`);
+      assert.equal((await row.locator('th').innerText()).trim(), cliente.nombre);
+      assert.equal((await row.locator('td').first().innerText()).trim(), cliente.documento);
+    }
   }
 
-  async expectNoPermission(current: StaffRole, required: StaffRole): Promise<void> {
+  async expectClientsState(state: 'empty' | 'error'): Promise<void> {
+    await this.page.getByTestId(`clientes-${state}`).waitFor({ state: 'visible' });
+    assert.equal(await this.page.getByTestId('clientes-table').count(), 0);
+  }
+
+  async expectNoPermission(current: Role, required: Role): Promise<void> {
     const state = this.page.getByTestId('no-permission');
     await state.waitFor({ state: 'visible' });
     assert.equal(await state.getAttribute('data-current'), current);

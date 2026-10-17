@@ -15,7 +15,12 @@ output "alb_zone_id" {
 
 output "target_group_arn" {
   value       = aws_lb_target_group.this.arn
-  description = "ARN of the default target group where EKS node groups register."
+  description = "ARN of the default target group where EKS node groups register. Unused once var.routes is non-empty (per-service target groups take over routing); kept for environments/modules that don't need per-service routing."
+}
+
+output "route_target_group_arns" {
+  value       = { for service, tg in aws_lb_target_group.routes : service => tg.arn }
+  description = "Map of service name to its target group ARN, one entry per key in var.routes. Each value goes into a TargetGroupBinding's spec.targetGroupARN in infra/k8s/platform/, keyed the same way as var.routes."
 }
 
 output "https_listener_arn" {

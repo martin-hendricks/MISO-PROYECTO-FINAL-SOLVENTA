@@ -84,6 +84,11 @@ output "alb_dns_name" {
   description = "DNS del Application Load Balancer. Interno (EC-SEG-07): no resuelve desde fuera de la VPC. El único punto de entrada público es api_gateway_endpoint."
 }
 
+output "alb_route_target_group_arns" {
+  value       = module.alb.route_target_group_arns
+  description = "ARN del target group del ALB por servicio (claves = var.alb_routes). Cada valor va en spec.targetGroupARN del TargetGroupBinding correspondiente en infra/k8s/platform/."
+}
+
 output "cloudfront_domain_name" {
   value       = module.edge.cloudfront_domain_name
   description = "Dominio de CloudFront que sirve la SPA de Angular."
@@ -121,4 +126,9 @@ output "alarms_topic_arn" {
 output "irsa_role_arns" {
   value       = module.irsa_aplicacion.role_arns
   description = "ARN del rol IRSA por componente. Cada valor va en serviceAccount.roleArn del archivo correspondiente de infra/k8s/values/."
+}
+
+output "github_actions_cd_role_arn" {
+  value       = module.github_actions_cd.role_arn
+  description = "ARN del rol que asume GitHub Actions por OIDC. Va en el campo role-to-assume de aws-actions/configure-aws-credentials dentro del workflow de despliegue."
 }

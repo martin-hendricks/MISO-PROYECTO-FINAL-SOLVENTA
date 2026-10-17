@@ -91,6 +91,13 @@ resource "aws_secretsmanager_secret_version" "compartida_db" {
     host     = try(var.compartida_db_credentials.host, null)
     port     = try(var.compartida_db_credentials.port, null)
     dbname   = try(var.compartida_db_credentials.dbname, null)
+    # URL de conexión ya armada, para microservicios (ms-cotizacion, etc.)
+    # cuya app espera una única variable DATABASE_URL en vez de componer la
+    # URL a partir de host/port/user/password por separado. El chart
+    # genérico solo sabe mapear una clave de un Secret a una variable de
+    # entorno; esta clave evita tener que cambiar esa app por cada
+    # consumidor de DBCompartida.
+    database_url = "postgresql+asyncpg://${var.compartida_db_credentials.username}:${var.compartida_db_credentials.password}@${try(var.compartida_db_credentials.host, "")}:${try(var.compartida_db_credentials.port, "")}/${try(var.compartida_db_credentials.dbname, "")}"
   })
 }
 
@@ -109,4 +116,31 @@ resource "aws_secretsmanager_secret" "external_providers" {
     Name     = "${var.project_name}-${var.environment}-${each.key}-credentials"
     Provider = each.key
   })
+}
+
+# Placeholder NO funcional, solo para que el contenedor arranque en un
+# ambiente nuevo sin depender de un `aws secretsmanager put-secret-value`
+# manual (lo que pasaba hasta ahora: ms-cotizacion fallaba con
+# CreateContainerConfigError -> Secret does not exist hasta que alguien
+# cargaba algo a mano). El valor "PENDIENTE_<provider>" es deliberadamente
+# obvio para que, si alguien lo ve en un log o en la respuesta de la API
+# del proveedor real, quede claro que nadie cargó la credencial real
+# todavía -- no es un secreto débil, es un secreto inexistente a propósito.
+resource "aws_secretsmanager_secret_version" "external_providers" {
+  for_each = var.seed_external_provider_placeholders ? toset(local.external_providers) : []
+
+  secret_id = aws_secretsmanager_secret.external_providers[each.key].id
+  secret_string = jsonencode({
+    clientId     = "PENDIENTE_${each.key}"
+    clientSecret = "PENDIENTE_${each.key}"
+  })
+
+  lifecycle {
+    # Una vez que alguien carga la credencial real (a mano, fuera de
+    # Terraform), un `terraform apply` posterior NO debe pisarla de vuelta
+    # con el placeholder. Terraform sigue creando esta versión si no existe
+    # (ambiente nuevo), pero no vuelve a forzar el placeholder sobre un
+    # valor real ya cargado.
+    ignore_changes = [secret_string]
+  }
 }

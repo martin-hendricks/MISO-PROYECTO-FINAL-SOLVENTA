@@ -93,14 +93,14 @@ variable "polizas_db_username" {
 
 variable "polizas_instance_class" {
   type        = string
-  description = "Clase de instancia de la primaria de pólizas."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la primaria de pólizas. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible); subir si hace falta representar carga real de EC-LAT-10."
+  default     = "db.t3.micro"
 }
 
 variable "polizas_replica_instance_class" {
   type        = string
-  description = "Clase de instancia de la réplica de lectura de pólizas. Esta réplica sirve tráfico real (EC-LAT-10), así que no conviene dimensionarla por debajo de la primaria."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la réplica de lectura de pólizas. Esta réplica sirve tráfico real (EC-LAT-10): en producción no debería dimensionarse por debajo de la primaria, pero para el ambiente mínimo/demo se deja igual de pequeña (db.t3.micro) a propósito."
+  default     = "db.t3.micro"
 }
 
 variable "polizas_allocated_storage" {
@@ -117,8 +117,8 @@ variable "polizas_max_allocated_storage" {
 
 variable "polizas_multi_az" {
   type        = bool
-  description = "Multi-AZ en la primaria de pólizas, además de la réplica de lectura."
-  default     = true
+  description = "Multi-AZ en la primaria de pólizas, además de la réplica de lectura. Duplica el costo de cómputo de esa instancia (Multi-AZUsage); false en el ambiente mínimo/demo, donde no hay una falla real que probar entre destroys frecuentes. Poner true si hace falta demostrar el failover en sí."
+  default     = false
 }
 
 variable "polizas_create_read_replica" {
@@ -141,8 +141,8 @@ variable "siniestros_db_username" {
 
 variable "siniestros_instance_class" {
   type        = string
-  description = "Clase de instancia de siniestros."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de siniestros. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible)."
+  default     = "db.t3.micro"
 }
 
 variable "siniestros_allocated_storage" {
@@ -171,8 +171,8 @@ variable "compartida_db_username" {
 
 variable "compartida_instance_class" {
   type        = string
-  description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible)."
+  default     = "db.t3.micro"
 }
 
 variable "compartida_allocated_storage" {
@@ -230,7 +230,7 @@ variable "redis_snapshot_retention_limit" {
 variable "kafka_version" {
   type        = string
   description = "Versión de Kafka del clúster MSK."
-  default     = "3.6.0"
+  default     = "3.9.x"
 }
 
 variable "msk_number_of_broker_nodes" {
@@ -241,14 +241,14 @@ variable "msk_number_of_broker_nodes" {
 
 variable "msk_broker_instance_type" {
   type        = string
-  description = "Tipo de instancia de los brokers de MSK."
-  default     = "kafka.m5.large"
+  description = "Tipo de instancia de los brokers de MSK. kafka.t3.small para el ambiente mínimo/demo; compatible porque kafka_version (3.9.x, sin sufijo .kraft) usa ZooKeeper, no KRaft -- kafka.t3.small no es seleccionable en modo KRaft. Diseño original: kafka.m5.large, para throughput real bajo EC-ESC-03."
+  default     = "kafka.t3.small"
 }
 
 variable "msk_ebs_volume_size" {
   type        = number
-  description = "Volumen EBS en GB por broker, dimensionado para la retención duradera de BusEventos, ColaPagos y TopicoTelemetria."
-  default     = 100
+  description = "Volumen EBS en GB por broker. 20 para el ambiente mínimo/demo, donde no se acumula suficiente dato para justificar 100GB x N brokers. Diseño original: 100, dimensionado para la retención duradera de BusEventos, ColaPagos y TopicoTelemetria con carga real."
+  default     = 20
 }
 
 # ---------------------------------------------------------------------------
@@ -257,8 +257,8 @@ variable "msk_ebs_volume_size" {
 
 variable "kubernetes_version" {
   type        = string
-  description = "Versión de Kubernetes del clúster EKS."
-  default     = "1.31"
+  description = "Versión de Kubernetes del clúster EKS. 1.31 pasó a extended support el 2025-11-26, lo que agrega un cargo extra por hora de clúster (USE1-AmazonEKS-Hours:extendedSupport, ~$8 en 16h de uso); 1.34 es la más antigua en standard support disponible hoy. Revisar periódicamente: EKS solo mantiene unas pocas versiones recientes en standard support."
+  default     = "1.34"
 }
 
 variable "eks_endpoint_public_access" {
@@ -275,20 +275,20 @@ variable "eks_public_access_cidrs" {
 
 variable "node_group_a_instance_types" {
   type        = list(string)
-  description = "Tipos de instancia del Grupo A (ms-cotizacion + ms-perfilamiento). Cómputo intensivo: los motores de rating y riesgo escalan verticalmente para ganar los primeros segundos de la rampa."
-  default     = ["c6i.xlarge"]
+  description = "Tipos de instancia del Grupo A (ms-cotizacion + ms-perfilamiento). Diseño original: cómputo intensivo, escala verticalmente con c6i.xlarge (4 vCPU/8GB). t3.small (2 vCPU/2GB, free-tier-eligible) para el ambiente mínimo/demo -- subir junto con recursos.requests de los pods si hace falta representar carga real (EC-ESC-01/02)."
+  default     = ["t3.small"]
 }
 
 variable "node_group_a_min_size" {
   type        = number
-  description = "Nodos mínimos del Grupo A."
-  default     = 2
+  description = "Nodos mínimos del Grupo A. 1 para el ambiente mínimo/demo (sin alta disponibilidad real entre nodos); subir a 2+ para ver el reparto multi-AZ (EC-DISP-06) en funcionamiento."
+  default     = 1
 }
 
 variable "node_group_a_desired_size" {
   type        = number
   description = "Nodos deseados del Grupo A al crear. Después lo gobierna el Cluster Autoscaler."
-  default     = 2
+  default     = 1
 }
 
 variable "node_group_a_max_size" {
@@ -299,20 +299,20 @@ variable "node_group_a_max_size" {
 
 variable "node_group_b_instance_types" {
   type        = list(string)
-  description = "Tipos de instancia del Grupo B (resto de microservicios, BFFs y adaptadores). Propósito general."
-  default     = ["m6i.large"]
+  description = "Tipos de instancia del Grupo B (resto de microservicios, BFFs y adaptadores). Diseño original: propósito general con m6i.large (2 vCPU/8GB). t3.small (2 vCPU/2GB, free-tier-eligible) para el ambiente mínimo/demo."
+  default     = ["t3.small"]
 }
 
 variable "node_group_b_min_size" {
   type        = number
-  description = "Nodos mínimos del Grupo B."
-  default     = 2
+  description = "Nodos mínimos del Grupo B. 1 para el ambiente mínimo/demo; subir a 2+ para ver el reparto multi-AZ (EC-DISP-06) en funcionamiento."
+  default     = 1
 }
 
 variable "node_group_b_desired_size" {
   type        = number
   description = "Nodos deseados del Grupo B al crear."
-  default     = 2
+  default     = 1
 }
 
 variable "node_group_b_max_size" {
@@ -353,6 +353,40 @@ variable "alb_enable_deletion_protection" {
   type        = bool
   description = "Protección contra borrado del ALB. false por destructibilidad."
   default     = false
+}
+
+# Un target group + listener rule por servicio real desplegable, en vez de
+# un Kubernetes Ingress: el AWS Load Balancer Controller, al ver un Ingress,
+# crea su PROPIO ALB nuevo -- desconectado de este module.alb, al que el API
+# Gateway (module.edge, vía VPC Link) sí apunta. Confirmado en el cluster:
+# un Ingress dejaba dos ALBs sin relación, uno vacío (este) y otro con las
+# rutas reales (el del Ingress, invisible para el API Gateway). Los pods se
+# registran en estos target groups vía TargetGroupBinding
+# (infra/k8s/platform/*-target-group-binding.yaml), no vía Ingress.
+#
+# Claves = nombre del Service de Kubernetes (y del values/<servicio>.yaml
+# correspondiente). priority espaciado de a 10 para que cada servicio pueda
+# ganar más paths después sin chocar con el rango del siguiente.
+variable "alb_routes" {
+  type = map(object({
+    port              = number
+    paths             = list(string)
+    health_check_path = optional(string)
+    priority          = number
+  }))
+  description = "Target groups + listener rules del ALB interno, uno por servicio. Ver infra/terraform/modules/alb/variables.tf (var.routes) para el detalle completo."
+  default = {
+    api-socios = {
+      port     = 8080
+      paths    = ["/v1/catalogo"]
+      priority = 10
+    }
+    ms-cotizacion = {
+      port     = 8000
+      paths    = ["/v1/productos", "/v1/cotizaciones"]
+      priority = 20
+    }
+  }
 }
 
 variable "cloudfront_price_class" {
@@ -399,4 +433,26 @@ variable "k8s_namespace" {
   type        = string
   description = "Namespace de Kubernetes donde corren los microservicios. Forma parte de la trust policy de IRSA, así que debe coincidir con infra/k8s/platform/namespace.yaml."
   default     = "solventa"
+}
+
+# ---------------------------------------------------------------------------
+# CI/CD
+# ---------------------------------------------------------------------------
+
+variable "github_org" {
+  type        = string
+  description = "Organización o usuario de GitHub propietario del repositorio autorizado a asumir el rol de CI/CD."
+  default     = "martin-hendricks"
+}
+
+variable "github_repo" {
+  type        = string
+  description = "Nombre del repositorio de GitHub (sin el prefijo org/) autorizado a asumir el rol de CI/CD."
+  default     = "MISO-PROYECTO-FINAL-SOLVENTA"
+}
+
+variable "github_cd_environments" {
+  type        = list(string)
+  description = "GitHub Environments cuyos workflows de GitHub Actions pueden asumir el rol de CI/CD. deploy.yml declara environment: desarrollo|produccion en sus jobs; un job sin ese environment no puede autenticarse como este rol."
+  default     = ["desarrollo", "produccion"]
 }

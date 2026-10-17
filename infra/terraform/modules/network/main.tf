@@ -177,10 +177,32 @@ resource "aws_route_table_association" "private_data" {
 
 # --- VPC Flow Logs (CloudWatch) ---
 
+# El rol IAM de aws_flow_log trae logs:CreateLogGroup (patrón estándar de
+# AWS, para que el flow log pueda auto-crear su log group). Eso significa
+# que, si Terraform borra el log group mientras el flow log todavía está
+# recibiendo tráfico real de la VPC (la propagación del destroy no es
+# instantánea), el servicio de VPC Flow Logs lo recrea por su cuenta, fuera
+# del control de Terraform -- confirmado en CloudTrail: CreateLogGroup
+# disparado por el actor "vpc-flow-logging+<account>", en el mismo segundo
+# del DeleteLogGroup de un apply/destroy anterior. El siguiente apply
+# entonces choca con "ResourceAlreadyExistsException" contra un log group
+# que el state de Terraform ya no conoce.
+#
+# random_id da un sufijo estable durante la vida del ambiente (se genera
+# una vez, no cambia en applies sucesivos) pero distinto en cada ciclo de
+# vida completo (se destruye y se regenera junto con todo lo demás en un
+# destroy). Así, un log group fantasma de un ciclo anterior nunca puede
+# chocar con el nombre que este ciclo intenta crear.
+resource "random_id" "flow_logs_suffix" {
+  count = var.enable_flow_logs ? 1 : 0
+
+  byte_length = 4
+}
+
 resource "aws_cloudwatch_log_group" "flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
 
-  name              = "/${var.project_name}/${var.environment}/vpc-flow-logs"
+  name              = "/${var.project_name}/${var.environment}/vpc-flow-logs-${random_id.flow_logs_suffix[0].hex}"
   retention_in_days = var.flow_logs_retention_in_days
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-vpc-flow-logs" })

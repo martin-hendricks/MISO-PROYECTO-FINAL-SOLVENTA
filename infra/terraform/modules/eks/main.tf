@@ -99,6 +99,10 @@ resource "aws_eks_cluster" "this" {
     public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
   }
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }
+
   encryption_config {
     provider {
       key_arn = var.kms_key_arn
@@ -191,6 +195,90 @@ resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
 }
 
 # ---------------------------------------------------------------------------
+# Launch templates — adjuntan el SG personalizado a los nodos
+# ---------------------------------------------------------------------------
+#
+# Un managed node group SIN launch_template propio solo recibe el security
+# group automático que EKS crea para el cluster (eks-cluster-sg-...); el
+# contenido de var.node_security_group_ids nunca llega a las instancias
+# EC2 reales por esa vía -- solo se usa en aws_eks_cluster.vpc_config, que
+# es la ENI del control plane, no la de los nodos worker. Sin este launch
+# template, RDS/Redis/MSK (cuyos security groups de datos autorizan
+# explícitamente el SG personalizado "eks-nodes", no el automático del
+# cluster) rechazan toda conexión de los pods con un timeout, no un
+# "connection refused" -- el timeout es la pista de que es un problema de
+# red/SG, no de credenciales de la app.
+#
+# Un launch template por grupo (no uno compartido) porque instance_type y
+# el tamaño de disco difieren entre grupo-a y grupo-b, y AWS exige que esos
+# dos campos se fijen en el launch template -- no en aws_eks_node_group --
+# en cuanto el node group usa un launch_template.
+#
+# image_id vacío a propósito: EKS sigue resolviendo la AMI optimizada y el
+# bootstrap automáticamente para managed node groups; el launch template
+# solo existe aquí para fijar instance_type/disco (ya requerido por AWS) y
+# añadir el SG adicional a la interfaz de red.
+resource "aws_launch_template" "grupo_a" {
+  name_prefix   = "${var.project_name}-${var.environment}-eks-grupo-a-"
+  instance_type = var.node_group_a_instance_types[0]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size           = var.node_group_a_disk_size
+      delete_on_termination = true
+    }
+  }
+
+  network_interfaces {
+    security_groups             = var.node_security_group_ids
+    delete_on_termination       = true
+    associate_public_ip_address = false
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags          = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-grupo-a-node" })
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-eks-grupo-a-lt" })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_launch_template" "grupo_b" {
+  name_prefix   = "${var.project_name}-${var.environment}-eks-grupo-b-"
+  instance_type = var.node_group_b_instance_types[0]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size           = var.node_group_b_disk_size
+      delete_on_termination = true
+    }
+  }
+
+  network_interfaces {
+    security_groups             = var.node_security_group_ids
+    delete_on_termination       = true
+    associate_public_ip_address = false
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags          = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-grupo-b-node" })
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-eks-grupo-b-lt" })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Node Group A: ms-cotizacion (MotorRating) + ms-perfilamiento (MotorRiesgo)
 #
 # Curvas de carga independientes, escalamiento vertical e imágenes livianas
@@ -209,9 +297,15 @@ resource "aws_eks_node_group" "grupo_a" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.private_app_subnet_ids
 
-  instance_types = var.node_group_a_instance_types
-  capacity_type  = var.node_group_a_capacity_type
-  disk_size      = var.node_group_a_disk_size
+  launch_template {
+    id      = aws_launch_template.grupo_a.id
+    version = aws_launch_template.grupo_a.latest_version
+  }
+
+  # instance_types/disk_size NO van aquí: ya están fijados en el launch
+  # template (aws_launch_template.grupo_a). AWS rechaza especificarlos en
+  # ambos lados cuando el node group usa un launch_template.
+  capacity_type = var.node_group_a_capacity_type
 
   scaling_config {
     min_size     = var.node_group_a_min_size
@@ -259,9 +353,15 @@ resource "aws_eks_node_group" "grupo_b" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.private_app_subnet_ids
 
-  instance_types = var.node_group_b_instance_types
-  capacity_type  = var.node_group_b_capacity_type
-  disk_size      = var.node_group_b_disk_size
+  launch_template {
+    id      = aws_launch_template.grupo_b.id
+    version = aws_launch_template.grupo_b.latest_version
+  }
+
+  # instance_types/disk_size NO van aquí: ya están fijados en el launch
+  # template (aws_launch_template.grupo_b). AWS rechaza especificarlos en
+  # ambos lados cuando el node group usa un launch_template.
+  capacity_type = var.node_group_b_capacity_type
 
   scaling_config {
     min_size     = var.node_group_b_min_size
@@ -350,4 +450,37 @@ resource "aws_eks_addon" "ebs_csi_driver" {
     aws_eks_node_group.grupo_b,
     aws_iam_role_policy_attachment.ebs_csi_driver,
   ]
+}
+
+# ---------------------------------------------------------------------------
+# Acceso de administrador para quien aplica Terraform
+# ---------------------------------------------------------------------------
+#
+# Con authentication_mode = API_AND_CONFIG_MAP, a diferencia del modo legado
+# basado solo en el ConfigMap aws-auth, crear el clúster ya NO otorga
+# system:masters implícito al principal de IAM que lo creó. Sin este access
+# entry, el provider helm (y cualquier kubectl manual) recibe "the server
+# has asked for the client to provide credentials" aunque las credenciales
+# de AWS sean válidas: son válidas para IAM, pero no están autorizadas
+# dentro de la API de Kubernetes.
+data "aws_caller_identity" "current" {}
+
+resource "aws_eks_access_entry" "terraform_admin" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-eks-terraform-admin" })
+}
+
+resource "aws_eks_access_policy_association" "terraform_admin" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_caller_identity.current.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.terraform_admin]
 }
