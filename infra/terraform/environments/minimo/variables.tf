@@ -93,14 +93,14 @@ variable "polizas_db_username" {
 
 variable "polizas_instance_class" {
   type        = string
-  description = "Clase de instancia de la primaria de pólizas."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la primaria de pólizas. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible); subir si hace falta representar carga real de EC-LAT-10."
+  default     = "db.t3.micro"
 }
 
 variable "polizas_replica_instance_class" {
   type        = string
-  description = "Clase de instancia de la réplica de lectura de pólizas. Esta réplica sirve tráfico real (EC-LAT-10), así que no conviene dimensionarla por debajo de la primaria."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la réplica de lectura de pólizas. Esta réplica sirve tráfico real (EC-LAT-10): en producción no debería dimensionarse por debajo de la primaria, pero para el ambiente mínimo/demo se deja igual de pequeña (db.t3.micro) a propósito."
+  default     = "db.t3.micro"
 }
 
 variable "polizas_allocated_storage" {
@@ -117,8 +117,8 @@ variable "polizas_max_allocated_storage" {
 
 variable "polizas_multi_az" {
   type        = bool
-  description = "Multi-AZ en la primaria de pólizas, además de la réplica de lectura."
-  default     = true
+  description = "Multi-AZ en la primaria de pólizas, además de la réplica de lectura. Duplica el costo de cómputo de esa instancia (Multi-AZUsage); false en el ambiente mínimo/demo, donde no hay una falla real que probar entre destroys frecuentes. Poner true si hace falta demostrar el failover en sí."
+  default     = false
 }
 
 variable "polizas_create_read_replica" {
@@ -141,8 +141,8 @@ variable "siniestros_db_username" {
 
 variable "siniestros_instance_class" {
   type        = string
-  description = "Clase de instancia de siniestros."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de siniestros. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible)."
+  default     = "db.t3.micro"
 }
 
 variable "siniestros_allocated_storage" {
@@ -171,8 +171,8 @@ variable "compartida_db_username" {
 
 variable "compartida_instance_class" {
   type        = string
-  description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible."
-  default     = "db.t3.medium"
+  description = "Clase de instancia de la base compartida. Sin redundancia (ver PLAN.md), así que su tamaño es la única palanca de capacidad disponible. db.t3.micro para el ambiente mínimo/demo (free-tier-eligible)."
+  default     = "db.t3.micro"
 }
 
 variable "compartida_allocated_storage" {
