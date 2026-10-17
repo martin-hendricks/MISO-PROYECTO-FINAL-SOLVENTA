@@ -1,0 +1,45 @@
+# TargetGroupBinding: registra los pods de cada servicio en el target group
+# que Terraform ya creó para él (module.alb.route_target_group_arns, var.
+# alb_routes en infra/terraform/environments/minimo/variables.tf) -- no en
+# un ALB nuevo.
+#
+# Reemplaza un enfoque con Ingress probado antes: un Ingress con
+# kubernetes.io/ingress.class: alb hace que el AWS Load Balancer Controller
+# cree SU PROPIO Application Load Balancer, separado del que este repo ya
+# provisiona en Terraform (module.alb, el único al que el API Gateway VPC
+# Link -- module.edge -- apunta). Confirmado contra el cluster: con el
+# Ingress, el ALB de Terraform quedaba vacío (sin reglas, sin targets) y el
+# ALB nuevo del controller tenía las rutas reales -- pero el API Gateway
+# nunca llegaba a ese segundo ALB. TargetGroupBinding no crea ningún ALB:
+# solo le dice al controller "registra estos pods en este target group ya
+# existente", que es justo lo que el diseño original de module.alb ya
+# documentaba como intención.
+#
+# spec.targetGroupARN: pegar aquí el valor real de
+#   terraform output -json alb_route_target_group_arns
+# (clave = mismo nombre de servicio/Service de Kubernetes). deploy.yml
+# resuelve esto automáticamente vía envsubst -- ver el paso "Registrar en
+# el target group del ALB" en .github/workflows/deploy.yml.
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: api-socios
+  namespace: solventa
+spec:
+  serviceRef:
+    name: api-socios
+    port: 8080
+  targetGroupARN: ${API_SOCIOS_TARGET_GROUP_ARN}
+  targetType: ip
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: ms-cotizacion
+  namespace: solventa
+spec:
+  serviceRef:
+    name: ms-cotizacion
+    port: 8000
+  targetGroupARN: ${MS_COTIZACION_TARGET_GROUP_ARN}
+  targetType: ip

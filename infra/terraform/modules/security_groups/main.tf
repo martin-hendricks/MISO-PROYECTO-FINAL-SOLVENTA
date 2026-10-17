@@ -105,6 +105,23 @@ resource "aws_security_group_rule" "alb_egress_to_eks_nodes" {
   source_security_group_id = aws_security_group.eks_nodes.id
 }
 
+# target_type = "ip" (TargetGroupBinding, no NodePort): el ALB conecta
+# directo a la IP del pod en su puerto real de app, fuera del rango
+# NodePort cubierto por la regla de arriba. Un puerto por entrada de
+# var.app_ports porque aws_security_group_rule no admite una lista de
+# puertos no contiguos en una sola regla.
+resource "aws_security_group_rule" "alb_egress_to_eks_nodes_app_ports" {
+  for_each = toset([for p in var.app_ports : tostring(p)])
+
+  type                     = "egress"
+  description              = "To EKS nodes on app port ${each.value} (target_type=ip)"
+  security_group_id        = aws_security_group.alb.id
+  from_port                = tonumber(each.value)
+  to_port                  = tonumber(each.value)
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.eks_nodes.id
+}
+
 # --- eks_nodes rules ---
 
 resource "aws_security_group_rule" "eks_nodes_ingress_from_alb" {
@@ -113,6 +130,18 @@ resource "aws_security_group_rule" "eks_nodes_ingress_from_alb" {
   security_group_id        = aws_security_group.eks_nodes.id
   from_port                = var.node_port_range_start
   to_port                  = var.node_port_range_end
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+}
+
+resource "aws_security_group_rule" "eks_nodes_ingress_from_alb_app_ports" {
+  for_each = toset([for p in var.app_ports : tostring(p)])
+
+  type                     = "ingress"
+  description              = "App port ${each.value} from the ALB (target_type=ip)"
+  security_group_id        = aws_security_group.eks_nodes.id
+  from_port                = tonumber(each.value)
+  to_port                  = tonumber(each.value)
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.alb.id
 }
