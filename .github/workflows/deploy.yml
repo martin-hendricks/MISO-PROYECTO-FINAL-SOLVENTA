@@ -20,20 +20,28 @@
 #   EKS_CLUSTER_NAME                (variable, ej. solventa-minimo-eks)
 #   ACTIONS_CD_ROLE_ARN      (secret, output ACTIONS_CD_ROLE_ARN de Terraform)
 #
-# Solo incluye en la matrix los componentes que hoy tienen repositorio ECR
-# propio (módulo ecr) y values/<componente>.yaml (infra/k8s/values/):
-# api-socios y ms-cotizacion. ms-arquetipo/bff-arquetipo son la plantilla
-# para copiar al crear un microservicio nuevo, no un servicio desplegable;
-# sigue bastando con que docker-images.yml los construya y testee. Los
-# demás componentes del diagrama de despliegue (ms-polizas, ms-siniestros,
-# etc.) se agregan a esta matrix cuando tengan su propio Dockerfile.
+# La matrix de "deploy" NO está escrita a mano: el job "discover" la arma
+# en cada corrida, escaneando apps/backend/*/Dockerfile. Un servicio entra
+# a la matrix cuando cumple, a la vez:
+#   1. apps/backend/<servicio>/Dockerfile existe.
+#   2. infra/k8s/values/<servicio>.yaml existe (si falta, se salta ese
+#      servicio con un warning en el log del job "discover" -- no falla
+#      todo el pipeline por un componente a medio preparar).
+#   3. <servicio> no está en la lista de exclusión (ms-arquetipo,
+#      bff-arquetipo: son la plantilla para copiar al crear un
+#      microservicio nuevo, no un servicio desplegable; docker-images.yml
+#      los sigue construyendo y testeando).
 #
-# matrix.dbSecret: nombre del Secret de Kubernetes (nombreLocal en
-# values/<componente>.yaml, bajo externalSecrets.remoteSecrets) que trae
-# database_url, para el componente que tenga apps/backend/<servicio>/db/
-# con scripts SQL. Vacío ("") para componentes sin BD propia -- el paso
-# "Migraciones de base de datos" se salta por completo en ese caso. Ver
+# context se infiere del propio Dockerfile: si su primera línea COPY
+# referencia "<servicio>/..." (como api-socios/bff-arquetipo, que
+# construyen junto a un paquete compartido), el contexto es
+# apps/backend; si no, es apps/backend/<servicio> (caso común, como
+# ms-cotizacion). dbSecret es "<servicio>-db" si existe
+# apps/backend/<servicio>/db/ con scripts SQL, vacío si no -- ver
 # infra/k8s/platform/run-migrations.sh y migraciones-job.yaml.
+#
+# Agregar un servicio nuevo al pipeline, entonces, no toca este archivo:
+# basta con que tenga Dockerfile y su values/<servicio>.yaml.
 
 name: Deploy
 run-name: "[Deploy] ${{ github.ref_name }} @ ${{ github.sha }}"
@@ -44,13 +52,12 @@ on:
       - develop
       - main
     paths:
-      - "apps/backend/api-socios/**"
-      - "apps/backend/ms-cotizacion/**"
-      - "apps/backend/.dockerignore"
+      - "apps/backend/**"
       - "infra/k8s/charts/microservicio/**"
-      - "infra/k8s/values/api-socios.yaml"
-      - "infra/k8s/values/ms-cotizacion.yaml"
+      - "infra/k8s/values/**"
       - "infra/k8s/platform/ingress.yaml"
+      - "infra/k8s/platform/run-migrations.sh"
+      - "infra/k8s/platform/migraciones-job.yaml"
       - ".github/workflows/deploy.yml"
   # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
   # tras un cambio de infraestructura que no toca ningún path del trigger de
@@ -63,6 +70,73 @@ permissions:
   id-token: write # requerido por aws-actions/configure-aws-credentials para canjear el JWT de OIDC
 
 jobs:
+  # Arma la matrix del job "deploy" escaneando el repo -- ver el comentario
+  # de cabecera de este archivo para las reglas exactas. No necesita AWS ni
+  # kubectl: es puro análisis de archivos del propio checkout.
+  discover:
+    name: descubrir servicios desplegables
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+      has_services: ${{ steps.build.outputs.has_services }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la matrix
+        id: build
+        run: |
+          EXCLUDE="ms-arquetipo bff-arquetipo"
+          entries="[]"
+
+          for dockerfile in apps/backend/*/Dockerfile; do
+            service_dir=$(dirname "$dockerfile")
+            service=$(basename "$service_dir")
+
+            if [[ " $EXCLUDE " == *" $service "* ]]; then
+              continue
+            fi
+
+            values="infra/k8s/values/${service}.yaml"
+            if [[ ! -f "$values" ]]; then
+              echo "::warning::$service tiene Dockerfile pero no $values -- se omite de la matrix hasta que exista."
+              continue
+            fi
+
+            # Si la primera línea COPY del Dockerfile referencia
+            # "<servicio>/...", construye junto a un paquete compartido
+            # (como api-socios/bff-arquetipo) y el contexto real es
+            # apps/backend, no apps/backend/<servicio>.
+            first_copy=$(grep -m1 '^COPY' "$dockerfile" || true)
+            if [[ "$first_copy" == "COPY ${service}/"* ]]; then
+              context="apps/backend"
+            else
+              context="$service_dir"
+            fi
+
+            dbSecret=""
+            if [[ -d "${service_dir}/db" ]]; then
+              dbSecret="${service}-db"
+            fi
+
+            entries=$(jq -c \
+              --arg service "$service" \
+              --arg context "$context" \
+              --arg dockerfile "$dockerfile" \
+              --arg values "$values" \
+              --arg dbSecret "$dbSecret" \
+              '. + [{"service": $service, "context": $context, "dockerfile": $dockerfile, "values": $values, "dbSecret": $dbSecret}]' \
+              <<< "$entries")
+          done
+
+          echo "Servicios descubiertos:"
+          jq -r '.[].service' <<< "$entries"
+
+          matrix=$(jq -c "{include: .}" <<< "$entries")
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+
+          has_services=$(jq 'length > 0' <<< "$entries")
+          echo "has_services=${has_services}" >> "$GITHUB_OUTPUT"
+
   bootstrap:
     name: bootstrap cluster
     runs-on: ubuntu-latest
@@ -86,23 +160,13 @@ jobs:
 
   deploy:
     name: deploy (${{ matrix.service }})
-    needs: bootstrap
+    needs: [discover, bootstrap]
+    if: needs.discover.outputs.has_services == 'true'
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - service: api-socios
-            context: apps/backend
-            dockerfile: apps/backend/api-socios/Dockerfile
-            values: infra/k8s/values/api-socios.yaml
-            dbSecret: "" # sin carpeta db/: no consume BD propia
-          - service: ms-cotizacion
-            context: apps/backend/ms-cotizacion
-            dockerfile: apps/backend/ms-cotizacion/Dockerfile
-            values: infra/k8s/values/ms-cotizacion.yaml
-            dbSecret: ms-cotizacion-db
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
