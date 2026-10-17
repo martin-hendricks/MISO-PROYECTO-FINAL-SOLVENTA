@@ -54,7 +54,7 @@ class IdiomaRegionTest {
         ).forEach { name ->
             rule.onNodeWithText(name).assertIsDisplayed()
         }
-        rule.onNodeWithText("Paso 1 de 3 · Elige país e idioma").assertIsDisplayed()
+        rule.onNodeWithText("Paso 1 de 4 · Elige país e idioma").assertIsDisplayed()
         rule.onNodeWithTag("region_es_CO").assertIsSelected()
         rule.onNodeWithTag("region_check", useUnmergedTree = true).assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
@@ -126,7 +126,7 @@ class IdiomaRegionProfileTest {
             rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
             rule.onNodeWithText("Idioma y región").performClick()
             rule.onNodeWithTag("solventa_bottom_sheet").assertIsDisplayed()
-            rule.onAllNodesWithText("Paso 1 de 3 · Elige país e idioma").assertCountEquals(0)
+            rule.onAllNodesWithText("Paso 1 de 4 · Elige país e idioma").assertCountEquals(0)
             rule.onAllNodesWithTag("action_continuar").assertCountEquals(0)
             rule.onNodeWithTag("tab_Perfil").assertIsSelected()
             rule.onNodeWithText("Español · México").performClick()

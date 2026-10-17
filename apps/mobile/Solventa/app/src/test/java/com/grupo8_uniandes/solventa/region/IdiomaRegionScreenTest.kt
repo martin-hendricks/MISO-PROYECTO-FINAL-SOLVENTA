@@ -47,7 +47,7 @@ class IdiomaRegionScreenTest {
         }
 
         rule.onNodeWithText("Idioma y región").assertIsDisplayed()
-        rule.onNodeWithText("Paso 1 de 3 · Elige país e idioma").assertIsDisplayed()
+        rule.onNodeWithText("Paso 1 de 4 · Elige país e idioma").assertIsDisplayed()
         rule.onNodeWithTag("region_es_CO").assertIsSelected()
         rule.onNodeWithTag("region_check", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("Español · México").performScrollTo().assertIsDisplayed()

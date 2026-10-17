@@ -139,6 +139,22 @@ class OnboardingViewModelTest {
         assertTrue(register.drafts.isEmpty())
     }
 
+    @Test
+    fun givenDraft_whenLoginIsDismissed_thenEffectClearsAndFieldsStay() {
+        viewModel.onGivenName("Camila")
+        viewModel.dismissLogin()
+
+        assertNull(viewModel.state.value.effect)
+        assertEquals("Camila", viewModel.state.value.givenName)
+
+        viewModel.yaTengoCuenta()
+        viewModel.dismissLogin()
+
+        assertNull(viewModel.state.value.effect)
+        assertEquals("Camila", viewModel.state.value.givenName)
+        assertTrue(register.drafts.isEmpty())
+    }
+
     private fun fillValid() {
         viewModel.onGivenName("Camila")
         viewModel.onSurnames("Restrepo")

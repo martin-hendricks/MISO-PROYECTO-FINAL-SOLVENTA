@@ -65,7 +65,7 @@ class OnboardingTest {
     fun givenRegionContinuar_whenAccountOpens_thenEmptyFormWithoutPermissionPrompt() {
         openAccount()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("1 de 2 · Cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
         listOf(
             "field_nombre",
@@ -132,7 +132,9 @@ class OnboardingTest {
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
         rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
         rule.waitForTag("screen_login")
-        rule.onNodeWithText("Login").assertIsDisplayed()
+        rule.onNodeWithText("Ingresa a tus seguros").assertIsDisplayed()
+        rule.onAllNodesWithText("Login").assertCountEquals(0)
+        rule.onNodeWithTag("field_login_correo").assertIsDisplayed()
         rule.onAllNodesWithTag("field_correo").assertCountEquals(0)
         rule.onAllNodesWithTag("field_contrasena").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
@@ -149,7 +151,7 @@ class OnboardingTest {
             rule.activityRule.scenario.recreate()
             rule.waitForTag("screen_onboarding")
             rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-            rule.onNodeWithText("1 de 2 · Cuenta").assertIsDisplayed()
+            rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
             rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
         }
     }
@@ -186,13 +188,14 @@ class OnboardingExistingAccountTest {
     val rule = createEmptyComposeRule()
 
     @Test
-    fun givenExistingAccount_whenStartupFinishes_thenInicioWithoutLoginPlaceholder() {
+    fun givenExistingAccount_whenStartupFinishes_thenLoginWithoutInicio() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_SPLASH_HOLD_MILLIS, 0L)
             .putExtra(MainActivity.EXTRA_EXISTING_ACCOUNT, true)
         ActivityScenario.launch<MainActivity>(intent).use {
-            rule.waitForTag("screen_inicio")
-            rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
+            rule.waitForTag("screen_login")
+            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+            rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         }
     }
 }
