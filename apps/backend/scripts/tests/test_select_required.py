@@ -58,3 +58,34 @@ def test_push_outside_gitflow_selects_nothing(tmp_path: Path):
     )
     assert result["run"] == []
     assert result["skip"] == []
+
+
+
+def _service(root: Path, name: str) -> None:
+    for marker in ("tests/test_unit.py", "pyproject.toml", "app/main.py"):
+        target = root / name / marker
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("# marker\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("branch", ["develop", "main", "release/0.1.0", "hotfix/1.0.1"])
+def test_push_selects_every_service_with_tests(tmp_path: Path, branch: str):
+    _service(tmp_path, "ms-cotizacion")
+    (tmp_path / "ms-pagos").mkdir()
+    result = select("push", branch, ["apps/backend/bff-web/app/main.py"], tmp_path)
+    assert result["run"] == ["bff-web", "bff-movil", "ms-cotizacion"]
+    assert result["skip"] == []
+
+
+def test_push_reports_skip_only_for_touched_domains(tmp_path: Path):
+    (tmp_path / "ms-pagos").mkdir()
+    (tmp_path / "ms-polizas").mkdir()
+    result = select("push", "develop", ["apps/backend/ms-pagos/README.md"], tmp_path)
+    assert result["run"] == ["bff-web", "bff-movil"]
+    assert result["skip"] == [{"service": "ms-pagos", "reason": "no test file"}]
+
+
+def test_feature_push_skips_untouched_services(tmp_path: Path):
+    _service(tmp_path, "ms-cotizacion")
+    result = select("push", "feature/quote", ["apps/backend/bff-web/app/main.py"], tmp_path)
+    assert result["run"] == ["bff-web"]

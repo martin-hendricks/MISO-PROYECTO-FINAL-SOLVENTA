@@ -4,9 +4,11 @@ coverage:
     project:
       default:
         target: 80%
+      # Backend uploads one flag per service (backend-<service>), so this
+      # status groups them by path instead of by flag.
       backend:
-        flags:
-          - backend
+        paths:
+          - apps/backend/
         target: 80%
       web:
         flags:
@@ -21,14 +23,20 @@ coverage:
       default:
         target: 80%
 
+# Karma writes lcov paths relative to apps/web (src/app/...).
+fixes:
+  - "src/app/::apps/web/src/app/"
+
 flag_management:
   default_rules:
     carryforward: true
   individual_flags:
+    # Legacy flag from before the per-service uploads. Not carried forward so
+    # its stale report does not mix with the backend-<service> flags.
     - name: backend
       paths:
         - apps/backend/.*
-      carryforward: true
+      carryforward: false
     - name: web
       paths:
         - apps/web/.*

@@ -79,6 +79,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "runner": "karma",
+            "runnerConfig": "karma.conf.js",
             "browsers": ["ChromeHeadlessNoSandbox"],
             "coverage": true,
             "coverageExclude": [
