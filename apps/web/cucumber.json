@@ -1,6 +1,16 @@
 {
   "default": {
     "paths": ["e2e/features/**/*.feature"],
-    "import": ["e2e/support/**/*.ts", "e2e/steps/**/*.ts"]
+    "import": ["e2e/support/**/*.ts", "e2e/steps/**/*.ts"],
+    "tags": "not @pendiente",
+    "format": ["progress", "html:e2e/reports/cucumber-report.html"]
+  },
+  "pending": {
+    "paths": ["e2e/features/**/*.feature"],
+    "import": ["e2e/support/**/*.ts", "e2e/steps/**/*.ts"],
+    "tags": "@pendiente",
+    "dryRun": true,
+    "strict": false,
+    "format": ["summary"]
   }
 }

@@ -8,6 +8,9 @@ on:
       - main
       - "release/**"
       - "hotfix/**"
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-unit-tests.yml"
   push:
     branches:
       - develop
