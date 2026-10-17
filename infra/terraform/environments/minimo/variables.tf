@@ -257,8 +257,8 @@ variable "msk_ebs_volume_size" {
 
 variable "kubernetes_version" {
   type        = string
-  description = "Versión de Kubernetes del clúster EKS."
-  default     = "1.31"
+  description = "Versión de Kubernetes del clúster EKS. 1.31 pasó a extended support el 2025-11-26, lo que agrega un cargo extra por hora de clúster (USE1-AmazonEKS-Hours:extendedSupport, ~$8 en 16h de uso); 1.34 es la más antigua en standard support disponible hoy. Revisar periódicamente: EKS solo mantiene unas pocas versiones recientes en standard support."
+  default     = "1.34"
 }
 
 variable "eks_endpoint_public_access" {
