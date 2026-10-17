@@ -13,7 +13,9 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 3
+# Diseño original: 3. 1 para el ambiente mínimo/demo, acorde al Node Group B
+# en t3.small (free-tier-eligible). Ver hpa.minReplicas más abajo.
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
@@ -45,7 +47,9 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 3
+  # Diseño original: 3. 1 para el ambiente mínimo/demo, acorde a replicas: 1
+  # más arriba.
+  minReplicas: 1
   maxReplicas: 16
   targetCPU: 60
   targetMemory: 70
@@ -71,8 +75,12 @@ serviceAccount:
   nombre: api-socios
   roleArn: ""
 
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado, porque nunca se podría satisfacer con una
+# sola réplica total. Diseño original: habilitado con minAvailable: 2,
+# acorde a replicas: 3; reactivar junto con eso.
 podDisruptionBudget:
-  habilitado: true
+  habilitado: false
   minAvailable: 2
 
 topologySpread:

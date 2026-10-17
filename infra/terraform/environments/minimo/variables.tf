@@ -275,20 +275,20 @@ variable "eks_public_access_cidrs" {
 
 variable "node_group_a_instance_types" {
   type        = list(string)
-  description = "Tipos de instancia del Grupo A (ms-cotizacion + ms-perfilamiento). Cómputo intensivo: los motores de rating y riesgo escalan verticalmente para ganar los primeros segundos de la rampa."
-  default     = ["c6i.xlarge"]
+  description = "Tipos de instancia del Grupo A (ms-cotizacion + ms-perfilamiento). Diseño original: cómputo intensivo, escala verticalmente con c6i.xlarge (4 vCPU/8GB). t3.small (2 vCPU/2GB, free-tier-eligible) para el ambiente mínimo/demo -- subir junto con recursos.requests de los pods si hace falta representar carga real (EC-ESC-01/02)."
+  default     = ["t3.small"]
 }
 
 variable "node_group_a_min_size" {
   type        = number
-  description = "Nodos mínimos del Grupo A."
-  default     = 2
+  description = "Nodos mínimos del Grupo A. 1 para el ambiente mínimo/demo (sin alta disponibilidad real entre nodos); subir a 2+ para ver el reparto multi-AZ (EC-DISP-06) en funcionamiento."
+  default     = 1
 }
 
 variable "node_group_a_desired_size" {
   type        = number
   description = "Nodos deseados del Grupo A al crear. Después lo gobierna el Cluster Autoscaler."
-  default     = 2
+  default     = 1
 }
 
 variable "node_group_a_max_size" {
@@ -299,20 +299,20 @@ variable "node_group_a_max_size" {
 
 variable "node_group_b_instance_types" {
   type        = list(string)
-  description = "Tipos de instancia del Grupo B (resto de microservicios, BFFs y adaptadores). Propósito general."
-  default     = ["m6i.large"]
+  description = "Tipos de instancia del Grupo B (resto de microservicios, BFFs y adaptadores). Diseño original: propósito general con m6i.large (2 vCPU/8GB). t3.small (2 vCPU/2GB, free-tier-eligible) para el ambiente mínimo/demo."
+  default     = ["t3.small"]
 }
 
 variable "node_group_b_min_size" {
   type        = number
-  description = "Nodos mínimos del Grupo B."
-  default     = 2
+  description = "Nodos mínimos del Grupo B. 1 para el ambiente mínimo/demo; subir a 2+ para ver el reparto multi-AZ (EC-DISP-06) en funcionamiento."
+  default     = 1
 }
 
 variable "node_group_b_desired_size" {
   type        = number
   description = "Nodos deseados del Grupo B al crear."
-  default     = 2
+  default     = 1
 }
 
 variable "node_group_b_max_size" {

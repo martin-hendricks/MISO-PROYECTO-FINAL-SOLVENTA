@@ -15,7 +15,12 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD, no aquí
   pullPolicy: IfNotPresent
 
-replicas: 4
+# Diseño original: 4. 1 para el ambiente mínimo/demo, donde el Node Group A
+# corre en t3.small (2 vCPU/2GB, free-tier-eligible) -- no cabrían 4 réplicas
+# de 1Gi cada una en un solo nodo así de chico. Ver también hpa.minReplicas
+# y recursos.requests más abajo, y node_group_a_instance_types en
+# infra/terraform/environments/minimo/variables.tf.
+replicas: 1
 grupoEscalado: "a"
 
 # apps/backend/ms-cotizacion/Dockerfile expone y arranca uvicorn en 8000
@@ -26,13 +31,18 @@ grupoEscalado: "a"
 puerto: 8000
 puertoMetricas: 9090
 
+# Diseño original: 1000m/2Gi requests, 2000m/4Gi limits (c6i.xlarge, 4
+# vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES
+# por nodo, con overhead de kubelet/CNI/sistema -- un pod de 2Gi no cabría.
+# Bajado a algo que deje margen real en un nodo de 2GB; subir junto con
+# node_group_a_instance_types si hace falta representar carga real.
 recursos:
   requests:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "250m"
+    memory: "400Mi"
   limits:
-    cpu: "2000m"
-    memory: "4Gi"
+    cpu: "500m"
+    memory: "700Mi"
 
 probes:
   # ms-cotizacion expone un único endpoint /health
@@ -57,7 +67,9 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 4
+  # Diseño original: 4, para el pico de EC-ESC-01/02. 1 para el ambiente
+  # mínimo/demo, acorde a replicas: 1 más arriba.
+  minReplicas: 1
   maxReplicas: 20
   targetCPU: 55
   targetMemory: 70
@@ -94,9 +106,14 @@ serviceAccount:
   nombre: ms-cotizacion
   roleArn: ""  # No requiere IRSA: solo consume Redis (CacheOF) y el secreto vía External Secrets
 
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado (rollout, actualización de nodo), porque
+# nunca se podría satisfacer con una sola réplica total -- y no hay
+# redundancia real que proteger de todas formas. Diseño original: habilitado
+# con minAvailable: 2, acorde a replicas: 4; reactivar junto con eso.
 podDisruptionBudget:
-  habilitado: true
-  minAvailable: 2
+  habilitado: false
+  minAvailable: 1
 
 topologySpread:
   habilitado: true
