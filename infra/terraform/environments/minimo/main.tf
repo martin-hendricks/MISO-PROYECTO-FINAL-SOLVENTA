@@ -335,6 +335,7 @@ module "alb" {
   certificate_arn            = var.certificate_arn
   health_check_path          = var.health_check_path
   enable_deletion_protection = var.alb_enable_deletion_protection
+  routes                     = var.alb_routes
   tags                       = var.extra_tags
 }
 

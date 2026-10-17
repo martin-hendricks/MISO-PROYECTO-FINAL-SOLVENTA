@@ -355,6 +355,40 @@ variable "alb_enable_deletion_protection" {
   default     = false
 }
 
+# Un target group + listener rule por servicio real desplegable, en vez de
+# un Kubernetes Ingress: el AWS Load Balancer Controller, al ver un Ingress,
+# crea su PROPIO ALB nuevo -- desconectado de este module.alb, al que el API
+# Gateway (module.edge, vía VPC Link) sí apunta. Confirmado en el cluster:
+# un Ingress dejaba dos ALBs sin relación, uno vacío (este) y otro con las
+# rutas reales (el del Ingress, invisible para el API Gateway). Los pods se
+# registran en estos target groups vía TargetGroupBinding
+# (infra/k8s/platform/*-target-group-binding.yaml), no vía Ingress.
+#
+# Claves = nombre del Service de Kubernetes (y del values/<servicio>.yaml
+# correspondiente). priority espaciado de a 10 para que cada servicio pueda
+# ganar más paths después sin chocar con el rango del siguiente.
+variable "alb_routes" {
+  type = map(object({
+    port              = number
+    paths             = list(string)
+    health_check_path = optional(string)
+    priority          = number
+  }))
+  description = "Target groups + listener rules del ALB interno, uno por servicio. Ver infra/terraform/modules/alb/variables.tf (var.routes) para el detalle completo."
+  default = {
+    api-socios = {
+      port     = 8080
+      paths    = ["/v1/catalogo"]
+      priority = 10
+    }
+    ms-cotizacion = {
+      port     = 8000
+      paths    = ["/v1/productos", "/v1/cotizaciones"]
+      priority = 20
+    }
+  }
+}
+
 variable "cloudfront_price_class" {
   type        = string
   description = "Clase de precio de CloudFront. PriceClass_100 cubre Norteamérica y Europa al menor costo."

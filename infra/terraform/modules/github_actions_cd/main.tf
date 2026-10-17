@@ -183,6 +183,40 @@ resource "aws_iam_role_policy_attachment" "eks_describe" {
 }
 
 # ---------------------------------------------------------------------------
+# Permisos: resolver el ARN del target group por nombre
+# ---------------------------------------------------------------------------
+#
+# El state de Terraform es local (infra/terraform/environments/minimo/backend.tf.example
+# documenta cómo migrarlo a S3, pero no se ha migrado): el workflow no puede
+# correr `terraform output` para obtener los ARNs de
+# module.alb.route_target_group_arns. En vez de eso, deploy.yml busca cada
+# target group por nombre (predecible: "${project_name}-${environment}-
+# <servicio>-tg", fijado en infra/terraform/modules/alb/main.tf) vía
+# elasticloadbalancing:DescribeTargetGroups, sin depender del state en
+# absoluto. Solo lectura -- el rol no crea ni modifica target groups.
+data "aws_iam_policy_document" "elb_describe" {
+  statement {
+    sid       = "DescribeTargetGroups"
+    effect    = "Allow"
+    actions   = ["elasticloadbalancing:DescribeTargetGroups"]
+    resources = ["*"] # DescribeTargetGroups no admite scoping por ARN/nombre en el recurso.
+  }
+}
+
+resource "aws_iam_policy" "elb_describe" {
+  name        = "${local.role_name}-elb-describe"
+  description = "Permite resolver el ARN del target group del ALB por nombre desde el workflow de despliegue, sin depender del state de Terraform."
+  policy      = data.aws_iam_policy_document.elb_describe.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "elb_describe" {
+  role       = aws_iam_role.github_actions_cd.name
+  policy_arn = aws_iam_policy.elb_describe.arn
+}
+
+# ---------------------------------------------------------------------------
 # Access entry: autorización dentro del clúster (API de Kubernetes)
 # ---------------------------------------------------------------------------
 #

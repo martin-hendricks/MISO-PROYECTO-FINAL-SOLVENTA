@@ -37,20 +37,56 @@ variable "ssl_policy" {
 
 variable "target_port" {
   type        = number
-  description = "Port the default target group forwards traffic to (EKS NodePort or pod port, depending on target_type)."
+  description = "Port the default target group forwards traffic to (EKS NodePort or pod port, depending on target_type). Used only when var.routes is empty."
   default     = 80
 }
 
 variable "target_type" {
   type        = string
-  description = "Target group target type: 'ip' (pods behind the AWS Load Balancer Controller) or 'instance' (NodePort on EKS worker nodes)."
+  description = "Target group target type: 'ip' (pods behind the AWS Load Balancer Controller, registered via TargetGroupBinding) or 'instance' (NodePort on EKS worker nodes)."
   default     = "ip"
 }
 
 variable "health_check_path" {
   type        = string
-  description = "HTTP path used by the target group health check."
+  description = "HTTP path used by the default target group's health check. Each entry in var.routes can override this per service."
   default     = "/health"
+}
+
+variable "routes" {
+  type = map(object({
+    port              = number
+    paths             = list(string)
+    health_check_path = optional(string)
+    priority          = number
+  }))
+  description = <<-EOT
+    One target group + listener rule per service, keyed by service name
+    (must match the Kubernetes Service name -- infra/k8s/platform/*-target-group-binding.yaml
+    references these target groups by Terraform output, keyed the same way).
+
+    Each route creates its own aws_lb_target_group (pods register into it via
+    a TargetGroupBindin, not via Kubernetes Ingress -- this module's ALB is
+    the single internal ALB the API Gateway VPC Link points to; an Ingress
+    would create a SEPARATE AWS Load Balancer Controller-managed ALB,
+    disconnected from this one and from the API Gateway) and one or more
+    aws_lb_listener_rule entries (one per path) on the HTTP listener,
+    forwarding by path prefix.
+
+    priority is the BASE rule priority for this service; a service with N
+    paths consumes priority, priority+1, ..., priority+(N-1) (one
+    aws_lb_listener_rule per path). Space entries at least 10 apart (e.g.
+    10, 20, 30) so a service can gain more paths later without colliding
+    with the next one's range. ALB listener rule priorities are global to
+    the listener (not per target group) and must all be unique; lower is
+    evaluated first.
+
+    Empty map (default) falls back to the single default target group
+    (aws_lb_target_group.this) with no listener rules -- the pre-routes
+    behavior, kept for modules/environments that don't need per-service
+    routing.
+  EOT
+  default     = {}
 }
 
 variable "enable_deletion_protection" {

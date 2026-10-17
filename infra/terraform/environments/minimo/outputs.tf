@@ -84,6 +84,11 @@ output "alb_dns_name" {
   description = "DNS del Application Load Balancer. Interno (EC-SEG-07): no resuelve desde fuera de la VPC. El único punto de entrada público es api_gateway_endpoint."
 }
 
+output "alb_route_target_group_arns" {
+  value       = module.alb.route_target_group_arns
+  description = "ARN del target group del ALB por servicio (claves = var.alb_routes). Cada valor va en spec.targetGroupARN del TargetGroupBinding correspondiente en infra/k8s/platform/."
+}
+
 output "cloudfront_domain_name" {
   value       = module.edge.cloudfront_domain_name
   description = "Dominio de CloudFront que sirve la SPA de Angular."

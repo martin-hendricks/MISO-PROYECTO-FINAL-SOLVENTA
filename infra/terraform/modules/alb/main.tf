@@ -118,3 +118,75 @@ resource "aws_lb_listener" "https" {
 
   tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-https-listener" })
 }
+
+# --- Per-service target groups and listener rules (var.routes) ---
+#
+# One target group per service, so each can be health-checked and scaled
+# independently. Pods register here via a Kubernetes TargetGroupBinding
+# (infra/k8s/platform/), not via Ingress: an Ingress with the AWS Load
+# Balancer Controller creates its OWN separate ALB, which the API Gateway
+# VPC Link (module `edge`) would never route to -- confirmed in practice,
+# the Ingress approach left two disconnected ALBs, one empty (this one,
+# where the API Gateway points) and one with real routes (the one the
+# controller created from the Ingress, which the API Gateway never saw).
+
+resource "aws_lb_target_group" "routes" {
+  for_each = var.routes
+
+  name        = "${var.project_name}-${var.environment}-${each.key}-tg"
+  port        = each.value.port
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = var.target_type
+
+  health_check {
+    enabled             = true
+    path                = coalesce(each.value.health_check_path, var.health_check_path)
+    protocol            = "HTTP"
+    matcher             = "200-399"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-${each.key}-tg" })
+}
+
+locals {
+  # One listener_rule entry per (service, path) pair, flattened out of
+  # var.routes -- a service with N paths needs N listener rules, each
+  # forwarding to the same per-service target group. priority is per PATH,
+  # not per service (route.priority + an offset for the path's index in the
+  # list): a service with 2 paths needs 2 distinct rule priorities, or AWS
+  # rejects the second aws_lb_listener_rule with a duplicate-priority error.
+  route_rules = merge([
+    for service, route in var.routes : {
+      for idx, path in route.paths : "${service}-${replace(path, "/", "-")}" => {
+        service  = service
+        path     = path
+        priority = route.priority + idx
+      }
+    }
+  ]...)
+}
+
+resource "aws_lb_listener_rule" "routes" {
+  for_each = local.route_rules
+
+  listener_arn = aws_lb_listener.http.arn
+  priority     = each.value.priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.routes[each.value.service].arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["${each.value.path}*"]
+    }
+  }
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-${each.key}-rule" })
+}
