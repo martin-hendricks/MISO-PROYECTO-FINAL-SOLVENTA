@@ -41,14 +41,17 @@ jobs:
           CHROME_BIN: ${{ env.CHROME_BIN }}
 
       - name: Upload coverage to Codecov
-        if: always()
+        if: success()
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: apps/web/coverage/solventa-web/lcov.info
           flags: web
-          fail_ci_if_error: false
-          handle_no_reports_found: true
+          disable_search: true
+          fail_ci_if_error: true
+          # On merge, attach the report to the merge commit on the base branch.
+          override_commit: ${{ github.event.pull_request.merged && github.event.pull_request.merge_commit_sha || '' }}
+          override_branch: ${{ github.event.pull_request.merged && github.base_ref || '' }}
 
   e2e:
     name: e2e

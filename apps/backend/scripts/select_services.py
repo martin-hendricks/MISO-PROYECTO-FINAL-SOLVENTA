@@ -46,7 +46,9 @@ def _is_pull_request_base(branch: str) -> bool:
     return _is_published(branch)
 
 
-def _always_runs_gateways(event: str, branch: str) -> bool:
+def _runs_every_service(event: str, branch: str) -> bool:
+    # Pushes to published branches test every service, so each of their commits
+    # carries the full backend coverage to Codecov.
     return event == "push" and _is_published(branch)
 
 
@@ -62,12 +64,13 @@ def select(
     changed_paths: list[str],
     backend_root: Path,
 ) -> dict:
-    if not _always_runs_gateways(event, branch) and not _uses_path_filter(event, branch):
+    every = _runs_every_service(event, branch)
+    if not every and not _uses_path_filter(event, branch):
         return {"run": [], "skip": []}
 
     run: list[str] = []
     skip: list[dict[str, str]] = []
-    if _always_runs_gateways(event, branch):
+    if every:
         run.extend(REQUIRED)
     else:
         run.extend(name for name in REQUIRED if _touches(name, changed_paths))
@@ -81,11 +84,14 @@ def select(
                 or child.name in REQUIRED
             ):
                 continue
-            if not _touches(child.name, changed_paths):
+            touched = _touches(child.name, changed_paths)
+            if not every and not touched:
                 continue
             reason = _skip_reason(child)
             if reason:
-                skip.append({"service": child.name, "reason": reason})
+                # Only report skips for domains the change actually touched.
+                if touched:
+                    skip.append({"service": child.name, "reason": reason})
             else:
                 run.append(child.name)
 
