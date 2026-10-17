@@ -1,0 +1,288 @@
+{
+  "info": {
+    "name": "Solventa local - ms-cotizacion",
+    "description": "Pruebas de ms-cotizacion corriendo en tu máquina, sin environment: la URL va en la variable `baseUrl` de la colección (http://localhost:8001).\n\nArranque: `DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa uvicorn app.main:app --port 8001 (requiere PostgreSQL con las migraciones de ms-cotizacion/db)`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listar productos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/productos"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('trae al menos un producto', () => pm.expect(body.length).to.be.above(0));",
+              "if (body.length > 0) pm.collectionVariables.set('productoCodigo', body[0].producto);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Producto por código",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/productos/{{productoCodigo}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Producto inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/productos/no-existe"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Solicitar cotización",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/cotizaciones",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario_id\": \"{{usuarioId}}\",\n  \"socio_id\": \"{{socioId}}\",\n  \"consentimiento_id\": \"{{consentimientoId}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Genera una Idempotency-Key nueva en cada envío y guarda `cotizacionId` para las siguientes requests."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "for (const name of ['idempotencyKey', 'usuarioId', 'socioId', 'consentimientoId']) {",
+              "  pm.collectionVariables.set(name, pm.variables.replaceIn('{{$guid}}'));",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('trae la oferta en firme', () => {",
+              "  pm.expect(body.cotizacion_id).to.be.a('string');",
+              "  pm.expect(body.prima).to.not.be.undefined;",
+              "  pm.expect(body.vence_en).to.be.a('string');",
+              "});",
+              "pm.collectionVariables.set('cotizacionId', body.cotizacion_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Repetir la misma solicitud (idempotencia)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/cotizaciones",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario_id\": \"{{usuarioId}}\",\n  \"socio_id\": \"{{socioId}}\",\n  \"consentimiento_id\": \"{{consentimientoId}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Reenvía la solicitud anterior con la misma Idempotency-Key: responde 200 con la misma cotización, sin crear otra."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('devuelve la misma cotización', () => pm.expect(pm.response.json().cotizacion_id).to.eql(pm.collectionVariables.get('cotizacionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reconsultar oferta",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/cotizaciones/{{cotizacionId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('misma cotización', () => pm.expect(pm.response.json().cotizacion_id).to.eql(pm.collectionVariables.get('cotizacionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dato de riesgo fuera de rango",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKeyError}}"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/cotizaciones",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"usuario_id\": \"{{usuarioId}}\",\n  \"socio_id\": \"{{socioId}}\",\n  \"consentimiento_id\": \"{{consentimientoId}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 5000,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "cilindraje_cc admite 50 a 1800 en el catálogo de SOAT motocicleta."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('idempotencyKeyError', pm.variables.replaceIn('{{$guid}}'));",
+              "for (const name of ['usuarioId', 'socioId', 'consentimientoId']) {",
+              "  if (!pm.collectionVariables.get(name)) pm.collectionVariables.set(name, pm.variables.replaceIn('{{$guid}}'));",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('422', () => pm.response.to.have.status(422));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8001"
+    },
+    {
+      "key": "productoCodigo",
+      "value": "soat-motocicleta"
+    },
+    {
+      "key": "cotizacionId",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKeyError",
+      "value": ""
+    },
+    {
+      "key": "usuarioId",
+      "value": ""
+    },
+    {
+      "key": "socioId",
+      "value": ""
+    },
+    {
+      "key": "consentimientoId",
+      "value": ""
+    }
+  ]
+}

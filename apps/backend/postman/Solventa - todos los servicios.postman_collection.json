@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Solventa",
-    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue validado contra el cluster real (solventa-minimo-eks) antes de agregarse aquí -- ver infra/k8s/README.md para el contexto de despliegue. Usar junto con el environment Solventa - cluster interno.postman_environment.json.\n\nAcceso: hoy los Services son ClusterIP (sin exposición externa), así que estas requests solo corren desde dentro del cluster (ej. un pod temporal con curl) o vía `kubectl port-forward`. Ver el campo baseUrlApiSocios/baseUrlMsCotizacion del environment.",
+    "name": "Solventa - todos los servicios",
+    "description": "Los cuatro servicios (api-socios, ms-cotizacion, bff-web, bff-movil) en una sola colección. Necesita un environment que defina las URLs:\n\n- `Solventa - local`: servicios con uvicorn en tu máquina.\n- `Solventa - EKS por port-forward`: servicios desplegados en EKS, entrando directo a cada Service (ClusterIP) con `kubectl port-forward`.\n- `Solventa - EKS por ALB`: servicios desplegados en EKS, entrando por el ALB del Ingress.\n\nPara local también están las colecciones por servicio de `local/`, que no necesitan environment.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
