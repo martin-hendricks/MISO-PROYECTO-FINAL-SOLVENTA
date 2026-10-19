@@ -1,0 +1,22 @@
+<div
+  class="empty-state"
+  data-testid="no-permission"
+  [attr.data-current]="current()"
+  [attr.data-required]="required()"
+>
+  <span class="icon" aria-hidden="true">!</span>
+  <h2>{{ 'backoffice.noPermission.title' | translate }}</h2>
+  <p data-testid="no-permission-detail">
+    {{
+      'backoffice.noPermission.body'
+        | translate
+          : {
+              current: 'backoffice.role.' + current() | translate,
+              required: 'backoffice.role.' + required() | translate,
+            }
+    }}
+  </p>
+  <a class="outlined" data-testid="no-permission-home" [routerLink]="home()">
+    {{ 'backoffice.noPermission.home' | translate }}
+  </a>
+</div>

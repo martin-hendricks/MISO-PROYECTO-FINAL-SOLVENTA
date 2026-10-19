@@ -4,11 +4,18 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+junit.xml
+.env
 
 # Node / Angular
 node_modules/
 dist/
 .angular/
+coverage/
 
 # Android
 *.iml
@@ -34,5 +41,19 @@ captures/
 
 # OS / editores
 .DS_Store
+Thumbs.db
+*.tmp
 *.swp
 .vscode/
+
+# Kotlin / JVM build leftovers
+out/
+*.class
+*.jar
+.env*
+.claude/
+
+# Cursor y especificaciones locales (Spec Kit)
+.cursor/
+specs/
+apps/mobile/.specify/

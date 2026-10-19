@@ -1,91 +1,77 @@
 package com.grupo8_uniandes.solventa
 
+import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.grupo8_uniandes.solventa.data.region.readAppliedLanguageTag
+import com.grupo8_uniandes.solventa.domain.startup.StartupSession
+import com.grupo8_uniandes.solventa.ui.shell.CustomerShell
+import com.grupo8_uniandes.solventa.ui.shell.SplashHoldMillis
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase.withAppliedRegion())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val splashHoldMillis = intent.getLongExtra(EXTRA_SPLASH_HOLD_MILLIS, SplashHoldMillis)
+        val startupSession = if (intent.getBooleanExtra(EXTRA_EXISTING_ACCOUNT, false)) {
+            StartupSession.ExistingAccount
+        } else {
+            StartupSession.FirstUse
+        }
+        val enterSignedInShell = intent.getBooleanExtra(EXTRA_ENTER_SIGNED_IN_SHELL, false)
+        val openHome = intent.getBooleanExtra(EXTRA_OPEN_HOME, false)
+        val openOnboarding = intent.getBooleanExtra(EXTRA_OPEN_ONBOARDING, false)
+        val openConsent = intent.getBooleanExtra(EXTRA_OPEN_CONSENT, false)
+        val resumeProfile = intent.getBooleanExtra(EXTRA_RESUME_PROFILE, false)
+        if (openHome) {
+            intent.removeExtra(EXTRA_OPEN_HOME)
+        }
+        if (openOnboarding) {
+            intent.removeExtra(EXTRA_OPEN_ONBOARDING)
+        }
+        if (openConsent) {
+            intent.removeExtra(EXTRA_OPEN_CONSENT)
+        }
+        if (resumeProfile) {
+            intent.removeExtra(EXTRA_RESUME_PROFILE)
+        }
         setContent {
             SolventaTheme {
-                SolventaApp()
-            }
-        }
-    }
-}
-
-@PreviewScreenSizes
-@Composable
-fun SolventaApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            painterResource(it.icon),
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                CustomerShell(
+                    startupSession = startupSession,
+                    splashHoldMillis = splashHoldMillis,
+                    enterSignedInShell = enterSignedInShell || openHome,
+                    openOnboarding = openOnboarding,
+                    openConsent = openConsent,
+                    resumeProfile = resumeProfile,
                 )
             }
         }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
-        }
+    }
+
+    companion object {
+        const val EXTRA_SPLASH_HOLD_MILLIS = "com.grupo8_uniandes.solventa.SPLASH_HOLD_MILLIS"
+        const val EXTRA_EXISTING_ACCOUNT = "com.grupo8_uniandes.solventa.EXISTING_ACCOUNT"
+        const val EXTRA_ENTER_SIGNED_IN_SHELL = "com.grupo8_uniandes.solventa.ENTER_SIGNED_IN_SHELL"
+        const val EXTRA_OPEN_HOME = "com.grupo8_uniandes.solventa.OPEN_HOME"
+        const val EXTRA_OPEN_ONBOARDING = "com.grupo8_uniandes.solventa.OPEN_ONBOARDING"
+        const val EXTRA_OPEN_CONSENT = "com.grupo8_uniandes.solventa.OPEN_CONSENT"
+        const val EXTRA_RESUME_PROFILE = "com.grupo8_uniandes.solventa.RESUME_PROFILE"
     }
 }
 
-enum class AppDestinations(
-    val label: String,
-    val icon: Int,
-) {
-    HOME("Home", R.drawable.ic_home),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
-    PROFILE("Profile", R.drawable.ic_account_box),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SolventaTheme {
-        Greeting("Android")
-    }
+private fun Context.withAppliedRegion(): Context {
+    val locale = Locale.forLanguageTag(readAppliedLanguageTag(this))
+    val config = Configuration(resources.configuration)
+    config.setLocale(locale)
+    return createConfigurationContext(config)
 }

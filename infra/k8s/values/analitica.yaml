@@ -1,0 +1,85 @@
+# analitica — consumidor de BusEventos (Grupo B)
+#
+# Carga batch/streaming para reportería y modelos, no está en el camino
+# crítico de latencia de ningún caso de uso síncrono. Consume BusEventos de
+# MSK, por lo que necesita IRSA. Recursos modestos y HPA con techo bajo: el
+# consumo de Kafka se nivela con el número de particiones, no tiene sentido
+# escalar agresivamente por CPU.
+
+nombre: analitica
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-analitica"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 20
+    periodSeconds: 15
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPU: 75
+  targetMemory: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: analitica
+  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."analitica"'
+
+podDisruptionBudget:
+  habilitado: false
+
+topologySpread:
+  habilitado: false
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""  # TODO: reemplazar por msk.bootstrap_brokers_sasl_iam (output de Terraform)
+  - nombre: MSK_TOPIC
+    valor: "BusEventos"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"
+  - nombre: MSK_CONSUMER_GROUP
+    valor: "analitica-cg"

@@ -1,0 +1,16 @@
+<section
+  [attr.data-testid]="'section-' + section"
+  [attr.data-state]="allowed() ? 'pending' : 'no-permission'"
+>
+  <h1>{{ 'backoffice.' + section + '.title' | translate }}</h1>
+  @if (allowed()) {
+    <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
+    <div class="empty-state" data-testid="section-pending">
+      <h2>{{ 'backoffice.pending.title' | translate }}</h2>
+      <p>{{ 'backoffice.pending.body' | translate }}</p>
+    </div>
+  } @else {
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  }
+</section>

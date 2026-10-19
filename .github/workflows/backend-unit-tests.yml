@@ -147,15 +147,48 @@ jobs:
           path: apps/backend/**/coverage.xml
           if-no-files-found: error
 
+      # One upload per service, flagged backend-<service>. PRs and feature pushes
+      # only test the services that changed, so a single shared flag would replace
+      # the coverage of the others; separate flags let Codecov carry them forward.
       - name: Upload coverage to Codecov
         if: always() && steps.select.outputs.matrix != '[]'
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: apps/backend
-          flags: backend
-          fail_ci_if_error: false
-          handle_no_reports_found: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          MATRIX_JSON: ${{ steps.select.outputs.matrix }}
+        run: |
+          python -m pip install codecov-cli
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          services = json.loads(os.environ["MATRIX_JSON"])
+          for service in services:
+              coverage = os.path.join("apps", "backend", service, "coverage.xml")
+              if not os.path.isfile(coverage):
+                  print(f"::warning::{service}: no coverage.xml to upload")
+                  continue
+              uploaded = subprocess.run(
+                  [
+                      "codecovcli",
+                      "upload-process",
+                      "--token",
+                      os.environ["CODECOV_TOKEN"],
+                      "--sha",
+                      os.environ["COMMIT_SHA"],
+                      "--flag",
+                      f"backend-{service}",
+                      "--name",
+                      f"backend-{service}",
+                      "--file",
+                      coverage,
+                      "--disable-search",
+                  ],
+              )
+              if uploaded.returncode != 0:
+                  print(f"::warning::{service}: Codecov upload failed")
+          PY
 
       - name: Write test summary
         if: always() && steps.select.outputs.matrix != '[]'

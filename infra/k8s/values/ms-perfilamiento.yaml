@@ -1,0 +1,103 @@
+# ms-perfilamiento — MotorRiesgo (Grupo A, cómputo intensivo)
+#
+# Motor de riesgo con fan-out paralelo a Open Finance y Open Data (dos llamadas
+# externas concurrentes por evaluación). Objetivo EC-LAT-03/04: p95 <= 400 ms,
+# p99 <= 800 ms. Comparte Node Group A (c6i.xlarge, taint dedicado) con
+# ms-cotizacion pero con curva de carga independiente, por eso su HPA es algo
+# menos agresivo que el de cotización. Consume los secretos de open_finance y
+# open_data.
+
+nombre: ms-perfilamiento
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-perfilamiento"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 3
+grupoEscalado: "a"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "3Gi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: true
+    path: /health/live
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 12
+
+hpa:
+  habilitado: true
+  minReplicas: 3
+  maxReplicas: 12
+  targetCPU: 60
+  targetMemory: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 75
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-open_finance-credentials
+      nombreLocal: ms-perfilamiento-open-finance
+      claves:
+        - clientId
+        - clientSecret
+    - nombreRemoto: solventa-minimo-open_data-credentials
+      nombreLocal: ms-perfilamiento-open-data
+      claves:
+        - clientId
+        - clientSecret
+
+serviceAccount:
+  crear: true
+  nombre: ms-perfilamiento
+  roleArn: ""  # No requiere IRSA: consume Redis (CacheOD) y secretos vía External Secrets
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 2
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: REDIS_CACHE_OD_HOST
+    valor: "cache-od.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
+  - nombre: REDIS_CACHE_OD_TTL_SECONDS
+    valor: "600"
+  - nombre: NODE_GROUP
+    valor: "a"
+  - nombre: FANOUT_TIMEOUT_MS
+    valor: "300"

@@ -12,6 +12,10 @@
 #     (AmazonEKSEditPolicy) -- necesario porque el job "bootstrap" crea el
 #     namespace solventa y el ClusterSecretStore si todavía no existen,
 #     ambos recursos a nivel de clúster, no de namespace.
+#   - elasticloadbalancing:DescribeTargetGroups (solo lectura), para que el
+#     job "register-target-groups" resuelva el ARN del target group del ALB
+#     de infra/terraform/modules/alb por nombre, sin depender del state de
+#     Terraform (local, no accesible desde este workflow).
 #
 # Variables/secrets que debe configurar el equipo en GitHub (Settings ->
 # Environments), una vez exista la cuenta de AWS real:
@@ -55,7 +59,7 @@ on:
       - "apps/backend/**"
       - "infra/k8s/charts/microservicio/**"
       - "infra/k8s/values/**"
-      - "infra/k8s/platform/ingress.yaml"
+      - "infra/k8s/platform/target-group-bindings.yaml"
       - "infra/k8s/platform/run-migrations.sh"
       - "infra/k8s/platform/migraciones-job.yaml"
       - ".github/workflows/deploy.yml"
@@ -255,16 +259,22 @@ jobs:
       - name: Verificar rollout
         run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
 
-  # Job aparte, no un paso dentro de "deploy": el Ingress es un único
-  # recurso para todos los servicios (infra/k8s/platform/ingress.yaml), no
-  # uno por entrada de la matrix -- aplicarlo dentro de "deploy" lo
-  # reintentaría una vez por servicio en paralelo. needs: deploy para que
-  # corra después de que los Services ya existan (aunque el AWS Load
-  # Balancer Controller tolera apuntar a un Service que todavía no existe,
-  # como bff-web/bff-movil hoy: el target group queda vacío hasta que
-  # aparezca).
-  ingress:
-    name: ingress del ALB
+  # Job aparte, no un paso dentro de "deploy": TargetGroupBinding es un
+  # único manifiesto para todos los servicios
+  # (infra/k8s/platform/target-group-bindings.yaml), no uno por entrada de
+  # la matrix. needs: deploy para que corra después de que los Services ya
+  # existan.
+  #
+  # No usa un Ingress de Kubernetes a propósito: un Ingress con
+  # kubernetes.io/ingress.class: alb hace que el AWS Load Balancer
+  # Controller cree su PROPIO ALB nuevo, desconectado del que
+  # infra/terraform/modules/alb ya provisiona y al que el API Gateway (VPC
+  # Link, module.edge) apunta -- confirmado en el cluster: con Ingress, el
+  # ALB de Terraform quedaba vacío y el del Ingress (con las rutas reales)
+  # nunca lo veía el API Gateway. TargetGroupBinding solo registra pods en
+  # un target group YA EXISTENTE, sin crear ningún ALB.
+  register-target-groups:
+    name: registrar en el target group del ALB
     needs: deploy
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
@@ -280,5 +290,22 @@ jobs:
       - name: Configurar kubectl
         run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
 
-      - name: Aplicar Ingress
-        run: kubectl apply -f infra/k8s/platform/ingress.yaml
+      # El state de Terraform es local, no accesible desde este workflow
+      # (ver infra/terraform/environments/minimo/backend.tf.example): en vez
+      # de `terraform output`, resuelve el ARN de cada target group
+      # buscándolo por nombre -- predecible, fijado en
+      # infra/terraform/modules/alb/main.tf como
+      # "${project_name}-${environment}-<servicio>-tg".
+      - name: Aplicar TargetGroupBinding
+        run: |
+          command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
+
+          API_SOCIOS_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-api-socios-tg \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+          MS_COTIZACION_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-ms-cotizacion-tg \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+
+          export API_SOCIOS_TARGET_GROUP_ARN MS_COTIZACION_TARGET_GROUP_ARN
+          envsubst < infra/k8s/platform/target-group-bindings.yaml | kubectl apply -f -

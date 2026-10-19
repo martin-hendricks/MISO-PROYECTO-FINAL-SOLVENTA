@@ -1,0 +1,35 @@
+{{- if .Values.hpa.habilitado }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "microservicio.fullname" . }}
+  labels:
+    {{- include "microservicio.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "microservicio.fullname" . }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.targetCPU }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.targetMemory }}
+  {{- if .Values.hpa.behavior }}
+  # Comportamiento de escalado: scaleUp agresivo (stabilizationWindowSeconds
+  # bajo) para cumplir EC-ESC-02 (capacidad ampliada en <= 60 s ante picos),
+  # y scaleDown conservador para evitar oscilaciones tras picos pasajeros.
+  behavior:
+    {{- toYaml .Values.hpa.behavior | nindent 4 }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,133 @@
+# ms-cotizacion — MotorRating (Grupo A, cómputo intensivo)
+#
+# Servicio más crítico en latencia de todo Solventa (EC-LAT-01: p95 <= 250 ms)
+# y el que absorbe el pico de EC-ESC-01 (500 -> 50.000 cotizaciones/min,
+# sostenido 30 min). Corre en el Node Group A (c6i.xlarge, taint dedicado) junto
+# con ms-perfilamiento. Recursos generosos y HPA agresivo por CPU para poder
+# escalar horizontalmente dentro de la ventana de <= 60 s de EC-ESC-02.
+# Depende de CacheOF (Redis) para no golpear a Open Finance en cada cotización
+# y del secreto de credenciales de open_finance.
+
+nombre: ms-cotizacion
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-cotizacion"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD, no aquí
+  pullPolicy: IfNotPresent
+
+# Diseño original: 4. 1 para el ambiente mínimo/demo, donde el Node Group A
+# corre en t3.small (2 vCPU/2GB, free-tier-eligible) -- no cabrían 4 réplicas
+# de 1Gi cada una en un solo nodo así de chico. Ver también hpa.minReplicas
+# y recursos.requests más abajo, y node_group_a_instance_types en
+# infra/terraform/environments/minimo/variables.tf.
+replicas: 1
+grupoEscalado: "a"
+
+# apps/backend/ms-cotizacion/Dockerfile expone y arranca uvicorn en 8000
+# (a diferencia del resto de servicios del repo, que usan 8080). El Service
+# y las probes deben apuntar al puerto real o el pod queda Running pero
+# nunca Ready (confirmado en el cluster: Uvicorn escuchando en :8000
+# mientras Service/probes golpeaban :8080).
+puerto: 8000
+puertoMetricas: 9090
+
+# Diseño original: 1000m/2Gi requests, 2000m/4Gi limits (c6i.xlarge, 4
+# vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES
+# por nodo, con overhead de kubelet/CNI/sistema -- un pod de 2Gi no cabría.
+# Bajado a algo que deje margen real en un nodo de 2GB; subir junto con
+# node_group_a_instance_types si hace falta representar carga real.
+recursos:
+  requests:
+    cpu: "250m"
+    memory: "400Mi"
+  limits:
+    cpu: "500m"
+    memory: "700Mi"
+
+probes:
+  # ms-cotizacion expone un único endpoint /health
+  # (apps/backend/ms-cotizacion/app/observabilidad.py), sin distinguir
+  # liveness de readiness. Apuntar a /health/live y /health/ready (que no
+  # existen) devolvía 404 en los tres probes y el pod nunca llegaba a Ready
+  # (confirmado en los logs del contenedor en el cluster).
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readiness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  startup:
+    habilitado: true
+    path: /health
+    initialDelaySeconds: 0
+    periodSeconds: 5
+    failureThreshold: 12
+
+hpa:
+  habilitado: true
+  # Diseño original: 4, para el pico de EC-ESC-01/02. 1 para el ambiente
+  # mínimo/demo, acorde a replicas: 1 más arriba.
+  minReplicas: 1
+  maxReplicas: 20
+  targetCPU: 55
+  targetMemory: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 15
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-open_finance-credentials
+      nombreLocal: ms-cotizacion-open-finance
+      claves:
+        - clientId
+        - clientSecret
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-cotizacion-db
+      claves:
+        - database_url
+
+serviceAccount:
+  crear: true
+  nombre: ms-cotizacion
+  roleArn: ""  # No requiere IRSA: solo consume Redis (CacheOF) y el secreto vía External Secrets
+
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado (rollout, actualización de nodo), porque
+# nunca se podría satisfacer con una sola réplica total -- y no hay
+# redundancia real que proteger de todas formas. Diseño original: habilitado
+# con minAvailable: 2, acorde a replicas: 4; reactivar junto con eso.
+podDisruptionBudget:
+  habilitado: false
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: REDIS_CACHE_OF_HOST
+    valor: "cache-of.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
+  - nombre: REDIS_CACHE_OF_TTL_SECONDS
+    valor: "300"
+  - nombre: NODE_GROUP
+    valor: "a"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-cotizacion-db
+    claveSecreto: database_url

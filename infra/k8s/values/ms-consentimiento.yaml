@@ -1,0 +1,81 @@
+# ms-consentimiento — consentimiento y habeas data (Grupo B)
+#
+# Se interpone como gate en toda salida hacia Open Finance: valida que exista
+# consentimiento vigente antes de dejar pasar la llamada de ms-cotizacion o
+# ms-perfilamiento. Es liviano (una validación de estado, sin cómputo pesado)
+# pero debe estar siempre disponible porque bloquea el camino crítico de
+# cotización; por eso PDB con minAvailable >= 1 y un mínimo de réplicas
+# razonable pese a su bajo consumo de CPU.
+
+nombre: ms-consentimiento
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-consentimiento"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 70
+  targetMemory: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: ms-consentimiento
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local"

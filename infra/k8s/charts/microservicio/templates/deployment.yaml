@@ -1,0 +1,152 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "microservicio.fullname" . }}
+  labels:
+    {{- include "microservicio.labels" . | nindent 4 }}
+spec:
+  # IMPORTANTE: si el HPA está habilitado, se OMITE `replicas` a propósito.
+  # Si Helm fijara `replicas` en cada `helm upgrade`, pisaría el conteo que
+  # el HPA ya ajustó en producción (el HPA solo actualiza
+  # Deployment.spec.replicas vía el subrecurso /scale, pero un `helm
+  # upgrade` posterior con `replicas: N` fijo lo resetearía al valor del
+  # chart, generando una pelea entre el controller de HPA y Helm). Cuando el
+  # HPA está deshabilitado, sí se fija `replicas` porque no hay nadie más
+  # gestionando el conteo de réplicas.
+  {{- if not .Values.hpa.habilitado }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "microservicio.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "microservicio.labels" . | nindent 8 }}
+      annotations:
+        {{- if .Values.prometheus.scrape }}
+        prometheus.io/scrape: "true"
+        prometheus.io/path: {{ .Values.prometheus.path | quote }}
+        prometheus.io/port: {{ .Values.puertoMetricas | quote }}
+        {{- end }}
+        # Checksum del ExternalSecret/values relevantes: fuerza un rollout
+        # de los pods cuando cambian los secretos remotos declarados o las
+        # variables de entorno, ya que Kubernetes no reinicia pods
+        # automáticamente solo porque el contenido de un Secret cambió.
+        checksum/config: {{ toYaml .Values.variablesEntorno | sha256sum }}
+        checksum/external-secrets: {{ toYaml .Values.externalSecrets | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "microservicio.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # nodeSelector con el label de grupo de escalado de EKS. Debe
+      # coincidir exactamente con el label emitido por
+      # infra/terraform/modules/eks/main.tf (solventa.io/scaling-group).
+      nodeSelector:
+        solventa.io/scaling-group: {{ .Values.grupoEscalado | quote }}
+      {{- if eq .Values.grupoEscalado "a" }}
+      # El Node Group A tiene taint solventa.io/scaling-group=a:NoSchedule.
+      # Solo se emite esta toleration cuando grupoEscalado="a"; el resto de
+      # componentes (grupo "b", sin taint) no la necesitan.
+      tolerations:
+        - key: solventa.io/scaling-group
+          operator: Equal
+          value: "a"
+          effect: NoSchedule
+      {{- end }}
+      {{- if .Values.topologySpread.habilitado }}
+      # Reparto entre AZs: sin esto, Kubernetes puede concentrar todas las
+      # réplicas en una sola zona aunque el clúster sea multi-AZ, dejando el
+      # activo-activo de EC-DISP-06 como algo solo nominal a nivel de
+      # infraestructura. whenUnsatisfiable=ScheduleAnyway para no bloquear
+      # el agendamiento en un clúster pequeño (ambiente mínimo) donde
+      # cumplir el skew estrictamente podría no ser siempre posible.
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.topologySpread.maxSkew }}
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "microservicio.selectorLabels" . | nindent 14 }}
+      {{- end }}
+      containers:
+        - name: {{ include "microservicio.name" . }}
+          image: "{{ .Values.imagen.repositorio }}:{{ .Values.imagen.tag }}"
+          imagePullPolicy: {{ .Values.imagen.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: {{ .Values.puerto }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.puertoMetricas }}
+              protocol: TCP
+          {{- if .Values.probes.startup.habilitado }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          resources:
+            {{- toYaml .Values.recursos | nindent 12 }}
+          env:
+            - name: SOLVENTA_COMPONENTE
+              value: {{ include "microservicio.name" . | quote }}
+            - name: SOLVENTA_GRUPO_ESCALADO
+              value: {{ .Values.grupoEscalado | quote }}
+            {{- range .Values.variablesEntorno }}
+            - name: {{ .nombre }}
+              value: {{ .valor | quote }}
+            {{- end }}
+            {{- range .Values.variablesEntornoSecreto }}
+            - name: {{ .nombre }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .nombreSecreto }}
+                  key: {{ .claveSecreto }}
+            {{- end }}
+          {{- if .Values.externalSecrets.habilitado }}
+          envFrom:
+            {{- range .Values.externalSecrets.remoteSecrets }}
+            - secretRef:
+                name: {{ .nombreLocal }}
+            {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        # Volumen efímero de escritura: necesario porque el contenedor corre
+        # con readOnlyRootFilesystem=true y muchas libs Python/uvicorn
+        # necesitan escribir en /tmp (cache de bytecode, sockets, etc.).
+        - name: tmp
+          emptyDir: {}

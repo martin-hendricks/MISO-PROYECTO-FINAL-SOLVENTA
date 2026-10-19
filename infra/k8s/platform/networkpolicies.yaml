@@ -1,0 +1,138 @@
+# NetworkPolicies del namespace `solventa`.
+#
+# Estrategia: default-deny de ingress, y luego se abre selectivamente el
+# tráfico que el contrato de arquitectura permite:
+#   ALB -> BFFs/api-socios -> resto de microservicios -> ms-identidad (JWT)
+# más el egreso a DNS que todo pod necesita para resolver nombres internos y
+# externos (Secrets Manager, MSK, RDS, proveedores externos, etc.).
+#
+# Requiere un CNI que soporte NetworkPolicy (el VPC CNI de AWS lo soporta
+# desde la versión con "Network Policy" habilitado; si no está activo, estas
+# políticas se crean pero no se hacen cumplir. Ver TODO en el README de k8s).
+
+# ---------------------------------------------------------------------------
+# 1. Default deny de todo tráfico de ingress en el namespace `solventa`.
+#    Cualquier pod que no esté cubierto por una política de "allow" más abajo
+#    queda sin poder recibir tráfico de otros pods ni del ALB.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: solventa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# ---------------------------------------------------------------------------
+# 2. El AWS Load Balancer Controller inyecta reglas de seguridad a nivel de
+#    Security Group de EC2/ENI para que el ALB llegue a los pods; a nivel de
+#    NetworkPolicy de Kubernetes esto se modela permitiendo ingress sin
+#    restricción de origen (namespaceSelector/podSelector vacíos) SOLO en el
+#    puerto de los tres servicios expuestos por el Ingress. El aislamiento
+#    real de "quién puede llegar al ALB" lo da el Security Group de AWS
+#    (módulo `security_groups` de Terraform), no esta política.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alb-to-bffs
+  namespace: solventa
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - bff-web
+          - bff-movil
+          - api-socios
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+---
+# ---------------------------------------------------------------------------
+# 3. BFFs y api-socios -> resto de microservicios del namespace. Se modela
+#    como "cualquier pod del namespace solventa puede llegar a cualquier otro
+#    pod del namespace solventa en su puerto de servicio", que es una
+#    simplificación deliberada del ambiente mínimo: los 14 componentes se
+#    llaman entre sí (suscripción -> polizas, polizas -> identidad, etc.) y
+#    mantener una matriz exhaustiva servicio-a-servicio no aporta valor en
+#    esta etapa. Se restringe por namespace, no queda abierto al clúster.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: solventa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: solventa
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# ---------------------------------------------------------------------------
+# 4. Regla explícita de validación de JWT: todo microservicio puede llegar a
+#    ms-identidad. Queda cubierta por la política 3 (intra-namespace), pero se
+#    declara aparte y de forma explícita porque ms-identidad es la dependencia
+#    transversal de todos los componentes (ver values/ms-identidad.yaml) y
+#    conviene que la intención quede documentada como política propia, no
+#    diluida dentro de la regla genérica.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-microservicios-to-identidad
+  namespace: solventa
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ms-identidad
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: solventa
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# ---------------------------------------------------------------------------
+# 5. Egreso a DNS (CoreDNS en kube-system) para todos los pods del namespace.
+#    Sin esta regla, con NetworkPolicy de egress activadas en el futuro (hoy
+#    solo se restringe ingress) los pods no podrían resolver nombres. Se deja
+#    declarada ya mismo porque es un prerequisito habitual antes de endurecer
+#    egress, y es inocua mientras no exista una default-deny de egress.
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: solventa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

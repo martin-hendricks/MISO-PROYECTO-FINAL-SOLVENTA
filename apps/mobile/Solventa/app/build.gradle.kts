@@ -1,6 +1,9 @@
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -13,18 +16,24 @@ android {
         applicationId = "com.grupo8_uniandes.solventa"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
+        versionCode = (findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            enableUnitTestCoverage = true
+        }
         release {
             optimization {
                 enable = false
             }
         }
+    }
+    testCoverage {
+        jacocoVersion = libs.versions.jacoco.get()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -33,23 +42,59 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.extensions.configure<JacocoTaskExtension> {
+                isIncludeNoLocationClasses = true
+                excludes = listOf("jdk.internal.*")
+            }
+        }
+    }
 }
 
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.navigation.testing)
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Same files as `ignore` in the repo codecov.yml. Codecov reads this filtered
+// report.xml, so a file left in only one list makes the two percentages diverge.
+val unitTestCoverageExcludedSources = setOf(
+    "MainActivity.kt",
+    "CustomerShell.kt",
+    "SplashScreen.kt",
+    "IdiomaRegionScreen.kt",
+    "IdiomaRegionSheet.kt",
+    "PerfilScreen.kt",
+)
+
+val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {
+    report.set(layout.buildDirectory.file("reports/coverage/test/debug/report.xml"))
+    excludedSources.set(unitTestCoverageExcludedSources)
+    dependsOn("createDebugUnitTestCoverageReport")
+}
+
+tasks.matching { it.name == "createDebugUnitTestCoverageReport" }.configureEach {
+    finalizedBy(filterDebugUnitTestCoverageReport)
 }

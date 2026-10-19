@@ -1,0 +1,48 @@
+# Android Studio / IntelliJ (machine-local)
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Gradle and local SDK path
+.gradle/
+build/
+local.properties
+
+# Native and generated Android outputs
+.externalNativeBuild/
+.cxx/
+captures/
+.navigation/
+*.apk
+*.aar
+*.ap_
+*.aab
+*.dex
+output-metadata.json
+
+# Profiling and logs
+*.hprof
+*.log
+
+# Keystores stay out of the repo
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+
+# Kotlin / Android build leftovers
+out/
+*.class
+*.jar
+.env*
+
+# Local Cursor, Speckit, and spec folders.
+.cursor/
+.specify/
+specs/

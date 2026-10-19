@@ -1,0 +1,37 @@
+services:
+  bff:
+    build:
+      context: ..
+      dockerfile: api-socios/Dockerfile
+      target: runtime
+    environment:
+      SERVICE_NAME: api-socios
+      MS_COTIZACION_URL: http://ms-cotizacion:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ms-cotizacion
+
+  ms-cotizacion:
+    build:
+      context: ../ms-cotizacion
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ../ms-cotizacion/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

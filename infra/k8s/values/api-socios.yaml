@@ -1,0 +1,102 @@
+# api-socios — API embebida para los 30+ socios de distribución (Grupo B)
+#
+# Recibe tráfico del API Gateway vía ALB. Tráfico de terceros (agencias,
+# comparadores, corredores): más variable e impredecible que el de los BFFs
+# propios, por eso su HPA tiene un rango amplio y un scaleUp más reactivo,
+# similar al de los BFFs pero con más margen de techo por picos de socios
+# grandes.
+
+nombre: api-socios
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-api-socios"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+# Diseño original: 3. 1 para el ambiente mínimo/demo, acorde al Node Group B
+# en t3.small (free-tier-eligible). Ver hpa.minReplicas más abajo.
+replicas: 1
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "300m"
+    memory: "384Mi"
+  limits:
+    cpu: "800m"
+    memory: "768Mi"
+
+probes:
+  # api-socios expone un único endpoint /health (apps/backend/api-socios/app/observabilidad.py),
+  # sin distinguir liveness de readiness como sí hace ms-cotizacion. Apuntar
+  # los probes a /health/live y /health/ready (que no existen) hacía que
+  # ambos devolvieran 404 y el pod entrara en CrashLoopBackOff.
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  # Diseño original: 3. 1 para el ambiente mínimo/demo, acorde a replicas: 1
+  # más arriba.
+  minReplicas: 1
+  maxReplicas: 16
+  targetCPU: 60
+  targetMemory: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 20
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: api-socios
+  roleArn: ""
+
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado, porque nunca se podría satisfacer con una
+# sola réplica total. Diseño original: habilitado con minAvailable: 2,
+# acorde a replicas: 3; reactivar junto con eso.
+podDisruptionBudget:
+  habilitado: false
+  minAvailable: 2
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local"
+  - nombre: MS_COTIZACION_URL
+    # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
+    # no en el 80 por defecto de HTTP. Sin el puerto explícito, el cliente
+    # HTTP de api-socios (httpx.AsyncClient con este base_url) nunca
+    # conecta y GET /v1/catalogo responde 503 "servicio_no_disponible"
+    # (confirmado contra el cluster: ms-cotizacion:8000/v1/productos
+    # responde 200 directamente, pero vía api-socios fallaba).
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
+  - nombre: RATE_LIMIT_POR_SOCIO_RPM
+    valor: "600"

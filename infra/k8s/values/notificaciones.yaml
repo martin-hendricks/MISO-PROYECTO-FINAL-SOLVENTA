@@ -1,0 +1,87 @@
+# notificaciones — push/email (Grupo B)
+#
+# Consumidor de BusEventos de MSK para disparar notificaciones al cliente
+# final (emisión de póliza, siniestro actualizado, pago procesado). Igual que
+# analitica, necesita IRSA para MSK. Es asíncrono y tolera algo de rezago, así
+# que recursos y HPA son modestos, aunque algo más altos que analitica porque
+# su cola no debe crecer sin control (impacto directo en experiencia de
+# usuario si las notificaciones se demoran).
+
+nombre: notificaciones
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-notificaciones"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+replicas: 2
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "250m"
+    memory: "384Mi"
+  limits:
+    cpu: "600m"
+    memory: "768Mi"
+
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 15
+    periodSeconds: 15
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPU: 70
+  targetMemory: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+externalSecrets:
+  habilitado: false
+
+serviceAccount:
+  crear: true
+  nombre: notificaciones
+  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."notificaciones"'
+
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+topologySpread:
+  habilitado: false
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""  # TODO: reemplazar por msk.bootstrap_brokers_sasl_iam (output de Terraform)
+  - nombre: MSK_TOPIC
+    valor: "BusEventos"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"
+  - nombre: MSK_CONSUMER_GROUP
+    valor: "notificaciones-cg"

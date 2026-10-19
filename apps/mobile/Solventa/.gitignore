@@ -25,3 +25,13 @@ output-metadata.json
 
 # OS
 .DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+
+# Kotlin build leftovers
+out/
+*.class
+*.jar
+.env*

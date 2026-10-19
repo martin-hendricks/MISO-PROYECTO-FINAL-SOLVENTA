@@ -4,4 +4,4 @@ Backend for Frontend del canal web: contrato versionado para cotizar, emitir, ge
 
 **Stack:** Python (FastAPI)
 
-Pendiente de implementación.
+Contrato: `specs/001-bff-unit-checks/contracts/bff-web.md`

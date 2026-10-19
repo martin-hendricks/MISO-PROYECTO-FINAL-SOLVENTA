@@ -1,0 +1,15 @@
+:host {
+  display: block;
+}
+
+header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1rem 1.5rem;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+}

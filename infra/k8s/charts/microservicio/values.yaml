@@ -1,0 +1,195 @@
+# =============================================================================
+# values.yaml — defaults del chart genérico "microservicio" (Solventa)
+#
+# Este archivo NO se edita por componente. Cada uno de los 14 componentes
+# desplegables (microservicios, BFFs y adaptadores) instancia este chart con
+# su propio values-<componente>.yaml que sobreescribe únicamente lo que le
+# aplica (nombre, imagen, grupoEscalado, secretos remotos, variables, etc.).
+# Aquí solo van defaults comunes y razonables.
+# =============================================================================
+
+# Nombre lógico del componente. Vacío a propósito: cada values/ del
+# componente DEBE definirlo (se usa en nombres de recursos, labels y en el
+# path del log group /solventa/minimo/<componente>).
+nombre: ""
+
+imagen:
+  # Repositorio ECR completo, ej:
+  # <account>.dkr.ecr.<region>.amazonaws.com/solventa-minimo-<componente>
+  # Cada values/ de componente lo define; aquí queda vacío.
+  repositorio: ""
+  # Tag por defecto "latest" para desarrollo local del chart; en despliegues
+  # reales cada componente fija un tag inmutable (ej. el SHA del commit).
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Número de réplicas del Deployment. Si hpa.habilitado=true este valor NO se
+# usa (ver templates/deployment.yaml): el campo `replicas` se omite del
+# manifiesto para que Helm no compita con el HPA por el conteo de réplicas
+# en cada `helm upgrade` (error clásico: Helm resetea replicas al valor del
+# chart y pisa lo que el HPA acaba de ajustar).
+replicas: 2
+
+# Grupo de escalado EKS al que se agenda este componente. Debe ser "a" o "b"
+# y corresponde exactamente al label solventa.io/scaling-group de los node
+# groups creados en infra/terraform/modules/eks/main.tf.
+#   - "a": ms-cotizacion (MotorRating) y ms-perfilamiento (MotorRiesgo).
+#          Ese node group tiene TAINT solventa.io/scaling-group=a:NoSchedule,
+#          por lo que el pod DEBE declarar la toleration correspondiente o no
+#          podrá agendarse. El chart emite esa toleration automáticamente
+#          solo cuando grupoEscalado == "a".
+#   - "b": resto de componentes (BFFs, adaptadores, resto de microservicios).
+#          Ese node group NO tiene taint, así que NO se emite toleration
+#          (evita otorgar de más una tolerancia que no se necesita).
+grupoEscalado: "b"
+
+# Puerto de la aplicación (HTTP/gRPC de negocio) y puerto de métricas
+# Prometheus, expuestos ambos por el Service.
+puerto: 8080
+puertoMetricas: 9090
+
+# Recursos por defecto pensados para un microservicio Python (FastAPI/Flask)
+# de tamaño típico: holgura para el intérprete + libs de reglas de negocio,
+# sin sobre-reservar en el ambiente mínimo.
+recursos:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Probes de salud. `/health` es el path convencional de los servicios
+# Python de Solventa (ver PLAN.md / diagrama de despliegue).
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # Los servicios Python de Solventa (ms-cotizacion, ms-perfilamiento, etc.)
+  # cargan reglas de negocio/tablas de tarifas al arrancar y pueden tardar
+  # más que el initialDelaySeconds normal de liveness/readiness. El
+  # startupProbe protege ese arranque lento sin relajar los timeouts de los
+  # otros dos probes en estado estable. Deshabilitado por defecto: cada
+  # componente lo activa si su arranque lo justifica.
+  startup:
+    habilitado: false
+    path: /health
+    periodSeconds: 5
+    failureThreshold: 30 # 30 * 5s = 150s máximo de arranque tolerado
+
+# Autoescalado horizontal (HPA). El escenario EC-ESC-02 exige capacidad
+# ampliada en <= 60 s ante un pico de carga (aplica en particular al Grupo A:
+# ms-cotizacion/ms-perfilamiento). Por eso el scaleUp por defecto es agresivo
+# (stabilizationWindowSeconds bajo, política de % alto y "pods" en paralelo)
+# mientras que el scaleDown es conservador para no oscilar.
+hpa:
+  habilitado: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 70
+  targetMemory: 75
+  behavior:
+    scaleUp:
+      # Ventana corta: el HPA reacciona casi de inmediato al pico, en línea
+      # con el objetivo de <= 60s de EC-ESC-02.
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:
+      # Ventana larga: evita bajar réplicas de golpe tras un pico pasajero.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+      selectPolicy: Min
+
+# Proyección de secretos de AWS Secrets Manager vía External Secrets
+# Operator (instalado como add-on por infra/terraform/modules/eks_addons).
+# `remoteSecrets` es una lista vacía por defecto: cada componente declara
+# ahí los secretos que realmente necesita, usando los nombres EXACTOS
+# creados por infra/terraform/modules/secrets/main.tf, por ejemplo:
+#   - solventa-minimo-polizas-db-credentials
+#   - solventa-minimo-siniestros-db-credentials
+#   - solventa-minimo-<proveedor>-credentials (open_finance, open_data,
+#     kyc_aml, pasarela_pago, firma_electronica, telemetria_iot,
+#     reaseguro_acord)
+# El payload de los secretos de BD es un JSON {username, password, host,
+# port, dbname}; el template usa `extract` (dataFrom) para proyectar todas
+# esas claves como variables de entorno sin tener que enumerarlas una a una.
+externalSecrets:
+  habilitado: false
+  # Nombre del ClusterSecretStore creado por el add-on External Secrets.
+  secretStoreRef: solventa-secretstore
+  remoteSecrets: []
+  # Ejemplo de una entrada (documentado aquí, no activo por defecto):
+  # remoteSecrets:
+  #   - nombreRemoto: solventa-minimo-polizas-db-credentials
+  #     nombreLocal: polizas-db-credentials
+  #     # claves vacío/omitido => se usa `extract` (todo el JSON del secreto)
+  #     claves: []
+
+# ServiceAccount dedicado para IRSA (IAM Roles for Service Accounts). Cuando
+# `crear=true` y se define `roleArn`, el template anota el ServiceAccount
+# con eks.amazonaws.com/role-arn para que el pod asuma ese rol de IAM (por
+# ejemplo, para leer del Secrets Manager o escribir en S3 de evidencias).
+serviceAccount:
+  crear: true
+  nombre: ""
+  roleArn: ""
+
+# PodDisruptionBudget: protege la disponibilidad mínima durante
+# mantenimientos de nodos/actualizaciones voluntarias.
+podDisruptionBudget:
+  habilitado: true
+  minAvailable: 1
+
+# Reparto de réplicas entre zonas de disponibilidad (AZ). Habilitado por
+# defecto porque, sin esta restricción, el scheduler de Kubernetes puede
+# apilar todas las réplicas de un componente en una sola AZ aunque la VPC y
+# los node groups sean multi-AZ: el diseño "activo-activo" multi-AZ de
+# EC-DISP-06 sería entonces solo nominal a nivel de infraestructura, sin
+# garantía real a nivel de pods. maxSkew=1 exige que ninguna zona tenga más
+# de 1 réplica de diferencia respecto a las demás.
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+# Variables de entorno en texto plano (no sensibles).
+variablesEntorno: []
+# Ejemplo:
+# variablesEntorno:
+#   - nombre: LOG_LEVEL
+#     valor: "INFO"
+
+# Variables de entorno que se resuelven desde una clave específica de un
+# Secret de Kubernetes (útil cuando NO se usa `extract` completo, sino una
+# clave puntual de un secreto ya proyectado por externalSecrets).
+variablesEntornoSecreto: []
+# Ejemplo:
+# variablesEntornoSecreto:
+#   - nombre: DB_PASSWORD
+#     nombreSecreto: polizas-db-credentials
+#     claveSecreto: password
+
+# Anotaciones de scraping de Prometheus. El diagrama de despliegue incluye
+# Prometheus/Grafana como add-on de observabilidad sobre EKS.
+prometheus:
+  scrape: true
+  path: /metrics
+  port: metrics
