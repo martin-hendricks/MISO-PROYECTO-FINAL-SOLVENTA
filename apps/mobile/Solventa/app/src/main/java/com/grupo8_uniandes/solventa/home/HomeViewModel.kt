@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-data class ProfileEntry(val id: String)
-
 data class HomeUiState(
     val panel: HomePanel = HomePanel(),
 )
@@ -19,8 +17,4 @@ class HomeViewModel @JvmOverloads constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(HomeUiState(panel = loadInicio.panel()))
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
-
-    val profileEntries: List<ProfileEntry> = listOf(
-        ProfileEntry(id = "IdiomaRegion"),
-    )
 }

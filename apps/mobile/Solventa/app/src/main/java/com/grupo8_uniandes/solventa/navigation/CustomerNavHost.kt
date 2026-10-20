@@ -31,6 +31,8 @@ fun CustomerNavHost(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     startDestination: Any = InicioRoute,
+    originationActive: Boolean = false,
+    onSignedOut: () -> Unit = {},
 ) {
     NavHost(
         navController = navController,
@@ -79,7 +81,10 @@ fun CustomerNavHost(
             )
         }
         composable<PerfilRoute> {
-            PerfilScreen()
+            PerfilScreen(
+                originationActive = originationActive,
+                onSignedOut = onSignedOut,
+            )
         }
         composable<EmisionEnCursoRoute> { entry ->
             val route = entry.toRoute<EmisionEnCursoRoute>()

@@ -3,7 +3,6 @@ package com.grupo8_uniandes.solventa.ui.shell
 import android.app.Activity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -23,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
+import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
@@ -75,8 +75,13 @@ fun CustomerShell(
     openOnboarding: Boolean = false,
     openConsent: Boolean = false,
     resumeProfile: Boolean = false,
+    signedOut: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    if (signedOut) {
+        LoginHost(modifier = modifier, onLeaveToAccount = null)
+        return
+    }
     if (enterSignedInShell) {
         SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
         return
@@ -124,7 +129,8 @@ fun CustomerShell(
         step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen && !resumeProfile -> {
             ConsentHost(modifier = modifier)
         }
-        step == PostSplashStep.Login -> {
+        step == PostSplashStep.Login ||
+            (registrationDone && !SharedPrefsSessionRepository(context.applicationContext).isOpen()) -> {
             LoginHost(modifier = modifier, onLeaveToAccount = null)
         }
         else -> {
@@ -250,11 +256,13 @@ internal fun SignedInShell(
             }
         },
     ) { padding ->
+        val activity = LocalContext.current.findActivity()
         CustomerNavHost(
             navController = navController,
             homeState = homeStateResolved,
             contentPadding = padding,
             startDestination = start,
+            onSignedOut = { activity?.signOutToLogin() },
         )
     }
 }
@@ -350,11 +358,22 @@ internal fun Activity.openConsent() {
 }
 
 internal fun Activity.openHomeAfterOnboarding() {
+    SharedPrefsSessionRepository(this).open()
     intent.putExtra(MainActivity.EXTRA_OPEN_HOME, true)
+    intent.removeExtra(MainActivity.EXTRA_SIGNED_OUT)
     recreate()
 }
 
 internal fun Activity.resumeProfileAfterLocaleChange() {
     intent.putExtra(MainActivity.EXTRA_RESUME_PROFILE, true)
+    recreate()
+}
+
+internal fun Activity.signOutToLogin() {
+    SharedPrefsSessionRepository(this).close()
+    intent.putExtra(MainActivity.EXTRA_SIGNED_OUT, true)
+    intent.removeExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_HOME)
+    intent.removeExtra(MainActivity.EXTRA_RESUME_PROFILE)
     recreate()
 }

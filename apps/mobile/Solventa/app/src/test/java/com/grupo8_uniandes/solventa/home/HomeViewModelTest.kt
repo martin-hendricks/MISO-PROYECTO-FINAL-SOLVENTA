@@ -63,11 +63,4 @@ class HomeViewModelTest {
         assertEquals("Q-kept", panel.offerId)
         assertTrue(HomePanel::class.java.declaredFields.none { it.name.contains("premium", ignoreCase = true) })
     }
-
-    @Test
-    fun perfilExposesOnlyIdiomaYRegion() {
-        val entries = HomeViewModel().profileEntries
-        assertEquals(1, entries.size)
-        assertEquals("IdiomaRegion", entries.single().id)
-    }
 }
