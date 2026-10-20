@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.consent
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ fun ConsentScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
             .testTag("screen_consentimiento"),
     ) {
         SolventaTopBar(

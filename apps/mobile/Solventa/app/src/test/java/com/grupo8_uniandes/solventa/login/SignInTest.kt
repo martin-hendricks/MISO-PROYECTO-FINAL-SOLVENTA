@@ -31,12 +31,23 @@ class SignInTest {
     }
 
     @Test
-    fun givenNoRegistration_whenFilled_thenRejected() {
+    fun givenDemoPair_whenNoRegistration_thenSignedInAndNothingIsWritten() {
         val repository = FakeRegistrationRepository(saved = null)
 
-        val result = SignIn(repository).submit("camila@correo.com", "secret")
+        val result = SignIn(repository).submit("  camila@correo.com  ", "  secret  ")
 
-        assertEquals(SignInResult.Rejected, result)
+        assertEquals(SignInResult.SignedIn, result)
+        assertEquals(0, repository.writes)
+    }
+
+    @Test
+    fun givenNoRegistration_whenNotTheDemoPair_thenRejected() {
+        val repository = FakeRegistrationRepository(saved = null)
+        val signIn = SignIn(repository)
+
+        assertEquals(SignInResult.Rejected, signIn.submit("camila@correo.com", "other"))
+        assertEquals(SignInResult.Rejected, signIn.submit("other@correo.com", "secret"))
+        assertEquals(SignInResult.Rejected, signIn.submit("Camila@correo.com", "secret"))
         assertEquals(0, repository.writes)
     }
 
