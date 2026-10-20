@@ -15,15 +15,22 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 @Composable
 fun SolventaCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    testTag: String = "solventa_card",
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth().testTag("solventa_card"),
-        shape = SolventaSpacing.cardRadius,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-    ) {
-        Column(Modifier.padding(SolventaSpacing.gutter), content = content)
+    val cardModifier = modifier.fillMaxWidth().testTag(testTag)
+    val shape = SolventaSpacing.cardRadius
+    val colors = CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    )
+    if (onClick == null) {
+        Card(modifier = cardModifier, shape = shape, colors = colors) {
+            Column(Modifier.padding(SolventaSpacing.gutter), content = content)
+        }
+    } else {
+        Card(onClick = onClick, modifier = cardModifier, shape = shape, colors = colors) {
+            Column(Modifier.padding(SolventaSpacing.gutter), content = content)
+        }
     }
 }

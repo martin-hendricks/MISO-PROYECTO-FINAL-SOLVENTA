@@ -9,7 +9,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.semantics
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
+
+val SolventaButtonStyleKey = SemanticsPropertyKey<SolventaButtonStyle>("SolventaButtonStyle")
 
 enum class SolventaButtonStyle {
     Filled,
@@ -29,6 +33,7 @@ fun SolventaButton(
 ) {
     val buttonModifier = modifier
         .height(SolventaSpacing.buttonHeight)
+        .semantics { set(SolventaButtonStyleKey, style) }
         .testTag(testTag ?: "solventa_button_${style.name.lowercase()}")
     val shape = SolventaSpacing.buttonRadius
     when (style) {

@@ -32,6 +32,7 @@ import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
+import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -42,6 +43,7 @@ import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
+import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.openDestination
 import com.grupo8_uniandes.solventa.navigation.selectedDestination
@@ -194,14 +196,16 @@ private fun OnboardingHost(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SignedInShell(
+internal fun SignedInShell(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean = false,
+    homeState: HomeUiState? = null,
 ) {
     val signedIn = true
     val navController = rememberNavController()
     val homeViewModel: HomeViewModel = viewModel()
-    val homeState by homeViewModel.state.collectAsState()
+    val collectedHome by homeViewModel.state.collectAsState()
+    val homeStateResolved = homeState ?: collectedHome
     val entry by navController.currentBackStackEntryAsState()
     val start = if (startOnProfile) PerfilRoute else InicioRoute
     val route = entry?.toSolventaRoute() ?: start
@@ -248,7 +252,7 @@ private fun SignedInShell(
     ) { padding ->
         CustomerNavHost(
             navController = navController,
-            homeState = homeState,
+            homeState = homeStateResolved,
             contentPadding = padding,
             startDestination = start,
         )
@@ -259,7 +263,8 @@ private fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     CotizacionRoute -> stringResource(R.string.quote_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
-    EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
+    is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
+    is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
     PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
