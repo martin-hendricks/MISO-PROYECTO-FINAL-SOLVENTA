@@ -12,7 +12,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -60,6 +62,7 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionEffect
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
+import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import com.grupo8_uniandes.solventa.ui.login.LoginEffect
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
@@ -291,6 +294,20 @@ private fun LoginHost(
     }
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
+    val biometricPrompt = remember(activity) {
+        val host = activity ?: return@remember null
+        DeviceBiometricPrompt(
+            activity = host,
+            title = host.getString(R.string.login_biometric_title),
+            negativeButtonText = host.getString(R.string.action_secondary),
+        )
+    }
+    var biometricRequested by remember(viewModel) { mutableStateOf(false) }
+    LaunchedEffect(biometricPrompt, biometricRequested, state.effect) {
+        if (biometricPrompt == null || biometricRequested || state.effect == LoginEffect.OpenHome) return@LaunchedEffect
+        biometricRequested = true
+        biometricPrompt.authenticate(viewModel::onDeviceUnlock)
+    }
     LaunchedEffect(state.effect) {
         if (state.effect == LoginEffect.OpenHome) {
             activity?.openHomeAfterOnboarding()

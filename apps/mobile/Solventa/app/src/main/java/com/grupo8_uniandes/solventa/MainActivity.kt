@@ -3,9 +3,9 @@ package com.grupo8_uniandes.solventa
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import com.grupo8_uniandes.solventa.data.region.readAppliedLanguageTag
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.ui.shell.CustomerShell
@@ -13,7 +13,7 @@ import com.grupo8_uniandes.solventa.ui.shell.SplashHoldMillis
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.withAppliedRegion())
     }

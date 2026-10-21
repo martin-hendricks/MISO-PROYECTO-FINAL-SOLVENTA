@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.login
 
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.login.SignInResult
 import com.grupo8_uniandes.solventa.domain.registration.Registration
@@ -116,6 +117,43 @@ class LoginViewModelTest {
         viewModel.ingresar()
 
         assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenAcceptedDeviceUnlock_whenHandled_thenOpenHomeWithoutEditingFields() {
+        val signIn = ScriptedSignIn(mutableListOf())
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(0, signIn.calls)
+    }
+
+    @Test
+    fun givenDismissedOrUnavailableDeviceUnlock_whenHandled_thenKeepCurrentState() {
+        val signIn = ScriptedSignIn(mutableListOf())
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Dismissed)
+        assertNull(viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Unavailable)
+        assertNull(viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(0, signIn.calls)
     }
 }
 
