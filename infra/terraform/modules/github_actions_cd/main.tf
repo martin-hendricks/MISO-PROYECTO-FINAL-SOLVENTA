@@ -227,9 +227,10 @@ resource "aws_iam_role_policy_attachment" "elb_describe" {
 # scoping por recurso) permite resolverlo por prefijo
 # ("solventa-<environment>-spa-") en tiempo de ejecución; lo mismo para
 # cloudfront:ListDistributions, resuelta por el Comment del módulo edge
-# ("${project_name}-${environment} Angular SPA"). apigatewayv2:GetApis
+# ("${project_name}-${environment} Angular SPA"). apigateway:GET
 # resuelve la URL del API Gateway para inyectarla en el build del
-# frontend (ver deploy-web.yml).
+# frontend (ver deploy-web.yml) -- el prefijo IAM para API Gateway es
+# "apigateway", no "apigatewayv2", aunque la API sea HTTP API (v2).
 data "aws_iam_policy_document" "web_deploy" {
   statement {
     sid    = "ListBucketsAndDistributions"
@@ -237,7 +238,7 @@ data "aws_iam_policy_document" "web_deploy" {
     actions = [
       "s3:ListAllMyBuckets",
       "cloudfront:ListDistributions",
-      "apigatewayv2:GetApis",
+      "apigateway:GET",
     ]
     resources = ["*"] # Ninguna de estas tres admite scoping por ARN/nombre en el recurso.
   }
