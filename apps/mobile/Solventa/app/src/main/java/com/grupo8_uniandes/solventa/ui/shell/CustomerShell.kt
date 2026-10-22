@@ -157,9 +157,13 @@ private fun FirstLaunchLanguage(
 @Composable
 private fun OnboardingHost(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val viewModel = remember(context) {
+    val region = remember(context) {
+        SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
+    }
+    val viewModel = remember(context, region) {
         OnboardingViewModel(
             RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
+            region,
         )
     }
     val state by viewModel.state.collectAsState()

@@ -1,10 +1,12 @@
 package com.grupo8_uniandes.solventa.ui.registration
 
 import androidx.lifecycle.ViewModel
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.EmailAddress
 import com.grupo8_uniandes.solventa.domain.registration.EmailStatus
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
+import com.grupo8_uniandes.solventa.domain.registration.documentTypes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +22,7 @@ data class OnboardingUiState(
     val surnames: String = "",
     val email: String = "",
     val documentType: String = "",
+    val documentTypeOptions: List<String> = documentTypes(Region.Colombia),
     val documentNumber: String = "",
     val password: String = "",
     val hasPhoto: Boolean = false,
@@ -30,9 +33,12 @@ data class OnboardingUiState(
 
 class OnboardingViewModel(
     private val registerAccount: RegisterAccount,
+    private val region: Region = Region.Colombia,
 ) : ViewModel() {
     private var photo: ByteArray? = null
-    private val _state = MutableStateFlow(OnboardingUiState())
+    private val _state = MutableStateFlow(
+        OnboardingUiState(documentTypeOptions = documentTypes(region)),
+    )
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
     fun onGivenName(value: String) = edit { it.copy(givenName = value) }
@@ -60,7 +66,7 @@ class OnboardingViewModel(
     fun continuar() {
         val current = _state.value
         if (!current.continuarEnabled) return
-        val saved = registerAccount.submit(current.toDraft(photo))
+        val saved = registerAccount.submit(current.toDraft(photo), region)
         if (saved) {
             _state.value = current.copy(effect = OnboardingEffect.ContinueToConsent)
         }
@@ -87,14 +93,14 @@ class OnboardingViewModel(
             draft.givenName,
             draft.surnames,
             draft.email,
-            draft.documentType,
             draft.documentNumber,
             draft.password,
         ).all { it.trim().isNotEmpty() }
+        val typeReady = draft.documentType.trim() in documentTypes(region)
         return draft.copy(
             hasPhoto = photoReady,
             emailError = emailStatus == EmailStatus.Invalid,
-            continuarEnabled = textsReady && emailStatus == EmailStatus.Valid && photoReady,
+            continuarEnabled = textsReady && typeReady && emailStatus == EmailStatus.Valid && photoReady,
         )
     }
 
