@@ -116,7 +116,7 @@ describe('LoginView', () => {
     });
 
     it('offers to create an account', () => {
-      expect(element('login-register')).not.toBeNull();
+      expect(element('login-register')?.getAttribute('href')).toBe('/registro');
     });
   });
 

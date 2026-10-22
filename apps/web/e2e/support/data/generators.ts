@@ -23,6 +23,14 @@ export interface Home {
   hipotecario: { estado: string } | null;
 }
 
+export interface SignUp {
+  nombre: string;
+  apellidos: string;
+  documento: string;
+  correo: string;
+  contrasena: string;
+}
+
 export function reseed(): void {
   faker.seed(SEED);
 }
@@ -31,6 +39,16 @@ export function credentials(): Credentials {
   return {
     email: faker.internet.email().toLowerCase(),
     password: faker.internet.password({ length: 12 }),
+  };
+}
+
+export function signUp(): SignUp {
+  return {
+    nombre: faker.person.firstName(),
+    apellidos: faker.person.lastName(),
+    documento: faker.string.numeric(10),
+    correo: faker.internet.email().toLowerCase(),
+    contrasena: faker.internet.password({ length: 12 }),
   };
 }
 

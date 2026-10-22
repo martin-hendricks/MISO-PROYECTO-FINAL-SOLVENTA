@@ -31,6 +31,17 @@ export const routes: Routes = [
     loadComponent: loadLogin,
   },
   {
+    path: 'registro',
+    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
+    loadComponent: () => import('./features/registro/registro.view').then((m) => m.RegistroView),
+  },
+  {
+    path: 'consentimiento',
+    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
+    loadComponent: () =>
+      import('./features/consentimiento/consentimiento.view').then((m) => m.ConsentimientoView),
+  },
+  {
     path: 'cms/login',
     canActivate: [redirectSignedIn(STAFF, BACKOFFICE_LOGIN.home)],
     data: { login: BACKOFFICE_LOGIN },
