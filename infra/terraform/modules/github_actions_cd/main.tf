@@ -267,6 +267,17 @@ data "aws_iam_policy_document" "web_deploy" {
     actions   = ["cloudfront:CreateInvalidation"]
     resources = ["*"] # El ID de la distribución (con su sufijo de cuenta) solo se conoce tras resolverla por Comment.
   }
+
+  # El bucket de la SPA cifra por defecto con SSE-KMS (edge module, var
+  # kms_key_arn -- la misma CMK compartida, module.kms.s3_key_arn). Sin estos
+  # permisos, s3:PutObject/GetObject fallan con AccessDenied en
+  # kms:GenerateDataKey/Decrypt aunque la policy S3 ya lo permita.
+  statement {
+    sid       = "UseSpaBucketKmsKey"
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
+    resources = [var.spa_kms_key_arn]
+  }
 }
 
 resource "aws_iam_policy" "web_deploy" {
