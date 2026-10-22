@@ -16,6 +16,13 @@ export interface Client {
   consentimiento: 'habeas_data' | 'hipotecario_pendiente' | 'revocado';
 }
 
+export interface Home {
+  ofertaVigente: { cotizacionId: string; ramo: string; estado: string } | null;
+  poliza: { numero: string; ramo: string; estado: string } | null;
+  siniestroEnCurso: { siniestroId: string; estado: string } | null;
+  hipotecario: { estado: string } | null;
+}
+
 export function reseed(): void {
   faker.seed(SEED);
 }
@@ -40,4 +47,27 @@ export function clients(count: number): Client[] {
       'revocado',
     ] as const),
   }));
+}
+
+/** An Inicio with every card: offer, policy in force, open claim and origination. */
+export function fullHome(): Home {
+  const ramo = faker.helpers.arrayElement([
+    'Protección de dispositivo',
+    'SOAT motocicleta',
+    'Hogar',
+  ]);
+  return {
+    ofertaVigente: {
+      cotizacionId: `COT-${faker.string.numeric(4)}`,
+      ramo,
+      estado: 'oferta_vigente',
+    },
+    poliza: { numero: `POL-${faker.string.numeric(5)}-CO`, ramo, estado: 'vigente' },
+    siniestroEnCurso: { siniestroId: `SIN-${faker.string.numeric(3)}`, estado: 'en_evaluacion' },
+    hipotecario: { estado: 'disponible' },
+  };
+}
+
+export function emptyHome(): Home {
+  return { ofertaVigente: null, poliza: null, siniestroEnCurso: null, hipotecario: null };
 }

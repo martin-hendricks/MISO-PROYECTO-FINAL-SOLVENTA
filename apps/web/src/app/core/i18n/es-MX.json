@@ -3,10 +3,56 @@
     "portal": "Solventa",
     "market": "México",
     "nav": {
-      "user": "Cliente"
+      "inicio": "Inicio"
+    }
+  },
+  "inicio": {
+    "title": "Hola",
+    "subtitle": "Resumen de tu cuenta",
+    "newQuote": "Nueva cotización",
+    "loading": "Cargando tu inicio…",
+    "offer": {
+      "label": "Oferta vigente",
+      "accept": "Aceptar oferta"
     },
-    "user": {
-      "title": "Portal del cliente"
+    "policy": {
+      "label": "Póliza activa",
+      "link": "Ver póliza"
+    },
+    "claim": {
+      "label": "Siniestro en curso",
+      "body": "Aviso #{{id}}",
+      "link": "Ver siniestro"
+    },
+    "vidaCrediticia": {
+      "label": "Vida Crediticia",
+      "body": "Originación hipotecaria disponible.",
+      "link": "Ver oferta"
+    },
+    "estado": {
+      "oferta_vigente": "Oferta vigente",
+      "vigente": "Vigente",
+      "en_evaluacion": "En evaluación"
+    },
+    "empty": {
+      "title": "Aún no tienes productos",
+      "body": "Cotiza tu primer seguro y aquí verás tu oferta, tu póliza y tus avisos."
+    },
+    "error": {
+      "body": "No pudimos cargar tu inicio.",
+      "retry": "Reintentar"
+    }
+  },
+  "destino": {
+    "cotizacion": "Nueva cotización",
+    "emision": "Emisión de la póliza",
+    "poliza": "Detalle de póliza",
+    "siniestro": "Detalle de siniestro",
+    "vidaCrediticia": "Vida Crediticia",
+    "pending": {
+      "title": "Sección en preparación",
+      "body": "Pronto podrás continuar desde aquí.",
+      "home": "Volver al inicio"
     }
   },
   "login": {

@@ -11,7 +11,7 @@ export interface LoginVariant {
 
 export const CUSTOMER_LOGIN: LoginVariant = {
   role: 'cliente',
-  home: '/user',
+  home: '/inicio',
   copy: 'login.customer',
   canRegister: true,
 };

@@ -1,4 +1,5 @@
 import { Given, Then, When } from '@cucumber/cucumber';
+import { emptyHome } from '../support/data/generators';
 import { PortalWorld } from '../support/world';
 
 Given('the customer login page is open', async function (this: PortalWorld) {
@@ -8,13 +9,15 @@ Given('the customer login page is open', async function (this: PortalWorld) {
 
 Given('the customer is signed in', async function (this: PortalWorld) {
   await this.bff.acceptSignIn(this.account.email, 'cliente');
+  await this.bff.serveHome(emptyHome());
   await this.login.open('customer');
   await this.login.signIn(this.account);
-  await this.shell.expectUserShell();
+  await this.shell.expectInicio();
 });
 
 When('the customer signs in with valid credentials', async function (this: PortalWorld) {
   await this.bff.acceptSignIn(this.account.email, 'cliente');
+  await this.bff.serveHome(emptyHome());
   await this.login.signIn(this.account);
 });
 

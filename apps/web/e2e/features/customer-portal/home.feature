@@ -1,4 +1,4 @@
-@customer-portal @pendiente @HU-109 @SOLV-233
+@customer-portal @HU-109 @SOLV-233
 Feature: Customer home
 
   Scenario: Cards by customer state
