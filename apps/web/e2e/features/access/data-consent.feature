@@ -1,4 +1,4 @@
-@access @pendiente @HU-115 @SOLV-239
+@access @HU-115 @SOLV-239
 Feature: Data processing consent
 
   Scenario: Consent during sign-up

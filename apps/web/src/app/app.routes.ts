@@ -5,6 +5,7 @@ import { Role, SessionService } from './core/session/session.service';
 import { homeSection, Section } from './features/backoffice/sections';
 import type { Destino } from './features/destino/destino.view';
 import { BACKOFFICE_LOGIN, CUSTOMER_LOGIN } from './features/login/login.variant';
+import { requireDraft } from './features/registro/registro.draft';
 
 const CUSTOMER: readonly Role[] = ['cliente'];
 const STAFF: readonly Role[] = ['asesor', 'operador'];
@@ -37,7 +38,7 @@ export const routes: Routes = [
   },
   {
     path: 'consentimiento',
-    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
+    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home), requireDraft],
     loadComponent: () =>
       import('./features/consentimiento/consentimiento.view').then((m) => m.ConsentimientoView),
   },
