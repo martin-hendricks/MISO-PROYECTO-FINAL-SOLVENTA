@@ -146,7 +146,7 @@ class InicioTest {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 5_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

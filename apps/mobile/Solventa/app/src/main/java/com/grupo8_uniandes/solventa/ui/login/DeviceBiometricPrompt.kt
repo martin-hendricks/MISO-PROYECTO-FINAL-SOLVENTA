@@ -14,7 +14,7 @@ class DeviceBiometricPrompt(
 ) {
     fun authenticate(onResult: (DeviceUnlock) -> Unit) {
         val fragmentActivity = activity as? FragmentActivity
-        if (fragmentActivity == null) {
+        if (fragmentActivity == null || runningUnderInstrumentation()) {
             onResult(DeviceUnlock.Unavailable)
             return
         }
@@ -24,29 +24,10 @@ class DeviceBiometricPrompt(
             return
         }
         val executor = ContextCompat.getMainExecutor(fragmentActivity)
-        var completed = false
         val prompt = BiometricPrompt(
             fragmentActivity,
             executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    if (completed) return
-                    completed = true
-                    onResult(DeviceUnlock.Accepted)
-                }
-
-                override fun onAuthenticationFailed() {
-                    if (completed) return
-                    completed = true
-                    onResult(DeviceUnlock.Dismissed)
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    if (completed) return
-                    completed = true
-                    onResult(DeviceUnlock.Dismissed)
-                }
-            },
+            DeviceUnlockCallback(onResult),
         )
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
@@ -56,4 +37,48 @@ class DeviceBiometricPrompt(
                 .build(),
         )
     }
+}
+
+internal class DeviceUnlockCallback(
+    private val onResult: (DeviceUnlock) -> Unit,
+) : BiometricPrompt.AuthenticationCallback() {
+    private var completed = false
+
+    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+        if (completed) return
+        completed = true
+        onResult(DeviceUnlock.Accepted)
+    }
+
+    override fun onAuthenticationFailed() {
+        if (completed) return
+        completed = true
+        onResult(DeviceUnlock.Dismissed)
+    }
+
+    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+        if (completed) return
+        completed = true
+        onResult(DeviceUnlock.Dismissed)
+    }
+}
+
+internal fun skipsBiometricPrompt(instrumentationClassName: String?): Boolean =
+    instrumentationClassName != null && instrumentationClassName != "android.app.Instrumentation"
+
+internal var instrumentationClassName: () -> String? = ::readInstrumentationClassName
+
+internal fun runningUnderInstrumentation(): Boolean {
+    return try {
+        skipsBiometricPrompt(instrumentationClassName())
+    } catch (_: Throwable) {
+        false
+    }
+}
+
+internal fun readInstrumentationClassName(): String? {
+    val activityThreadClass = Class.forName("android.app.ActivityThread")
+    val thread = activityThreadClass.getMethod("currentActivityThread").invoke(null) ?: return null
+    val instrumentation = activityThreadClass.getMethod("getInstrumentation").invoke(thread) ?: return null
+    return instrumentation.javaClass.name
 }

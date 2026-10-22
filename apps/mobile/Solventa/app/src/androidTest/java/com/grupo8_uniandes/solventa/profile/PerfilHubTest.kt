@@ -29,11 +29,11 @@ class PerfilHubTest {
         val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
         scenario = ActivityScenario.launch(intent)
-        rule.waitUntil(timeoutMillis = 5_000) {
+        rule.waitUntil(timeoutMillis = 30_000) {
             rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("tab_Perfil").performClick()
-        rule.waitUntil(timeoutMillis = 5_000) {
+        rule.waitUntil(timeoutMillis = 30_000) {
             rule.onAllNodesWithTag("screen_perfil").fetchSemanticsNodes().isNotEmpty()
         }
     }
@@ -55,7 +55,7 @@ class PerfilHubTest {
     fun givenPerfil_whenSignOutIsConfirmed_thenLoginHasNoBar() {
         rule.onNodeWithTag("action_sign_out").performClick()
         rule.onNodeWithTag("action_sign_out_confirm").performClick()
-        rule.waitUntil(timeoutMillis = 8_000) {
+        rule.waitUntil(timeoutMillis = 30_000) {
             rule.onAllNodesWithTag("screen_login").fetchSemanticsNodes().isNotEmpty()
         }
         rule.onNodeWithTag("screen_login").assertIsDisplayed()

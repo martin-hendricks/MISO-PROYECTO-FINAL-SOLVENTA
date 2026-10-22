@@ -42,6 +42,9 @@ android {
     buildFeatures {
         compose = true
     }
+    installation {
+        timeOutInMs = 10 * 60 * 1000
+    }
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {

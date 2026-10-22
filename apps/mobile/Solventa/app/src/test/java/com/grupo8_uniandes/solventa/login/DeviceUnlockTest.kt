@@ -15,10 +15,12 @@ class DeviceUnlockTest {
     }
 
     @Test
-    fun givenDismissedOrUnavailable_whenEvaluated_thenDoNotOpenHome() {
-        val openHome = OpenHomeFromDeviceUnlock()
+    fun givenDismissed_whenEvaluated_thenDoNotOpenHome() {
+        assertFalse(OpenHomeFromDeviceUnlock()(DeviceUnlock.Dismissed))
+    }
 
-        assertFalse(openHome(DeviceUnlock.Dismissed))
-        assertFalse(openHome(DeviceUnlock.Unavailable))
+    @Test
+    fun givenUnavailable_whenEvaluated_thenDoNotOpenHome() {
+        assertFalse(OpenHomeFromDeviceUnlock()(DeviceUnlock.Unavailable))
     }
 }
