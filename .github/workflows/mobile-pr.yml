@@ -8,6 +8,7 @@ on:
       - 'release/**'
       - 'hotfix/**'
     types: [opened, synchronize, reopened]
+    # Keep in sync with the "coverage" filter in codecov-empty-upload.yml.
     paths:
       - 'apps/mobile/Solventa/**'
       - '.github/workflows/mobile-pr.yml'
