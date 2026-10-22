@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.registration
 
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.Registration
@@ -22,11 +23,12 @@ class RegisterAccountTest {
                 givenName = " Camila ",
                 surnames = "Restrepo",
                 email = " camila@correo.com ",
-                documentType = "CC",
+                documentType = " CC ",
                 documentNumber = "1023456789",
                 password = "secret",
                 documentPhoto = photo,
             ),
+            Region.Colombia,
         )
 
         assertTrue(saved)
@@ -44,16 +46,28 @@ class RegisterAccountTest {
     @Test
     fun givenMissingOrInvalid_whenSubmit_thenNothingIsWritten() {
         val photo = byteArrayOf(9)
-        assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(email = "camila", documentPhoto = photo)))
-        assertFalse(register.submit(draft(password = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(email = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentNumber = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentPhoto = null)))
-        assertFalse(register.submit(draft(documentPhoto = byteArrayOf())))
+        assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(email = "camila", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(email = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentNumber = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentPhoto = null), Region.Colombia))
+        assertFalse(register.submit(draft(documentPhoto = byteArrayOf()), Region.Colombia))
         assertNull(repository.saved)
+    }
+
+    @Test
+    fun givenTypeOutsideTheRegion_whenSubmit_thenNothingIsWritten() {
+        val photo = byteArrayOf(9)
+        assertFalse(register.submit(draft(documentType = "TI", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = "RC", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = "CC", documentPhoto = photo), Region.Mexico))
+        assertNull(repository.saved)
+
+        assertTrue(register.submit(draft(documentType = "INE", documentPhoto = photo), Region.Mexico))
+        assertEquals("INE", repository.saved?.documentType)
     }
 
     private fun draft(

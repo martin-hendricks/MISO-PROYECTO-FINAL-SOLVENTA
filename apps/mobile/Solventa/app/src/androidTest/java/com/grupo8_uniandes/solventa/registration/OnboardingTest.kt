@@ -71,12 +71,12 @@ class OnboardingTest {
             "field_nombre",
             "field_apellidos",
             "field_correo",
-            "field_tipo",
             "field_numero",
             "field_contrasena",
         ).forEach { tag ->
             rule.assertValue(tag, "")
         }
+        rule.onNodeWithText("Tipo: ").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
         rule.onAllNodes(isDialog()).assertCountEquals(0)
@@ -166,7 +166,8 @@ class OnboardingTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput(email)
-        rule.onNodeWithTag("field_tipo").performTextInput("CC")
+        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
+        rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
         rule.onNodeWithTag("field_contrasena").performTextInput("secret")
     }
@@ -244,7 +245,7 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

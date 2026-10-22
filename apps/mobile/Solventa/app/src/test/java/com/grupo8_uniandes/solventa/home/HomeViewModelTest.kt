@@ -1,56 +1,66 @@
 package com.grupo8_uniandes.solventa.home
 
+import com.grupo8_uniandes.solventa.domain.home.ClaimCandidate
+import com.grupo8_uniandes.solventa.domain.home.HomePanel
+import com.grupo8_uniandes.solventa.domain.home.HomeRepository
+import com.grupo8_uniandes.solventa.domain.home.HomeSituation
+import com.grupo8_uniandes.solventa.domain.home.LoadInicio
+import com.grupo8_uniandes.solventa.domain.home.Origination
+import com.grupo8_uniandes.solventa.domain.home.PolicyCandidate
+import com.grupo8_uniandes.solventa.domain.home.Quote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 class HomeViewModelTest {
     @Test
-    fun givenNoOfferAndNoPolicy_whenHomeLoads_thenQuoteOnly() {
-        val state = HomeViewModel().state.value
-        assertEquals("Nueva cotización", state.quoteActionLabel)
-        assertNull(state.summary.offer)
-        assertNull(state.summary.policy)
-        assertFalse(state.showEnrichedHome)
+    fun givenEmptyRepository_whenHomeLoads_thenNoSlots() {
+        val panel = HomeViewModel().state.value.panel
+        assertNull(panel.offerId)
+        assertNull(panel.policyId)
+        assertNull(panel.claimId)
+        assertFalse(panel.vidaCrediticia)
     }
 
     @Test
-    fun givenOfferOnly_whenHomeLoads_thenOfferCardAndQuote() {
-        val state = HomeViewModel(HomeSummary(offer = OfferSummary("SOAT motocicleta"))).state.value
-        assertEquals("Nueva cotización", state.quoteActionLabel)
-        assertEquals("SOAT motocicleta", state.summary.offer?.label)
-        assertNull(state.summary.policy)
-        assertFalse(state.showEnrichedHome)
-    }
-
-    @Test
-    fun givenPolicyOnly_whenHomeLoads_thenPolicyCardAndQuote() {
-        val state = HomeViewModel(HomeSummary(policy = PolicySummary("SOL-0001"))).state.value
-        assertEquals("Nueva cotización", state.quoteActionLabel)
-        assertNull(state.summary.offer)
-        assertEquals("SOL-0001", state.summary.policy?.policyId)
-        assertFalse(state.showEnrichedHome)
-    }
-
-    @Test
-    fun givenOfferAndPolicy_whenHomeLoads_thenBothCardsAndQuote() {
-        val state = HomeViewModel(
-            HomeSummary(
-                offer = OfferSummary("SOAT motocicleta"),
-                policy = PolicySummary("SOL-0001"),
+    fun givenSituation_whenHomeLoads_thenOnlySelectedSlots() {
+        val at = Instant.parse("2026-03-01T00:00:00Z")
+        val viewModel = HomeViewModel(
+            LoadInicio(
+                HomeRepository {
+                    HomeSituation(
+                        quotes = listOf(
+                            Quote("Q-drop", consultable = false, becameCurrentAt = at),
+                            Quote("Q-kept", consultable = true, becameCurrentAt = at),
+                        ),
+                        policies = listOf(PolicyCandidate("POL-1", active = true, issuedAt = at)),
+                        claims = listOf(ClaimCandidate("CLM-1", inProgress = true, openedAt = at)),
+                        origination = Origination(present = false),
+                    )
+                },
             ),
-        ).state.value
-        assertEquals("SOAT motocicleta", state.summary.offer?.label)
-        assertEquals("SOL-0001", state.summary.policy?.policyId)
-        assertEquals("Nueva cotización", state.quoteActionLabel)
-        assertFalse(state.showEnrichedHome)
+        )
+        val panel = viewModel.state.value.panel
+        assertEquals("Q-kept", panel.offerId)
+        assertEquals("POL-1", panel.policyId)
+        assertEquals("CLM-1", panel.claimId)
+        assertFalse(panel.vidaCrediticia)
     }
 
     @Test
-    fun perfilExposesOnlyIdiomaYRegion() {
-        val entries = HomeViewModel().profileEntries
-        assertEquals(1, entries.size)
-        assertEquals("IdiomaRegion", entries.single().id)
+    fun givenKeptOffer_whenRead_thenAcceptIdMatchesAndThereIsNoPremium() {
+        val at = Instant.parse("2026-03-01T00:00:00Z")
+        val panel = HomeViewModel(
+            LoadInicio(
+                HomeRepository {
+                    HomeSituation(quotes = listOf(Quote("Q-kept", consultable = true, becameCurrentAt = at)))
+                },
+            ),
+        ).state.value.panel
+        assertEquals("Q-kept", panel.offerId)
+        assertTrue(HomePanel::class.java.declaredFields.none { it.name.contains("premium", ignoreCase = true) })
     }
 }
