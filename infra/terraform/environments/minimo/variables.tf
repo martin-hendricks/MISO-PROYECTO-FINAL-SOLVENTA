@@ -386,6 +386,17 @@ variable "alb_routes" {
       paths    = ["/v1/productos", "/v1/cotizaciones"]
       priority = 20
     }
+    bff-web = {
+      port = 8000
+      paths = [
+        "/sesion",
+        "/registro",
+        "/cliente",
+        "/asesor",
+        "/operador",
+      ]
+      priority = 30
+    }
   }
 }
 
