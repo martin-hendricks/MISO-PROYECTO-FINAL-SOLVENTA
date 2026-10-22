@@ -1,0 +1,137 @@
+# Ubicación en el repo: .github/workflows/deploy-web.yml
+#
+# CD del frontend: build de producción de la SPA Angular (apps/web) y
+# publicación en S3 + invalidación de CloudFront (infra/terraform/modules/edge).
+# Corre después de web-pr.yml (unit + e2e), que sigue sin tocar AWS; este
+# workflow solo construye y publica en push directo a develop/main.
+#
+# Requiere, además de lo que ya usa infra/terraform/modules/github_actions_cd
+# para deploy.yml (OIDC, ACTIONS_CD_ROLE_ARN):
+#   - s3:ListAllMyBuckets / cloudfront:ListDistributions / apigatewayv2:GetApis
+#     (resolver el bucket, la distribución y la URL del API Gateway por
+#     nombre/tag/comment, sin depender del state de Terraform -- el bucket
+#     tiene un sufijo aleatorio, random_id.spa_bucket_suffix en el módulo edge).
+#   - s3:ListBucket/GetObject/PutObject/DeleteObject sobre
+#     arn:aws:s3:::solventa-*-spa-*
+#   - cloudfront:CreateInvalidation
+#
+# apps/web/src/app/core/api/api-base-url.ts expone un InjectionToken con un
+# valor fijo ('/web', pensado para un bff-web que hoy no está desplegado).
+# Este workflow reemplaza ese valor por la URL real del API Gateway antes
+# de compilar -- la SPA queda sirviendo archivos estáticos y con conectividad
+# directa al API Gateway (api-socios, ms-cotizacion); las rutas que bff-web
+# resolvería (/sesion/*, /asesor/*) seguirán fallando hasta que ese servicio
+# exista. Ver infra/k8s/values/bff-web.yaml (ya preparado, sin Dockerfile
+# todavía) y la matrix dinámica de deploy.yml (infra/terraform/modules/alb
+# necesitaría una entrada nueva en var.alb_routes cuando bff-web se despliegue).
+
+name: Deploy Web
+run-name: "[Deploy Web] ${{ github.ref_name }} @ ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # requerido por aws-actions/configure-aws-credentials para canjear el JWT de OIDC
+
+jobs:
+  deploy-web:
+    name: deploy-web
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.3"
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Resuelve bucket, distribución y URL del API Gateway por
+      # prefijo/comment -- el state de Terraform es local, no accesible
+      # desde CI (igual razón que ya documenta deploy.yml para los target
+      # groups del ALB).
+      - name: Resolver bucket, distribución y URL del API Gateway
+        id: resolve
+        run: |
+          BUCKET=$(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, 'solventa-minimo-spa-')].Name | [0]" \
+            --output text)
+          if [ "$BUCKET" = "None" ] || [ -z "$BUCKET" ]; then
+            echo "::error::No se encontró ningún bucket con prefijo solventa-minimo-spa-. ¿Corrió terraform apply?"
+            exit 1
+          fi
+
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Comment=='solventa-minimo Angular SPA'].Id | [0]" \
+            --output text)
+          if [ "$DISTRIBUTION_ID" = "None" ] || [ -z "$DISTRIBUTION_ID" ]; then
+            echo "::error::No se encontró ninguna distribución de CloudFront con el comment esperado."
+            exit 1
+          fi
+
+          API_URL=$(aws apigatewayv2 get-apis \
+            --query "Items[?Name=='solventa-minimo-api'].ApiEndpoint | [0]" \
+            --output text)
+          if [ "$API_URL" = "None" ] || [ -z "$API_URL" ]; then
+            echo "::error::No se encontró ningún API Gateway llamado solventa-minimo-api."
+            exit 1
+          fi
+
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$DISTRIBUTION_ID" >> "$GITHUB_OUTPUT"
+          echo "api_url=$API_URL" >> "$GITHUB_OUTPUT"
+
+      # api-base-url.ts no usa el patrón estándar de environment.ts/
+      # environment.prod.ts de Angular (fileReplacements) -- es un
+      # InjectionToken con un factory fijo. Sustituir el valor del factory
+      # en el fuente, antes de compilar, evita introducir ese patrón solo
+      # para este único valor. El API Gateway cambia de URL en cada
+      # terraform destroy/apply (el ID es aleatorio), así que este valor
+      # nunca puede quedar commiteado -- siempre se resuelve en build time.
+      - name: Inyectar la URL del API Gateway en el build
+        run: |
+          sed -i "s#factory: () => '/web'#factory: () => '${{ steps.resolve.outputs.api_url }}'#" \
+            src/app/core/api/api-base-url.ts
+          grep -n "factory:" src/app/core/api/api-base-url.ts
+
+      - name: Build de producción
+        run: pnpm build
+
+      # --delete: los archivos hasheados de un build anterior (outputHashing:
+      # "all" en angular.json) que ya no están en el build actual se
+      # eliminan del bucket, para no acumular basura indefinidamente.
+      - name: Publicar en S3
+        run: |
+          aws s3 sync dist/solventa-web/browser "s3://${{ steps.resolve.outputs.bucket }}" --delete
+
+      - name: Invalidar caché de CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.resolve.outputs.distribution_id }}" \
+            --paths "/*"
