@@ -27,14 +27,23 @@ locals {
       service_principals = ["elasticache.amazonaws.com"]
     }
     s3 = {
-      description = "CMK for S3 (evidencia de siniestros) encryption at rest"
+      description = "CMK for S3 (evidencia de siniestros, SPA del frontend) encryption at rest"
       # Esta CMK se reutiliza también para cifrar los CloudWatch Log Groups
       # (observability y la integración del API Gateway): sin
       # logs.amazonaws.com como principal, CreateLogGroup falla con
       # AccessDeniedException ("The specified KMS key does not exist or is
       # not allowed to be used"), porque CloudWatch Logs necesita permiso
       # explícito de la llave, no solo el permiso IAM del caller.
-      service_principals = ["s3.amazonaws.com", "logs.amazonaws.com"]
+      #
+      # cloudfront.amazonaws.com: el bucket de la SPA (módulo edge) cifra
+      # con esta CMK y CloudFront lo lee vía OAC -- sin este principal,
+      # CloudFront no puede completar kms:Decrypt al servir los objetos y
+      # devuelve 403 AccessDenied aunque la bucket policy del OAC sea
+      # correcta. No se acota con aws:SourceArn (la distribución) porque el
+      # módulo kms se crea antes que edge y crearía una dependencia
+      # circular; el scoping real de qué distribución puede leer el bucket
+      # ya lo impone la bucket policy del OAC (SourceArn de la distribución).
+      service_principals = ["s3.amazonaws.com", "logs.amazonaws.com", "cloudfront.amazonaws.com"]
     }
     secrets = {
       description        = "CMK for Secrets Manager (credenciales de BD y terceros) encryption at rest"
