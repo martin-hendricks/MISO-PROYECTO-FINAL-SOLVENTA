@@ -227,9 +227,10 @@ resource "aws_iam_role_policy_attachment" "elb_describe" {
 # scoping por recurso) permite resolverlo por prefijo
 # ("solventa-<environment>-spa-") en tiempo de ejecución; lo mismo para
 # cloudfront:ListDistributions, resuelta por el Comment del módulo edge
-# ("${project_name}-${environment} Angular SPA"). apigatewayv2:GetApis
+# ("${project_name}-${environment} Angular SPA"). apigateway:GET
 # resuelve la URL del API Gateway para inyectarla en el build del
-# frontend (ver deploy-web.yml).
+# frontend (ver deploy-web.yml) -- el prefijo IAM para API Gateway es
+# "apigateway", no "apigatewayv2", aunque la API sea HTTP API (v2).
 data "aws_iam_policy_document" "web_deploy" {
   statement {
     sid    = "ListBucketsAndDistributions"
@@ -237,7 +238,7 @@ data "aws_iam_policy_document" "web_deploy" {
     actions = [
       "s3:ListAllMyBuckets",
       "cloudfront:ListDistributions",
-      "apigatewayv2:GetApis",
+      "apigateway:GET",
     ]
     resources = ["*"] # Ninguna de estas tres admite scoping por ARN/nombre en el recurso.
   }
@@ -265,6 +266,17 @@ data "aws_iam_policy_document" "web_deploy" {
     effect    = "Allow"
     actions   = ["cloudfront:CreateInvalidation"]
     resources = ["*"] # El ID de la distribución (con su sufijo de cuenta) solo se conoce tras resolverla por Comment.
+  }
+
+  # El bucket de la SPA cifra por defecto con SSE-KMS (edge module, var
+  # kms_key_arn -- la misma CMK compartida, module.kms.s3_key_arn). Sin estos
+  # permisos, s3:PutObject/GetObject fallan con AccessDenied en
+  # kms:GenerateDataKey/Decrypt aunque la policy S3 ya lo permita.
+  statement {
+    sid       = "UseSpaBucketKmsKey"
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
+    resources = [var.spa_kms_key_arn]
   }
 }
 
