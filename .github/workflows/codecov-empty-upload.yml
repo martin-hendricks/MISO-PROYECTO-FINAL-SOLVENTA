@@ -1,0 +1,61 @@
+# Ubicación en el repo: .github/workflows/codecov-empty-upload.yml
+#
+# codecov/patch es status check requerido, pero Codecov solo lo publica tras
+# recibir una subida de cobertura, y los workflows de pruebas filtran por ruta.
+# En un PR que no toca código con cobertura (p. ej. solo infra/ o docs/) ningún
+# workflow sube cobertura y el check queda pendiente para siempre.
+#
+# Este workflow detecta ese caso y hace una subida vacía, para que Codecov
+# publique codecov/patch en verde. Si el PR sí toca código con cobertura, no
+# hace nada y el status lo da la cobertura real.
+#
+# Mantener el filtro "coverage" sincronizado con los paths de
+# backend-unit-tests.yml, web-pr.yml y mobile-pr.yml.
+
+name: Codecov empty upload
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - 'release/**'
+      - 'hotfix/**'
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  empty-upload:
+    name: codecov-empty-upload
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detectar cambios en código con cobertura
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            coverage:
+              - 'apps/backend/**'
+              - '.github/workflows/backend-unit-tests.yml'
+              - 'apps/web/**'
+              - '.github/workflows/web-pr.yml'
+              - 'apps/mobile/Solventa/**'
+              - '.github/workflows/mobile-pr.yml'
+
+      - name: Subida vacía a Codecov
+        if: steps.changes.outputs.coverage == 'false'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          run_command: empty-upload
+          # Sin force, Codecov solo acepta cambios que considera ignorables;
+          # aquí el filtro de arriba ya decide qué cuenta como código.
+          force: true
+          fail_ci_if_error: true

@@ -8,6 +8,7 @@ on:
       - main
       - "release/**"
       - "hotfix/**"
+    # Keep in sync with the "coverage" filter in codecov-empty-upload.yml.
     paths:
       - "apps/backend/**"
       - ".github/workflows/backend-unit-tests.yml"
