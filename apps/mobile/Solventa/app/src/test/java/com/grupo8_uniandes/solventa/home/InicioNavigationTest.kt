@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
@@ -56,12 +57,33 @@ class InicioNavigationTest {
     }
 
     @Test
-    fun givenQuotePlaceholder_whenAccepted_thenIssuanceHasNoOfferId() {
+    fun givenOfferCard_whenOpened_thenVerOfertaShowsThePreparedPremium() {
+        show(HomePanel(offerId = "COT-1042"))
+        rule.onNodeWithTag("home_offer").performClick()
+        rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
+        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenTheThreeAnswers_whenCotizar_thenVerOfertaOpensOnThePreparedPremium() {
         show(HomePanel())
         rule.onNodeWithTag("action_new_quote").performClick()
-        rule.onNodeWithText("Aceptar oferta").performClick()
-        rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onAllNodesWithTag("emision_offer_id").assertCountEquals(0)
+        rule.onNodeWithTag("field_device_value").performTextInput("2400000")
+        rule.onNodeWithTag("field_brand_model").performTextInput("Pixel")
+        rule.onNodeWithTag("answer_no").performClick()
+        rule.onNodeWithTag("action_quote").performClick()
+        rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
+        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenIncompleteQuote_whenCotizar_thenItStaysOffIssuance() {
+        show(HomePanel())
+        rule.onNodeWithTag("action_new_quote").performClick()
+        rule.onNodeWithTag("action_quote").performClick()
+        rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
     }
 
     @Test

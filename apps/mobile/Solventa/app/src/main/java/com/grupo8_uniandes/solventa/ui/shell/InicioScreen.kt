@@ -24,6 +24,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 fun InicioScreen(
     state: HomeUiState,
     onNewQuote: () -> Unit,
+    onOpenOffer: (String) -> Unit = {},
     onAcceptOffer: (String) -> Unit = {},
     onOpenPolicy: (String) -> Unit = {},
     onOpenClaim: (String) -> Unit = {},
@@ -43,7 +44,7 @@ fun InicioScreen(
             style = MaterialTheme.typography.headlineMedium,
         )
         panel.offerId?.let { offerId ->
-            SolventaCard(testTag = "home_offer") {
+            SolventaCard(onClick = { onOpenOffer(offerId) }, testTag = "home_offer") {
                 Text(text = offerId, style = SolventaTypography.amount)
             }
             SolventaButton(

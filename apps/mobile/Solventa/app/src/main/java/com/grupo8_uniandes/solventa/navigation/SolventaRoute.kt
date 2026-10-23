@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 data object InicioRoute
 
 @Serializable
-data object CotizacionRoute
+data class CotizacionRoute(val cotizacionId: String = "")
+
+@Serializable
+data class VerOfertaRoute(val cotizacionId: String)
 
 @Serializable
 data object PolizasRoute

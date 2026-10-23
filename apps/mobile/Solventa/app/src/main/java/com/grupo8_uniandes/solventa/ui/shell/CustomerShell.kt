@@ -37,6 +37,7 @@ import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.navigation.EmisionEnCursoRoute
 import com.grupo8_uniandes.solventa.navigation.InicioRoute
@@ -272,7 +273,8 @@ internal fun SignedInShell(
 
 @Composable
 private fun routeTitle(route: Any): String = when (route) {
-    CotizacionRoute -> stringResource(R.string.quote_title)
+    is CotizacionRoute -> stringResource(R.string.action_new_quote)
+    is VerOfertaRoute -> stringResource(R.string.offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
