@@ -69,8 +69,8 @@ import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
-import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
+import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
@@ -130,8 +130,10 @@ class MockSignupRepository(
 class MockOfferRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : OfferRepository {
-    override fun quote(ramo: String, risk: DeviceRisk): StandInAnswer<FirmOffer> =
-        control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }
+    override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> =
+        control.ready {
+            decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer().copy(ramo = ramo)
+        }
 
     override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }

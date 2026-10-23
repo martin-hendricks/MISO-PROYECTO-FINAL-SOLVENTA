@@ -101,9 +101,12 @@ fun CustomerNavHost(
             }
             CotizacionScreen(
                 state = state,
+                onMenu = viewModel::onMenu,
+                onLine = viewModel::onLine,
                 onValueChange = viewModel::onValue,
                 onBrandChange = viewModel::onBrand,
                 onAge = viewModel::onAge,
+                onText = viewModel::onText,
                 onCotizar = viewModel::cotizar,
                 onCancel = {
                     viewModel.cancel()

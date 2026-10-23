@@ -1,10 +1,11 @@
 package com.grupo8_uniandes.solventa.quote
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
+import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
-import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteField
+import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
+import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteLine
 import com.grupo8_uniandes.solventa.domain.bff.offer.RequestFirmOffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,8 +59,47 @@ class QuoteViewModelTest {
 
         viewModel.cotizar()
 
-        assertEquals(QuoteField.Value, viewModel.state.value.gap)
+        assertEquals(QuoteInput.Value, viewModel.state.value.gap)
         assertNull(viewModel.state.value.readyId)
+    }
+
+    @Test
+    fun givenDeviceAnswers_whenTheLineChangesToTravel_thenThoseAnswersClear() {
+        val viewModel = filled(scripted(StandInAnswer.Ready(sample())))
+
+        viewModel.onLine(QuoteLine.Travel)
+
+        assertEquals(QuoteLine.Travel, viewModel.state.value.line)
+        assertEquals("", viewModel.state.value.value)
+        assertEquals("", viewModel.state.value.brand)
+        assertNull(viewModel.state.value.olderThan12Months)
+        assertFalse(viewModel.state.value.menuOpen)
+    }
+
+    @Test
+    fun givenTravelAnswers_whenCotizar_thenTheRequestUsesThatLine() {
+        var sent: String? = null
+        val viewModel = QuoteViewModel(
+            RequestFirmOffer(
+                object : OfferRepository {
+                    override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
+                        sent = ramo
+                        return StandInAnswer.Ready(sample().copy(ramo = ramo))
+                    }
+
+                    override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
+                        StandInAnswer.Failed
+                },
+            ),
+        )
+        viewModel.onLine(QuoteLine.Travel)
+        viewModel.onText(QuoteInput.Destination, "Bogotá")
+        viewModel.onText(QuoteInput.Duration, "7")
+
+        viewModel.cotizar()
+
+        assertEquals("Viaje", sent)
+        assertEquals("COT-1042", viewModel.state.value.readyId)
     }
 
     @Test
@@ -92,7 +132,7 @@ class QuoteViewModelTest {
     )
 
     private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
-        override fun quote(ramo: String, risk: DeviceRisk): StandInAnswer<FirmOffer> = answer
+        override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
 
         override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
     }

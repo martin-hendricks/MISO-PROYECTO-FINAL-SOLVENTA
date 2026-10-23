@@ -1,8 +1,8 @@
 package com.grupo8_uniandes.solventa.offer
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
+import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.formatOfferDate
@@ -93,7 +93,7 @@ class OfferViewModelTest {
     private fun scripted(offer: FirmOffer) = scripted(StandInAnswer.Ready(offer))
 
     private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
-        override fun quote(ramo: String, risk: DeviceRisk): StandInAnswer<FirmOffer> = answer
+        override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
 
         override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
     }
