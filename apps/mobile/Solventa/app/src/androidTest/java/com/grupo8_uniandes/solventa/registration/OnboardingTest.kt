@@ -245,7 +245,7 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

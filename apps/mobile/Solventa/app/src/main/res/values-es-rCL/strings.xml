@@ -14,6 +14,18 @@
     <string name="action_go_home">Ir a Inicio</string>
     <string name="action_go_policy">Ver póliza emitida</string>
     <string name="profile_language">Idioma y región</string>
+    <string name="profile_location">Ubicación del dispositivo</string>
+    <string name="profile_camera">Cámara</string>
+    <string name="profile_photos">Fotos</string>
+    <string name="profile_permission_while_using">Permitida · mientras usas la app</string>
+    <string name="profile_photos_notice">Permitidas · una imagen del aviso</string>
+    <string name="profile_region_co">Español · Colombia · es-CO · COP</string>
+    <string name="profile_region_mx">Español · México · es-MX · MXN</string>
+    <string name="profile_region_cl">Español · Chile · es-CL · CLP</string>
+    <string name="profile_region_pe">Español · Perú · es-PE · PEN</string>
+    <string name="profile_profiling">Consentimiento Vida Crediticia</string>
+    <string name="action_sign_out">Cerrar sesión</string>
+    <string name="sign_out_body">Tendrás que volver a ingresar para ver tus pólizas.</string>
     <string name="sample_policy_id">SOL-0001</string>
     <string name="sample_offer">SOAT motocicleta</string>
     <string name="field_label">Placa</string>
@@ -25,6 +37,7 @@
     <string name="issued_status">Exitosa</string>
     <string name="quote_title">Cotización</string>
     <string name="policy_detail_title">Detalle de póliza</string>
+    <string name="home_vida_crediticia">Vida Crediticia</string>
     <string name="claims_placeholder">Avisos de siniestro</string>
     <string name="idioma_title">Idioma y región</string>
     <string name="idioma_heading">Paso 1 de 4 · Elige país e idioma</string>
@@ -64,6 +77,7 @@
     <string name="login_error_banner">Correo o contraseña incorrectos. Reintenta en esta vista.</string>
     <string name="login_error_password">Revisa tu contraseña</string>
     <string name="login_unavailable_banner">No se pudo completar el ingreso. Reintenta en esta vista.</string>
+    <string name="login_biometric_title">Huella o rostro</string>
     <string name="consent_title">Consentimiento</string>
     <string name="consent_heading">Tratamiento de datos</string>
     <string name="consent_body">Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).</string>

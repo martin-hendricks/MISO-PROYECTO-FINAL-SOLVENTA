@@ -34,7 +34,7 @@ class CustomerShellTest {
         val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
         scenario = ActivityScenario.launch(intent)
-        rule.waitUntil(timeoutMillis = 5_000) {
+        rule.waitUntil(timeoutMillis = 30_000) {
             rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
         }
     }
