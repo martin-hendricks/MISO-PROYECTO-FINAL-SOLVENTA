@@ -12,12 +12,18 @@ from app.domain.errores import (
     ErrorDominio,
     NoEncontrado,
     ReglaDeNegocioViolada,
+    TransicionInvalida,
 )
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
-ESTADO_HTTP = {NoEncontrado: 404, ReglaDeNegocioViolada: 422, DependenciaNoDisponible: 503}
+ESTADO_HTTP = {
+    NoEncontrado: 404,
+    ReglaDeNegocioViolada: 422,
+    TransicionInvalida: 409,
+    DependenciaNoDisponible: 503,
+}
 
 
 def crear_app(config: Settings | None = None) -> FastAPI:

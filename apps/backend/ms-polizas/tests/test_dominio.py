@@ -4,13 +4,16 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.errores import ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import (
     Cobertura,
     EstadoPoliza,
     Poliza,
     numero_de_poliza,
+    poliza_cancelada,
     poliza_emitida,
+    poliza_modificada,
+    poliza_renovada,
 )
 
 from .dobles import coberturas
@@ -64,3 +67,137 @@ def test_evento_poliza_emitida_lleva_numero_y_vigencia():
     assert evento.payload["numero"] == "POL-2026-00000001"
     assert evento.payload["estado"] == "VIGENTE"
     assert evento.payload["fin_vigencia"] == "2027-10-22"
+
+
+# --- Ciclo de vida: renovar (HU-59) ---------------------------------------
+
+
+def test_renovar_extiende_la_fecha_de_fin_de_vigencia():
+    poliza = _emitir()
+
+    poliza.renovar(date(2028, 10, 22))
+
+    assert poliza.estado is EstadoPoliza.VIGENTE
+    assert poliza.fin_vigencia == date(2028, 10, 22)
+
+
+def test_renovar_con_fecha_no_posterior_se_rechaza():
+    poliza = _emitir()
+
+    with pytest.raises(ReglaDeNegocioViolada) as error:
+        poliza.renovar(poliza.fin_vigencia)
+
+    assert error.value.codigo == "nueva_vigencia_no_posterior"
+
+
+def test_renovar_una_poliza_cancelada_lanza_transicion_invalida():
+    poliza = _emitir()
+    poliza.cancelar("Ya no se necesita", date(2026, 10, 23))
+
+    with pytest.raises(TransicionInvalida):
+        poliza.renovar(date(2028, 10, 22))
+
+
+def test_evento_poliza_renovada_lleva_la_nueva_vigencia():
+    poliza = _emitir()
+    poliza.renovar(date(2028, 10, 22))
+
+    evento = poliza_renovada(poliza)
+
+    assert evento.tipo == "PolizaRenovada"
+    assert evento.agregado_id == poliza.id
+    assert evento.payload["fin_vigencia"] == "2028-10-22"
+
+
+# --- Ciclo de vida: modificar coberturas (HU-60) --------------------------
+
+
+def test_modificar_coberturas_reemplaza_el_conjunto_completo():
+    poliza = _emitir()
+    nuevas = [Cobertura(nombre="Robo", suma_asegurada=Decimal("1000"), deducible=Decimal("10"))]
+
+    poliza.modificar_coberturas(nuevas)
+
+    assert poliza.estado is EstadoPoliza.VIGENTE
+    assert [c.nombre for c in poliza.coberturas] == ["Robo"]
+
+
+@pytest.mark.parametrize(
+    ("lista", "codigo"),
+    [
+        ([], "sin_coberturas"),
+        ([Cobertura(nombre=" ", suma_asegurada=Decimal("1"))], "cobertura_sin_nombre"),
+        ([Cobertura(nombre="RC", suma_asegurada=Decimal("0"))], "suma_asegurada_no_positiva"),
+        ([Cobertura(nombre="RC", suma_asegurada=Decimal("1"), deducible=Decimal("-1"))], "deducible_negativo"),
+    ],
+)
+def test_modificar_coberturas_invalidas_se_rechaza_con_la_misma_regla_que_emitir(lista, codigo):
+    poliza = _emitir()
+
+    with pytest.raises(ReglaDeNegocioViolada) as error:
+        poliza.modificar_coberturas(lista)
+
+    assert error.value.codigo == codigo
+
+
+def test_modificar_coberturas_de_una_poliza_cancelada_lanza_transicion_invalida():
+    poliza = _emitir()
+    poliza.cancelar("Ya no se necesita", date(2026, 10, 23))
+
+    with pytest.raises(TransicionInvalida):
+        poliza.modificar_coberturas(coberturas())
+
+
+def test_evento_poliza_modificada_lleva_las_nuevas_coberturas():
+    poliza = _emitir()
+    poliza.modificar_coberturas([Cobertura(nombre="Robo", suma_asegurada=Decimal("1000"))])
+
+    evento = poliza_modificada(poliza)
+
+    assert evento.tipo == "PolizaModificada"
+    assert [c["nombre"] for c in evento.payload["coberturas"]] == ["Robo"]
+
+
+# --- Ciclo de vida: cancelar (HU-61) ---------------------------------------
+
+
+def test_cancelar_cambia_el_estado_y_registra_motivo_y_fecha():
+    poliza = _emitir()
+
+    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1))
+
+    assert poliza.estado is EstadoPoliza.CANCELADA
+    assert poliza.motivo_cancelacion == "El cliente lo pidió"
+    assert poliza.cancelada_en == date(2026, 11, 1)
+
+
+def test_cancelar_sin_motivo_se_rechaza():
+    poliza = _emitir()
+
+    with pytest.raises(ReglaDeNegocioViolada) as error:
+        poliza.cancelar("   ", date(2026, 11, 1))
+
+    assert error.value.codigo == "motivo_requerido"
+
+
+def test_cancelar_dos_veces_lanza_transicion_invalida():
+    poliza = _emitir()
+    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1))
+
+    with pytest.raises(TransicionInvalida) as error:
+        poliza.cancelar("Otro motivo", date(2026, 11, 2))
+
+    assert error.value.codigo == "transicion_invalida"
+    # Y no se pisa el motivo/fecha de la primera cancelación.
+    assert poliza.motivo_cancelacion == "El cliente lo pidió"
+
+
+def test_evento_poliza_cancelada_lleva_motivo_y_fecha():
+    poliza = _emitir()
+    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1))
+
+    evento = poliza_cancelada(poliza)
+
+    assert evento.tipo == "PolizaCancelada"
+    assert evento.payload["motivo_cancelacion"] == "El cliente lo pidió"
+    assert evento.payload["cancelada_en"] == "2026-11-01"

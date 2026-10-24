@@ -39,6 +39,8 @@ class PolizaSalida(BaseModel):
     fin_vigencia: date
     estado: str
     coberturas: list[CoberturaSalida]
+    motivo_cancelacion: str | None = None
+    cancelada_en: date | None = None
 
     @classmethod
     def desde(cls, poliza: Poliza) -> "PolizaSalida":
@@ -54,7 +56,21 @@ class PolizaSalida(BaseModel):
                 CoberturaSalida(nombre=c.nombre, suma_asegurada=c.suma_asegurada, deducible=c.deducible)
                 for c in poliza.coberturas
             ],
+            motivo_cancelacion=poliza.motivo_cancelacion,
+            cancelada_en=poliza.cancelada_en,
         )
+
+
+class RenovarPolizaEntrada(BaseModel):
+    nueva_fin_vigencia: date
+
+
+class ModificarCoberturasEntrada(BaseModel):
+    coberturas: list[CoberturaEntrada] = Field(min_length=1)
+
+
+class CancelarPolizaEntrada(BaseModel):
+    motivo: str = Field(min_length=1)
 
 
 class ErrorSalida(BaseModel):

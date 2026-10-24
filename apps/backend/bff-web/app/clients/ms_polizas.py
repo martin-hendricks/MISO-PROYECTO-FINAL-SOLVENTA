@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -39,3 +40,29 @@ class ClienteMsPolizas(ClienteServicio):
 
     async def obtener(self, poliza_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/polizas/{poliza_id}")
+
+    async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
+        """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),
+        no por numero -- ver TODO en app/routers/operador.py sobre el mapeo
+        numero->poliza_id que todavía falta resolver."""
+        return await self._pedir(
+            "POST",
+            f"/v1/polizas/{poliza_id}/renovacion",
+            json={"nueva_fin_vigencia": nueva_fin_vigencia.isoformat()},
+        )
+
+    async def modificar_coberturas(self, poliza_id: UUID, coberturas: list[dict[str, Any]]) -> dict[str, Any]:
+        """HU-60. Mismo comentario que renovar() sobre poliza_id vs numero."""
+        return await self._pedir(
+            "POST",
+            f"/v1/polizas/{poliza_id}/coberturas",
+            json={"coberturas": coberturas},
+        )
+
+    async def cancelar(self, poliza_id: UUID, motivo: str) -> dict[str, Any]:
+        """HU-61. Mismo comentario que renovar() sobre poliza_id vs numero."""
+        return await self._pedir(
+            "POST",
+            f"/v1/polizas/{poliza_id}/cancelacion",
+            json={"motivo": motivo},
+        )
