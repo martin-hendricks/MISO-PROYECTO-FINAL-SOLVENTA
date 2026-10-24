@@ -8,16 +8,18 @@ on:
     paths:
       - 'apps/mobile/Solventa/**'
       - '.github/workflows/mobile-e2e.yml'
+  workflow_dispatch:
 
 jobs:
   android-e2e:
     name: android-e2e
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -39,12 +41,23 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           working-directory: apps/mobile/Solventa
-          script: ./gradlew :app:connectedDebugAndroidTest
+          script: |
+            adb devices -l
+            chmod +x ./scripts/run-connected-android-tests.sh
+            ./scripts/run-connected-android-tests.sh
       - name: Upload E2E report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: android-e2e-report
           path: apps/mobile/Solventa/app/build/reports/androidTests/connected/
+      - name: Upload emulator log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-e2e-emulator-log
+          path: /tmp/solventa-emulator.log

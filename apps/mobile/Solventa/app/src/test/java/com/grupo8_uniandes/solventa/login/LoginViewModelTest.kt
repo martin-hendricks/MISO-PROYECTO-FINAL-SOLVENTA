@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.login
 
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.login.SignInResult
 import com.grupo8_uniandes.solventa.domain.registration.Registration
@@ -116,6 +117,87 @@ class LoginViewModelTest {
         viewModel.ingresar()
 
         assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenAcceptedDeviceUnlock_whenHandled_thenOpenHomeWithoutEditingFields() {
+        val signIn = ScriptedSignIn(mutableListOf())
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(0, signIn.calls)
+    }
+
+    @Test
+    fun givenDismissedDeviceUnlock_whenHandled_thenFallbackCanSignIn() {
+        val signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn))
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Dismissed)
+        assertNull(viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(0, signIn.calls)
+
+        viewModel.ingresar()
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(1, signIn.calls)
+    }
+
+    @Test
+    fun givenUnavailableDeviceUnlock_whenHandled_thenFallbackCanSignIn() {
+        val signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn))
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Unavailable)
+        assertNull(viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertEquals("camila@correo.com", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(0, signIn.calls)
+
+        viewModel.ingresar()
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(1, signIn.calls)
+    }
+
+    @Test
+    fun givenDismissedDeviceUnlock_whenRejectedOrBlank_thenHomeStaysClosed() {
+        val signIn = ScriptedSignIn(
+            mutableListOf(SignInResult.Rejected, SignInResult.Incomplete),
+        )
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("wrong")
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Dismissed)
+        viewModel.ingresar()
+
+        assertEquals(LoginFailure.Rejected, viewModel.state.value.failure)
+        assertNull(viewModel.state.value.effect)
+        assertEquals(1, signIn.calls)
+
+        viewModel.onEmail("   ")
+        viewModel.onPassword("secret")
+        viewModel.ingresar()
+
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertNull(viewModel.state.value.effect)
+        assertEquals("   ", viewModel.state.value.email)
+        assertEquals("secret", viewModel.state.value.password)
+        assertEquals(2, signIn.calls)
     }
 }
 

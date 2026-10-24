@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app import main
 from app.config import Settings
 from app.dependencies import obtener_catalogo, obtener_uow
-from app.domain.errores import ErrorDominio, ReglaDeNegocioViolada, TransicionInvalida
+from app.domain.errores import DependenciaNoDisponible, ErrorDominio, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import EventoDominio
 from app.infrastructure import catalogo_sql
 from app.infrastructure.catalogo_sql import CatalogoSQL, ProductoFila
@@ -129,6 +129,7 @@ def test_al_arrancar_la_app_carga_el_catalogo_y_libera_el_motor(monkeypatch):
     with TestClient(app):
         assert app.state.catalogo is catalogo
         assert app.state.fabrica_uow is not None
+        assert isinstance(app.state.suscripciones, main.SuscripcionesHTTP)
     assert motor.liberado
 
 
@@ -137,6 +138,7 @@ def test_al_arrancar_la_app_carga_el_catalogo_y_libera_el_motor(monkeypatch):
     [
         (ReglaDeNegocioViolada("regla", "violada"), 422),
         (TransicionInvalida("a", "b"), 409),
+        (DependenciaNoDisponible("ms-suscripcion"), 503),
         (ErrorDominio("genérico"), 400),
     ],
 )

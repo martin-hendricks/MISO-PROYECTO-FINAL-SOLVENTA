@@ -16,6 +16,7 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 | HU-5 · Combinar factor de riesgo (stub) | [SOLV-98](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-98) | Adaptador sustituible `AdaptadorPerfilRiesgo` con timeout (EC-LAT-08) y valor de respaldo auditable si falla o llega tarde. |
 | HU-6 · Devolver oferta en firme | [SOLV-99](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-99) | La misma llamada de HU-3 devuelve la oferta completa (`prima`, `moneda`, `venceEn`, desglose, origen del factor). |
 | HU-7 · Reconsultar oferta por id | [SOLV-100](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-100) | `GET /v1/cotizaciones/{cotizacionId}`: lectura pura, sin recálculo; marca ofertas vencidas con su precio original. |
+| HU-12 · Aceptar oferta vigente | [SOLV-105](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-105) | `POST /v1/cotizaciones/{cotizacionId}/aceptacion`: acepta una oferta vigente y no usada, congela su precio y encadena la decisión de suscripción de HU-13. |
 
 ### Catálogo de productos (HU-1)
 
@@ -29,6 +30,14 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 - `POST /v1/cotizaciones` orquesta en una sola transacción: valida contra el catálogo (HU-1), calcula la prima base (`regla_rating`, HU-4), combina el factor de riesgo con degradación auditable (HU-5) y emite la oferta en firme (HU-6).
 - `GET /v1/cotizaciones/{cotizacionId}` (HU-7) es lectura pura: nunca invoca el motor de rating ni el adaptador de perfil.
 - Extiende aditivamente el DDL oficial vía `db/02_ms_cotizacion_solicitud.sql` (idempotencia + datos de riesgo), `db/03_ms_cotizacion_rating.sql` (desglose de prima) y `db/04_ms_cotizacion_factor_riesgo.sql` (origen del factor de riesgo).
+
+### Aceptación de la oferta (HU-12)
+
+- **Una aceptación por cotización.** `aceptar_oferta` pasa la cotización de `cotizada` a `aceptada` con un `UPDATE` condicional, así que dos aceptaciones simultáneas no generan dos suscripciones.
+- **Idempotente por `cotizacionId` + `Idempotency-Key`.** Con la misma clave se devuelve el resultado original (200), aunque la oferta ya haya vencido. Con otra clave, una cotización aceptada responde `oferta_ya_usada` (422).
+- **Oferta vencida:** responde `oferta_vencida` (422) con su precio original; nunca se recalcula.
+- **Encadena HU-13 de forma síncrona** (`POST /v1/suscripciones` en `ms-suscripcion`) con el `perfil_id` y el `score` que envía el BFF. La aceptación se confirma antes de llamar: si `ms-suscripcion` falla (503), el reintento con la misma clave retoma la decisión sin volver a aceptar.
+- Publica `OfertaAceptada` por outbox con el precio congelado. Extiende el DDL con `db/06_ms_cotizacion_aceptacion.sql`.
 
 ## Desarrollo
 
@@ -45,6 +54,8 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/solventa` | Almacén propio del servicio |
 | `DB_POOL_SIZE` | `10` | Conexiones por réplica |
 | `LOG_LEVEL` | `INFO` | |
+| `MS_SUSCRIPCION_URL` | `http://ms-suscripcion:8000` | Decisión de suscripción que encadena la aceptación (HU-12 → HU-13) |
+| `TIMEOUT_DEPENDENCIAS` | `2.0` | Segundos por llamada a otro servicio |
 
 ## Pruebas (HU-85)
 

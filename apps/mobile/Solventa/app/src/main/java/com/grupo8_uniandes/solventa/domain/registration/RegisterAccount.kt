@@ -1,5 +1,7 @@
 package com.grupo8_uniandes.solventa.domain.registration
 
+import com.grupo8_uniandes.solventa.domain.region.Region
+
 class AccountDraft(
     val givenName: String,
     val surnames: String,
@@ -13,7 +15,7 @@ class AccountDraft(
 open class RegisterAccount(
     private val repository: RegistrationRepository,
 ) {
-    open fun submit(draft: AccountDraft): Boolean {
+    open fun submit(draft: AccountDraft, region: Region): Boolean {
         val givenName = draft.givenName.trim()
         val surnames = draft.surnames.trim()
         val email = draft.email.trim()
@@ -30,7 +32,8 @@ open class RegisterAccount(
             password.isEmpty() ||
             photo == null ||
             photo.isEmpty() ||
-            EmailAddress.status(email) != EmailStatus.Valid
+            EmailAddress.status(email) != EmailStatus.Valid ||
+            documentType !in documentTypes(region)
         ) {
             return false
         }

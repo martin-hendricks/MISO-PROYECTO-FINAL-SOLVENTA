@@ -11,10 +11,13 @@ from .errores import ProductoNoEncontrado, ReglaDeNegocioViolada, TransicionInva
 if TYPE_CHECKING:
     from app.ports.catalogo import CatalogoProductos
 
+    from .oferta import Oferta
+
 
 class EstadoSolicitud(StrEnum):
     RECIBIDA = "recibida"
     COTIZADA = "cotizada"
+    ACEPTADA = "aceptada"
     RECHAZADA = "rechazada"
 
 
@@ -30,6 +33,8 @@ class SolicitudCotizacion:
     datos_riesgo: dict[str, Any]
     estado: EstadoSolicitud
     creada_en: datetime
+    aceptacion_key: str | None = None
+    aceptada_en: datetime | None = None
 
     @classmethod
     def crear(
@@ -76,6 +81,20 @@ class SolicitudCotizacion:
         if self.estado is not EstadoSolicitud.RECIBIDA:
             raise TransicionInvalida(self.estado, EstadoSolicitud.COTIZADA)
         self.estado = EstadoSolicitud.COTIZADA
+
+    def aceptar(self, oferta: Oferta, aceptacion_key: str, ahora: datetime | None = None) -> None:
+        """HU-12: una cotización se acepta una sola vez. La oferta vencida se rechaza con
+        su precio original; nunca se recalcula para salvar la operación."""
+        if self.estado is EstadoSolicitud.ACEPTADA:
+            raise ReglaDeNegocioViolada("oferta_ya_usada", f"La cotización {self.id} ya fue aceptada")
+        if self.estado is not EstadoSolicitud.COTIZADA:
+            raise TransicionInvalida(self.estado, EstadoSolicitud.ACEPTADA)
+        ahora = ahora or datetime.now(UTC)
+        if not oferta.vigente(ahora):
+            raise ReglaDeNegocioViolada("oferta_vencida", f"La oferta {oferta.id} venció el {oferta.vence_en.isoformat()}")
+        self.estado = EstadoSolicitud.ACEPTADA
+        self.aceptacion_key = aceptacion_key
+        self.aceptada_en = ahora
 
 
 @dataclass(frozen=True)

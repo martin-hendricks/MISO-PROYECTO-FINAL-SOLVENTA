@@ -2,7 +2,8 @@ package com.grupo8_uniandes.solventa.consent
 
 import android.content.Context
 import android.content.Intent
-import android.view.KeyEvent
+import android.view.View
+import androidx.activity.findViewTreeOnBackPressedDispatcherOwner
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -135,7 +136,8 @@ class ConsentTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithTag("field_tipo").performTextInput("CC")
+        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
+        rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
         rule.onNodeWithTag("field_contrasena").performTextInput("secret")
     }
@@ -200,15 +202,15 @@ class ConsentProfileTest {
             rule.onNode(isDialog()).performTouchInput {
                 click(Offset(width / 2f, 24f))
             }
-            rule.waitUntil(timeoutMillis = 8_000) {
+            rule.waitUntil(timeoutMillis = 30_000) {
                 rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
             }
             rule.onNodeWithText("otorgado").assertIsDisplayed()
 
             rule.onNodeWithTag("profile_consent").performClick()
             rule.onNodeWithTag("solventa_switch").performClick()
-            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-            rule.waitUntil(timeoutMillis = 8_000) {
+            pressSystemBack()
+            rule.waitUntil(timeoutMillis = 30_000) {
                 rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
             }
             rule.onNodeWithText("otorgado").assertIsDisplayed()
@@ -283,8 +285,25 @@ private fun consentRecords(): String? {
         .getString(KeyConsentRecords, null)
 }
 
+private fun pressSystemBack() {
+    // API 33+ routes system back through OnBackInvokedCallback. A key event
+    // never reaches the sheet dialog, so invoke the top window's dispatcher.
+    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+        val managerClass = Class.forName("android.view.WindowManagerGlobal")
+        val manager = managerClass.getMethod("getInstance").invoke(null)
+        val viewsField = managerClass.getDeclaredField("mViews").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val views = viewsField.get(manager) as List<View>
+        val owner = views.asReversed().firstNotNullOfOrNull { view ->
+            view.findViewTreeOnBackPressedDispatcherOwner()
+        }
+        checkNotNull(owner) { "No back dispatcher on the visible windows" }
+        owner.onBackPressedDispatcher.onBackPressed()
+    }
+}
+
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

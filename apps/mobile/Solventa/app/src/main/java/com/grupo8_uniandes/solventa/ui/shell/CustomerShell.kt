@@ -3,7 +3,6 @@ package com.grupo8_uniandes.solventa.ui.shell
 import android.app.Activity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -13,27 +12,32 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import org.koin.androidx.compose.koinViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
+import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
-import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
+import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.navigation.EmisionEnCursoRoute
 import com.grupo8_uniandes.solventa.navigation.InicioRoute
@@ -42,6 +46,7 @@ import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
+import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.openDestination
 import com.grupo8_uniandes.solventa.navigation.selectedDestination
@@ -58,6 +63,7 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionEffect
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
+import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import com.grupo8_uniandes.solventa.ui.login.LoginEffect
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
@@ -73,8 +79,13 @@ fun CustomerShell(
     openOnboarding: Boolean = false,
     openConsent: Boolean = false,
     resumeProfile: Boolean = false,
+    signedOut: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    if (signedOut) {
+        LoginHost(modifier = modifier, onLeaveToAccount = null)
+        return
+    }
     if (enterSignedInShell) {
         SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
         return
@@ -122,7 +133,8 @@ fun CustomerShell(
         step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !consentOpen && !resumeProfile -> {
             ConsentHost(modifier = modifier)
         }
-        step == PostSplashStep.Login -> {
+        step == PostSplashStep.Login ||
+            (registrationDone && !SharedPrefsSessionRepository(context.applicationContext).isOpen()) -> {
             LoginHost(modifier = modifier, onLeaveToAccount = null)
         }
         else -> {
@@ -157,9 +169,13 @@ private fun FirstLaunchLanguage(
 @Composable
 private fun OnboardingHost(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val viewModel = remember(context) {
+    val region = remember(context) {
+        SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
+    }
+    val viewModel = remember(context, region) {
         OnboardingViewModel(
             RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
+            region,
         )
     }
     val state by viewModel.state.collectAsState()
@@ -190,14 +206,17 @@ private fun OnboardingHost(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SignedInShell(
+internal fun SignedInShell(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean = false,
+    homeState: HomeUiState? = null,
 ) {
     val signedIn = true
     val navController = rememberNavController()
-    val homeViewModel: HomeViewModel = viewModel()
-    val homeState by homeViewModel.state.collectAsState()
+    startSolventaKoin(LocalContext.current)
+    val homeViewModel: HomeViewModel = koinViewModel()
+    val collectedHome by homeViewModel.state.collectAsState()
+    val homeStateResolved = homeState ?: collectedHome
     val entry by navController.currentBackStackEntryAsState()
     val start = if (startOnProfile) PerfilRoute else InicioRoute
     val route = entry?.toSolventaRoute() ?: start
@@ -242,20 +261,24 @@ private fun SignedInShell(
             }
         },
     ) { padding ->
+        val activity = LocalContext.current.findActivity()
         CustomerNavHost(
             navController = navController,
-            homeState = homeState,
+            homeState = homeStateResolved,
             contentPadding = padding,
             startDestination = start,
+            onSignedOut = { activity?.signOutToLogin() },
         )
     }
 }
 
 @Composable
 private fun routeTitle(route: Any): String = when (route) {
-    CotizacionRoute -> stringResource(R.string.quote_title)
+    is CotizacionRoute -> stringResource(R.string.action_new_quote)
+    is VerOfertaRoute -> stringResource(R.string.offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
-    EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
+    is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
+    is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
     PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
@@ -269,11 +292,24 @@ private fun LoginHost(
     onLeaveToAccount: (() -> Unit)?,
 ) {
     val context = LocalContext.current
-    val viewModel = remember(context) {
-        LoginViewModel(SignIn(SharedPrefsRegistrationRepository(context.applicationContext)))
-    }
+    startSolventaKoin(context)
+    val viewModel: LoginViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
+    val biometricPrompt = remember(activity) {
+        val host = activity ?: return@remember null
+        DeviceBiometricPrompt(
+            activity = host,
+            title = host.getString(R.string.login_biometric_title),
+            negativeButtonText = host.getString(R.string.action_secondary),
+        )
+    }
+    var biometricRequested by remember(viewModel) { mutableStateOf(false) }
+    LaunchedEffect(biometricPrompt, biometricRequested, state.effect) {
+        if (biometricPrompt == null || biometricRequested || state.effect == LoginEffect.OpenHome) return@LaunchedEffect
+        biometricRequested = true
+        biometricPrompt.authenticate(viewModel::onDeviceUnlock)
+    }
     LaunchedEffect(state.effect) {
         if (state.effect == LoginEffect.OpenHome) {
             activity?.openHomeAfterOnboarding()
@@ -341,11 +377,22 @@ internal fun Activity.openConsent() {
 }
 
 internal fun Activity.openHomeAfterOnboarding() {
+    SharedPrefsSessionRepository(this).open()
     intent.putExtra(MainActivity.EXTRA_OPEN_HOME, true)
+    intent.removeExtra(MainActivity.EXTRA_SIGNED_OUT)
     recreate()
 }
 
 internal fun Activity.resumeProfileAfterLocaleChange() {
     intent.putExtra(MainActivity.EXTRA_RESUME_PROFILE, true)
+    recreate()
+}
+
+internal fun Activity.signOutToLogin() {
+    SharedPrefsSessionRepository(this).close()
+    intent.putExtra(MainActivity.EXTRA_SIGNED_OUT, true)
+    intent.removeExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_HOME)
+    intent.removeExtra(MainActivity.EXTRA_RESUME_PROFILE)
     recreate()
 }
