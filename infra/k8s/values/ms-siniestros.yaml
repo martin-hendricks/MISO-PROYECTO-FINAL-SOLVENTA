@@ -63,14 +63,14 @@ externalSecrets:
   habilitado: true
   secretStoreRef: solventa-secretstore
   remoteSecrets:
+    # Solo se proyecta database_url (no username/password/host/port por
+    # separado): la app (apps/backend/ms-siniestros/app/config.py) espera
+    # una única variable DATABASE_URL, igual que ms-cotizacion/ms-perfilamiento
+    # con DBCompartida.
     - nombreRemoto: solventa-minimo-siniestros-db-credentials
       nombreLocal: ms-siniestros-db
       claves:
-        - username
-        - password
-        - host
-        - port
-        - dbname
+        - database_url
 
 serviceAccount:
   crear: true
@@ -86,7 +86,10 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
-  - nombre: DB_SINIESTROS_HOST
-    valor: "siniestros.solventa.internal"  # TODO: reemplazar por rds_siniestros.endpoint (output de Terraform)
   - nombre: S3_EVIDENCIAS_BUCKET
     valor: ""  # TODO: reemplazar por s3_evidencias.bucket_id (output de Terraform)
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-siniestros-db
+    claveSecreto: database_url
