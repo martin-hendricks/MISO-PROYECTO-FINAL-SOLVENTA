@@ -5,18 +5,32 @@ from fastapi import APIRouter, Depends, Header, Response, status
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
-from app.dependencies import obtener_adaptador_perfil_riesgo, obtener_catalogo, obtener_config, obtener_uow
+from app.dependencies import (
+    obtener_adaptador_perfil_riesgo,
+    obtener_catalogo,
+    obtener_config,
+    obtener_suscripciones,
+    obtener_uow,
+)
 from app.ports.catalogo import CatalogoProductos
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
+from app.ports.suscripcion import MotorSuscripcion
 
-from .schemas_cotizaciones import CotizacionSalida, ErrorSalida, SolicitarCotizacionEntrada
+from .schemas_cotizaciones import (
+    AceptacionSalida,
+    AceptarOfertaEntrada,
+    CotizacionSalida,
+    ErrorSalida,
+    SolicitarCotizacionEntrada,
+)
 
 router = APIRouter(prefix="/v1/cotizaciones", tags=["cotizaciones"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
 Catalogo = Annotated[CatalogoProductos, Depends(obtener_catalogo)]
 AdaptadorRiesgo = Annotated[AdaptadorPerfilRiesgo, Depends(obtener_adaptador_perfil_riesgo)]
 Config = Annotated[Settings, Depends(obtener_config)]
+Suscripciones = Annotated[MotorSuscripcion, Depends(obtener_suscripciones)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}}
 
 
@@ -52,3 +66,25 @@ async def solicitar_cotizacion(
 async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow):
     resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id)
     return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
+
+
+@router.post(
+    "/{cotizacion_id}/aceptacion",
+    response_model=AceptacionSalida,
+    status_code=status.HTTP_201_CREATED,
+    responses={**ERRORES, 503: {"model": ErrorSalida}},
+)
+async def aceptar_oferta(
+    cotizacion_id: UUID,
+    entrada: AceptarOfertaEntrada,
+    response: Response,
+    uow: Uow,
+    suscripciones: Suscripciones,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+):
+    resultado = await casos_uso.aceptar_oferta(
+        uow, suscripciones, cotizacion_id, idempotency_key, entrada.perfil_id, entrada.score
+    )
+    if not resultado.creada:
+        response.status_code = status.HTTP_200_OK
+    return AceptacionSalida.desde(resultado)

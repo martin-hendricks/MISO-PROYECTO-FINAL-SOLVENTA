@@ -3,18 +3,20 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from app.config import Settings
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
-from app.domain.oferta import ConsultaOferta, Oferta, oferta_emitida
+from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
-from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
+from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
+from app.ports.suscripcion import DecisionSuscripcion, MotorSuscripcion
 
 
 @dataclass(frozen=True)
@@ -178,3 +180,55 @@ async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -
     if solicitud is None or oferta is None:
         raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
+
+
+@dataclass(frozen=True)
+class Aceptacion:
+    solicitud: SolicitudCotizacion
+    oferta: Oferta
+    suscripcion: DecisionSuscripcion
+    creada: bool
+
+
+async def _registrar_aceptacion(
+    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, aceptacion_key: str
+) -> tuple[SolicitudCotizacion, Oferta, bool]:
+    async with uow() as tx:
+        solicitud = await tx.solicitudes.obtener(cotizacion_id)
+        oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
+        if solicitud is None or oferta is None:
+            raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+        if solicitud.aceptacion_key == aceptacion_key:
+            return solicitud, oferta, False
+
+        solicitud.aceptar(oferta, aceptacion_key)
+        try:
+            await tx.solicitudes.registrar_aceptacion(solicitud)
+            await tx.outbox.agregar(oferta_aceptada(solicitud, oferta))
+            await tx.confirmar()
+            return solicitud, oferta, True
+        except AceptacionConcurrente:
+            pass
+
+    async with uow() as tx:
+        ganadora = await tx.solicitudes.obtener(cotizacion_id)
+    if ganadora.aceptacion_key != aceptacion_key:
+        raise ReglaDeNegocioViolada("oferta_ya_usada", f"La cotización {cotizacion_id} ya fue aceptada")
+    return ganadora, oferta, False
+
+
+async def aceptar_oferta(
+    uow: FabricaUnidadDeTrabajo,
+    suscripciones: MotorSuscripcion,
+    cotizacion_id: UUID,
+    aceptacion_key: str,
+    perfil_id: UUID,
+    score: Decimal,
+) -> Aceptacion:
+    """HU-12: idempotente por cotizacionId + Idempotency-Key. La misma clave devuelve la
+    aceptación original; otra clave sobre una cotización aceptada es oferta_ya_usada.
+    La aceptación se confirma antes de encadenar HU-13: si ms-suscripcion falla, el
+    reintento con la misma clave retoma la decisión sin volver a aceptar."""
+    solicitud, oferta, creada = await _registrar_aceptacion(uow, cotizacion_id, aceptacion_key)
+    decision = await suscripciones.evaluar(solicitud.id, perfil_id, score)
+    return Aceptacion(solicitud, oferta, decision, creada)
