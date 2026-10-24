@@ -22,6 +22,8 @@ class Ciclo(BaseModel):
     motivo: str | None = None
 
 
+# TODO: depende de ms-siniestros, que no tiene código en esta rama ni en
+# develop -- falta ese microservicio para integrar la cola real de avisos.
 @router.get("/avisos")
 def cola() -> dict:
     return {
@@ -36,6 +38,8 @@ def cola() -> dict:
     }
 
 
+# TODO: mismo faltante que cola() -- la decisión sobre un aviso depende de
+# ms-siniestros.
 @router.post("/avisos/decision")
 def decidir(body: Decision) -> dict:
     if body.decision not in {"aprobar", "rechazar"}:
@@ -45,6 +49,9 @@ def decidir(body: Decision) -> dict:
     return body.model_dump()
 
 
+# TODO: el ciclo de vida de pólizas (renovar/modificar/cancelar) necesita
+# endpoints en ms-polizas que hoy no existen (solo hay POST /v1/polizas y
+# GET /v1/polizas/{id} en el PR feature/HU-16-emitir-poliza).
 @router.post("/polizas/ciclo")
 def ciclo(body: Ciclo) -> dict:
     if body.verbo not in {"renovar", "modificar", "cancelar"}:
@@ -60,6 +67,8 @@ def ciclo(body: Ciclo) -> dict:
     }
 
 
+# TODO: depende de ms-siniestros/ms-parametrico (gestión de asistencias), que
+# no están conectados a este BFF en esta rama.
 @router.get("/asistencias/{asistencia_id}")
 def asistencia(asistencia_id: str) -> dict:
     return {

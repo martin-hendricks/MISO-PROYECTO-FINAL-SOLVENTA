@@ -1,9 +1,39 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import logging
+from contextlib import asynccontextmanager
 
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from .config import Settings
 from .routers import asesor, cliente, operador, registro, sesion
 
-app = FastAPI(title="bff-web")
+logger = logging.getLogger(__name__)
+
+config = Settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # bff-web habla con los microservicios de núcleo por red interna del
+    # cluster (Service de Kubernetes) -- nunca otra vez a través del
+    # ALB/API Gateway. Un AsyncClient por microservicio, cada uno con su
+    # propia base_url/timeout (ver app/config.py).
+    async with (
+        httpx.AsyncClient(base_url=config.ms_cotizacion_url, timeout=config.timeout_nucleo_s) as http_cotizacion,
+        httpx.AsyncClient(base_url=config.ms_pagos_url, timeout=config.timeout_nucleo_s) as http_pagos,
+        httpx.AsyncClient(base_url=config.ms_polizas_url, timeout=config.timeout_nucleo_s) as http_polizas,
+    ):
+        app.state.http_ms_cotizacion = http_cotizacion
+        app.state.http_ms_pagos = http_pagos
+        app.state.http_ms_polizas = http_polizas
+        yield
+
+
+app = FastAPI(title="bff-web", lifespan=lifespan)
+app.state.config = config
 
 # El API Gateway (infra/terraform/modules/edge) ya agrega headers CORS a la
 # respuesta, pero no responde el preflight por sí mismo: un OPTIONS que
@@ -30,3 +60,22 @@ app.include_router(operador.router)
 @app.get("/health", include_in_schema=False)
 async def health():
     return {"status": "ok"}
+
+
+@app.exception_handler(ServicioNoDisponible)
+async def no_disponible(_: Request, exc: ServicioNoDisponible):
+    logger.warning("servicio no disponible: %s", exc.servicio)
+    return JSONResponse(
+        status_code=503,
+        content={"codigo": "servicio_no_disponible", "mensaje": "Intenta de nuevo en unos minutos"},
+    )
+
+
+@app.exception_handler(RecursoNoEncontrado)
+async def no_encontrado(_: Request, __: RecursoNoEncontrado):
+    return JSONResponse(status_code=404, content={"codigo": "no_encontrado", "mensaje": "No existe"})
+
+
+@app.exception_handler(RechazoDelNucleo)
+async def rechazo(_: Request, exc: RechazoDelNucleo):
+    return JSONResponse(status_code=exc.status, content={"codigo": exc.codigo, "mensaje": exc.mensaje})
