@@ -135,7 +135,8 @@ class ConsentTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithTag("field_tipo").performTextInput("CC")
+        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
+        rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
         rule.onNodeWithTag("field_contrasena").performTextInput("secret")
     }
