@@ -14,5 +14,11 @@ class Settings(BaseSettings):
     # infra/k8s/values/bff-web.yaml antes de esta integración.
     ms_pagos_url: str = "http://localhost:8080"
     ms_polizas_url: str = "http://localhost:8080"
+    # ms-perfilamiento y ms-siniestros ya están mergeados a develop (ver
+    # apps/backend/ms-perfilamiento y apps/backend/ms-siniestros) -- estas URLs
+    # siguen el mismo patrón que las anteriores, apuntando al Service interno
+    # del cluster en despliegues reales.
+    ms_perfilamiento_url: str = "http://localhost:8080"
+    ms_siniestros_url: str = "http://localhost:8080"
 
     timeout_nucleo_s: float = 2.0

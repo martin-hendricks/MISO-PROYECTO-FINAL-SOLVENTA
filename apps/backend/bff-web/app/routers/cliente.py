@@ -8,8 +8,15 @@ from pydantic import BaseModel
 
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
+from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
-from ..dependencies import obtener_cliente_cotizacion, obtener_cliente_pagos, obtener_cliente_polizas, require_roles
+from ..dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_pagos,
+    obtener_cliente_perfilamiento,
+    obtener_cliente_polizas,
+    require_roles,
+)
 
 router = APIRouter(
     prefix="/cliente",
@@ -303,28 +310,69 @@ def pagos() -> dict:
     return dict(PAYMENT)
 
 
-# TODO: no hay ms-parametrico/ms-perfilamiento conectado para calcular la
-# oferta hipotecaria real (score de crédito, factores de riesgo) -- falta esa
-# integración en el núcleo.
-@router.post("/oferta-hipotecaria")
-def hipoteca(body: Hipoteca) -> dict:
-    if body.consentimientoPerfil:
-        return {
-            "ramo": "Vida crediticia",
-            "estado": "oferta_vigente",
-            "prima": 64000,
-            "moneda": "COP",
-            "factores": ["plazo", "valor del crédito"],
-            "degradada": False,
-        }
+def _oferta_hipotecaria_salida(oferta: dict) -> dict:
+    """Traduce OfertaSalida de ms-perfilamiento al shape que el canal web ya
+    espera. precio->prima, degradado->degradada; factores se simplifica a la
+    lista de nombres de factor (el canal web solo muestra cuáles factores
+    influyeron, no el detalle de impacto/peso que ms-perfilamiento sí calcula
+    internamente para explicabilidad)."""
     return {
         "ramo": "Vida crediticia",
         "estado": "oferta_vigente",
-        "prima": 50000,
-        "moneda": "COP",
-        "factores": ["plazo", "valor del crédito"],
-        "degradada": True,
+        "prima": float(oferta["precio"]),
+        "moneda": oferta["moneda"],
+        "factores": [f["factor"] for f in oferta["factores"]],
+        "degradada": oferta["degradado"],
     }
+
+
+@router.post("/oferta-hipotecaria")
+async def hipoteca(
+    body: Hipoteca,
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+) -> dict:
+    """Integración real con ms-perfilamiento (HU-53 a HU-56).
+
+    `consentimientoPerfil=True` es la acción explícita del cliente para
+    autorizar el perfilamiento (HU-53: nunca se asume consentimiento
+    implícito). Solo en ese caso se otorga el consentimiento (idempotente del
+    lado de ms-perfilamiento) y se solicita la oferta real.
+
+    `consentimientoPerfil=False` NO debe disparar ninguna llamada a
+    ms-perfilamiento -- ese es el comportamiento de negocio correcto, no una
+    limitación técnica: sin consentimiento no se invoca el adaptador de
+    perfilamiento. Se devuelve el mismo shape "degradado" que ya esperaba el
+    canal web, documentado ahora como "sin consulta" en vez de un valor de
+    oferta inventado.
+    """
+    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no hay
+    # ms-identidad real que resuelva el correo de la sesión a un cliente_id.
+    # ms-perfilamiento espera un cliente_id como str (no un UUID tipado como
+    # usuario_id); se reutiliza el mismo usuario_id derivado (uuid5 estable a
+    # partir del correo de sesión) convertido a texto, para que el mismo
+    # usuario siempre resuelva al mismo cliente_id frente a ms-perfilamiento,
+    # consistente con cómo ya se usa usuario_id frente a ms-cotizacion/
+    # ms-pagos/ms-polizas. No se agrega un atributo nuevo a ContextoUsuario
+    # porque usuario_id ya cumple ese rol de identificador estable por sesión.
+    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    cliente_id = str(contexto.usuario_id)
+
+    if not body.consentimientoPerfil:
+        return {
+            "ramo": "Vida crediticia",
+            "estado": "oferta_vigente",
+            "prima": 50000,
+            "moneda": "COP",
+            "factores": ["plazo", "valor del crédito"],
+            "degradada": True,
+        }
+
+    await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
+    oferta = await cliente_perfilamiento.solicitar_oferta_hipotecario(
+        idempotency_key=_idempotency_key(),
+        cliente_id=cliente_id,
+    )
+    return _oferta_hipotecaria_salida(oferta)
 
 
 # TODO: este resumen agrega datos de varios microservicios (cotización

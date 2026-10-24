@@ -25,10 +25,16 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(base_url=config.ms_cotizacion_url, timeout=config.timeout_nucleo_s) as http_cotizacion,
         httpx.AsyncClient(base_url=config.ms_pagos_url, timeout=config.timeout_nucleo_s) as http_pagos,
         httpx.AsyncClient(base_url=config.ms_polizas_url, timeout=config.timeout_nucleo_s) as http_polizas,
+        httpx.AsyncClient(
+            base_url=config.ms_perfilamiento_url, timeout=config.timeout_nucleo_s
+        ) as http_perfilamiento,
+        httpx.AsyncClient(base_url=config.ms_siniestros_url, timeout=config.timeout_nucleo_s) as http_siniestros,
     ):
         app.state.http_ms_cotizacion = http_cotizacion
         app.state.http_ms_pagos = http_pagos
         app.state.http_ms_polizas = http_polizas
+        app.state.http_ms_perfilamiento = http_perfilamiento
+        app.state.http_ms_siniestros = http_siniestros
         yield
 
 

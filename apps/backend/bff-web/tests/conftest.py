@@ -9,8 +9,16 @@ from fastapi.testclient import TestClient
 
 from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_pagos import ClienteMsPagos
+from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.clients.ms_polizas import ClienteMsPolizas
-from app.dependencies import obtener_cliente_cotizacion, obtener_cliente_pagos, obtener_cliente_polizas
+from app.clients.ms_siniestros import ClienteMsSiniestros
+from app.dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_pagos,
+    obtener_cliente_perfilamiento,
+    obtener_cliente_polizas,
+    obtener_cliente_siniestros,
+)
 from app.main import app
 
 
@@ -52,14 +60,40 @@ def nucleo_polizas() -> NucleoSimulado:
 
 
 @pytest.fixture
-def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas) -> TestClient:
+def nucleo_perfilamiento() -> NucleoSimulado:
+    return NucleoSimulado()
+
+
+@pytest.fixture
+def nucleo_siniestros() -> NucleoSimulado:
+    # A diferencia de un recurso puntual (ej. GET /v1/polizas/{id}), listar
+    # siniestros sin ninguno registrado es una respuesta vigente (lista
+    # vacía), no un 404 -- por eso este doble fija ese default en vez de usar
+    # el genérico 404 de NucleoSimulado, igual que haría ms-siniestros real.
+    doble = NucleoSimulado()
+    doble.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json=[])
+    return doble
+
+
+@pytest.fixture
+def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento, nucleo_siniestros) -> TestClient:
     http_cotizacion = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_cotizacion), base_url="http://ms-cotizacion")
     http_pagos = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_pagos), base_url="http://ms-pagos")
     http_polizas = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_polizas), base_url="http://ms-polizas")
+    http_perfilamiento = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_perfilamiento), base_url="http://ms-perfilamiento"
+    )
+    http_siniestros = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_siniestros), base_url="http://ms-siniestros"
+    )
 
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http_cotizacion, "corr-test")
     app.dependency_overrides[obtener_cliente_pagos] = lambda: ClienteMsPagos(http_pagos, "corr-test")
     app.dependency_overrides[obtener_cliente_polizas] = lambda: ClienteMsPolizas(http_polizas, "corr-test")
+    app.dependency_overrides[obtener_cliente_perfilamiento] = lambda: ClienteMsPerfilamiento(
+        http_perfilamiento, "corr-test"
+    )
+    app.dependency_overrides[obtener_cliente_siniestros] = lambda: ClienteMsSiniestros(http_siniestros, "corr-test")
     try:
         with TestClient(app) as test_client:
             yield test_client

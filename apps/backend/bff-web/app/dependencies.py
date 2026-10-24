@@ -8,7 +8,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .clients.ms_cotizacion import ClienteMsCotizacion
 from .clients.ms_pagos import ClienteMsPagos
+from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
+from .clients.ms_siniestros import ClienteMsSiniestros
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -82,3 +84,13 @@ def obtener_cliente_pagos(request: Request) -> ClienteMsPagos:
 
 def obtener_cliente_polizas(request: Request) -> ClienteMsPolizas:
     return ClienteMsPolizas(request.app.state.http_ms_polizas, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_perfilamiento(request: Request) -> ClienteMsPerfilamiento:
+    return ClienteMsPerfilamiento(
+        request.app.state.http_ms_perfilamiento, getattr(request.state, "correlacion", None)
+    )
+
+
+def obtener_cliente_siniestros(request: Request) -> ClienteMsSiniestros:
+    return ClienteMsSiniestros(request.app.state.http_ms_siniestros, getattr(request.state, "correlacion", None))
