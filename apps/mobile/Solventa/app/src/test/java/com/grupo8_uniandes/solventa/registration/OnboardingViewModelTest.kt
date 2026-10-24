@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.registration
 
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.Registration
@@ -24,6 +25,7 @@ class OnboardingViewModelTest {
         assertEquals("", state.surnames)
         assertEquals("", state.email)
         assertEquals("", state.documentType)
+        assertEquals(listOf("CC", "CE", "PA"), state.documentTypeOptions)
         assertEquals("", state.documentNumber)
         assertEquals("", state.password)
         assertFalse(state.hasPhoto)
@@ -42,7 +44,26 @@ class OnboardingViewModelTest {
 
         assertEquals(OnboardingEffect.ContinueToConsent, viewModel.state.value.effect)
         assertEquals(1, register.drafts.size)
+        assertEquals(Region.Colombia, register.regions.single())
         assertTrue(byteArrayOf(7, 8).contentEquals(register.drafts.single().documentPhoto))
+    }
+
+    @Test
+    fun givenMexico_whenOpened_thenAdultDocumentTypes() {
+        val mexico = OnboardingViewModel(register, Region.Mexico)
+
+        assertEquals(listOf("INE", "CURP", "PA"), mexico.state.value.documentTypeOptions)
+    }
+
+    @Test
+    fun givenMinorDocument_whenChosen_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onDocumentType("TI")
+
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertTrue(register.drafts.isEmpty())
     }
 
     @Test
@@ -172,7 +193,7 @@ private class RejectingRegister : RegisterAccount(
         override fun save(registration: Registration) = error("a rejected submit does not save")
     },
 ) {
-    override fun submit(draft: AccountDraft): Boolean = false
+    override fun submit(draft: AccountDraft, region: Region): Boolean = false
 }
 
 private class RecordingRegister : RegisterAccount(
@@ -183,9 +204,11 @@ private class RecordingRegister : RegisterAccount(
     },
 ) {
     val drafts = mutableListOf<AccountDraft>()
+    val regions = mutableListOf<Region>()
 
-    override fun submit(draft: AccountDraft): Boolean {
+    override fun submit(draft: AccountDraft, region: Region): Boolean {
         drafts += draft
+        regions += region
         return true
     }
 }

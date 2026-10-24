@@ -22,6 +22,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 @Composable
 fun EmisionEnCursoScreen(
     onFinished: () -> Unit,
+    offerId: String = "",
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -40,6 +41,13 @@ fun EmisionEnCursoScreen(
             word = stringResource(R.string.issuing_status),
             icon = painterResource(R.drawable.info),
         )
+        if (offerId.isNotEmpty()) {
+            Text(
+                text = offerId,
+                style = SolventaTypography.amount,
+                modifier = Modifier.testTag("emision_offer_id"),
+            )
+        }
         SolventaButton(
             text = stringResource(R.string.action_continue_issued),
             style = SolventaButtonStyle.Filled,

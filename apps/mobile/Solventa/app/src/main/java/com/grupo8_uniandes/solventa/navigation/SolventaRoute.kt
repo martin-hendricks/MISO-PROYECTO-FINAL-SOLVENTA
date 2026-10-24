@@ -21,7 +21,10 @@ data object SiniestrosRoute
 data object PerfilRoute
 
 @Serializable
-data object EmisionEnCursoRoute
+data class SiniestroDetalleRoute(val claimId: String)
+
+@Serializable
+data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
 data object PolizaEmitidaRoute
