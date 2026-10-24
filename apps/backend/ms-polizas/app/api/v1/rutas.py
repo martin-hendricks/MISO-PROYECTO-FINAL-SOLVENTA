@@ -25,7 +25,7 @@ async def emitir(
         solicitud_id=entrada.solicitud_id,
         oferta_id=entrada.oferta_id,
         usuario_id=entrada.usuario_id,
-        referencia_cobro=entrada.referencia_cobro,
+        token_pago_confirmado=entrada.token_pago_confirmado,
         coberturas=[c.a_dominio() for c in entrada.coberturas],
     )
     resultado = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud)

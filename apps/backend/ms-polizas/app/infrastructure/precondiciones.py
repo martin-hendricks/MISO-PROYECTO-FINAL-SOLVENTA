@@ -25,10 +25,21 @@ class SuscripcionesHTTP:
         return respuesta.json().get("decision") == "ACEPTADA"
 
 
-class CobroDeclarado:
-    """Adaptador provisional mientras ms-pagos (HU-15) no existe: acepta la referencia del cobro
-    exitoso que envía quien solicita la emisión. HU-15 debe reemplazarlo por un adaptador que
-    consulte ms-pagos, sin tocar el caso de uso (puerto VerificadorCobro)."""
+class CobrosHTTP:
+    """Consulta el cobro de HU-15 en ms-pagos: GET /v1/pagos/{pago_id}. Solo vale un cobro APROBADO
+    de la misma oferta; un pago rechazado, inexistente o de otra oferta no habilita la emisión."""
 
-    async def exitoso(self, oferta_id: UUID, referencia_cobro: str) -> bool:
-        return bool(referencia_cobro.strip())
+    def __init__(self, http: httpx.AsyncClient) -> None:
+        self._http = http
+
+    async def exitoso(self, oferta_id: UUID, token_pago_confirmado: UUID) -> bool:
+        try:
+            respuesta = await self._http.get(f"/v1/pagos/{token_pago_confirmado}")
+        except httpx.HTTPError as exc:
+            raise DependenciaNoDisponible("ms-pagos") from exc
+        if respuesta.status_code == 404:
+            return False
+        if respuesta.status_code != 200:
+            raise DependenciaNoDisponible("ms-pagos")
+        pago = respuesta.json()
+        return pago.get("estado") == "APROBADO" and pago.get("oferta_id") == str(oferta_id)

@@ -23,6 +23,7 @@ services:
       SERVICE_NAME: ms-polizas
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
       MS_SUSCRIPCION_URL: http://host.docker.internal:8081
+      MS_PAGOS_URL: http://host.docker.internal:8082
     ports:
       - "8080:8080"
     depends_on:

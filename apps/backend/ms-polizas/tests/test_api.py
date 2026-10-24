@@ -1,12 +1,12 @@
 from uuid import uuid4
 
 
-def _cuerpo(oferta_id=None, referencia_cobro="PAGO-123"):
+def _cuerpo(oferta_id=None, token_pago_confirmado=None):
     return {
         "solicitud_id": str(uuid4()),
         "oferta_id": str(oferta_id or uuid4()),
         "usuario_id": str(uuid4()),
-        "referencia_cobro": referencia_cobro,
+        "token_pago_confirmado": str(token_pago_confirmado or uuid4()),
         "coberturas": [{"nombre": "Responsabilidad civil", "suma_asegurada": "50000000.00"}],
     }
 
@@ -53,11 +53,11 @@ def test_cobro_no_exitoso_responde_422(client, cobros):
     assert respuesta.json()["codigo"] == "cobro_no_exitoso"
 
 
-def test_sin_coberturas_o_sin_referencia_de_cobro_responde_422(client):
+def test_sin_coberturas_o_con_token_de_pago_invalido_responde_422(client):
     sin_coberturas = {**_cuerpo(), "coberturas": []}
 
     assert client.post("/v1/polizas", json=sin_coberturas).status_code == 422
-    assert client.post("/v1/polizas", json=_cuerpo(referencia_cobro="")).status_code == 422
+    assert client.post("/v1/polizas", json=_cuerpo(token_pago_confirmado="PAGO-1")).status_code == 422
 
 
 def test_consultar_poliza_inexistente_responde_404(client):

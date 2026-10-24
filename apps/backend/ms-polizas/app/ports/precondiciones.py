@@ -11,6 +11,7 @@ class VerificadorSuscripcion(Protocol):
 
 
 class VerificadorCobro(Protocol):
-    """¿El cobro de la prima de la oferta tuvo éxito? (HU-15, ms-pagos)."""
+    """¿El pago confirmado es un cobro aprobado de la prima de esta oferta? (HU-15, ms-pagos).
+    El token es el `pago_id` del cobro: el TokenPagoConfirmado de ComandoEmisionDTO."""
 
-    async def exitoso(self, oferta_id: UUID, referencia_cobro: str) -> bool: ...
+    async def exitoso(self, oferta_id: UUID, token_pago_confirmado: UUID) -> bool: ...
