@@ -119,9 +119,18 @@ def test_cambiar_estado_siniestro_inexistente_es_404(client):
     assert respuesta.status_code == 404
 
 
-def test_health_metrics_y_correlacion(client):
-    salud = client.get("/health", headers={"X-Correlation-Id": "c-123"})
+def test_health_live_metrics_y_correlacion(client):
+    salud = client.get("/health/live", headers={"X-Correlation-Id": "c-123"})
 
     assert salud.json() == {"status": "ok"}
     assert salud.headers["X-Correlation-Id"] == "c-123"
     assert "http_request_duration_seconds" in client.get("/metrics").text
+
+
+def test_health_ready_sin_base_de_datos_devuelve_503(client):
+    # El cliente de pruebas crea la app real (lifespan real -> motor SQLAlchemy real)
+    # pero sin un Postgres escuchando en DATABASE_URL: el ping debe fallar controladamente.
+    respuesta = client.get("/health/ready")
+
+    assert respuesta.status_code == 503
+    assert respuesta.json() == {"status": "unavailable"}
