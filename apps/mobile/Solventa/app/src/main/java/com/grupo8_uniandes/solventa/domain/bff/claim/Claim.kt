@@ -48,7 +48,7 @@ data class ClaimSummary(
 )
 
 interface ClaimRepository {
-    fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt>
+    suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt>
 
-    fun list(): StandInAnswer<List<ClaimSummary>>
+    suspend fun list(): StandInAnswer<List<ClaimSummary>>
 }

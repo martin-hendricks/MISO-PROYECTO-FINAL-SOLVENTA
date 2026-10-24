@@ -30,7 +30,7 @@ data class PushNotice(
 )
 
 interface PushRepository {
-    fun register(registration: PushRegistration): StandInAnswer<PushRegistration>
+    suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration>
 
-    fun notice(): StandInAnswer<PushNotice>
+    suspend fun notice(): StandInAnswer<PushNotice>
 }

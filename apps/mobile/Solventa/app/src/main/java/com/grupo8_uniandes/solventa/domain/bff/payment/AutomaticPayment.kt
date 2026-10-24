@@ -12,5 +12,5 @@ data class AutomaticPayment(
 )
 
 interface PaymentRepository {
-    fun read(): StandInAnswer<AutomaticPayment>
+    suspend fun read(): StandInAnswer<AutomaticPayment>
 }

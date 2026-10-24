@@ -18,7 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import org.koin.androidx.compose.koinViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
@@ -30,13 +31,13 @@ import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRep
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
-import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.navigation.EmisionEnCursoRoute
 import com.grupo8_uniandes.solventa.navigation.InicioRoute
@@ -212,7 +213,8 @@ internal fun SignedInShell(
 ) {
     val signedIn = true
     val navController = rememberNavController()
-    val homeViewModel: HomeViewModel = viewModel()
+    startSolventaKoin(LocalContext.current)
+    val homeViewModel: HomeViewModel = koinViewModel()
     val collectedHome by homeViewModel.state.collectAsState()
     val homeStateResolved = homeState ?: collectedHome
     val entry by navController.currentBackStackEntryAsState()
@@ -272,7 +274,8 @@ internal fun SignedInShell(
 
 @Composable
 private fun routeTitle(route: Any): String = when (route) {
-    CotizacionRoute -> stringResource(R.string.quote_title)
+    is CotizacionRoute -> stringResource(R.string.action_new_quote)
+    is VerOfertaRoute -> stringResource(R.string.offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
@@ -289,9 +292,8 @@ private fun LoginHost(
     onLeaveToAccount: (() -> Unit)?,
 ) {
     val context = LocalContext.current
-    val viewModel = remember(context) {
-        LoginViewModel(SignIn(SharedPrefsRegistrationRepository(context.applicationContext)))
-    }
+    startSolventaKoin(context)
+    val viewModel: LoginViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     val biometricPrompt = remember(activity) {

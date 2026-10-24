@@ -21,7 +21,7 @@ data class ConsentRevocation(
 )
 
 interface SignupRepository {
-    fun register(record: SignupRecord): StandInAnswer<SignupRecord>
+    suspend fun register(record: SignupRecord): StandInAnswer<SignupRecord>
 
-    fun revokeConsent(): StandInAnswer<ConsentRevocation>
+    suspend fun revokeConsent(): StandInAnswer<ConsentRevocation>
 }

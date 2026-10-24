@@ -34,8 +34,11 @@ class ShellModeTest {
 
     @Test
     fun givenNestedRoutes_whenSignedIn_thenNestedKeepsParent() {
-        assertEquals(ShellMode.Nested, shellMode(CotizacionRoute, signedIn = true))
-        assertEquals(Destination.Inicio, selectedDestination(CotizacionRoute))
+        assertEquals(ShellMode.Nested, shellMode(CotizacionRoute(), signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(CotizacionRoute()))
+        val offer = VerOfertaRoute(cotizacionId = "COT-1042")
+        assertEquals(ShellMode.Nested, shellMode(offer, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(offer))
         val detail = PolizaDetalleRoute(policyId = "SOL-0001")
         assertEquals(ShellMode.Nested, shellMode(detail, signedIn = true))
         assertEquals(Destination.Polizas, selectedDestination(detail))

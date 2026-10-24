@@ -22,7 +22,7 @@ data class AssistanceResult(
 )
 
 interface AssistanceRepository {
-    fun providers(): StandInAnswer<List<Provider>>
+    suspend fun providers(): StandInAnswer<List<Provider>>
 
-    fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult>
+    suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult>
 }

@@ -2,11 +2,13 @@ package com.grupo8_uniandes.solventa.domain.bff.offer
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 
+sealed interface LineRisk
+
 data class DeviceRisk(
     val valorDispositivo: Long,
     val marca: String,
     val masDe12Meses: Boolean,
-)
+) : LineRisk
 
 data class FirmOffer(
     val cotizacionId: String,
@@ -18,7 +20,7 @@ data class FirmOffer(
 )
 
 interface OfferRepository {
-    fun quote(ramo: String, risk: DeviceRisk): StandInAnswer<FirmOffer>
+    suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer>
 
-    fun requote(cotizacionId: String): StandInAnswer<FirmOffer>
+    suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer>
 }

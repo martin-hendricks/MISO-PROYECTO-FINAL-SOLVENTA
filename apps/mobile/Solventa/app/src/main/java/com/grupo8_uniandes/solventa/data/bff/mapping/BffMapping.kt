@@ -2,12 +2,17 @@ package com.grupo8_uniandes.solventa.data.bff.mapping
 
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceGeoDto
+import com.grupo8_uniandes.solventa.data.bff.dto.AttachmentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AttachmentKindDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimStatusDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
+import com.grupo8_uniandes.solventa.data.bff.dto.CreditDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
+import com.grupo8_uniandes.solventa.data.bff.dto.DeviceRiskDto
+import com.grupo8_uniandes.solventa.data.bff.dto.GeoDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessDto
@@ -29,6 +34,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
+import com.grupo8_uniandes.solventa.data.bff.dto.WalletEntryDto
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
@@ -50,7 +56,13 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.LifeRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.MortgageRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.PaymentsRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.TravelRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
@@ -63,12 +75,20 @@ import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 
-private val json = Json
+internal val bffJson = Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
+    explicitNulls = true
+}
 
 internal inline fun <reified T> decode(raw: String): T? =
     try {
-        json.decodeFromString<T>(raw)
+        bffJson.decodeFromString<T>(raw)
     } catch (_: SerializationException) {
         null
     }
@@ -93,6 +113,64 @@ internal fun OfferInDto.toRisk() = DeviceRisk(
     datosRiesgo.marca,
     datosRiesgo.masDe12Meses,
 )
+
+internal fun LineRisk.toRequestElement(): JsonElement = when (this) {
+    is DeviceRisk -> bffJson.encodeToJsonElement(DeviceRiskDto(valorDispositivo, marca, masDe12Meses))
+    is LifeRisk -> buildJsonObject {
+        put("sumaAsegurada", sumInsured)
+        put("edad", ageYears)
+    }
+    is ClimateRisk -> buildJsonObject {
+        put("evento", event)
+        put("referencia", reference)
+        put("umbral", threshold)
+    }
+    is MortgageRisk -> buildJsonObject {
+        put("valor", creditValue)
+        put("plazoMeses", termMonths)
+    }
+    is PaymentsRisk -> buildJsonObject {
+        put("cuota", installment)
+        put("plazoMeses", termMonths)
+    }
+    is TravelRisk -> buildJsonObject {
+        put("destino", destination)
+        put("duracion", duration)
+    }
+}
+
+internal fun SignupRecord.toDto() = SignupDto(
+    nombre,
+    apellidos,
+    documento,
+    correo,
+    if (pruebaDeVida == Liveness.OK) LivenessDto.ok else LivenessDto.no,
+    habeasData,
+)
+
+internal fun ClaimNotice.toDto() = ClaimNoticeDto(
+    poliza,
+    fechaHecho,
+    geo?.let { GeoDto(it.lat, it.lng, it.precisionM) },
+    adjuntos.map { AttachmentDto(it.tipo.toDto(), it.nombre) },
+)
+
+internal fun CreditProfile.toDto() = MortgageInDto(CreditDto(valor, plazoMeses), consentimientoPerfil)
+
+internal fun PushRegistration.toDto() = PushRegistrationDto(token, plataforma)
+
+internal fun AssistanceRequest.toDto() = AssistanceInDto(prestadorId, AssistanceGeoDto(lat, lng), poliza)
+
+internal fun List<WalletEntry>.toDto() = WalletDto(
+    map { WalletEntryDto(it.numero, it.ramo, it.resumen, it.estado, it.venceEn) },
+)
+
+private fun AttachmentKind.toDto() = when (this) {
+    AttachmentKind.FOTO -> AttachmentKindDto.foto
+    AttachmentKind.VIDEO -> AttachmentKindDto.video
+    AttachmentKind.RECIBO -> AttachmentKindDto.recibo
+    AttachmentKind.SOPORTE -> AttachmentKindDto.soporte
+}
 
 internal fun OfferOutDto.toOffer() = FirmOffer(cotizacionId, ramo, estado, prima, moneda, venceEn)
 

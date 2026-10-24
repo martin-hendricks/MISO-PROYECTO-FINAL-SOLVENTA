@@ -9,9 +9,9 @@ data class SessionTokens(
 )
 
 interface MobileSessionRepository {
-    fun signIn(correo: String, contrasena: String): StandInAnswer<SessionTokens>
+    suspend fun signIn(correo: String, contrasena: String): StandInAnswer<SessionTokens>
 
-    fun refresh(refreshToken: String): StandInAnswer<SessionTokens>
+    suspend fun refresh(refreshToken: String): StandInAnswer<SessionTokens>
 
-    fun signOut(): StandInAnswer<Unit>
+    suspend fun signOut(): StandInAnswer<Unit>
 }

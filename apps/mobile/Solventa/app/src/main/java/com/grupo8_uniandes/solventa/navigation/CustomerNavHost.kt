@@ -3,9 +3,20 @@ package com.grupo8_uniandes.solventa.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import com.grupo8_uniandes.solventa.offer.OfferViewModel
+import com.grupo8_uniandes.solventa.quote.QuoteViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -16,6 +27,7 @@ import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
+import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
 import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
@@ -34,6 +46,7 @@ fun CustomerNavHost(
     originationActive: Boolean = false,
     onSignedOut: () -> Unit = {},
 ) {
+    startSolventaKoin(LocalContext.current)
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -42,7 +55,8 @@ fun CustomerNavHost(
         composable<InicioRoute> {
             InicioScreen(
                 state = homeState,
-                onNewQuote = { navController.navigate(CotizacionRoute) },
+                onNewQuote = { navController.navigate(CotizacionRoute()) },
+                onOpenOffer = { offerId -> navController.navigate(VerOfertaRoute(offerId)) },
                 onAcceptOffer = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
                 onOpenPolicy = { policyId ->
                     navController.openParentThen(PolizasRoute, PolizaDetalleRoute(policyId))
@@ -52,10 +66,42 @@ fun CustomerNavHost(
                 },
             )
         }
-        composable<CotizacionRoute> {
+        composable<VerOfertaRoute> { entry ->
+            val route = entry.toRoute<VerOfertaRoute>()
+            val context = LocalContext.current
+            val region = remember(context) {
+                SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
+            }
+            val viewModel: OfferViewModel = koinViewModel { parametersOf(route.cotizacionId, region) }
+            val state by viewModel.state.collectAsState()
+            VerOfertaScreen(
+                state = state,
+                onAccept = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
+            )
+        }
+        composable<CotizacionRoute> { entry ->
+            val route = entry.toRoute<CotizacionRoute>()
+            val viewModel: QuoteViewModel = koinViewModel { parametersOf(route.cotizacionId) }
+            val state by viewModel.state.collectAsState()
+            LaunchedEffect(state.readyId) {
+                val readyId = state.readyId ?: return@LaunchedEffect
+                viewModel.consumeReady()
+                navController.navigate(VerOfertaRoute(readyId))
+            }
             CotizacionScreen(
-                onAccept = { navController.navigate(EmisionEnCursoRoute()) },
-                onCancel = { navController.popBackStack() },
+                state = state,
+                onMenu = viewModel::onMenu,
+                onLine = viewModel::onLine,
+                onValueChange = viewModel::onValue,
+                onBrandChange = viewModel::onBrand,
+                onAge = viewModel::onAge,
+                onText = viewModel::onText,
+                onCotizar = viewModel::cotizar,
+                onCancel = {
+                    viewModel.cancel()
+                    navController.popBackStack()
+                },
             )
         }
         composable<PolizasRoute> {
@@ -107,7 +153,8 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
     val destination = destination
     return when {
         destination.hasRoute<InicioRoute>() -> InicioRoute
-        destination.hasRoute<CotizacionRoute>() -> CotizacionRoute
+        destination.hasRoute<CotizacionRoute>() -> toRoute<CotizacionRoute>()
+        destination.hasRoute<VerOfertaRoute>() -> toRoute<VerOfertaRoute>()
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute

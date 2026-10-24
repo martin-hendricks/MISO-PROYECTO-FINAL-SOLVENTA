@@ -9,6 +9,7 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class StandInModeTest {
@@ -18,7 +19,7 @@ class StandInModeTest {
     fun givenFailureMode_whenQuote_thenTheSampleIsAbsent() {
         val offer = MockOfferRepository(StandInControl(StandInMode.Failure))
 
-        val answer = offer.quote("Protección de dispositivo", risk)
+        val answer = runBlocking { offer.quote("Protección de dispositivo", risk) }
 
         assertTrue(answer is StandInAnswer.Failed)
     }
@@ -27,9 +28,9 @@ class StandInModeTest {
     fun givenLateMode_whenReleased_thenTheSameSampleArrives() {
         val offer = MockOfferRepository(StandInControl(StandInMode.Late))
 
-        assertTrue(offer.quote("Protección de dispositivo", risk) is StandInAnswer.Pending)
+        assertTrue(runBlocking { offer.quote("Protección de dispositivo", risk) } is StandInAnswer.Pending)
         offer.release()
-        val ready = offer.quote("Protección de dispositivo", risk) as StandInAnswer.Ready
+        val ready = runBlocking { offer.quote("Protección de dispositivo", risk) } as StandInAnswer.Ready
 
         assertEquals("COT-1042", ready.value.cotizacionId)
         assertEquals(89_000L, ready.value.prima)
