@@ -35,6 +35,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         motor = crear_motor(config)
         http_suscripcion = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
         http_pagos = httpx.AsyncClient(base_url=config.ms_pagos_url, timeout=config.timeout_dependencias)
+        app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
         app.state.cobros = CobrosHTTP(http_pagos)
