@@ -29,3 +29,10 @@ class ProductoNoEncontrado(NoEncontrado):
     def __init__(self, producto: str) -> None:
         super().__init__(f"Producto '{producto}' no existe en el catálogo")
         self.producto = producto
+
+
+class DependenciaNoDisponible(ErrorDominio):
+    codigo = "dependencia_no_disponible"
+
+    def __init__(self, servicio: str) -> None:
+        super().__init__(f"{servicio} no está disponible")

@@ -1,18 +1,31 @@
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.api.v1 import rutas, rutas_cotizaciones
 from app.config import Settings
-from app.domain.errores import ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
+from app.domain.errores import (
+    DependenciaNoDisponible,
+    ErrorDominio,
+    NoEncontrado,
+    ReglaDeNegocioViolada,
+    TransicionInvalida,
+)
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
+from app.infrastructure.suscripciones import SuscripcionesHTTP
 from app.observabilidad import instrumentar
 
-ESTADO_HTTP = {NoEncontrado: 404, TransicionInvalida: 409, ReglaDeNegocioViolada: 422}
+ESTADO_HTTP = {
+    NoEncontrado: 404,
+    TransicionInvalida: 409,
+    ReglaDeNegocioViolada: 422,
+    DependenciaNoDisponible: 503,
+}
 
 
 def estado_http(exc: ErrorDominio) -> int:
@@ -26,11 +39,14 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
+        http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.catalogo = await CatalogoSQL.cargar(motor)
         app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoStub()
+        app.state.suscripciones = SuscripcionesHTTP(http)
         app.state.config = config
         yield
+        await http.aclose()
         await motor.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)

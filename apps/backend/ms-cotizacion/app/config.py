@@ -20,3 +20,7 @@ class Settings(BaseSettings):
     # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
     # default razonable a confirmar con negocio.
     oferta_vigencia_minutos: int = 60
+
+    # Aceptación (HU-12/SOLV-105): encadena la decisión de suscripción de HU-13.
+    ms_suscripcion_url: str = "http://ms-suscripcion:8000"
+    timeout_dependencias: float = 2.0
