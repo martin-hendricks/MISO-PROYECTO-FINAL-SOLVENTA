@@ -339,21 +339,29 @@ def test_dependencia_caida_responde_503(client, suscripciones):
 
 def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
     motor = SimpleNamespace(liberado=False)
+    motor_lectura = SimpleNamespace(liberado=False)
 
     async def liberar():
         motor.liberado = True
 
+    async def liberar_lectura():
+        motor_lectura.liberado = True
+
     motor.dispose = liberar
+    motor_lectura.dispose = liberar_lectura
     monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "crear_motor_lectura", lambda _config: motor_lectura)
 
     app = main.crear_app()
     with TestClient(app) as cliente:
         assert app.state.fabrica_uow is not None
+        assert app.state.fabrica_uow_lectura is not None
         assert isinstance(app.state.suscripciones, SuscripcionesHTTP)
         assert isinstance(app.state.cobros, CobrosHTTP)
-        assert cliente.get("/health").json() == {"status": "ok"}
+        assert cliente.get("/health/live").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
+    assert motor_lectura.liberado
 
 
 def test_dependencias_leen_el_estado_de_la_app():

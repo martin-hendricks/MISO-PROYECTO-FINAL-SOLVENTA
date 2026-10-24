@@ -28,6 +28,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
         http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
+        app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.suscripciones = SuscripcionesHTTP(http)
         app.state.pasarela = PasarelaStub()

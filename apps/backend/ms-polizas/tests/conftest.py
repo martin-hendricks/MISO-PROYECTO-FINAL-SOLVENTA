@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
+from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow, obtener_uow_lectura
 from app.main import crear_app
 
 from .dobles import (
@@ -36,6 +36,10 @@ def cobros() -> CobrosFalsos:
 def client(uow, suscripciones, cobros) -> TestClient:
     app = crear_app()
     app.dependency_overrides[obtener_uow] = lambda: uow
+    # En el doble de test no hay réplica real de lectura separada: la misma
+    # UoW en memoria sirve ambos roles (ver obtener_uow_lectura en producción,
+    # que sí usa un motor SQLAlchemy distinto).
+    app.dependency_overrides[obtener_uow_lectura] = lambda: uow
     app.dependency_overrides[obtener_suscripciones] = lambda: suscripciones
     app.dependency_overrides[obtener_cobros] = lambda: cobros
     return TestClient(app)

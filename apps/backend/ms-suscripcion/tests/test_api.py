@@ -70,3 +70,12 @@ def test_sin_regla_vigente_es_503(client, almacen):
 
     assert respuesta.status_code == 503
     assert respuesta.json()["codigo"] == "regla_no_configurada"
+
+
+def test_health_ready_sin_base_de_datos_devuelve_503(client):
+    # El cliente de pruebas crea la app real (lifespan real -> motor SQLAlchemy real)
+    # pero sin un Postgres escuchando en DATABASE_URL: el ping debe fallar controladamente.
+    respuesta = client.get("/health/ready")
+
+    assert respuesta.status_code == 503
+    assert respuesta.json() == {"status": "unavailable"}

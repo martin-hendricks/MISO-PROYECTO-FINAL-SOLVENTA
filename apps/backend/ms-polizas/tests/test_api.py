@@ -198,3 +198,12 @@ def test_renovar_poliza_cancelada_responde_409(client):
     )
 
     assert respuesta.status_code == 409
+
+
+def test_health_ready_sin_base_de_datos_devuelve_503(client):
+    # El cliente de pruebas crea la app real (lifespan real -> motor SQLAlchemy real)
+    # pero sin un Postgres escuchando en DATABASE_URL: el ping debe fallar controladamente.
+    respuesta = client.get("/health/ready")
+
+    assert respuesta.status_code == 503
+    assert respuesta.json() == {"status": "unavailable"}

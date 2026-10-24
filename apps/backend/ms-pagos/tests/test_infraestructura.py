@@ -234,7 +234,7 @@ def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
         assert app.state.fabrica_uow is not None
         assert isinstance(app.state.suscripciones, SuscripcionesHTTP)
         assert isinstance(app.state.pasarela, PasarelaStub)
-        assert cliente.get("/health").json() == {"status": "ok"}
+        assert cliente.get("/health/live").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
 

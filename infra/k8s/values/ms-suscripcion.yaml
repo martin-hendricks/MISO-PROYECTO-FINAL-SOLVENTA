@@ -4,6 +4,13 @@
 # Objetivo EC-LAT-06: p99 de emisión <= 3 s. No es tan sensible a latencia
 # individual como cotización/perfilamiento (el presupuesto de 3 s es de punta
 # a punta), por eso recursos y HPA son moderados. Escribe hacia ms-polizas.
+#
+# No tiene instancia RDS propia: su esquema vive en DBCompartida -- ver
+# module.rds_compartida en el environment "minimo". Este microservicio no
+# existía todavía cuando se fijó la lista original de esquemas de
+# DBCompartida (2026-10-01, ver infra/terraform/PLAN.md); se agrega aquí por
+# el mismo criterio que el resto de ese grupo (sin instancia propia en el
+# plan original, sin política de redundancia propia documentada en VC-003).
 
 nombre: ms-suscripcion
 
@@ -59,7 +66,13 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-suscripcion-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -79,3 +92,8 @@ variablesEntorno:
     valor: "http://ms-polizas.solventa.svc.cluster.local"
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-suscripcion-db
+    claveSecreto: database_url

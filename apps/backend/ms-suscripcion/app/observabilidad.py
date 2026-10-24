@@ -1,8 +1,9 @@
 import time
 import uuid
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, Histogram, generate_latest
+from sqlalchemy import text
 
 LATENCIA = Histogram(
     "http_request_duration_seconds",
@@ -27,9 +28,19 @@ def instrumentar(app: FastAPI) -> None:
         respuesta.headers[CABECERA_CORRELACION] = correlacion
         return respuesta
 
-    @app.get("/health", include_in_schema=False)
-    async def health():
+    @app.get("/health/live", include_in_schema=False)
+    async def health_live():
         return {"status": "ok"}
+
+    @app.get("/health/ready", include_in_schema=False)
+    async def health_ready(request: Request, response: Response):
+        try:
+            async with request.app.state.motor.connect() as conexion:
+                await conexion.execute(text("SELECT 1"))
+            return {"status": "ok"}
+        except Exception:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            return {"status": "unavailable"}
 
     @app.get("/metrics", include_in_schema=False)
     async def metrics():

@@ -4,7 +4,10 @@
 # MSK, por lo que necesita IRSA para autenticación IAM contra el cluster de
 # Kafka. Alcance PCI-DSS: recursos moderados pero con foco en disponibilidad
 # (PDB) más que en autoescalado agresivo, ya que el volumen de pagos es menor
-# y más constante que el de cotizaciones.
+# y más constante que el de cotizaciones. No tiene instancia RDS propia (no
+# está en el diagrama VC-003 con política de redundancia propia, igual que
+# cotización/identidad/etc.): su esquema vive en DBCompartida -- ver
+# module.rds_compartida en el environment "minimo".
 
 nombre: ms-pagos
 
@@ -68,6 +71,10 @@ externalSecrets:
       claves:
         - clientId
         - clientSecret
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-pagos-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -89,3 +96,8 @@ variablesEntorno:
     valor: "ColaPagos"
   - nombre: MSK_AUTH_MECHANISM
     valor: "AWS_MSK_IAM"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-pagos-db
+    claveSecreto: database_url

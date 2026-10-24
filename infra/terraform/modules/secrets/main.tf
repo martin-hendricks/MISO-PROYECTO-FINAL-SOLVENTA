@@ -42,6 +42,10 @@ resource "aws_secretsmanager_secret_version" "polizas_db" {
     host     = try(var.polizas_db_credentials.host, null)
     port     = try(var.polizas_db_credentials.port, null)
     dbname   = try(var.polizas_db_credentials.dbname, null)
+    # URL de conexión ya armada, igual que en siniestros_db_credentials: la
+    # app (apps/backend/ms-polizas/app/config.py) espera una única variable
+    # DATABASE_URL, no username/password/host/port por separado.
+    database_url = "postgresql+asyncpg://${var.polizas_db_credentials.username}:${var.polizas_db_credentials.password}@${try(var.polizas_db_credentials.host, "")}:${try(var.polizas_db_credentials.port, "")}/${try(var.polizas_db_credentials.dbname, "")}"
   })
 }
 
@@ -73,9 +77,9 @@ resource "aws_secretsmanager_secret_version" "siniestros_db" {
 
 # DBCompartida aloja los esquemas de los microservicios sin instancia propia
 # (cotización, identidad, consentimiento, pagos, paramétrico, perfilamiento,
-# socios, analítica, notificaciones). Un solo secreto con las credenciales
-# maestras; el aislamiento por esquema/rol de cada microservicio se gestiona
-# fuera de Terraform (ver infra/terraform/README.md).
+# socios, analítica, notificaciones, suscripción). Un solo secreto con las
+# credenciales maestras; el aislamiento por esquema/rol de cada microservicio
+# se gestiona fuera de Terraform (ver infra/terraform/README.md).
 resource "aws_secretsmanager_secret" "compartida_db" {
   name                    = "${var.project_name}-${var.environment}-compartida-db-credentials"
   description             = "Credenciales de conexion a DBCompartida (RDS PostgreSQL)"

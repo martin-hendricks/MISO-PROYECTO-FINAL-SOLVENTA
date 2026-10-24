@@ -211,6 +211,25 @@ def crear_motor(config: Settings) -> AsyncEngine:
     return create_async_engine(config.database_url, pool_size=config.db_pool_size, pool_pre_ping=True)
 
 
+def crear_motor_lectura(config: Settings) -> AsyncEngine:
+    """EC-LAT-10: motor separado contra la réplica de lectura de DBPolizas.
+    Hoy database_url_read apunta al mismo valor que database_url (sin
+    infraestructura de réplica real todavía); el motor queda separado para
+    que apuntar esta variable al reader endpoint real no requiera tocar
+    código."""
+    return create_async_engine(config.database_url_read, pool_size=config.db_pool_size, pool_pre_ping=True)
+
+
 def fabrica_unidad_de_trabajo(motor: AsyncEngine):
     sesiones = async_sessionmaker(motor, expire_on_commit=False)
+    return lambda: UnidadDeTrabajoSQL(sesiones)
+
+
+def fabrica_unidad_de_trabajo_lectura(motor_lectura: AsyncEngine):
+    """Fábrica de UoW de solo lectura (EC-LAT-10): usa el mismo tipo
+    UnidadDeTrabajoSQL -- el contrato RepositorioPolizas es el mismo -- pero
+    con sesiones contra el motor de lectura. Los casos de uso que solo
+    consultan (consultar_poliza, consultar_poliza_por_numero,
+    listar_polizas_de_usuario) la usan en vez de la de escritura."""
+    sesiones = async_sessionmaker(motor_lectura, expire_on_commit=False)
     return lambda: UnidadDeTrabajoSQL(sesiones)
