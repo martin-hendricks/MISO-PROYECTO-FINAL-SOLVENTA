@@ -98,7 +98,7 @@ async def test_adaptador_que_excede_el_timeout_degrada_con_valor_de_respaldo(uow
     await casos_uso.otorgar_consentimiento(uow, "cliente-1")
     adaptador_lento = AdaptadorConfigurable(
         {NIVEL_INGRESOS_ESTIMADO: Decimal("0.9"), SCORE_COMPORTAMIENTO: Decimal("0.9")},
-        latencia_ms=config.timeout_open_finance_ms + 200,
+        lento=True,
     )
 
     resultado = await casos_uso.perfilar_y_ofertar(

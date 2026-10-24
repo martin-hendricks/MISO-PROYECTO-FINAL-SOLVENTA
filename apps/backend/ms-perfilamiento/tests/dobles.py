@@ -11,18 +11,21 @@ from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 class AdaptadorConfigurable:
     """Doble de test (HU-56) para AdaptadorOpenFinance/AdaptadorOpenData: permite forzar
-    en los tests una respuesta lenta (`latencia_ms`) o fallida (`fallar=True`) sin
-    depender de red real, para ejercer el camino de `asyncio.wait_for` expirando y la
-    captura de excepción en el caso de uso."""
+    en los tests una respuesta que nunca llega (`lento=True`) o fallida (`fallar=True`)
+    sin depender de red real ni de dormir tiempo real (los tests unitarios de CI no
+    permiten pausas fijas). `lento=True` espera un `asyncio.Event` que nunca se
+    dispara, así que es el timeout real de `asyncio.wait_for` en el caso de uso -- no
+    una espera fija de este doble -- el que corta la llamada, ejerciendo el camino de
+    `asyncio.wait_for` expirando y la captura de excepción."""
 
-    def __init__(self, atributos: dict[str, Decimal], latencia_ms: int = 0, fallar: bool = False) -> None:
+    def __init__(self, atributos: dict[str, Decimal], lento: bool = False, fallar: bool = False) -> None:
         self._atributos = atributos
-        self._latencia_ms = latencia_ms
+        self._lento = lento
         self._fallar = fallar
 
     async def obtener_atributos(self, cliente_id: str) -> dict[str, Decimal]:
-        if self._latencia_ms:
-            await asyncio.sleep(self._latencia_ms / 1000)
+        if self._lento:
+            await asyncio.Event().wait()
         if self._fallar:
             raise RuntimeError("doble de adaptador: fallo simulado")
         return dict(self._atributos)
