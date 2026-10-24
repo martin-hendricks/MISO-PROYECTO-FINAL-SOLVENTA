@@ -245,40 +245,53 @@ async def emitir(
     }
 
 
-# TODO: no hay endpoint real en ms-polizas para listar pólizas por usuario
-# (solo existe GET /v1/polizas/{poliza_id} puntual, ver el PR
-# feature/HU-16-emitir-poliza) -- falta un endpoint tipo
-# "GET /v1/polizas?usuario_id=" o equivalente en el núcleo para integrar esta
-# ruta de verdad.
+def _poliza_billetera(poliza: dict) -> dict:
+    return {
+        "numero": poliza["numero"],
+        # TODO: ms-polizas no tiene campo "ramo"/"resumen" (solo guarda
+        # coberturas sueltas, ver app/domain/modelos.py de ms-polizas). Ese
+        # dato vendría de relacionar la póliza con su cotización/producto
+        # original en ms-cotizacion (oferta_id -> producto). Mientras esa
+        # relación no se integre en este BFF, se usa un placeholder claro en
+        # vez de inventar un ramo real.
+        "ramo": "Sin clasificar",
+        "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
+        "estado": poliza["estado"].lower(),
+        "venceEn": poliza["fin_vigencia"],
+    }
+
+
 @router.get("/polizas")
-def billetera() -> dict:
-    return {
-        "polizas": [
-            {
-                "numero": "POL-88219-CO",
-                "ramo": "Protección de dispositivo",
-                "resumen": "Robo, Pantalla, Hurto",
-                "estado": "vigente",
-                "venceEn": "2027-03-12",
-            }
-        ]
-    }
+async def billetera(
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+) -> dict:
+    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no
+    # hay ms-identidad real para resolver el correo de la sesión a un
+    # usuario_id. El usuario_id derivado es estable dentro de este proceso.
+    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+
+    polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
+    return {"polizas": [_poliza_billetera(p) for p in polizas]}
 
 
-# TODO: mismo faltante que billetera() -- el detalle por número de póliza sí
-# tiene equivalente real (GET /v1/polizas/{id} en ms-polizas), pero el campo
-# "queHacer" (guía de siniestro) depende de ms-parametrico/ms-siniestros, que
-# no están conectados a este BFF en esta rama.
+# "queHacer" es contenido estático de ayuda al usuario (guía de qué hacer
+# frente a un siniestro): no depende de ningún microservicio, por eso queda
+# fijo aquí en vez de requerir una integración con ms-siniestros/ms-parametrico.
+QUE_HACER_POR_DEFECTO = (
+    "Si necesitas usar tu póliza, documenta lo ocurrido (foto, fecha y lugar) "
+    "y comunícate con soporte para iniciar el proceso de reclamación."
+)
+
+
 @router.get("/polizas/{numero}")
-def detalle(numero: str) -> dict:
-    return {
-        "numero": numero,
-        "ramo": "Protección de dispositivo",
-        "resumen": "Robo y Pantalla",
-        "estado": "vigente",
-        "venceEn": "2027-03-12",
-        "queHacer": "Toma la foto del daño y anota fecha y lugar.",
-    }
+async def detalle(
+    numero: str,
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+) -> dict:
+    poliza = await cliente_polizas.obtener_por_numero(numero)
+    salida = _poliza_billetera(poliza)
+    salida["queHacer"] = QUE_HACER_POR_DEFECTO
+    return salida
 
 
 # TODO: no hay microservicio de pagos automáticos/recurrentes conectado
