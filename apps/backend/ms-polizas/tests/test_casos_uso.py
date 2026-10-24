@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -97,6 +97,64 @@ async def test_choque_sin_ganadora_visible_falla(uow, almacen, suscripciones, co
 async def test_consultar_poliza_inexistente(uow):
     with pytest.raises(NoEncontrado):
         await casos_uso.consultar_poliza(uow, uuid4())
+
+
+async def test_consultar_poliza_por_numero(uow, suscripciones, cobros):
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+
+    encontrada = await casos_uso.consultar_poliza_por_numero(uow, emision.poliza.numero)
+
+    assert encontrada.id == emision.poliza.id
+
+
+async def test_consultar_poliza_por_numero_inexistente(uow):
+    with pytest.raises(NoEncontrado):
+        await casos_uso.consultar_poliza_por_numero(uow, "POL-2026-99999999")
+
+
+async def test_listar_polizas_de_usuario_ordena_por_inicio_de_vigencia_descendente(uow, suscripciones, cobros):
+    usuario_id = uuid4()
+    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
+    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
+
+    # Ambas pólizas se emiten "hoy": fuerzo que la primera quede con una
+    # vigencia anterior para verificar el orden descendente sin depender del
+    # reloj real.
+    async with uow() as tx:
+        vieja = await tx.polizas.obtener(primera.poliza.id)
+    vieja.inicio_vigencia = vieja.inicio_vigencia.replace(year=vieja.inicio_vigencia.year - 1)
+    async with uow() as tx:
+        tx.pendientes[vieja.id] = vieja
+        await tx.confirmar()
+
+    listado = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite=10)
+
+    assert [p.id for p in listado] == [segunda.poliza.id, primera.poliza.id]
+
+
+async def test_listar_polizas_de_usuario_respeta_el_limite(uow, suscripciones, cobros):
+    usuario_id = uuid4()
+    for _ in range(3):
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
+
+    listado = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite=2)
+
+    assert len(listado) == 2
+
+
+async def test_listar_polizas_de_usuario_sin_polizas_devuelve_vacio(uow):
+    assert await casos_uso.listar_polizas_de_usuario(uow, uuid4(), limite=10) == []
+
+
+def solicitud_de(usuario_id: UUID):
+    pedido = solicitud()
+    return casos_uso.SolicitudEmision(
+        solicitud_id=pedido.solicitud_id,
+        oferta_id=pedido.oferta_id,
+        usuario_id=usuario_id,
+        token_pago_confirmado=pedido.token_pago_confirmado,
+        coberturas=pedido.coberturas,
+    )
 
 
 def pedido_hoy():

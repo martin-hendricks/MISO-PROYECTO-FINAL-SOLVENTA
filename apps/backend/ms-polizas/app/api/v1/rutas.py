@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.application import casos_uso
 from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
@@ -40,6 +40,22 @@ async def emitir(
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return PolizaSalida.desde(resultado.poliza)
+
+
+@router.get("", response_model=list[PolizaSalida], responses=ERRORES)
+async def listar(uow: Uow, usuario_id: UUID, limite: Annotated[int, Query(ge=1, le=100)] = 20):
+    polizas = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite)
+    return [PolizaSalida.desde(poliza) for poliza in polizas]
+
+
+# Ruta registrada antes de "/{poliza_id}": FastAPI resuelve rutas en orden de
+# registro, y el prefijo literal "/numero/" es inequívoco frente al
+# path-param UUID de abajo (si "/{poliza_id}" se registrara primero, FastAPI
+# intentaría parsear "numero" como UUID y fallaría con 422 en vez de llegar
+# aquí).
+@router.get("/numero/{numero}", response_model=PolizaSalida, responses=ERRORES)
+async def consultar_por_numero(numero: str, uow: Uow):
+    return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero))
 
 
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)

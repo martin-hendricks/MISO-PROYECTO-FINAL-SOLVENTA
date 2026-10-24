@@ -71,6 +71,57 @@ def _emitir(client) -> dict:
     return client.post("/v1/polizas", json=_cuerpo()).json()
 
 
+def test_consultar_por_numero_devuelve_la_poliza(client):
+    poliza = client.post("/v1/polizas", json=_cuerpo()).json()
+
+    respuesta = client.get(f"/v1/polizas/numero/{poliza['numero']}")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == poliza
+
+
+def test_consultar_por_numero_inexistente_responde_404(client):
+    respuesta = client.get("/v1/polizas/numero/POL-2026-99999999")
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["codigo"] == "no_encontrado"
+
+
+def test_listar_por_usuario_devuelve_solo_las_polizas_de_ese_usuario(client):
+    usuario_id = str(uuid4())
+    propia = client.post("/v1/polizas", json=_cuerpo()).json()
+    # Fuerzo el usuario_id de la póliza "propia" simulando que el cuerpo lo
+    # trae: como _cuerpo() genera un usuario_id aleatorio distinto, emito
+    # otra póliza con el usuario_id objetivo y una ajena con otro cualquiera.
+    objetivo = client.post("/v1/polizas", json={**_cuerpo(), "usuario_id": usuario_id}).json()
+
+    respuesta = client.get("/v1/polizas", params={"usuario_id": usuario_id})
+
+    assert respuesta.status_code == 200
+    numeros = [p["numero"] for p in respuesta.json()]
+    assert numeros == [objetivo["numero"]]
+    assert propia["numero"] not in numeros
+
+
+def test_listar_por_usuario_sin_polizas_devuelve_lista_vacia(client):
+    respuesta = client.get("/v1/polizas", params={"usuario_id": str(uuid4())})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_listar_por_usuario_requiere_usuario_id(client):
+    respuesta = client.get("/v1/polizas")
+
+    assert respuesta.status_code == 422
+
+
+def test_listar_por_usuario_respeta_el_limite_maximo(client):
+    respuesta = client.get("/v1/polizas", params={"usuario_id": str(uuid4()), "limite": 200})
+
+    assert respuesta.status_code == 422
+
+
 def test_renovar_extiende_la_vigencia_y_responde_200(client):
     poliza = _emitir(client)
 

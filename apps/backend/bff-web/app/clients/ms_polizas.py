@@ -8,13 +8,7 @@ from .base import ClienteServicio
 
 
 class ClienteMsPolizas(ClienteServicio):
-    """Cliente de ms-polizas.
-
-    ms-polizas todavía no existe en develop ni en esta rama: su implementación
-    vive en el PR abierto `feature/HU-16-emitir-poliza` (origin). Este cliente
-    queda listo para cuando ese PR se mergee, pero hoy no se puede probar de
-    extremo a extremo (no hay servicio real al que apuntar en este entorno).
-    """
+    """Cliente de ms-polizas."""
 
     nombre = "ms-polizas"
 
@@ -40,6 +34,14 @@ class ClienteMsPolizas(ClienteServicio):
 
     async def obtener(self, poliza_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/polizas/{poliza_id}")
+
+    async def listar_por_usuario(self, usuario_id: UUID, limite: int) -> list[dict[str, Any]]:
+        return await self._pedir(
+            "GET", "/v1/polizas", params={"usuario_id": str(usuario_id), "limite": limite}
+        )
+
+    async def obtener_por_numero(self, numero: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/polizas/numero/{numero}")
 
     async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
         """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),

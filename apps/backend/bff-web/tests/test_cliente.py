@@ -191,12 +191,64 @@ def test_emision_rechazo_de_aceptacion_se_propaga(client, nucleo_cotizacion, nuc
     assert nucleo_polizas.peticiones == []
 
 
-def test_billetera_y_detalle(client):
-    headers = _auth(client)
-    wallet = client.get("/cliente/polizas", headers=headers).json()
-    assert "polizas" in wallet
-    detail = client.get("/cliente/polizas/POL-88219-CO", headers=headers).json()
-    assert detail["queHacer"]
+def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas):
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
+        200, json=[POLIZA_SALIDA]
+    )
+
+    respuesta = client.get("/cliente/polizas", headers=_auth(client))
+
+    assert respuesta.status_code == 200
+    polizas = respuesta.json()["polizas"]
+    assert len(polizas) == 1
+    assert polizas[0]["numero"] == "POL-88219-CO"
+    assert polizas[0]["estado"] == "vigente"
+    assert polizas[0]["venceEn"] == "2027-10-01T00:00:00Z"
+    assert "cobertura-base" in polizas[0]["resumen"]
+
+    peticion = nucleo_polizas.peticiones[-1]
+    assert peticion.url.params["limite"] == "20"
+
+
+def test_billetera_servicio_no_disponible_es_503(client, nucleo_polizas):
+    def caido(request):
+        raise httpx.ConnectError("conexión rechazada", request=request)
+
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = caido
+
+    respuesta = client.get("/cliente/polizas", headers=_auth(client))
+
+    assert respuesta.status_code == 503
+
+
+def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas):
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=POLIZA_SALIDA
+    )
+
+    respuesta = client.get("/cliente/polizas/POL-88219-CO", headers=_auth(client))
+
+    assert respuesta.status_code == 200
+    detalle = respuesta.json()
+    assert detalle["numero"] == "POL-88219-CO"
+    assert detalle["queHacer"]
+
+
+def test_detalle_poliza_inexistente_es_404(client, nucleo_polizas):
+    respuesta = client.get("/cliente/polizas/POL-NO-EXISTE", headers=_auth(client))
+
+    assert respuesta.status_code == 404
+
+
+def test_detalle_servicio_no_disponible_es_503(client, nucleo_polizas):
+    def caido(request):
+        raise httpx.ConnectError("conexión rechazada", request=request)
+
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = caido
+
+    respuesta = client.get("/cliente/polizas/POL-88219-CO", headers=_auth(client))
+
+    assert respuesta.status_code == 503
 
 
 def test_pago_automatico_es_numero(client):
