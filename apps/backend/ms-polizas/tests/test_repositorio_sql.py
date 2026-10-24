@@ -1,10 +1,13 @@
 import os
+from datetime import date
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
 
 from app.application import casos_uso
 from app.config import Settings
+from app.domain.modelos import Cobertura
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
 
 from .dobles import CobrosFalsos, SuscripcionesFalsas, solicitud
@@ -45,3 +48,32 @@ async def test_cada_oferta_recibe_un_numero_nuevo(uow):
     segunda = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
 
     assert primera.poliza.numero != segunda.poliza.numero
+
+
+async def test_ciclo_de_vida_renovar_modificar_y_cancelar_persisten_contra_bd_real(uow):
+    emitida = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
+    poliza_id = emitida.poliza.id
+
+    nueva_fecha = date(emitida.poliza.fin_vigencia.year + 1, 1, 1)
+    renovada = await casos_uso.renovar_poliza(uow, poliza_id, nueva_fecha)
+    assert renovada.fin_vigencia == nueva_fecha
+
+    modificada = await casos_uso.modificar_poliza(
+        uow, poliza_id, [Cobertura(nombre="Robo", suma_asegurada=Decimal("1000"))]
+    )
+    assert [c.nombre for c in modificada.coberturas] == ["Robo"]
+
+    cancelada = await casos_uso.cancelar_poliza(uow, poliza_id, "El cliente lo pidió")
+    assert cancelada.estado.value == "CANCELADA"
+    assert cancelada.motivo_cancelacion == "El cliente lo pidió"
+
+    consultada = await casos_uso.consultar_poliza(uow, poliza_id)
+    assert consultada.estado.value == "CANCELADA"
+    assert [c.nombre for c in consultada.coberturas] == ["Robo"]
+
+    async with uow() as tx:
+        eventos = await tx._sesion.scalar(
+            text(f"SELECT count(*) FROM {ESQUEMA}.outbox_evento WHERE agregado_id = :id"),
+            {"id": poliza_id},
+        )
+    assert eventos == 4  # emitida + renovada + modificada + cancelada

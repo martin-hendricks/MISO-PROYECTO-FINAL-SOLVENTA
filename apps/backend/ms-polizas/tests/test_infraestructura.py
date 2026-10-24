@@ -30,6 +30,7 @@ from .dobles import coberturas
 class SesionFalsa:
     def __init__(self, error_commit: Exception | None = None, fila=None, coberturas=(), secuencia=7) -> None:
         self.agregados: list = []
+        self.eliminados: list = []
         self.error_commit = error_commit
         self.fila = fila
         self.coberturas = list(coberturas)
@@ -38,6 +39,12 @@ class SesionFalsa:
 
     def add(self, objeto) -> None:
         self.agregados.append(objeto)
+
+    async def delete(self, objeto) -> None:
+        self.eliminados.append(objeto)
+
+    async def get(self, _tipo, _id):
+        return self.fila
 
     async def scalar(self, consulta):
         if "poliza_numero_seq" in str(consulta):
@@ -124,6 +131,42 @@ async def test_obtener_sin_fila_devuelve_none():
     async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
         assert await tx.polizas.obtener(uuid4()) is None
         assert await tx.polizas.obtener_por_oferta(uuid4()) is None
+
+
+async def test_actualizar_escribe_los_campos_mutables_y_reemplaza_coberturas():
+    poliza = _poliza()
+    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1))
+    fila = PolizaFila(
+        poliza_id=poliza.id,
+        oferta_id=poliza.oferta_id,
+        usuario_id=poliza.usuario_id,
+        numero=poliza.numero,
+        inicio_vigencia=poliza.inicio_vigencia,
+        fin_vigencia=date(2026, 10, 23),
+        estado="VIGENTE",
+    )
+    cobertura_vieja = CoberturaFila(
+        cobertura_id=uuid4(), poliza_id=poliza.id, nombre="vieja", suma_asegurada=Decimal("1"), deducible=Decimal("0")
+    )
+    sesion = SesionFalsa(fila=fila, coberturas=[cobertura_vieja])
+
+    async with UnidadDeTrabajoSQL(lambda: sesion) as tx:
+        await tx.polizas.actualizar(poliza)
+        await tx.confirmar()
+
+    assert sesion.eliminados == [cobertura_vieja]
+    assert fila.estado == "CANCELADA"
+    assert fila.motivo_cancelacion == "El cliente lo pidió"
+    assert fila.cancelada_en == date(2026, 11, 1)
+    assert [c.poliza_id for c in sesion.agregados if isinstance(c, CoberturaFila)] == [poliza.id] * len(
+        poliza.coberturas
+    )
+
+
+async def test_actualizar_sin_fila_existente_falla():
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=None)) as tx:
+        with pytest.raises(ValueError):
+            await tx.polizas.actualizar(_poliza())
 
 
 async def test_oferta_duplicada_se_traduce_al_puerto():
