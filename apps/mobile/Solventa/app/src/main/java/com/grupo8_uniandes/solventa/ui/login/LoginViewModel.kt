@@ -1,6 +1,8 @@
 package com.grupo8_uniandes.solventa.ui.login
 
 import androidx.lifecycle.ViewModel
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
+import com.grupo8_uniandes.solventa.domain.login.OpenHomeFromDeviceUnlock
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.login.SignInResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +28,7 @@ data class LoginUiState(
 
 class LoginViewModel(
     private val signIn: SignIn,
+    private val openHomeFromDeviceUnlock: OpenHomeFromDeviceUnlock = OpenHomeFromDeviceUnlock(),
 ) : ViewModel() {
     private val _state = MutableStateFlow(LoginUiState())
     val state: StateFlow<LoginUiState> = _state.asStateFlow()
@@ -65,5 +68,15 @@ class LoginViewModel(
                 effect = null,
             )
         }
+    }
+
+    fun onDeviceUnlock(result: DeviceUnlock) {
+        val current = _state.value
+        if (submitting || current.effect == LoginEffect.OpenHome) return
+        if (!openHomeFromDeviceUnlock(result)) return
+        _state.value = current.copy(
+            failure = LoginFailure.None,
+            effect = LoginEffect.OpenHome,
+        )
     }
 }

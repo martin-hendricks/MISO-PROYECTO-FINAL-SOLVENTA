@@ -18,7 +18,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -31,6 +34,7 @@ import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaFieldState
+import com.grupo8_uniandes.solventa.ui.components.SolventaSelect
 import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import java.io.File
@@ -65,6 +69,7 @@ fun OnboardingScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    var typeExpanded by remember { mutableStateOf(false) }
     val captureFile = remember {
         File(context.cacheDir, "registration/capture.jpg")
     }
@@ -150,13 +155,14 @@ fun OnboardingScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
         ) {
-            SolventaTextField(
-                value = state.documentType,
-                onValueChange = onDocumentType,
+            SolventaSelect(
                 label = stringResource(R.string.onboarding_tipo),
-                helper = "",
+                value = state.documentType,
+                options = state.documentTypeOptions,
+                expanded = typeExpanded,
+                onExpandedChange = { typeExpanded = it },
+                onSelect = onDocumentType,
                 modifier = Modifier.weight(1f),
-                testTag = "field_tipo",
             )
             SolventaTextField(
                 value = state.documentNumber,

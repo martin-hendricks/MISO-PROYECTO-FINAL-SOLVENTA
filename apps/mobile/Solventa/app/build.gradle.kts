@@ -1,4 +1,5 @@
 import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -20,11 +21,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "BFF_BASE_URL", "\"\"")
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 
     buildTypes {
         debug {
             enableUnitTestCoverage = true
+        }
+        create("remote") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            isDebuggable = true
+            val address = remoteBffAddress()
+            buildConfigField("String", "BFF_BASE_URL", address.asBuildConfigString())
+            manifestPlaceholders["usesCleartextTraffic"] = address.startsWith("http://").toString()
         }
         release {
             optimization {
@@ -41,6 +52,10 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+    installation {
+        timeOutInMs = 10 * 60 * 1000
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -60,13 +75,23 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.biometric)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.retrofit.kotlinx.serialization)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.koin.test)
+    testImplementation(libs.koin.test.junit4)
+    testImplementation(libs.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -87,6 +112,7 @@ val unitTestCoverageExcludedSources = setOf(
     "IdiomaRegionScreen.kt",
     "IdiomaRegionSheet.kt",
     "PerfilScreen.kt",
+    "SolventaApp.kt",
 )
 
 val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {
@@ -98,3 +124,17 @@ val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("fi
 tasks.matching { it.name == "createDebugUnitTestCoverageReport" }.configureEach {
     finalizedBy(filterDebugUnitTestCoverageReport)
 }
+
+// Same order as BffAddress.resolve. Debug never reads this file: its address field stays empty.
+private fun Project.remoteBffAddress(): String {
+    val fromGradle = (findProperty("bffBaseUrl") as String?).orEmpty().trim()
+    if (fromGradle.isNotBlank()) return fromGradle
+    val file = rootProject.file("local.properties")
+    if (!file.exists()) return ""
+    val properties = Properties()
+    file.inputStream().use(properties::load)
+    return properties.getProperty("bff.baseUrl").orEmpty().trim()
+}
+
+private fun String.asBuildConfigString(): String =
+    "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""

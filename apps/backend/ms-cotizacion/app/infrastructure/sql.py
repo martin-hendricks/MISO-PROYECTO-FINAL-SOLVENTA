@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select
+from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -22,7 +22,7 @@ from app.domain.modelos import EstadoSolicitud, EventoDominio, SolicitudCotizaci
 from app.domain.oferta import Oferta
 from app.domain.rating import ReglaRating
 from app.domain.riesgo import OrigenFactorRiesgo
-from app.ports.persistencia import ClaveIdempotenciaDuplicada
+from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada
 
 ESQUEMA = "ms_cotizacion"
 
@@ -45,6 +45,8 @@ class SolicitudFila(Base):
     datos_riesgo: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     estado: Mapped[str]
     creada_en: Mapped[datetime]
+    aceptacion_key: Mapped[str | None]
+    aceptada_en: Mapped[datetime | None]
 
 
 class ReglaRatingFila(Base):
@@ -143,6 +145,8 @@ def _a_dominio(fila: SolicitudFila) -> SolicitudCotizacion:
         datos_riesgo=fila.datos_riesgo,
         estado=EstadoSolicitud(fila.estado),
         creada_en=fila.creada_en,
+        aceptacion_key=fila.aceptacion_key,
+        aceptada_en=fila.aceptada_en,
     )
 
 
@@ -185,6 +189,24 @@ class RepositorioSolicitudesSQL:
     async def actualizar(self, solicitud: SolicitudCotizacion) -> None:
         fila = await self._s.get(SolicitudFila, solicitud.id)
         fila.estado = solicitud.estado.value
+
+    async def registrar_aceptacion(self, solicitud: SolicitudCotizacion) -> None:
+        # UPDATE condicional: dos aceptaciones simultáneas se serializan en la fila y la
+        # segunda ya no encuentra la cotización en estado cotizada.
+        resultado = await self._s.execute(
+            update(SolicitudFila)
+            .where(
+                SolicitudFila.solicitud_id == solicitud.id,
+                SolicitudFila.estado == EstadoSolicitud.COTIZADA.value,
+            )
+            .values(
+                estado=solicitud.estado.value,
+                aceptacion_key=solicitud.aceptacion_key,
+                aceptada_en=solicitud.aceptada_en,
+            )
+        )
+        if resultado.rowcount != 1:
+            raise AceptacionConcurrente
 
 
 class RepositorioReglasRatingSQL:

@@ -64,6 +64,10 @@ resource "aws_secretsmanager_secret_version" "siniestros_db" {
     host     = try(var.siniestros_db_credentials.host, null)
     port     = try(var.siniestros_db_credentials.port, null)
     dbname   = try(var.siniestros_db_credentials.dbname, null)
+    # URL de conexión ya armada, igual que en compartida_db_credentials: la
+    # app (apps/backend/ms-siniestros/app/config.py) espera una única
+    # variable DATABASE_URL, no username/password/host/port por separado.
+    database_url = "postgresql+asyncpg://${var.siniestros_db_credentials.username}:${var.siniestros_db_credentials.password}@${try(var.siniestros_db_credentials.host, "")}:${try(var.siniestros_db_credentials.port, "")}/${try(var.siniestros_db_credentials.dbname, "")}"
   })
 }
 
