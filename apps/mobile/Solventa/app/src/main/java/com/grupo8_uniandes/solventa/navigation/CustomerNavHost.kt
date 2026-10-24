@@ -21,6 +21,7 @@ import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
+import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
 @Composable
@@ -30,6 +31,8 @@ fun CustomerNavHost(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     startDestination: Any = InicioRoute,
+    originationActive: Boolean = false,
+    onSignedOut: () -> Unit = {},
 ) {
     NavHost(
         navController = navController,
@@ -40,11 +43,18 @@ fun CustomerNavHost(
             InicioScreen(
                 state = homeState,
                 onNewQuote = { navController.navigate(CotizacionRoute) },
+                onAcceptOffer = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onOpenPolicy = { policyId ->
+                    navController.openParentThen(PolizasRoute, PolizaDetalleRoute(policyId))
+                },
+                onOpenClaim = { claimId ->
+                    navController.openParentThen(SiniestrosRoute, SiniestroDetalleRoute(claimId))
+                },
             )
         }
         composable<CotizacionRoute> {
             CotizacionScreen(
-                onAccept = { navController.navigate(EmisionEnCursoRoute) },
+                onAccept = { navController.navigate(EmisionEnCursoRoute()) },
                 onCancel = { navController.popBackStack() },
             )
         }
@@ -63,11 +73,23 @@ fun CustomerNavHost(
         composable<SiniestrosRoute> {
             SiniestrosScreen()
         }
-        composable<PerfilRoute> {
-            PerfilScreen()
+        composable<SiniestroDetalleRoute> { entry ->
+            val route = entry.toRoute<SiniestroDetalleRoute>()
+            SiniestroDetalleScreen(
+                claimId = route.claimId,
+                onBack = { navController.popBackStack() },
+            )
         }
-        composable<EmisionEnCursoRoute> {
+        composable<PerfilRoute> {
+            PerfilScreen(
+                originationActive = originationActive,
+                onSignedOut = onSignedOut,
+            )
+        }
+        composable<EmisionEnCursoRoute> { entry ->
+            val route = entry.toRoute<EmisionEnCursoRoute>()
             EmisionEnCursoScreen(
+                offerId = route.offerId,
                 onFinished = { navController.navigate(PolizaEmitidaRoute) },
             )
         }
@@ -89,8 +111,9 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
+        destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<PerfilRoute>() -> PerfilRoute
-        destination.hasRoute<EmisionEnCursoRoute>() -> EmisionEnCursoRoute
+        destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
         destination.hasRoute<PolizaEmitidaRoute>() -> PolizaEmitidaRoute
         else -> InicioRoute
     }
@@ -121,6 +144,17 @@ private fun NavHostController.leaveIssuance(route: Any) {
         }
         launchSingleTop = true
     }
+}
+
+private fun NavHostController.openParentThen(parent: Any, child: Any) {
+    navigate(parent) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+    navigate(child)
 }
 
 private fun NavHostController.leaveIssuanceToPolicy() {

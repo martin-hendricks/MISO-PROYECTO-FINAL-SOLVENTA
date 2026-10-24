@@ -3,6 +3,9 @@
 
 CREATE SCHEMA IF NOT EXISTS ms_polizas;
 
+-- Fuente del número de póliza: nunca retrocede, así el número no se reutiliza ni tras una cancelación (HU-16, HU-61).
+CREATE SEQUENCE ms_polizas.poliza_numero_seq;
+
 CREATE TABLE ms_polizas.poliza (
     poliza_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     oferta_id        UUID NOT NULL,
@@ -13,6 +16,8 @@ CREATE TABLE ms_polizas.poliza (
     estado           TEXT NOT NULL,
     firma_hash       TEXT,
     CONSTRAINT uq_poliza_numero   UNIQUE (numero),
+    -- Una sola póliza por oferta aceptada: hace idempotente la emisión (HU-16).
+    CONSTRAINT uq_poliza_oferta   UNIQUE (oferta_id),
     CONSTRAINT ck_poliza_vigencia CHECK (fin_vigencia >= inicio_vigencia),
     -- Una póliza EMITIDA siempre lleva su hash de firma legal (VC-007).
     CONSTRAINT ck_poliza_firma    CHECK (estado <> 'EMITIDA' OR firma_hash IS NOT NULL)
@@ -23,7 +28,6 @@ COMMENT ON COLUMN ms_polizas.poliza.firma_hash IS 'FirmaHash de la póliza; se d
 COMMENT ON COLUMN ms_polizas.poliza.oferta_id  IS 'ref lógica -> ms_cotizacion.oferta_seguro.oferta_id';
 COMMENT ON COLUMN ms_polizas.poliza.usuario_id IS 'ref lógica -> ms_identidad.usuario.usuario_id';
 
-CREATE INDEX ix_poliza_oferta  ON ms_polizas.poliza (oferta_id);
 CREATE INDEX ix_poliza_usuario ON ms_polizas.poliza (usuario_id);
 
 CREATE TABLE ms_polizas.cobertura (
