@@ -206,21 +206,79 @@ def test_pago_automatico_es_numero(client):
     assert "locale" not in body
 
 
-def test_hipoteca_degradada_no_espera(client):
+OFERTA_HIPOTECARIA_ID = "77777777-7777-7777-7777-777777777777"
+
+OFERTA_HIPOTECARIA_SALIDA = {
+    "id": OFERTA_HIPOTECARIA_ID,
+    "cliente_id": "cualquier-cliente",
+    "precio": "64000.00",
+    "moneda": "COP",
+    "degradado": False,
+    "factores": [
+        {"factor": "plazo", "impacto": "positivo", "peso": "0.4000"},
+        {"factor": "valor del crédito", "impacto": "negativo", "peso": "0.1000"},
+    ],
+    "snapshot_atributos": [],
+    "creado_en": "2026-10-01T00:00:00Z",
+}
+
+
+def test_hipoteca_con_consentimiento_llama_a_perfilamiento(client, nucleo_perfilamiento):
+    nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = lambda _: httpx.Response(
+        201, json={"id": "88888888-8888-8888-8888-888888888888", "cliente_id": "c", "otorgado_en": "2026-10-01T00:00:00Z", "revocado_en": None, "vigente": True}
+    )
+    nucleo_perfilamiento.respuestas[("POST", "/v1/ofertas-hipotecario")] = lambda _: httpx.Response(
+        201, json=OFERTA_HIPOTECARIA_SALIDA
+    )
+
     headers = _auth(client)
     ready = client.post(
         "/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
-    ).json()
+    )
+
+    assert ready.status_code == 200
+    body = ready.json()
+    assert body["prima"] == 64000.0
+    assert body["degradada"] is False
+    assert body["moneda"] == "COP"
+    assert body["factores"] == ["plazo", "valor del crédito"]
+
+    # Se otorga el consentimiento antes de pedir la oferta.
+    assert ("POST", "/v1/consentimientos") == (
+        nucleo_perfilamiento.peticiones[0].method,
+        nucleo_perfilamiento.peticiones[0].url.path,
+    )
+
+
+def test_hipoteca_sin_consentimiento_no_llama_a_perfilamiento(client, nucleo_perfilamiento):
+    headers = _auth(client)
     degraded = client.post(
         "/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": False},
-    ).json()
-    assert ready["prima"] == 64000 and ready["degradada"] is False
-    assert degraded["prima"] == 50000 and degraded["degradada"] is True
-    assert degraded["moneda"] == "COP"
+    )
+
+    assert degraded.status_code == 200
+    body = degraded.json()
+    assert body["prima"] == 50000 and body["degradada"] is True
+    assert body["moneda"] == "COP"
+    assert nucleo_perfilamiento.peticiones == []
+
+
+def test_hipoteca_servicio_no_disponible_es_503(client, nucleo_perfilamiento):
+    def caido(request):
+        raise httpx.ConnectError("conexión rechazada", request=request)
+
+    nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = caido
+
+    response = client.post(
+        "/cliente/oferta-hipotecaria",
+        headers=_auth(client),
+        json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
+    )
+    assert response.status_code == 503
 
 
 def test_inicio(client):
