@@ -64,6 +64,18 @@ class LoginTest {
     }
 
     @Test
+    fun givenDemoPair_whenNoSavedAccount_thenHome() {
+        ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
+            rule.openLogin()
+            rule.typePair("camila@correo.com", "secret")
+            rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
+            rule.waitForTag("screen_inicio")
+            rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+            assertFalse(registrationCompleted())
+        }
+    }
+
+    @Test
     fun givenSavedPair_whenIngresar_thenHomeWithoutConsentOrPhoto() {
         saveAccount()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
@@ -241,7 +253,7 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

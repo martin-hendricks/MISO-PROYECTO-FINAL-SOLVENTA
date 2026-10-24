@@ -12,10 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.grupo8_uniandes.solventa.home.HomeSummary
+import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
-import com.grupo8_uniandes.solventa.home.OfferSummary
-import com.grupo8_uniandes.solventa.home.PolicySummary
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
 import org.junit.Test
@@ -65,10 +63,7 @@ class CustomerNavHostTest {
     fun givenAQuote_whenIssued_thenHomeAndThePolicyStayReachable() {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, HomeUiState(
-            summary = HomeSummary(
-                offer = OfferSummary("SOAT"),
-                policy = PolicySummary("POL-9"),
-            ),
+            panel = HomePanel(offerId = "SOAT", policyId = "POL-9"),
         ))
 
         val nav = holder[0]!!
@@ -78,19 +73,16 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Inicio)
         rule.waitForIdle()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
-        rule.onNodeWithText("Nueva cotización").performClick()
-        rule.onNodeWithTag("solventa_text_field").performTextInput("ABC12")
-        rule.onNodeWithText("Aceptar oferta").performClick()
+        rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
         rule.onNodeWithText("Nueva cotización").performClick()
-        rule.onNodeWithText("Cancelar").performClick()
+        rule.onNodeWithTag("action_cancel_quote").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
-        rule.onNodeWithText("Nueva cotización").performClick()
-        rule.onNodeWithText("Aceptar oferta").performClick()
+        rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()

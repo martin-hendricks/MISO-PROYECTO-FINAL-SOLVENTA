@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,11 +24,17 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 fun InicioScreen(
     state: HomeUiState,
     onNewQuote: () -> Unit,
+    onOpenOffer: (String) -> Unit = {},
+    onAcceptOffer: (String) -> Unit = {},
+    onOpenPolicy: (String) -> Unit = {},
+    onOpenClaim: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val panel = state.panel
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(SolventaSpacing.gutter)
             .testTag("screen_inicio"),
         verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s16),
@@ -35,24 +43,60 @@ fun InicioScreen(
             text = stringResource(R.string.destination_inicio),
             style = MaterialTheme.typography.headlineMedium,
         )
-        Text(
-            text = stringResource(R.string.sample_policy_id),
-            style = SolventaTypography.amount,
-            modifier = Modifier.testTag("sample_policy_id"),
-        )
-        SolventaButton(
-            text = stringResource(R.string.action_new_quote),
-            style = SolventaButtonStyle.Filled,
-            onClick = onNewQuote,
-        )
-        state.summary.offer?.let { offer ->
-            SolventaCard {
-                Text(text = offer.label, style = MaterialTheme.typography.bodyLarge)
+        panel.offerId?.let { offerId ->
+            SolventaCard(onClick = { onOpenOffer(offerId) }, testTag = "home_offer") {
+                Text(text = offerId, style = SolventaTypography.amount)
+            }
+            SolventaButton(
+                text = stringResource(R.string.action_accept_offer),
+                style = SolventaButtonStyle.Filled,
+                onClick = { onAcceptOffer(offerId) },
+                testTag = "action_accept_offer",
+            )
+            SolventaButton(
+                text = stringResource(R.string.action_new_quote),
+                style = SolventaButtonStyle.Tonal,
+                onClick = onNewQuote,
+                testTag = "action_new_quote",
+            )
+        }
+        if (panel.offerId == null) {
+            SolventaButton(
+                text = stringResource(R.string.action_new_quote),
+                style = SolventaButtonStyle.Filled,
+                onClick = onNewQuote,
+                testTag = "action_new_quote",
+            )
+        }
+        panel.policyId?.let { policyId ->
+            SolventaCard(
+                onClick = { onOpenPolicy(policyId) },
+                testTag = "home_policy",
+            ) {
+                Text(
+                    text = stringResource(R.string.policy_detail_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(text = policyId, style = SolventaTypography.amount)
             }
         }
-        state.summary.policy?.let { policy ->
-            SolventaCard {
-                Text(text = policy.policyId, style = SolventaTypography.amount)
+        panel.claimId?.let { claimId ->
+            SolventaCard(
+                onClick = { onOpenClaim(claimId) },
+                testTag = "home_claim",
+            ) {
+                Text(text = claimId, style = SolventaTypography.amount)
+            }
+        }
+        if (panel.vidaCrediticia) {
+            SolventaCard(
+                onClick = {},
+                testTag = "home_vida_crediticia",
+            ) {
+                Text(
+                    text = stringResource(R.string.home_vida_crediticia),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
             }
         }
     }
