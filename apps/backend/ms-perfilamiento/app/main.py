@@ -26,6 +26,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
+        app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.adaptador_open_finance = AdaptadorOpenFinanceStub()
         app.state.adaptador_open_data = AdaptadorOpenDataStub()
