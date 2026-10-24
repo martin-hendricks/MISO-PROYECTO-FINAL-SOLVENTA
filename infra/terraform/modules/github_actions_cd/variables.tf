@@ -39,6 +39,11 @@ variable "eks_cluster_name" {
   description = "Name of the EKS cluster (eks module output `cluster_name`), needed to create the access entry that authorizes this role inside the cluster's Kubernetes API."
 }
 
+variable "spa_kms_key_arn" {
+  type        = string
+  description = "ARN of the KMS key encrypting the SPA bucket (edge module var `kms_key_arn`), needed to grant kms:GenerateDataKey/Decrypt for `aws s3 sync`."
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."

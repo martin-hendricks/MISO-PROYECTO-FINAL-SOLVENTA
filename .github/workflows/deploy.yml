@@ -306,6 +306,9 @@ jobs:
           MS_COTIZACION_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
             --names solventa-minimo-ms-cotizacion-tg \
             --query 'TargetGroups[0].TargetGroupArn' --output text)
+          BFF_WEB_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-bff-web-tg \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
 
-          export API_SOCIOS_TARGET_GROUP_ARN MS_COTIZACION_TARGET_GROUP_ARN
+          export API_SOCIOS_TARGET_GROUP_ARN MS_COTIZACION_TARGET_GROUP_ARN BFF_WEB_TARGET_GROUP_ARN
           envsubst < infra/k8s/platform/target-group-bindings.yaml | kubectl apply -f -

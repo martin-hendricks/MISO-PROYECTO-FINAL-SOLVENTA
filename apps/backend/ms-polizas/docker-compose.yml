@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-polizas
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+      MS_SUSCRIPCION_URL: http://host.docker.internal:8081
+      MS_PAGOS_URL: http://host.docker.internal:8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy

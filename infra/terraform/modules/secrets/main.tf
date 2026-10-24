@@ -144,3 +144,37 @@ resource "aws_secretsmanager_secret_version" "external_providers" {
     ignore_changes = [secret_string]
   }
 }
+
+# --- bff-web token secret ---
+#
+# SOLVENTA_TOKEN_SECRET firma los JWT que bff-web emite para las sesiones
+# web (apps/backend/bff-web/app/dependencies.py) -- no es la credencial de
+# ningún proveedor externo, es puramente interno al cluster, así que no
+# necesita ser una credencial real conocida por nadie: alcanza con que sea
+# estable (el mismo valor sobrevive cada deploy, para no invalidar las
+# sesiones activas) y no quede commiteado.
+resource "random_password" "bff_web_token_secret" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "bff_web_token" {
+  name                    = "${var.project_name}-${var.environment}-bff-web-token"
+  description             = "Secreto usado por bff-web para firmar/validar los JWT de sesion (SOLVENTA_TOKEN_SECRET)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-bff-web-token" })
+}
+
+resource "aws_secretsmanager_secret_version" "bff_web_token" {
+  secret_id = aws_secretsmanager_secret.bff_web_token.id
+  # La clave del JSON es el nombre exacto de la env var (SOLVENTA_TOKEN_SECRET)
+  # para que el ExternalSecret la proyecte vía dataFrom.extract sin necesidad
+  # de listar `claves` en infra/k8s/values/bff-web.yaml.
+  secret_string = jsonencode({ SOLVENTA_TOKEN_SECRET = random_password.bff_web_token_secret.result })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
