@@ -8,13 +8,21 @@ from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
 
-from .schemas import EmitirPolizaEntrada, ErrorSalida, PolizaSalida
+from .schemas import (
+    CancelarPolizaEntrada,
+    EmitirPolizaEntrada,
+    ErrorSalida,
+    ModificarCoberturasEntrada,
+    PolizaSalida,
+    RenovarPolizaEntrada,
+)
 
 router = APIRouter(prefix="/v1/polizas", tags=["polizas"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
 Suscripciones = Annotated[VerificadorSuscripcion, Depends(obtener_suscripciones)]
 Cobros = Annotated[VerificadorCobro, Depends(obtener_cobros)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}, 503: {"model": ErrorSalida}}
+ERRORES_CICLO_VIDA = {**ERRORES, 409: {"model": ErrorSalida}}
 
 
 @router.post("", response_model=PolizaSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
@@ -53,3 +61,21 @@ async def consultar_por_numero(numero: str, uow: Uow):
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)
 async def consultar(poliza_id: UUID, uow: Uow):
     return PolizaSalida.desde(await casos_uso.consultar_poliza(uow, poliza_id))
+
+
+@router.post("/{poliza_id}/renovacion", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
+async def renovar(poliza_id: UUID, entrada: RenovarPolizaEntrada, uow: Uow):
+    poliza = await casos_uso.renovar_poliza(uow, poliza_id, entrada.nueva_fin_vigencia)
+    return PolizaSalida.desde(poliza)
+
+
+@router.post("/{poliza_id}/coberturas", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
+async def modificar_coberturas(poliza_id: UUID, entrada: ModificarCoberturasEntrada, uow: Uow):
+    poliza = await casos_uso.modificar_poliza(uow, poliza_id, [c.a_dominio() for c in entrada.coberturas])
+    return PolizaSalida.desde(poliza)
+
+
+@router.post("/{poliza_id}/cancelacion", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
+async def cancelar(poliza_id: UUID, entrada: CancelarPolizaEntrada, uow: Uow):
+    poliza = await casos_uso.cancelar_poliza(uow, poliza_id, entrada.motivo)
+    return PolizaSalida.desde(poliza)

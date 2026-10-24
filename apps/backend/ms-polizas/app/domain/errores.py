@@ -16,6 +16,16 @@ class NoEncontrado(ErrorDominio):
     codigo = "no_encontrado"
 
 
+class TransicionInvalida(ErrorDominio):
+    """Mismo patrón que ms-siniestros: una transición de estado (o una
+    operación que exige un estado concreto) que el agregado no permite."""
+
+    codigo = "transicion_invalida"
+
+    def __init__(self, desde: str, hacia: str) -> None:
+        super().__init__(f"No se puede pasar de '{desde}' a '{hacia}'")
+
+
 class DependenciaNoDisponible(ErrorDominio):
     codigo = "dependencia_no_disponible"
 

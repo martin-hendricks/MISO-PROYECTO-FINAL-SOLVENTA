@@ -51,6 +51,8 @@ class PolizaFila(Base):
     fin_vigencia: Mapped[date]
     estado: Mapped[str]
     firma_hash: Mapped[str | None] = mapped_column(String)
+    motivo_cancelacion: Mapped[str | None] = mapped_column(String)
+    cancelada_en: Mapped[date | None]
 
 
 class CoberturaFila(Base):
@@ -86,6 +88,8 @@ def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila]) -> Poliza:
         coberturas=tuple(
             Cobertura(nombre=c.nombre, suma_asegurada=c.suma_asegurada, deducible=c.deducible) for c in coberturas
         ),
+        motivo_cancelacion=fila.motivo_cancelacion,
+        cancelada_en=fila.cancelada_en,
     )
 
 
@@ -134,6 +138,9 @@ class RepositorioPolizasSQL:
                 estado=poliza.estado.value,
             )
         )
+        self._agregar_coberturas(poliza)
+
+    def _agregar_coberturas(self, poliza: Poliza) -> None:
         for cobertura in poliza.coberturas:
             self._s.add(
                 CoberturaFila(
@@ -144,6 +151,26 @@ class RepositorioPolizasSQL:
                     deducible=cobertura.deducible,
                 )
             )
+
+    async def actualizar(self, poliza: Poliza) -> None:
+        """Persiste el estado mutable de la póliza (ciclo de vida: renovar,
+        modificar coberturas, cancelar). Las coberturas se reemplazan por
+        completo -- no hay diffing parcial porque modificar_coberturas()
+        siempre sustituye el conjunto entero en el dominio."""
+        fila = await self._s.get(PolizaFila, poliza.id)
+        if fila is None:
+            raise ValueError(f"No existe la fila de la póliza {poliza.id} para actualizar")
+        fila.fin_vigencia = poliza.fin_vigencia
+        fila.estado = poliza.estado.value
+        fila.motivo_cancelacion = poliza.motivo_cancelacion
+        fila.cancelada_en = poliza.cancelada_en
+
+        existentes = list(
+            await self._s.scalars(select(CoberturaFila).where(CoberturaFila.poliza_id == poliza.id))
+        )
+        for existente in existentes:
+            await self._s.delete(existente)
+        self._agregar_coberturas(poliza)
 
 
 class OutboxSQL:

@@ -5,7 +5,15 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
-from app.domain.modelos import Cobertura, Poliza, numero_de_poliza, poliza_emitida
+from app.domain.modelos import (
+    Cobertura,
+    Poliza,
+    numero_de_poliza,
+    poliza_cancelada,
+    poliza_emitida,
+    poliza_modificada,
+    poliza_renovada,
+)
 from app.ports.persistencia import FabricaUnidadDeTrabajo, PolizaYaEmitida
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
 
@@ -86,3 +94,48 @@ async def consultar_poliza_por_numero(uow: FabricaUnidadDeTrabajo, numero: str) 
 async def listar_polizas_de_usuario(uow: FabricaUnidadDeTrabajo, usuario_id: UUID, limite: int) -> list[Poliza]:
     async with uow() as tx:
         return await tx.polizas.listar_por_usuario(usuario_id, limite)
+
+
+async def _obtener_o_fallar(tx, poliza_id: UUID) -> Poliza:
+    poliza = await tx.polizas.obtener(poliza_id)
+    if poliza is None:
+        raise NoEncontrado(f"La póliza {poliza_id} no existe")
+    return poliza
+
+
+async def renovar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nueva_fin_vigencia: date) -> Poliza:
+    """HU-59: extiende la vigencia. Lanza NoEncontrado si la póliza no existe
+    y TransicionInvalida (vía Poliza.renovar) si no está VIGENTE."""
+    async with uow() as tx:
+        poliza = await _obtener_o_fallar(tx, poliza_id)
+        poliza.renovar(nueva_fin_vigencia)
+        await tx.polizas.actualizar(poliza)
+        await tx.outbox.agregar(poliza_renovada(poliza))
+        await tx.confirmar()
+        return poliza
+
+
+async def modificar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nuevas_coberturas: list[Cobertura]) -> Poliza:
+    """HU-60: reemplaza las coberturas. Lanza NoEncontrado si la póliza no
+    existe y TransicionInvalida/ReglaDeNegocioViolada (vía
+    Poliza.modificar_coberturas) si no está VIGENTE o las coberturas son inválidas."""
+    async with uow() as tx:
+        poliza = await _obtener_o_fallar(tx, poliza_id)
+        poliza.modificar_coberturas(nuevas_coberturas)
+        await tx.polizas.actualizar(poliza)
+        await tx.outbox.agregar(poliza_modificada(poliza))
+        await tx.confirmar()
+        return poliza
+
+
+async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: str) -> Poliza:
+    """HU-61: única transición de estado real del ciclo de vida. Lanza
+    NoEncontrado si la póliza no existe y TransicionInvalida (vía
+    Poliza.cancelar) si ya estaba cancelada."""
+    async with uow() as tx:
+        poliza = await _obtener_o_fallar(tx, poliza_id)
+        poliza.cancelar(motivo, _hoy())
+        await tx.polizas.actualizar(poliza)
+        await tx.outbox.agregar(poliza_cancelada(poliza))
+        await tx.confirmar()
+        return poliza

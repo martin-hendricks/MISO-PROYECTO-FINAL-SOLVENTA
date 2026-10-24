@@ -83,6 +83,9 @@ class _Polizas:
     async def agregar(self, poliza):
         self._uow.pendientes[poliza.id] = poliza
 
+    async def actualizar(self, poliza):
+        self._uow.pendientes[poliza.id] = poliza
+
 
 class _Outbox:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
