@@ -5,7 +5,9 @@
 # p99 <= 800 ms. Comparte Node Group A (c6i.xlarge, taint dedicado) con
 # ms-cotizacion pero con curva de carga independiente, por eso su HPA es algo
 # menos agresivo que el de cotización. Consume los secretos de open_finance y
-# open_data.
+# open_data, y DATABASE_URL de DBCompartida (no tiene instancia RDS propia,
+# igual que ms-cotizacion -- ver module.rds_compartida en el environment
+# "minimo").
 
 nombre: ms-perfilamiento
 
@@ -78,6 +80,10 @@ externalSecrets:
       claves:
         - clientId
         - clientSecret
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-perfilamiento-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -101,3 +107,8 @@ variablesEntorno:
     valor: "a"
   - nombre: FANOUT_TIMEOUT_MS
     valor: "300"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-perfilamiento-db
+    claveSecreto: database_url
