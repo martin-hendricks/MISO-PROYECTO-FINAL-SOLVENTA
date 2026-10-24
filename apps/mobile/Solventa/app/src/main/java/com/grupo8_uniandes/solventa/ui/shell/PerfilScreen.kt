@@ -23,6 +23,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import org.koin.core.context.GlobalContext
+import org.koin.core.parameter.parametersOf
 import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
 import com.grupo8_uniandes.solventa.data.profile.AndroidDevicePermissionReader
 import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
@@ -325,6 +328,11 @@ private fun profileFactory(
     permissionReader: DevicePermissionReader?,
 ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (permissionReader == null) {
+            startSolventaKoin(context)
+            @Suppress("UNCHECKED_CAST")
+            return GlobalContext.get().get<ProfileViewModel> { parametersOf(originationActive) } as T
+        }
         val appContext = context.applicationContext
         val session = SharedPrefsSessionRepository(appContext)
         val load = LoadProfile(

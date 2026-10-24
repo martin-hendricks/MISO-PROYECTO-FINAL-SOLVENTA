@@ -27,5 +27,5 @@ data class BffHome(
 )
 
 interface HomeBffRepository {
-    fun load(): StandInAnswer<BffHome>
+    suspend fun load(): StandInAnswer<BffHome>
 }

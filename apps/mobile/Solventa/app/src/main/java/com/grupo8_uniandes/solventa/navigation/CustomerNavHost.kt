@@ -11,12 +11,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
-import com.grupo8_uniandes.solventa.data.bff.MobileBff
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
-import com.grupo8_uniandes.solventa.domain.bff.offer.RequestFirmOffer
-import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -46,6 +46,7 @@ fun CustomerNavHost(
     originationActive: Boolean = false,
     onSignedOut: () -> Unit = {},
 ) {
+    startSolventaKoin(LocalContext.current)
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -71,13 +72,7 @@ fun CustomerNavHost(
             val region = remember(context) {
                 SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
             }
-            val viewModel = remember(route.cotizacionId, region) {
-                OfferViewModel(
-                    showFirmOffer = ShowFirmOffer(MobileBff().offer),
-                    cotizacionId = route.cotizacionId,
-                    region = region,
-                )
-            }
+            val viewModel: OfferViewModel = koinViewModel { parametersOf(route.cotizacionId, region) }
             val state by viewModel.state.collectAsState()
             VerOfertaScreen(
                 state = state,
@@ -87,12 +82,7 @@ fun CustomerNavHost(
         }
         composable<CotizacionRoute> { entry ->
             val route = entry.toRoute<CotizacionRoute>()
-            val viewModel = remember(route.cotizacionId) {
-                QuoteViewModel(
-                    request = RequestFirmOffer(MobileBff().offer),
-                    contextId = route.cotizacionId,
-                )
-            }
+            val viewModel: QuoteViewModel = koinViewModel { parametersOf(route.cotizacionId) }
             val state by viewModel.state.collectAsState()
             LaunchedEffect(state.readyId) {
                 val readyId = state.readyId ?: return@LaunchedEffect

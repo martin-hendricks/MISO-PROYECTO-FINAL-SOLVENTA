@@ -7,13 +7,31 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteLine
 import com.grupo8_uniandes.solventa.domain.bff.offer.RequestFirmOffer
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class QuoteViewModelTest {
+    @Before
+    fun setMain() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @After
+    fun resetMain() {
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun givenPublishedAnswers_whenCotizar_thenReadyCarriesTheQuoteId() {
         val viewModel = QuoteViewModel(RequestFirmOffer(scripted(StandInAnswer.Ready(sample()))), "COT-1042")
@@ -82,12 +100,12 @@ class QuoteViewModelTest {
         val viewModel = QuoteViewModel(
             RequestFirmOffer(
                 object : OfferRepository {
-                    override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
+                    override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
                         sent = ramo
                         return StandInAnswer.Ready(sample().copy(ramo = ramo))
                     }
 
-                    override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
+                    override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
                         StandInAnswer.Failed
                 },
             ),
@@ -131,9 +149,39 @@ class QuoteViewModelTest {
         venceEn = "2026-10-01",
     )
 
-    private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
-        override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
+    @Test
+    fun givenASuspendingAsk_whenCotizar_thenWaitingComesBeforeTheResult() {
+        val success = CompletableDeferred<StandInAnswer<FirmOffer>>()
+        val viewModel = filled(gated(success))
 
-        override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
+        viewModel.cotizar()
+
+        assertTrue(viewModel.state.value.pending)
+        assertFalse(viewModel.state.value.failed)
+        success.complete(StandInAnswer.Ready(sample()))
+        assertEquals("COT-1042", viewModel.state.value.readyId)
+        assertFalse(viewModel.state.value.pending)
+
+        val failure = CompletableDeferred<StandInAnswer<FirmOffer>>()
+        val failed = filled(gated(failure))
+        failed.cotizar()
+        assertTrue(failed.state.value.pending)
+        assertFalse(failed.state.value.failed)
+        failure.complete(StandInAnswer.Failed)
+        assertTrue(failed.state.value.failed)
+        assertNull(failed.state.value.readyId)
+        assertFalse(failed.state.value.pending)
+    }
+
+    private fun gated(gate: CompletableDeferred<StandInAnswer<FirmOffer>>) = object : OfferRepository {
+        override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = gate.await()
+
+        override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = StandInAnswer.Failed
+    }
+
+    private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
+        override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
+
+        override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
     }
 }

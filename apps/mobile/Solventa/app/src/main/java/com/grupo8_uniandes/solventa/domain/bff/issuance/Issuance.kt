@@ -32,11 +32,11 @@ data class PolicyDetail(
 )
 
 interface IssuanceRepository {
-    fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy>
+    suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy>
 
-    fun rejected(): StandInAnswer<IssueRejection>
+    suspend fun rejected(): StandInAnswer<IssueRejection>
 
-    fun wallet(): StandInAnswer<List<WalletEntry>>
+    suspend fun wallet(): StandInAnswer<List<WalletEntry>>
 
-    fun detail(numero: String): StandInAnswer<PolicyDetail>
+    suspend fun detail(numero: String): StandInAnswer<PolicyDetail>
 }

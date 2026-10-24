@@ -18,7 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import org.koin.androidx.compose.koinViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.MainActivity
@@ -30,7 +31,6 @@ import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRep
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
-import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
@@ -213,7 +213,8 @@ internal fun SignedInShell(
 ) {
     val signedIn = true
     val navController = rememberNavController()
-    val homeViewModel: HomeViewModel = viewModel()
+    startSolventaKoin(LocalContext.current)
+    val homeViewModel: HomeViewModel = koinViewModel()
     val collectedHome by homeViewModel.state.collectAsState()
     val homeStateResolved = homeState ?: collectedHome
     val entry by navController.currentBackStackEntryAsState()
@@ -291,9 +292,8 @@ private fun LoginHost(
     onLeaveToAccount: (() -> Unit)?,
 ) {
     val context = LocalContext.current
-    val viewModel = remember(context) {
-        LoginViewModel(SignIn(SharedPrefsRegistrationRepository(context.applicationContext)))
-    }
+    startSolventaKoin(context)
+    val viewModel: LoginViewModel = koinViewModel()
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     val biometricPrompt = remember(activity) {

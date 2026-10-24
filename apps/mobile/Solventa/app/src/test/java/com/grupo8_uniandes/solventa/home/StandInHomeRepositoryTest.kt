@@ -16,7 +16,7 @@ class StandInHomeRepositoryTest {
     fun givenAFailedStandIn_whenLoaded_thenTheHomeIsEmpty() {
         val repository = StandInHomeRepository(
             home = object : HomeBffRepository {
-                override fun load(): StandInAnswer<BffHome> = StandInAnswer.Failed
+                override suspend fun load(): StandInAnswer<BffHome> = StandInAnswer.Failed
             },
         )
 
@@ -32,7 +32,7 @@ class StandInHomeRepositoryTest {
     fun givenOrigination_whenLoaded_thenVidaIsPresent() {
         val repository = StandInHomeRepository(
             home = object : HomeBffRepository {
-                override fun load(): StandInAnswer<BffHome> = StandInAnswer.Ready(
+                override suspend fun load(): StandInAnswer<BffHome> = StandInAnswer.Ready(
                     BffHome(
                         ofertaVigente = HomeOfferSlot("COT-1042", "Protección de dispositivo", "oferta_vigente"),
                         poliza = HomePolicySlot("POL-88219-CO", "Protección de dispositivo", "vigente"),

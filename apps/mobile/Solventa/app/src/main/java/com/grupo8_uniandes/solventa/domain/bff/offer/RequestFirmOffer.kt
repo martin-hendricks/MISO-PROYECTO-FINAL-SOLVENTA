@@ -15,7 +15,7 @@ sealed interface QuoteAttempt {
 class RequestFirmOffer(
     private val repository: OfferRepository,
 ) {
-    fun submit(line: QuoteLine, answers: QuoteAnswers): QuoteAttempt {
+    suspend fun submit(line: QuoteLine, answers: QuoteAnswers): QuoteAttempt {
         val risk = riskOf(line, answers) ?: return QuoteAttempt.Gap(missing)
         return QuoteAttempt.Answer(repository.quote(line.ramo, risk))
     }

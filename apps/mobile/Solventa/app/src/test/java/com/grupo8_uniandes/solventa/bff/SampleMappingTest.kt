@@ -67,13 +67,14 @@ import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class SampleMappingTest {
     private val bff = MobileBff()
 
     @Test
-    fun givenPublishedSamples_whenRead_thenValuesMatchTheContract() {
+    fun givenPublishedSamples_whenRead_thenValuesMatchTheContract() = runBlocking {
         val tokens = bff.session.signIn("camila@correo.com", "********").ready()
         assertEquals("jwt", tokens.accessToken)
         assertEquals("jwt", tokens.refreshToken)
@@ -216,7 +217,7 @@ class SampleMappingTest {
     }
 
     @Test
-    fun givenPublishedVariants_whenRead_thenTheyStaySuccessful() {
+    fun givenPublishedVariants_whenRead_thenTheyStaySuccessful() = runBlocking {
         val rejection = bff.issuance.rejected().ready()
         assertEquals("rechazada", rejection.estado)
         assertEquals("Valor del equipo fuera de rango", rejection.motivo)
@@ -230,7 +231,7 @@ class SampleMappingTest {
     }
 
     @Test
-    fun givenABodyOutsideTheContract_whenRead_thenItIsNotASuccess() {
+    fun givenABodyOutsideTheContract_whenRead_thenItIsNotASuccess() = runBlocking {
         assertNull(decode<OfferOutDto>("""{"cotizacionId":"COT-1042"}"""))
         val brokenSignup = PublishedSamples.SIGNUP.replace("\"ok\"", "\"maybe\"")
         assertNull(decode<SignupDto>(brokenSignup))
@@ -248,7 +249,7 @@ class SampleMappingTest {
     }
 
     @Test
-    fun givenEveryClosedChoice_whenMapped_thenTheEntityUsesThatChoice() {
+    fun givenEveryClosedChoice_whenMapped_thenTheEntityUsesThatChoice() = runBlocking {
         assertEquals("camila@correo.com", decode<SessionInDto>(PublishedSamples.SESSION_IN)!!.correo)
         assertEquals("jwt", decode<RefreshInDto>(PublishedSamples.REFRESH_IN)!!.refreshToken)
         assertEquals("COT-1042", decode<IdDto>(PublishedSamples.REQUOTE_IN)!!.cotizacionId)
@@ -285,7 +286,7 @@ class SampleMappingTest {
     }
 
     @Test
-    fun givenAPublishedBody_whenTheDtoIsBuilt_thenEachFieldIsReadable() {
+    fun givenAPublishedBody_whenTheDtoIsBuilt_thenEachFieldIsReadable() = runBlocking {
         val session = SessionInDto("camila@correo.com", "********")
         assertEquals("********", session.contrasena)
         assertEquals("jwt", SessionOutDto("jwt", "jwt", 900).refreshToken)

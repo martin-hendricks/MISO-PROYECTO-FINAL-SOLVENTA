@@ -1,6 +1,8 @@
 package com.grupo8_uniandes.solventa.quote
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAnswers
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAttempt
@@ -83,6 +85,12 @@ class QuoteViewModel(
     }
 
     fun cotizar() {
+        viewModelScope.launch {
+            ask()
+        }
+    }
+
+    private suspend fun ask() {
         val current = _state.value
         val answers = QuoteAnswers(
             value = current.value,
@@ -100,6 +108,7 @@ class QuoteViewModel(
             destination = current.destination,
             duration = current.duration,
         )
+        _state.update { it.copy(pending = true, failed = false, gap = null, readyId = null) }
         when (val attempt = request.submit(current.line, answers)) {
             is QuoteAttempt.Gap -> _state.update {
                 it.copy(gap = attempt.field, pending = false, failed = false, readyId = null)

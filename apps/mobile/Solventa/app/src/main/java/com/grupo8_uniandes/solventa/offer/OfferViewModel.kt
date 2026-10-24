@@ -1,6 +1,8 @@
 package com.grupo8_uniandes.solventa.offer
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
@@ -36,10 +38,13 @@ class OfferViewModel(
     }
 
     fun refresh() {
-        _state.value = when (val answer = showFirmOffer.load(cotizacionId)) {
+        viewModelScope.launch {
+            _state.value = OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
+            _state.value = when (val answer = showFirmOffer.load(cotizacionId)) {
             StandInAnswer.Pending -> OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
             StandInAnswer.Failed -> OfferUiState(phase = OfferPhase.Failed, cotizacionId = cotizacionId)
             is StandInAnswer.Ready -> answer.value.toUi(region)
+            }
         }
     }
 

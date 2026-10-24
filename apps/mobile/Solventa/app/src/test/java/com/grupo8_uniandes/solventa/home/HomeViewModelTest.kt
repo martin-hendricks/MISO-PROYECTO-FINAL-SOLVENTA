@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.home
 
 import com.grupo8_uniandes.solventa.data.home.EmptyHomeRepository
+import com.grupo8_uniandes.solventa.data.home.StandInHomeRepository
 import com.grupo8_uniandes.solventa.domain.home.ClaimCandidate
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.domain.home.HomeRepository
@@ -19,7 +20,7 @@ import java.time.Instant
 class HomeViewModelTest {
     @Test
     fun givenStandInHome_whenDefaultLoads_thenPublishedOfferIsCurrent() {
-        val panel = HomeViewModel().state.value.panel
+        val panel = HomeViewModel(LoadInicio(StandInHomeRepository())).state.value.panel
         assertEquals("COT-1042", panel.offerId)
         assertEquals("POL-88219-CO", panel.policyId)
         assertEquals("SIN-441", panel.claimId)

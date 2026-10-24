@@ -8,14 +8,31 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.formatOfferDate
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.formatPremium
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class OfferViewModelTest {
+    @Before
+    fun setMain() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+    }
+
+    @After
+    fun resetMain() {
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun givenPublishedOffer_whenLoadedTwice_thenAcceptStaysEnabledOnTheSamePremium() {
         val viewModel = OfferViewModel(ShowFirmOffer(scripted(published())), "COT-1042")
@@ -93,8 +110,8 @@ class OfferViewModelTest {
     private fun scripted(offer: FirmOffer) = scripted(StandInAnswer.Ready(offer))
 
     private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
-        override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
+        override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
 
-        override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
+        override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
     }
 }

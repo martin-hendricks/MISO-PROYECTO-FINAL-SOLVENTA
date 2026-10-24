@@ -20,7 +20,7 @@ data class FirmOffer(
 )
 
 interface OfferRepository {
-    fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer>
+    suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer>
 
-    fun requote(cotizacionId: String): StandInAnswer<FirmOffer>
+    suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer>
 }

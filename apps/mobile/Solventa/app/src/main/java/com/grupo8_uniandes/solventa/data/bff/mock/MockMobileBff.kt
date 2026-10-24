@@ -108,34 +108,34 @@ class StandInControl(private val mode: StandInMode) {
 class MockMobileSessionRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : MobileSessionRepository {
-    override fun signIn(correo: String, contrasena: String): StandInAnswer<SessionTokens> =
+    override suspend fun signIn(correo: String, contrasena: String): StandInAnswer<SessionTokens> =
         control.ready { decode<SessionOutDto>(PublishedSamples.SESSION_OUT).let(::required).toTokens() }
 
-    override fun refresh(refreshToken: String): StandInAnswer<SessionTokens> =
+    override suspend fun refresh(refreshToken: String): StandInAnswer<SessionTokens> =
         control.ready { decode<SessionOutDto>(PublishedSamples.SESSION_OUT).let(::required).toTokens() }
 
-    override fun signOut(): StandInAnswer<Unit> = control.ready { Unit }
+    override suspend fun signOut(): StandInAnswer<Unit> = control.ready { Unit }
 }
 
 class MockSignupRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : SignupRepository {
-    override fun register(record: SignupRecord): StandInAnswer<SignupRecord> =
+    override suspend fun register(record: SignupRecord): StandInAnswer<SignupRecord> =
         control.ready { decode<SignupDto>(PublishedSamples.SIGNUP).let(::required).toRecord() }
 
-    override fun revokeConsent(): StandInAnswer<ConsentRevocation> =
+    override suspend fun revokeConsent(): StandInAnswer<ConsentRevocation> =
         control.ready { decode<RevokeDto>(PublishedSamples.REVOKE).let(::required).toRevocation() }
 }
 
 class MockOfferRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : OfferRepository {
-    override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> =
+    override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> =
         control.ready {
             decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer().copy(ramo = ramo)
         }
 
-    override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
+    override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }
 
     fun release() = control.release()
@@ -144,16 +144,16 @@ class MockOfferRepository(
 class MockIssuanceRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : IssuanceRepository {
-    override fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> =
+    override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> =
         control.ready { decode<IssuedDto>(PublishedSamples.ISSUED).let(::required).toPolicy() }
 
-    override fun rejected(): StandInAnswer<IssueRejection> =
+    override suspend fun rejected(): StandInAnswer<IssueRejection> =
         control.ready { required(decode<RejectionDto>(PublishedSamples.REJECTION).let(::required).toRejection()) }
 
-    override fun wallet(): StandInAnswer<List<WalletEntry>> =
+    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> =
         control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
 
-    override fun detail(numero: String): StandInAnswer<PolicyDetail> =
+    override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         control.ready { decode<DetailDto>(PublishedSamples.DETAIL).let(::required).toDetail() }
 }
 
@@ -161,10 +161,10 @@ class MockClaimRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
     private val noticeJson: String = PublishedSamples.CLAIM_NOTICE,
 ) : ClaimRepository {
-    override fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> =
+    override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> =
         control.ready { decode<ClaimReceiptDto>(PublishedSamples.CLAIM_RECEIPT).let(::required).toReceipt() }
 
-    override fun list(): StandInAnswer<List<ClaimSummary>> =
+    override suspend fun list(): StandInAnswer<List<ClaimSummary>> =
         control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
 
     fun readNotice(raw: String = noticeJson): ClaimNotice? = decode<ClaimNoticeDto>(raw)?.toNotice()
@@ -173,16 +173,16 @@ class MockClaimRepository(
 class MockPaymentRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : PaymentRepository {
-    override fun read(): StandInAnswer<AutomaticPayment> =
+    override suspend fun read(): StandInAnswer<AutomaticPayment> =
         control.ready { decode<PaymentDto>(PublishedSamples.PAYMENT).let(::required).toPayment() }
 }
 
 class MockMortgageRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : MortgageRepository {
-    override fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_OUT)
+    override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_OUT)
 
-    override fun degraded(): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_DEGRADED)
+    override suspend fun degraded(): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_DEGRADED)
 
     private fun read(raw: String) =
         control.ready { decode<MortgageOutDto>(raw).let(::required).toQuote() }
@@ -191,18 +191,18 @@ class MockMortgageRepository(
 class MockNoticeRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : NoticeRepository {
-    override fun list(): StandInAnswer<List<ValidityNotice>> =
+    override suspend fun list(): StandInAnswer<List<ValidityNotice>> =
         control.ready { decode<NoticesDto>(PublishedSamples.NOTICES).let(::required).toNotices() }
 }
 
 class MockPolicyCommandRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : PolicyCommandRepository {
-    override fun renew(numero: String): StandInAnswer<IssuedPolicy> = command(PublishedSamples.RENEW)
+    override suspend fun renew(numero: String): StandInAnswer<IssuedPolicy> = command(PublishedSamples.RENEW)
 
-    override fun modify(numero: String): StandInAnswer<IssuedPolicy> = command(PublishedSamples.RENEW)
+    override suspend fun modify(numero: String): StandInAnswer<IssuedPolicy> = command(PublishedSamples.RENEW)
 
-    override fun cancel(numero: String, motivo: String?): StandInAnswer<IssuedPolicy> {
+    override suspend fun cancel(numero: String, motivo: String?): StandInAnswer<IssuedPolicy> {
         val raw = if (motivo.isNullOrBlank()) PublishedSamples.CANCEL_NO_REASON else PublishedSamples.CANCEL
         return command(raw)
     }
@@ -218,27 +218,27 @@ class MockPolicyCommandRepository(
 class MockHomeBffRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : HomeBffRepository {
-    override fun load(): StandInAnswer<BffHome> =
+    override suspend fun load(): StandInAnswer<BffHome> =
         control.ready { decode<HomeDto>(PublishedSamples.HOME).let(::required).toHome() }
 }
 
 class MockPushRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : PushRepository {
-    override fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
+    override suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
         control.ready { decode<PushRegistrationDto>(PublishedSamples.PUSH_REGISTRATION).let(::required).toRegistration() }
 
-    override fun notice(): StandInAnswer<PushNotice> =
+    override suspend fun notice(): StandInAnswer<PushNotice> =
         control.ready { decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE).let(::required).toNotice() }
 }
 
 class MockAssistanceRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : AssistanceRepository {
-    override fun providers(): StandInAnswer<List<Provider>> =
+    override suspend fun providers(): StandInAnswer<List<Provider>> =
         control.ready { decode<ProvidersDto>(PublishedSamples.PROVIDERS).let(::required).toProviders() }
 
-    override fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
+    override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         control.ready { decode<AssistanceOutDto>(PublishedSamples.ASSISTANCE_OUT).let(::required).toResult() }
 }
 

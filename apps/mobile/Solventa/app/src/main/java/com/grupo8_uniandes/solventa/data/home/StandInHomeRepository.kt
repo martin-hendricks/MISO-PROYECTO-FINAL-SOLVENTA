@@ -10,6 +10,7 @@ import com.grupo8_uniandes.solventa.domain.home.HomeSituation
 import com.grupo8_uniandes.solventa.domain.home.Origination
 import com.grupo8_uniandes.solventa.domain.home.PolicyCandidate
 import com.grupo8_uniandes.solventa.domain.home.Quote
+import kotlinx.coroutines.runBlocking
 import java.time.Instant
 
 /**
@@ -21,7 +22,7 @@ class StandInHomeRepository(
     private val becameCurrentAt: Instant = SAMPLE_AT,
 ) : HomeRepository {
     override fun load(): HomeSituation {
-        val ready = home.load() as? StandInAnswer.Ready<BffHome> ?: return HomeSituation()
+        val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return HomeSituation()
         val sample = ready.value
         return HomeSituation(
             quotes = listOf(

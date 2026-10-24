@@ -6,5 +6,5 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 class ShowFirmOffer(
     private val repository: OfferRepository,
 ) {
-    fun load(cotizacionId: String): StandInAnswer<FirmOffer> = repository.requote(cotizacionId)
+    suspend fun load(cotizacionId: String): StandInAnswer<FirmOffer> = repository.requote(cotizacionId)
 }

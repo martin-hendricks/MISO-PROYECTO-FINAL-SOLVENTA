@@ -12,6 +12,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteLine
 import com.grupo8_uniandes.solventa.domain.bff.offer.RequestFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.TravelRisk
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -19,7 +20,7 @@ class RequestFirmOfferTest {
     @Test
     fun givenPublishedAnswers_whenSubmitted_thenThePreparedPremiumReturns() {
         val repository = RecordingOfferRepository()
-        val attempt = RequestFirmOffer(repository).submit(QuoteLine.Device, device())
+        val attempt = runBlocking { RequestFirmOffer(repository).submit(QuoteLine.Device, device()) }
         val ready = (attempt as QuoteAttempt.Answer).answer as StandInAnswer.Ready
 
         assertEquals("Protección de dispositivo", repository.lastRamo)
@@ -31,7 +32,7 @@ class RequestFirmOfferTest {
 
     @Test
     fun givenTheStandIn_whenThePublishedAnswersAreSent_thenItReturnsTheSample() {
-        val attempt = RequestFirmOffer(MockOfferRepository()).submit(QuoteLine.Device, device())
+        val attempt = runBlocking { RequestFirmOffer(MockOfferRepository()).submit(QuoteLine.Device, device()) }
         val ready = (attempt as QuoteAttempt.Answer).answer as StandInAnswer.Ready
 
         assertEquals(89000L, ready.value.prima)
@@ -42,10 +43,12 @@ class RequestFirmOfferTest {
     @Test
     fun givenTravelAnswers_whenSubmitted_thenThePreparedPremiumKeepsThatLine() {
         val repository = RecordingOfferRepository()
-        val attempt = RequestFirmOffer(repository).submit(
-            QuoteLine.Travel,
-            QuoteAnswers(destination = "Bogotá", duration = "7"),
-        )
+        val attempt = runBlocking {
+            RequestFirmOffer(repository).submit(
+                QuoteLine.Travel,
+                QuoteAnswers(destination = "Bogotá", duration = "7"),
+            )
+        }
         val ready = (attempt as QuoteAttempt.Answer).answer as StandInAnswer.Ready
 
         assertEquals("Viaje", repository.lastRamo)
@@ -91,7 +94,7 @@ class RequestFirmOfferTest {
         request: RequestFirmOffer,
         line: QuoteLine,
         answers: QuoteAnswers,
-    ) = (request.submit(line, answers) as QuoteAttempt.Gap).field
+    ) = runBlocking { (request.submit(line, answers) as QuoteAttempt.Gap).field }
 }
 
 private class RecordingOfferRepository : OfferRepository {
@@ -99,7 +102,7 @@ private class RecordingOfferRepository : OfferRepository {
     var lastRamo: String? = null
     var lastRisk: LineRisk? = null
 
-    override fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
+    override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
         quotes += 1
         lastRamo = ramo
         lastRisk = risk
@@ -115,5 +118,6 @@ private class RecordingOfferRepository : OfferRepository {
         )
     }
 
-    override fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = quote("", DeviceRisk(1, "x", false))
+    override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
+        quote("", DeviceRisk(1, "x", false))
 }

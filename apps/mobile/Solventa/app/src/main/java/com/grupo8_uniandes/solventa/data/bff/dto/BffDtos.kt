@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.data.bff.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class SessionInDto(val correo: String, val contrasena: String)
@@ -36,6 +37,9 @@ data class DeviceRiskDto(
 
 @Serializable
 data class OfferInDto(val ramo: String, val datosRiesgo: DeviceRiskDto)
+
+@Serializable
+data class QuoteRequestDto(val ramo: String, val datosRiesgo: JsonElement)
 
 @Serializable
 data class OfferOutDto(

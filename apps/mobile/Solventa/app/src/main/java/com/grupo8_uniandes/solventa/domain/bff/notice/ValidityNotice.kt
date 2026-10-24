@@ -10,5 +10,5 @@ data class ValidityNotice(
 )
 
 interface NoticeRepository {
-    fun list(): StandInAnswer<List<ValidityNotice>>
+    suspend fun list(): StandInAnswer<List<ValidityNotice>>
 }
