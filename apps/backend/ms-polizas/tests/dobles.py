@@ -14,12 +14,12 @@ def coberturas() -> list[Cobertura]:
     ]
 
 
-def solicitud(oferta_id: UUID | None = None, referencia_cobro: str = "PAGO-123") -> SolicitudEmision:
+def solicitud(oferta_id: UUID | None = None) -> SolicitudEmision:
     return SolicitudEmision(
         solicitud_id=uuid4(),
         oferta_id=oferta_id or uuid4(),
         usuario_id=uuid4(),
-        referencia_cobro=referencia_cobro,
+        token_pago_confirmado=uuid4(),
         coberturas=coberturas(),
     )
 
@@ -38,7 +38,7 @@ class CobrosFalsos:
     def __init__(self, exitoso: bool = True) -> None:
         self.respuesta = exitoso
 
-    async def exitoso(self, oferta_id, referencia_cobro):
+    async def exitoso(self, oferta_id, token_pago_confirmado):
         return self.respuesta
 
 

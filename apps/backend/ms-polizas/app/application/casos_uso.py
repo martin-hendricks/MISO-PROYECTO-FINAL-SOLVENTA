@@ -15,7 +15,7 @@ class SolicitudEmision:
     solicitud_id: UUID
     oferta_id: UUID
     usuario_id: UUID
-    referencia_cobro: str
+    token_pago_confirmado: UUID
     coberturas: list[Cobertura]
 
 
@@ -45,7 +45,7 @@ async def emitir_poliza(
         raise ReglaDeNegocioViolada(
             "suscripcion_no_aceptada", "La póliza solo se emite sobre una suscripción aceptada"
         )
-    if not await cobros.exitoso(solicitud.oferta_id, solicitud.referencia_cobro):
+    if not await cobros.exitoso(solicitud.oferta_id, solicitud.token_pago_confirmado):
         raise ReglaDeNegocioViolada("cobro_no_exitoso", "La póliza solo se emite con el cobro de la prima exitoso")
 
     async with uow() as tx:

@@ -20,7 +20,7 @@ class EmitirPolizaEntrada(BaseModel):
     solicitud_id: UUID
     oferta_id: UUID
     usuario_id: UUID
-    referencia_cobro: str = Field(min_length=1, max_length=120)
+    token_pago_confirmado: UUID
     coberturas: list[CoberturaEntrada] = Field(min_length=1)
 
 

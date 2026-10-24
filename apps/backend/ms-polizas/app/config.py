@@ -9,4 +9,5 @@ class Settings(BaseSettings):
     db_pool_size: int = 10
     log_level: str = "INFO"
     ms_suscripcion_url: str = "http://localhost:8081"
+    ms_pagos_url: str = "http://localhost:8082"
     timeout_dependencias: float = 2.0

@@ -13,7 +13,7 @@ from app.domain.errores import (
     NoEncontrado,
     ReglaDeNegocioViolada,
 )
-from app.infrastructure.precondiciones import CobroDeclarado, SuscripcionesHTTP
+from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
@@ -27,12 +27,14 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
-        http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
+        http_suscripcion = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
+        http_pagos = httpx.AsyncClient(base_url=config.ms_pagos_url, timeout=config.timeout_dependencias)
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
-        app.state.suscripciones = SuscripcionesHTTP(http)
-        app.state.cobros = CobroDeclarado()
+        app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
+        app.state.cobros = CobrosHTTP(http_pagos)
         yield
-        await http.aclose()
+        await http_suscripcion.aclose()
+        await http_pagos.aclose()
         await motor.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)

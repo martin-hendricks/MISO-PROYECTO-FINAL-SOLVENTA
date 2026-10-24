@@ -13,7 +13,7 @@ from app.config import Settings
 from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
 from app.domain.errores import DependenciaNoDisponible
 from app.domain.modelos import Poliza, poliza_emitida
-from app.infrastructure.precondiciones import CobroDeclarado, SuscripcionesHTTP
+from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
 from app.infrastructure.sql import (
     CoberturaFila,
     OutboxFila,
@@ -187,11 +187,41 @@ async def test_suscripcion_sin_red_no_esta_disponible():
         await _suscripciones(manejador).aceptada(uuid4())
 
 
-async def test_cobro_declarado_exige_referencia():
-    cobro = CobroDeclarado()
+def _cobros(manejador) -> CobrosHTTP:
+    return CobrosHTTP(httpx.AsyncClient(base_url="http://ms-pagos", transport=httpx.MockTransport(manejador)))
 
-    assert await cobro.exitoso(uuid4(), "PAGO-1") is True
-    assert await cobro.exitoso(uuid4(), "  ") is False
+
+@pytest.mark.parametrize(
+    ("estado", "misma_oferta", "esperado"),
+    [("APROBADO", True, True), ("RECHAZADO", True, False), ("APROBADO", False, False)],
+)
+async def test_cobros_http_exige_cobro_aprobado_de_la_misma_oferta(estado, misma_oferta, esperado):
+    oferta_id, token = uuid4(), uuid4()
+    rutas = []
+
+    def manejador(request):
+        rutas.append(request.url.path)
+        return httpx.Response(200, json={"estado": estado, "oferta_id": str(oferta_id if misma_oferta else uuid4())})
+
+    assert await _cobros(manejador).exitoso(oferta_id, token) is esperado
+    assert rutas == [f"/v1/pagos/{token}"]
+
+
+async def test_cobro_inexistente_no_es_exitoso():
+    assert await _cobros(lambda _r: httpx.Response(404)).exitoso(uuid4(), uuid4()) is False
+
+
+async def test_cobros_con_error_del_servicio_no_esta_disponible():
+    with pytest.raises(DependenciaNoDisponible):
+        await _cobros(lambda _r: httpx.Response(500)).exitoso(uuid4(), uuid4())
+
+
+async def test_cobros_sin_red_no_esta_disponible():
+    def manejador(request):
+        raise httpx.ConnectError("sin red", request=request)
+
+    with pytest.raises(DependenciaNoDisponible):
+        await _cobros(manejador).exitoso(uuid4(), uuid4())
 
 
 def test_dependencia_caida_responde_503(client, suscripciones):
@@ -203,7 +233,7 @@ def test_dependencia_caida_responde_503(client, suscripciones):
         "solicitud_id": str(uuid4()),
         "oferta_id": str(uuid4()),
         "usuario_id": str(uuid4()),
-        "referencia_cobro": "PAGO-1",
+        "token_pago_confirmado": str(uuid4()),
         "coberturas": [{"nombre": "RC", "suma_asegurada": "10.00"}],
     }
 
@@ -226,7 +256,7 @@ def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
     with TestClient(app) as cliente:
         assert app.state.fabrica_uow is not None
         assert isinstance(app.state.suscripciones, SuscripcionesHTTP)
-        assert isinstance(app.state.cobros, CobroDeclarado)
+        assert isinstance(app.state.cobros, CobrosHTTP)
         assert cliente.get("/health").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
