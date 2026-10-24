@@ -375,16 +375,19 @@ variable "alb_routes" {
     priority          = number
   }))
   description = "Target groups + listener rules del ALB interno, uno por servicio. Ver infra/terraform/modules/alb/variables.tf (var.routes) para el detalle completo."
+  #
+  # ms-cotizacion NO está en este mapa a propósito: el canal web solo debe
+  # entrar por bff-web, que habla con ms-cotizacion por red interna del
+  # cluster (Service de Kubernetes, ver MS_COTIZACION_URL en
+  # infra/k8s/values/bff-web.yaml), nunca otra vez a través del ALB/API
+  # Gateway. Exponerlo aquí permitía que cualquiera saltara el BFF y le
+  # pegara directo al núcleo. api-socios sí sigue expuesto porque atiende a
+  # socios externos -- no es parte del canal web.
   default = {
     api-socios = {
       port     = 8080
       paths    = ["/v1/catalogo"]
       priority = 10
-    }
-    ms-cotizacion = {
-      port     = 8000
-      paths    = ["/v1/productos", "/v1/cotizaciones"]
-      priority = 20
     }
     bff-web = {
       port = 8000

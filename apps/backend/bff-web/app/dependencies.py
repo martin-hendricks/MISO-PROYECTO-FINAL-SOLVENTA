@@ -3,8 +3,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from .clients.ms_cotizacion import ClienteMsCotizacion
+from .clients.ms_pagos import ClienteMsPagos
+from .clients.ms_polizas import ClienteMsPolizas
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -66,3 +70,15 @@ def refresh_session(refresh_token: str) -> dict:
     if payload.get("typ") != "refresh" or payload.get("rol") not in ROLES:
         raise HTTPException(status_code=401, detail="Token invalido")
     return issue_pair(payload["sub"], payload["rol"])
+
+
+def obtener_cliente_cotizacion(request: Request) -> ClienteMsCotizacion:
+    return ClienteMsCotizacion(request.app.state.http_ms_cotizacion, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_pagos(request: Request) -> ClienteMsPagos:
+    return ClienteMsPagos(request.app.state.http_ms_pagos, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_polizas(request: Request) -> ClienteMsPolizas:
+    return ClienteMsPolizas(request.app.state.http_ms_polizas, getattr(request.state, "correlacion", None))

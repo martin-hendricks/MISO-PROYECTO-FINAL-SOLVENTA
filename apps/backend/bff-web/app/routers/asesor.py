@@ -59,6 +59,10 @@ class Desactivar(BaseModel):
     estado: str
 
 
+# TODO: la venta asistida de asesores podría reusar ms-cotizacion igual que
+# el canal cliente (ver routers/cliente.py), pero aquí no hay sesión de
+# cliente real de la que derivar usuario_id/socio_id/consentimiento_id --
+# falta ms-identidad para resolver el cliente atendido por el asesor.
 @router.post("/cotizaciones")
 def venta(body: VentaAsistida) -> dict:
     offer = _offer(OFFER["cotizacionId"])
@@ -66,6 +70,8 @@ def venta(body: VentaAsistida) -> dict:
     return offer
 
 
+# TODO: no hay microservicio que agregue KPIs/cartera de un asesor -- requiere
+# un endpoint de reporting en el núcleo que no existe todavía.
 @router.get("/cartera")
 def cartera() -> dict:
     return {
@@ -87,11 +93,14 @@ def cartera() -> dict:
     }
 
 
+# TODO: el CRM de clientes depende de ms-identidad (no existe código, solo
+# README en cualquier rama) -- no hay microservicio real al que integrar.
 @router.get("/clientes")
 def listar() -> dict:
     return {"clientes": [dict(cliente) for cliente in CLIENTES]}
 
 
+# TODO: mismo faltante que listar() -- alta de clientes depende de ms-identidad.
 @router.post("/clientes")
 def crear(body: ClienteNuevo) -> dict:
     created = body.model_dump()
@@ -99,6 +108,7 @@ def crear(body: ClienteNuevo) -> dict:
     return created
 
 
+# TODO: mismo faltante que listar() -- cambio de estado depende de ms-identidad.
 @router.post("/clientes/estado")
 def desactivar(body: Desactivar) -> dict:
     return {"clienteId": body.clienteId, "estado": "inactivo"}

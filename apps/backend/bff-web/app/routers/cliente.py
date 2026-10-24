@@ -1,7 +1,15 @@
+import uuid
+from decimal import Decimal
+from typing import Annotated
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..dependencies import require_roles
+from ..clients.ms_cotizacion import ClienteMsCotizacion
+from ..clients.ms_pagos import ClienteMsPagos
+from ..clients.ms_polizas import ClienteMsPolizas
+from ..dependencies import obtener_cliente_cotizacion, obtener_cliente_pagos, obtener_cliente_polizas, require_roles
 
 router = APIRouter(
     prefix="/cliente",
@@ -33,6 +41,53 @@ PAYMENT = {
     "estado": "pagado",
 }
 
+# Mapeo de "ramo" (vocabulario del canal web) a "producto" (catálogo real de
+# ms-cotizacion, ver apps/backend/ms-cotizacion/app/domain/catalogo.py). Si
+# llega un ramo no mapeado se usa un slug derivado de su texto -- ms-cotizacion
+# responderá 404/422 si ese producto no existe en su catálogo, y ese error ya
+# se propaga tipificado por los exception handlers de main.py.
+RAMO_A_PRODUCTO = {
+    "Protección de dispositivo": "proteccion-dispositivo",
+    "Vida crediticia": "vida-crediticia",
+}
+
+# Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
+# partir de datos ya disponibles (correo de sesión). No tiene significado de
+# negocio, solo evita colisiones triviales con otros usos de uuid5.
+_NAMESPACE_SOLVENTA = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
+
+
+def _producto_de(ramo: str) -> str:
+    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
+
+
+def _uuid_desde(*partes: str) -> UUID:
+    return uuid.uuid5(_NAMESPACE_SOLVENTA, "|".join(partes))
+
+
+class ContextoUsuario:
+    """Deriva identificadores que hoy no existen en el canal web.
+
+    El JWT de bff-web solo trae `sub` (correo) y `rol` (ver
+    app/dependencies.py); no hay ms-identidad real todavía que resuelva un
+    usuario_id/socio_id/consentimiento_id/perfil_id de verdad a partir de la
+    sesión. Mientras ese servicio no exista, se derivan UUIDs deterministas
+    (uuid5) a partir del correo de la sesión: esto permite que el mismo
+    usuario reutilice siempre el mismo usuario_id frente a ms-cotizacion
+    (útil para idempotencia/consistencia en pruebas), pero NO es una
+    resolución de identidad real ni debe tratarse como tal en producción.
+    """
+
+    def __init__(self, correo: str) -> None:
+        self.usuario_id = _uuid_desde("usuario", correo)
+        self.socio_id = _uuid_desde("socio", correo)
+        self.consentimiento_id = _uuid_desde("consentimiento", correo)
+        self.perfil_id = _uuid_desde("perfil", correo)
+
+
+def _idempotency_key() -> str:
+    return str(uuid.uuid4())
+
 
 class Cotizacion(BaseModel):
     ramo: str
@@ -60,25 +115,141 @@ def _offer(cotizacion_id: str) -> dict:
     return body
 
 
+def _cotizacion_salida(datos: dict, ramo: str) -> dict:
+    """Traduce la salida real de ms-cotizacion al shape que el canal web ya
+    espera, para no romper el contrato existente del frontend."""
+    return {
+        "cotizacionId": datos["cotizacion_id"],
+        "ramo": ramo,
+        "estado": datos["estado"],
+        "prima": datos["prima"],
+        "moneda": datos["moneda"],
+        "venceEn": datos["vence_en"],
+    }
+
+
 @router.post("/cotizaciones")
-def cotizar(body: Cotizacion) -> dict:
+async def cotizar(
+    body: Cotizacion,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
     if body.clienteId:
         raise HTTPException(status_code=400, detail="La venta asistida no es de este canal")
-    return _offer(OFFER["cotizacionId"])
+
+    # TODO: reemplazar con el correo real de la sesión (request.state /
+    # payload del JWT) una vez que esta función reciba el contexto de
+    # autenticación; por ahora usa un valor fijo de desarrollo porque la ruta
+    # no tiene acceso al payload decodificado (require_roles solo se usa como
+    # dependencia del router, no se inyecta en la función). No bloquea la
+    # integración real con ms-cotizacion: el usuario_id derivado es estable
+    # dentro de este proceso.
+    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    producto = _producto_de(body.ramo)
+
+    datos = await cliente_cotizacion.cotizar(
+        idempotency_key=_idempotency_key(),
+        usuario_id=contexto.usuario_id,
+        socio_id=contexto.socio_id,
+        consentimiento_id=contexto.consentimiento_id,
+        producto=producto,
+        canal="web",
+        datos_riesgo=body.datosRiesgo,
+    )
+    return _cotizacion_salida(datos, body.ramo)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
-def reconsultar(cotizacion_id: str) -> dict:
-    return _offer(cotizacion_id)
+async def reconsultar(
+    cotizacion_id: str,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    datos = await cliente_cotizacion.reconsultar(cotizacion_id)
+    # No existe mapeo inverso producto->ramo (RAMO_A_PRODUCTO es de solo
+    # ida): se devuelve el código de producto del núcleo tal cual mientras
+    # no haya un catálogo de vocabulario web que lo traduzca de regreso.
+    return _cotizacion_salida(datos, datos.get("producto", ""))
 
 
 @router.post("/polizas")
-def emitir(body: Aceptar) -> dict:
-    if body.cotizacionId == "COT-RECHAZADA":
-        return REFUSAL
-    return dict(POLICY)
+async def emitir(
+    body: Aceptar,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+) -> dict:
+    """Aceptar la oferta y emitir la póliza. Flujo real de 3 pasos:
+
+    1. ms-cotizacion POST /v1/cotizaciones/{id}/aceptacion -- ya orquesta la
+       decisión de suscripción internamente (el BFF no llama a
+       ms-suscripcion por separado). Devuelve oferta_id.
+    2. ms-pagos POST /v1/pagos/primas -- cobra la prima aceptada.
+    3. ms-polizas POST /v1/polizas -- emite la póliza con el pago confirmado.
+
+    Si cualquier paso falla, la excepción tipificada (ServicioNoDisponible/
+    RecursoNoEncontrado/RechazoDelNucleo) se propaga sin capturar y los
+    exception handlers de main.py la traducen a 503/404/409/422. Si el paso
+    2 (pago) falla, el paso 3 (emisión) nunca se ejecuta.
+    """
+    # TODO: mismo placeholder de identidad que en cotizar() -- no hay
+    # ms-identidad real para resolver el correo de la sesión a un contexto.
+    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+
+    # TODO: `score` es un stub fijo documentado: no hay ms-perfilamiento
+    # conectado aún que calcule un score real de riesgo/crédito para el
+    # perfil del cliente. Cuando ms-perfilamiento esté disponible, este valor
+    # debe venir de una llamada real a ese servicio en vez de una constante.
+    score_stub = Decimal("0.5000")
+
+    aceptacion = await cliente_cotizacion.aceptar_oferta(
+        cotizacion_id=body.cotizacionId,
+        idempotency_key=_idempotency_key(),
+        perfil_id=contexto.perfil_id,
+        score=score_stub,
+    )
+
+    oferta_id = UUID(aceptacion["oferta_id"])
+    solicitud_id = UUID(aceptacion["cotizacion_id"])
+
+    # TODO: `token_medio_pago` es un placeholder -- el canal web todavía no
+    # captura/tokeniza un medio de pago real (no hay integración con una
+    # pasarela ni un campo en el body de esta ruta). Debe reemplazarse cuando
+    # el frontend capture el medio de pago real del cliente.
+    pago = await cliente_pagos.cobrar_prima(
+        solicitud_id=solicitud_id,
+        oferta_id=oferta_id,
+        usuario_id=contexto.usuario_id,
+        monto=Decimal(str(aceptacion["prima"])),
+        token_medio_pago="stub-medio-pago",
+    )
+
+    cobertura_minima = [
+        {
+            "nombre": aceptacion.get("estado", "cobertura-base"),
+            "suma_asegurada": str(aceptacion["prima"]),
+            "deducible": "0",
+        }
+    ]
+    poliza = await cliente_polizas.emitir(
+        solicitud_id=solicitud_id,
+        oferta_id=oferta_id,
+        usuario_id=contexto.usuario_id,
+        token_pago_confirmado=UUID(str(pago["id"])),
+        coberturas=cobertura_minima,
+    )
+
+    return {
+        "numero": poliza["numero"],
+        "ramo": poliza.get("estado", ""),
+        "estado": poliza["estado"],
+        "venceEn": poliza.get("fin_vigencia", ""),
+    }
 
 
+# TODO: no hay endpoint real en ms-polizas para listar pólizas por usuario
+# (solo existe GET /v1/polizas/{poliza_id} puntual, ver el PR
+# feature/HU-16-emitir-poliza) -- falta un endpoint tipo
+# "GET /v1/polizas?usuario_id=" o equivalente en el núcleo para integrar esta
+# ruta de verdad.
 @router.get("/polizas")
 def billetera() -> dict:
     return {
@@ -94,6 +265,10 @@ def billetera() -> dict:
     }
 
 
+# TODO: mismo faltante que billetera() -- el detalle por número de póliza sí
+# tiene equivalente real (GET /v1/polizas/{id} en ms-polizas), pero el campo
+# "queHacer" (guía de siniestro) depende de ms-parametrico/ms-siniestros, que
+# no están conectados a este BFF en esta rama.
 @router.get("/polizas/{numero}")
 def detalle(numero: str) -> dict:
     return {
@@ -106,11 +281,18 @@ def detalle(numero: str) -> dict:
     }
 
 
+# TODO: no hay microservicio de pagos automáticos/recurrentes conectado
+# (ms-pagos en el PR abierto solo cubre el cobro puntual de la prima al
+# emitir, no el ciclo de pagos automáticos de siniestros) -- falta definir
+# ese contrato en el núcleo antes de integrar esta ruta.
 @router.get("/pagos-automaticos")
 def pagos() -> dict:
     return dict(PAYMENT)
 
 
+# TODO: no hay ms-parametrico/ms-perfilamiento conectado para calcular la
+# oferta hipotecaria real (score de crédito, factores de riesgo) -- falta esa
+# integración en el núcleo.
 @router.post("/oferta-hipotecaria")
 def hipoteca(body: Hipoteca) -> dict:
     if body.consentimientoPerfil:
@@ -132,6 +314,10 @@ def hipoteca(body: Hipoteca) -> dict:
     }
 
 
+# TODO: este resumen agrega datos de varios microservicios (cotización
+# vigente, póliza, siniestro en curso, hipotecario) que hoy no tienen todos
+# equivalente real conectado (ms-siniestros y la oferta hipotecaria no están
+# integrados) -- requiere componer varias llamadas reales, no solo una.
 @router.get("/inicio")
 def inicio() -> dict:
     return {
