@@ -9,10 +9,11 @@ from app.domain.catalogo import (
     UnidadLimite,
     ValoresPermitidos,
 )
-from app.domain.modelos import EventoDominio, SolicitudCotizacion
+from app.domain.modelos import EstadoSolicitud, EventoDominio, SolicitudCotizacion
 from app.domain.oferta import Oferta
 from app.domain.rating import ReglaRating
-from app.ports.persistencia import ClaveIdempotenciaDuplicada
+from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada
+from app.ports.suscripcion import DecisionSuscripcion
 
 SOAT_MOTOCICLETA = DefinicionProducto(
     producto="soat-motocicleta",
@@ -50,6 +51,8 @@ class AlmacenEnMemoria:
         self.ofertas: dict[UUID, Oferta] = {}
         self.eventos: list[EventoDominio] = []
         self.chocar_en_proximo_commit: SolicitudCotizacion | None = None
+        # Simula otra aceptación que confirmó entre la lectura y la escritura condicional.
+        self.aceptar_antes: SolicitudCotizacion | None = None
 
 
 class _RepoSolicitudes:
@@ -70,6 +73,15 @@ class _RepoSolicitudes:
         self._uow.pendientes[solicitud.id] = solicitud
 
     async def actualizar(self, solicitud):
+        self._uow.pendientes[solicitud.id] = solicitud
+
+    async def registrar_aceptacion(self, solicitud):
+        ganadora = self._uow.almacen.aceptar_antes
+        if ganadora is not None:
+            self._uow.almacen.aceptar_antes = None
+            self._uow.almacen.solicitudes[ganadora.id] = ganadora
+        if self._uow.almacen.solicitudes[solicitud.id].estado is not EstadoSolicitud.COTIZADA:
+            raise AceptacionConcurrente
         self._uow.pendientes[solicitud.id] = solicitud
 
 
@@ -155,3 +167,21 @@ def regla_rating_soat_motocicleta() -> ReglaRating:
             "moneda": "COP",
         },
     )
+
+
+class SuscripcionesFalsas:
+    """Doble de ms-suscripcion: idempotente por solicitud, como HU-13."""
+
+    def __init__(self, decision: str = "ACEPTADA") -> None:
+        self.decision = decision
+        self.caida: Exception | None = None
+        self.llamadas: list[UUID] = []
+        self._decisiones: dict[UUID, DecisionSuscripcion] = {}
+
+    async def evaluar(self, solicitud_id, perfil_id, score):
+        self.llamadas.append(solicitud_id)
+        if self.caida is not None:
+            raise self.caida
+        return self._decisiones.setdefault(
+            solicitud_id, DecisionSuscripcion(uuid4(), self.decision, "regla de suscripción")
+        )

@@ -13,6 +13,10 @@ class ClaveIdempotenciaDuplicada(Exception):
     pass
 
 
+class AceptacionConcurrente(Exception):
+    """Otra aceptación de la misma cotización confirmó primero."""
+
+
 class RepositorioSolicitudes(Protocol):
     async def obtener(self, solicitud_id: UUID) -> SolicitudCotizacion | None: ...
 
@@ -21,6 +25,11 @@ class RepositorioSolicitudes(Protocol):
     async def agregar(self, solicitud: SolicitudCotizacion) -> None: ...
 
     async def actualizar(self, solicitud: SolicitudCotizacion) -> None: ...
+
+    async def registrar_aceptacion(self, solicitud: SolicitudCotizacion) -> None:
+        """Escritura condicional: solo pasa de cotizada a aceptada. Lanza
+        AceptacionConcurrente si otra aceptación ganó la carrera."""
+        ...
 
 
 class Outbox(Protocol):

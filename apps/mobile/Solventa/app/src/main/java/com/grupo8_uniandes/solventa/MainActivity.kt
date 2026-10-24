@@ -3,9 +3,9 @@ package com.grupo8_uniandes.solventa
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import com.grupo8_uniandes.solventa.data.region.readAppliedLanguageTag
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.ui.shell.CustomerShell
@@ -13,7 +13,7 @@ import com.grupo8_uniandes.solventa.ui.shell.SplashHoldMillis
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.withAppliedRegion())
     }
@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
         val openOnboarding = intent.getBooleanExtra(EXTRA_OPEN_ONBOARDING, false)
         val openConsent = intent.getBooleanExtra(EXTRA_OPEN_CONSENT, false)
         val resumeProfile = intent.getBooleanExtra(EXTRA_RESUME_PROFILE, false)
+        val signedOut = intent.getBooleanExtra(EXTRA_SIGNED_OUT, false)
         if (openHome) {
             intent.removeExtra(EXTRA_OPEN_HOME)
         }
@@ -53,6 +54,7 @@ class MainActivity : ComponentActivity() {
                     openOnboarding = openOnboarding,
                     openConsent = openConsent,
                     resumeProfile = resumeProfile,
+                    signedOut = signedOut,
                 )
             }
         }
@@ -66,6 +68,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN_ONBOARDING = "com.grupo8_uniandes.solventa.OPEN_ONBOARDING"
         const val EXTRA_OPEN_CONSENT = "com.grupo8_uniandes.solventa.OPEN_CONSENT"
         const val EXTRA_RESUME_PROFILE = "com.grupo8_uniandes.solventa.RESUME_PROFILE"
+        const val EXTRA_SIGNED_OUT = "com.grupo8_uniandes.solventa.SIGNED_OUT"
     }
 }
 

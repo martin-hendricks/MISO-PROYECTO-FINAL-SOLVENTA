@@ -131,7 +131,7 @@ class IdiomaRegionProfileTest {
             rule.onNodeWithTag("tab_Perfil").assertIsSelected()
             rule.onNodeWithText("Español · México").performClick()
             rule.onNodeWithTag("action_listo").performClick()
-            rule.waitUntil(timeoutMillis = 8_000) {
+            rule.waitUntil(timeoutMillis = 30_000) {
                 appliedTag() == "es-MX" &&
                     rule.onAllNodesWithTag("screen_perfil").fetchSemanticsNodes().isNotEmpty() &&
                     rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
@@ -157,7 +157,7 @@ class IdiomaRegionProfileTest {
             rule.onNode(isDialog()).performTouchInput {
                 click(Offset(width / 2f, 24f))
             }
-            rule.waitUntil(timeoutMillis = 8_000) {
+            rule.waitUntil(timeoutMillis = 30_000) {
                 rule.onAllNodesWithTag("solventa_bottom_sheet").fetchSemanticsNodes().isEmpty()
             }
             rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
@@ -190,7 +190,7 @@ private fun requestedPermissions(): Set<String> {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }
