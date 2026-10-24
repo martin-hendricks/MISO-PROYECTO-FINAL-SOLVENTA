@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.application import casos_uso
-from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
+from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow, obtener_uow_lectura
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
 
@@ -19,6 +19,9 @@ from .schemas import (
 
 router = APIRouter(prefix="/v1/polizas", tags=["polizas"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
+# EC-LAT-10: los endpoints de solo consulta leen de la réplica (ver
+# obtener_uow_lectura), no del writer que usa el resto de la ruta.
+UowLectura = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow_lectura)]
 Suscripciones = Annotated[VerificadorSuscripcion, Depends(obtener_suscripciones)]
 Cobros = Annotated[VerificadorCobro, Depends(obtener_cobros)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}, 503: {"model": ErrorSalida}}
@@ -43,7 +46,7 @@ async def emitir(
 
 
 @router.get("", response_model=list[PolizaSalida], responses=ERRORES)
-async def listar(uow: Uow, usuario_id: UUID, limite: Annotated[int, Query(ge=1, le=100)] = 20):
+async def listar(uow: UowLectura, usuario_id: UUID, limite: Annotated[int, Query(ge=1, le=100)] = 20):
     polizas = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite)
     return [PolizaSalida.desde(poliza) for poliza in polizas]
 
@@ -54,12 +57,12 @@ async def listar(uow: Uow, usuario_id: UUID, limite: Annotated[int, Query(ge=1, 
 # intentaría parsear "numero" como UUID y fallaría con 422 en vez de llegar
 # aquí).
 @router.get("/numero/{numero}", response_model=PolizaSalida, responses=ERRORES)
-async def consultar_por_numero(numero: str, uow: Uow):
+async def consultar_por_numero(numero: str, uow: UowLectura):
     return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero))
 
 
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)
-async def consultar(poliza_id: UUID, uow: Uow):
+async def consultar(poliza_id: UUID, uow: UowLectura):
     return PolizaSalida.desde(await casos_uso.consultar_poliza(uow, poliza_id))
 
 

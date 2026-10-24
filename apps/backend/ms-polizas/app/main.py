@@ -15,7 +15,12 @@ from app.domain.errores import (
     TransicionInvalida,
 )
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
-from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
+from app.infrastructure.sql import (
+    crear_motor,
+    crear_motor_lectura,
+    fabrica_unidad_de_trabajo,
+    fabrica_unidad_de_trabajo_lectura,
+)
 from app.observabilidad import instrumentar
 
 ESTADO_HTTP = {
@@ -33,16 +38,19 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
+        motor_lectura = crear_motor_lectura(config)
         http_suscripcion = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
         http_pagos = httpx.AsyncClient(base_url=config.ms_pagos_url, timeout=config.timeout_dependencias)
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
+        app.state.fabrica_uow_lectura = fabrica_unidad_de_trabajo_lectura(motor_lectura)
         app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
         app.state.cobros = CobrosHTTP(http_pagos)
         yield
         await http_suscripcion.aclose()
         await http_pagos.aclose()
         await motor.dispose()
+        await motor_lectura.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
     instrumentar(app)

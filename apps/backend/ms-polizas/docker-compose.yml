@@ -22,6 +22,9 @@ services:
     environment:
       SERVICE_NAME: ms-polizas
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+      # Mismo valor que DATABASE_URL: en este docker-compose local no hay
+      # réplica de lectura real (ver el comentario en app/config.py).
+      DATABASE_URL_READ: postgresql+asyncpg://postgres:postgres@db:5432/solventa
       MS_SUSCRIPCION_URL: http://host.docker.internal:8081
       MS_PAGOS_URL: http://host.docker.internal:8082
     ports:
