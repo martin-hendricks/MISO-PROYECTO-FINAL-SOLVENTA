@@ -32,18 +32,14 @@ spec:
   targetGroupARN: ${API_SOCIOS_TARGET_GROUP_ARN}
   targetType: ip
 ---
-apiVersion: elbv2.k8s.aws/v1beta1
-kind: TargetGroupBinding
-metadata:
-  name: ms-cotizacion
-  namespace: solventa
-spec:
-  serviceRef:
-    name: ms-cotizacion
-    port: 8000
-  targetGroupARN: ${MS_COTIZACION_TARGET_GROUP_ARN}
-  targetType: ip
----
+#
+# ms-cotizacion YA NO tiene TargetGroupBinding aquí: se sacó de
+# alb_routes (infra/terraform/environments/minimo/variables.tf) porque el
+# canal web solo debe entrar por bff-web -- bff-web habla con ms-cotizacion
+# por DNS interno del cluster (Service de Kubernetes, MS_COTIZACION_URL en
+# infra/k8s/values/bff-web.yaml), no por el ALB/API Gateway. ms-cotizacion
+# sigue desplegado normalmente en el cluster, solo deja de tener un target
+# group público.
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
