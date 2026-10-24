@@ -124,6 +124,57 @@ async def test_obtener_sin_fila_devuelve_none():
     async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
         assert await tx.polizas.obtener(uuid4()) is None
         assert await tx.polizas.obtener_por_oferta(uuid4()) is None
+        assert await tx.polizas.obtener_por_numero("POL-2026-00000001") is None
+
+
+async def test_obtener_por_numero_mapea_la_fila_al_dominio():
+    fila = PolizaFila(
+        poliza_id=uuid4(),
+        oferta_id=uuid4(),
+        usuario_id=uuid4(),
+        numero="POL-2026-00000001",
+        inicio_vigencia=date(2026, 1, 1),
+        fin_vigencia=date(2026, 12, 31),
+        estado="VIGENTE",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        encontrada = await tx.polizas.obtener_por_numero(fila.numero)
+
+    assert encontrada.numero == fila.numero
+
+
+async def test_listar_por_usuario_usa_limite_y_orden_descendente():
+    usuario_id = uuid4()
+    fila = PolizaFila(
+        poliza_id=uuid4(),
+        oferta_id=uuid4(),
+        usuario_id=usuario_id,
+        numero="POL-2026-00000001",
+        inicio_vigencia=date(2026, 1, 1),
+        fin_vigencia=date(2026, 12, 31),
+        estado="VIGENTE",
+    )
+
+    class SesionConLista(SesionFalsa):
+        def __init__(self) -> None:
+            super().__init__()
+            self.consultas: list = []
+
+        async def scalars(self, consulta):
+            self.consultas.append(consulta)
+            if len(self.consultas) == 1:
+                return iter([fila])
+            return iter(self.coberturas)
+
+    sesion = SesionConLista()
+    async with UnidadDeTrabajoSQL(lambda: sesion) as tx:
+        resultado = await tx.polizas.listar_por_usuario(usuario_id, limite=5)
+
+    assert [p.numero for p in resultado] == [fila.numero]
+    consulta_listado = str(sesion.consultas[0])
+    assert "ORDER BY" in consulta_listado and "poliza.inicio_vigencia DESC" in consulta_listado
+    assert "LIMIT" in consulta_listado
 
 
 async def test_oferta_duplicada_se_traduce_al_puerto():

@@ -12,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     Sequence,
     String,
+    desc,
     func,
     select,
 )
@@ -105,6 +106,18 @@ class RepositorioPolizasSQL:
 
     async def obtener_por_oferta(self, oferta_id: UUID) -> Poliza | None:
         return await self._con_coberturas(await self._s.scalar(select(PolizaFila).where(PolizaFila.oferta_id == oferta_id)))
+
+    async def obtener_por_numero(self, numero: str) -> Poliza | None:
+        return await self._con_coberturas(await self._s.scalar(select(PolizaFila).where(PolizaFila.numero == numero)))
+
+    async def listar_por_usuario(self, usuario_id: UUID, limite: int) -> list[Poliza]:
+        filas = await self._s.scalars(
+            select(PolizaFila)
+            .where(PolizaFila.usuario_id == usuario_id)
+            .order_by(desc(PolizaFila.inicio_vigencia))
+            .limit(limite)
+        )
+        return [await self._con_coberturas(fila) for fila in filas]
 
     async def siguiente_secuencia(self) -> int:
         return int(await self._s.scalar(SECUENCIA_NUMERO.next_value()))

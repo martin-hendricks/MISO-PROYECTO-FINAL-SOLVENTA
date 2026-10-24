@@ -64,6 +64,17 @@ class _Polizas:
     async def obtener_por_oferta(self, oferta_id):
         return next((deepcopy(p) for p in self._vista().values() if p.oferta_id == oferta_id), None)
 
+    async def obtener_por_numero(self, numero):
+        return next((deepcopy(p) for p in self._vista().values() if p.numero == numero), None)
+
+    async def listar_por_usuario(self, usuario_id, limite):
+        polizas = sorted(
+            (p for p in self._vista().values() if p.usuario_id == usuario_id),
+            key=lambda p: p.inicio_vigencia,
+            reverse=True,
+        )
+        return [deepcopy(p) for p in polizas[:limite]]
+
     async def siguiente_secuencia(self):
         # Como una secuencia de PostgreSQL: avanza aunque la transacción se revierta.
         self._uow.almacen.secuencia += 1
