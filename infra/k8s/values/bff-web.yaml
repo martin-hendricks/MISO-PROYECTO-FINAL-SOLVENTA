@@ -15,7 +15,10 @@ imagen:
 replicas: 3
 grupoEscalado: "b"
 
-puerto: 8080
+# apps/backend/bff-web/Dockerfile expone y arranca uvicorn en 8000 (mismo
+# patrón que ms-cotizacion, no 8080 -- ver el comentario de puerto en
+# infra/k8s/values/ms-cotizacion.yaml para el bug ya encontrado ahí).
+puerto: 8000
 puertoMetricas: 9090
 
 recursos:
@@ -27,12 +30,14 @@ recursos:
     memory: "768Mi"
 
 probes:
+  # bff-web expone un único endpoint /health (apps/backend/bff-web/app/main.py),
+  # sin distinguir liveness de readiness -- mismo patrón que ms-cotizacion.
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:
@@ -59,7 +64,15 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: bff-web-token
+      # Sin `claves`: se usa dataFrom.extract, que proyecta el JSON del
+      # secreto remoto tal cual -- su única clave ya se llama
+      # SOLVENTA_TOKEN_SECRET (infra/terraform/modules/secrets/main.tf), así
+      # que no hace falta mapear nombres.
 
 serviceAccount:
   crear: true
@@ -74,10 +87,20 @@ topologySpread:
   habilitado: true
   maxSkew: 1
 
+# apps/backend/bff-web/app/ todavía no lee ninguna de estas tres (login y
+# asesor están mockeados en memoria, sin llamar a otros servicios) -- se
+# dejan declaradas como documentación de la integración futura, igual que
+# api-socios ya hace con MS_IDENTIDAD_URL. MS_POLIZAS_URL y MS_IDENTIDAD_URL
+# apuntan a servicios que tampoco están desplegados todavía (no hay
+# Dockerfile ni entrada en alb_routes); no afecta al arranque del pod porque
+# nadie las resuelve aún.
 variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local"
   - nombre: MS_COTIZACION_URL
-    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+    # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
+    # no en el 80 por defecto de HTTP -- ver el mismo fix ya aplicado en
+    # infra/k8s/values/api-socios.yaml.
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: MS_POLIZAS_URL
     valor: "http://ms-polizas.solventa.svc.cluster.local"

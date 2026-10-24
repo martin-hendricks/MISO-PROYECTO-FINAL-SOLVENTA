@@ -217,6 +217,83 @@ resource "aws_iam_role_policy_attachment" "elb_describe" {
 }
 
 # ---------------------------------------------------------------------------
+# Permisos: desplegar la SPA (S3 + CloudFront)
+# ---------------------------------------------------------------------------
+#
+# El bucket de la SPA (module.edge.spa_bucket_name) tiene un sufijo
+# aleatorio (random_id.spa_bucket_suffix en el módulo edge), así que el
+# workflow no puede predecir su nombre exacto como sí hace con los target
+# groups del ALB. s3:ListAllMyBuckets (de alcance global, la API no admite
+# scoping por recurso) permite resolverlo por prefijo
+# ("solventa-<environment>-spa-") en tiempo de ejecución; lo mismo para
+# cloudfront:ListDistributions, resuelta por el Comment del módulo edge
+# ("${project_name}-${environment} Angular SPA"). apigateway:GET
+# resuelve la URL del API Gateway para inyectarla en el build del
+# frontend (ver deploy-web.yml) -- el prefijo IAM para API Gateway es
+# "apigateway", no "apigatewayv2", aunque la API sea HTTP API (v2).
+data "aws_iam_policy_document" "web_deploy" {
+  statement {
+    sid    = "ListBucketsAndDistributions"
+    effect = "Allow"
+    actions = [
+      "s3:ListAllMyBuckets",
+      "cloudfront:ListDistributions",
+      "apigateway:GET",
+    ]
+    resources = ["*"] # Ninguna de estas tres admite scoping por ARN/nombre en el recurso.
+  }
+
+  statement {
+    sid    = "SyncSpaBucket"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+    ]
+    # Cualquier bucket solventa-<environment>-spa-* de cualquier cuenta/región
+    # en la que corra este workflow -- el nombre completo (con el sufijo
+    # aleatorio) no se conoce hasta resolverlo en tiempo de ejecución.
+    resources = [
+      "arn:aws:s3:::${var.project_name}-*-spa-*",
+      "arn:aws:s3:::${var.project_name}-*-spa-*/*",
+    ]
+  }
+
+  statement {
+    sid       = "InvalidateCloudFront"
+    effect    = "Allow"
+    actions   = ["cloudfront:CreateInvalidation"]
+    resources = ["*"] # El ID de la distribución (con su sufijo de cuenta) solo se conoce tras resolverla por Comment.
+  }
+
+  # El bucket de la SPA cifra por defecto con SSE-KMS (edge module, var
+  # kms_key_arn -- la misma CMK compartida, module.kms.s3_key_arn). Sin estos
+  # permisos, s3:PutObject/GetObject fallan con AccessDenied en
+  # kms:GenerateDataKey/Decrypt aunque la policy S3 ya lo permita.
+  statement {
+    sid       = "UseSpaBucketKmsKey"
+    effect    = "Allow"
+    actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
+    resources = [var.spa_kms_key_arn]
+  }
+}
+
+resource "aws_iam_policy" "web_deploy" {
+  name        = "${local.role_name}-web-deploy"
+  description = "Permite sincronizar el build de la SPA Angular a S3, invalidar CloudFront, y resolver la URL del API Gateway -- sin depender del state de Terraform."
+  policy      = data.aws_iam_policy_document.web_deploy.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "web_deploy" {
+  role       = aws_iam_role.github_actions_cd.name
+  policy_arn = aws_iam_policy.web_deploy.arn
+}
+
+# ---------------------------------------------------------------------------
 # Access entry: autorización dentro del clúster (API de Kubernetes)
 # ---------------------------------------------------------------------------
 #

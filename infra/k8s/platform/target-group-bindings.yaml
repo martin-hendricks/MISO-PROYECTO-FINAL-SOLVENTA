@@ -43,3 +43,15 @@ spec:
     port: 8000
   targetGroupARN: ${MS_COTIZACION_TARGET_GROUP_ARN}
   targetType: ip
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: bff-web
+  namespace: solventa
+spec:
+  serviceRef:
+    name: bff-web
+    port: 8000
+  targetGroupARN: ${BFF_WEB_TARGET_GROUP_ARN}
+  targetType: ip
