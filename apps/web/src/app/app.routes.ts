@@ -47,6 +47,13 @@ export const routes: Routes = [
           import('./features/backoffice/clientes/clientes.view').then((m) => m.ClientesView),
       },
       section('cotizaciones'),
+      {
+        path: 'cotizaciones/:cotizacionId/emision',
+        loadComponent: () =>
+          import('./features/backoffice/emision/asesor-emision.view').then(
+            (m) => m.AsesorEmisionView,
+          ),
+      },
       section('polizas'),
       section('avisos'),
     ],

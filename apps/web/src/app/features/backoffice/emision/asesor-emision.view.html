@@ -1,0 +1,149 @@
+<section
+  data-testid="asesor-emision"
+  [attr.data-state]="allowed ? (valid ? vm.status() : 'invalid') : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.emision.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else if (!valid) {
+    <div class="empty-state" role="alert" data-testid="emision-invalid">
+      <h2>{{ 'backoffice.emision.invalid.title' | translate }}</h2>
+      <p>{{ 'backoffice.emision.invalid.body' | translate }}</p>
+    </div>
+  } @else {
+    <a class="back" routerLink="/cms/cotizaciones" data-testid="emision-back">
+      <span aria-hidden="true">←</span>
+      {{ 'backoffice.emision.back' | translate: { cotizacion: cotizacionId } }}
+    </a>
+    <h1>{{ 'backoffice.emision.title' | translate }}</h1>
+
+    @if (vm.status() === 'loading') {
+      <p class="subtitle" role="status" data-testid="emision-loading">
+        {{ 'backoffice.emision.loading' | translate }}
+      </p>
+    }
+
+    @if (vm.solicitud(); as solicitud) {
+      <p class="subtitle" data-testid="emision-context">
+        {{ solicitud.cliente.nombre }} · {{ solicitud.producto }} · {{ solicitud.referencia }}
+      </p>
+
+      <ol class="stepper" data-testid="stepper">
+        @for (paso of vm.pasos(); track paso.paso) {
+          <li [attr.data-paso]="paso.paso" [attr.data-estado]="paso.estado">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="paso-label">{{ 'backoffice.emision.paso.' + paso.paso | translate }}</span>
+            <span class="visually-hidden">{{
+              'backoffice.emision.estadoPaso.' + paso.estado | translate
+            }}</span>
+          </li>
+        }
+      </ol>
+
+      <div class="cards">
+        <article class="card" data-testid="decision">
+          <div class="card-head">
+            <h2>{{ 'backoffice.emision.decision.title' | translate }}</h2>
+            <span
+              class="badge"
+              data-testid="decision-badge"
+              [attr.data-resultado]="solicitud.decision.resultado"
+              >{{ 'backoffice.emision.decision.' + solicitud.decision.resultado | translate }}</span
+            >
+          </div>
+          <dl>
+            <dt>{{ 'backoffice.emision.decision.regla' | translate }}</dt>
+            <dd>{{ solicitud.decision.regla }}</dd>
+            <dt>{{ 'backoffice.emision.decision.detalle' | translate }}</dt>
+            <dd>{{ solicitud.decision.detalle }}</dd>
+            <dt>{{ 'backoffice.emision.decision.decididoPor' | translate }}</dt>
+            <dd>
+              {{ solicitud.decision.decididoPor }} ·
+              {{ solicitud.decision.decididoEn | svDateTime }}
+            </dd>
+          </dl>
+
+          @switch (vm.status()) {
+            @case ('approved') {
+              <div class="actions">
+                <button type="button" class="filled" data-testid="emitir" (click)="vm.issue()">
+                  {{ 'backoffice.emision.emitir' | translate }}
+                </button>
+              </div>
+            }
+            @case ('issuing') {
+              <p class="subtitle" role="status" data-testid="emision-issuing">
+                {{ 'backoffice.emision.issuing' | translate }}
+              </p>
+            }
+            @case ('issued') {
+              @let poliza = vm.poliza()!;
+              <div class="notice ok" role="status" data-testid="poliza-emitida">
+                <p class="notice-title">
+                  {{ 'backoffice.emision.emitida' | translate: { numero: poliza.numero } }}
+                </p>
+                <p>
+                  {{ 'backoffice.emision.resumen.vigencia' | translate }}
+                  {{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}
+                </p>
+              </div>
+            }
+            @case ('rejected') {
+              <div class="notice error" role="alert" data-testid="rechazo">
+                <p class="notice-title">{{ 'backoffice.emision.rechazo.title' | translate }}</p>
+                <p>{{ 'backoffice.emision.rechazo.body' | translate }}</p>
+              </div>
+              <div class="actions">
+                <a
+                  class="filled"
+                  data-testid="cotizar-otro"
+                  routerLink="/cms/cotizaciones"
+                  [queryParams]="{ cliente: solicitud.cliente.clienteId }"
+                  >{{ 'backoffice.emision.rechazo.cotizarOtro' | translate }}</a
+                >
+                <a class="outlined" data-testid="volver-cartera" routerLink="/cms/clientes">{{
+                  'backoffice.emision.rechazo.volverCartera' | translate
+                }}</a>
+              </div>
+            }
+          }
+        </article>
+
+        <aside class="card summary" data-testid="resumen-oferta">
+          <h2>{{ 'backoffice.emision.resumen.title' | translate }}</h2>
+          <dl>
+            <dt>{{ 'backoffice.emision.resumen.primaTotal' | translate }}</dt>
+            <dd class="mono">
+              {{ solicitud.oferta.primaTotal | svMoney: solicitud.oferta.moneda }}
+            </dd>
+            <dt>{{ 'backoffice.emision.resumen.primaNeta' | translate }}</dt>
+            <dd class="mono">
+              {{ solicitud.oferta.primaNeta | svMoney: solicitud.oferta.moneda }}
+            </dd>
+            <dt>{{ 'backoffice.emision.resumen.expedicion' | translate }}</dt>
+            <dd class="mono">
+              {{ solicitud.oferta.expedicion | svMoney: solicitud.oferta.moneda }}
+            </dd>
+            <dt>{{ 'backoffice.emision.resumen.vigencia' | translate }}</dt>
+            <dd class="mono">
+              {{
+                'backoffice.emision.resumen.meses'
+                  | translate: { meses: solicitud.oferta.vigenciaMeses }
+              }}
+            </dd>
+          </dl>
+        </aside>
+      </div>
+    }
+
+    @if (vm.status() === 'error') {
+      <div class="empty-state" role="alert" data-testid="emision-error">
+        <p>{{ 'backoffice.emision.error.body' | translate }}</p>
+        <button type="button" class="outlined" data-testid="emision-retry" (click)="vm.retry()">
+          {{ 'backoffice.emision.error.retry' | translate }}
+        </button>
+      </div>
+    }
+  }
+</section>

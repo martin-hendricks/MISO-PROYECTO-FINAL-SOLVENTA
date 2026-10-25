@@ -23,6 +23,17 @@ export function formatDate(iso: string, locale: string): string {
   }).format(new Date(iso));
 }
 
+/** Timestamp in the viewer's time zone, e.g. `16/09/2026, 10:24` in es-CO. */
+export function formatDateTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
 function activeLocale(translate: TranslateService): string {
   return translate.getCurrentLang() ?? defaultLocale;
 }
@@ -42,5 +53,14 @@ export class DatePipe implements PipeTransform {
 
   transform(iso: string): string {
     return formatDate(iso, activeLocale(this.translate));
+  }
+}
+
+@Pipe({ name: 'svDateTime', pure: false })
+export class DateTimePipe implements PipeTransform {
+  private readonly translate = inject(TranslateService);
+
+  transform(iso: string): string {
+    return formatDateTime(iso, activeLocale(this.translate));
   }
 }
