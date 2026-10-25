@@ -113,6 +113,8 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - ./ms-identidad/db:/docker-entrypoint-initdb.d:ro
+      # Usuarios asesor/operador solo para local (ver dev/02_usuarios_dev.sql).
+      - ./ms-identidad/dev/02_usuarios_dev.sql:/docker-entrypoint-initdb.d/02_usuarios_dev.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
       interval: 2s
