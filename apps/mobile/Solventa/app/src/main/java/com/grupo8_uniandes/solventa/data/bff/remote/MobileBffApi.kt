@@ -36,82 +36,82 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 
 interface MobileBffApi {
-    @POST("movil/sesion/ingreso")
+    @POST("sesion/ingreso")
     suspend fun signIn(@Body body: SessionInDto): SessionOutDto
 
-    @POST("movil/sesion/refresh")
+    @POST("sesion/refresh")
     suspend fun refresh(@Body body: RefreshInDto): SessionOutDto
 
-    @POST("movil/sesion/refresh")
+    @POST("sesion/refresh")
     fun refreshCall(@Body body: RefreshInDto): Call<SessionOutDto>
 
-    @POST("movil/sesion/salida")
+    @POST("sesion/salida")
     suspend fun signOut(): Response<ResponseBody>
 
-    @POST("movil/registro")
+    @POST("registro")
     suspend fun register(@Body body: SignupDto): SignupDto
 
-    @POST("movil/registro/revocacion")
+    @POST("registro/revocacion")
     suspend fun revoke(@Body body: RevokeDto): RevokeDto
 
-    @POST("movil/cliente/cotizaciones")
+    @POST("cliente/cotizaciones")
     suspend fun quote(
         @Header("Idempotency-Key") key: String,
         @Body body: QuoteRequestDto,
     ): OfferOutDto
 
-    @GET("movil/cliente/cotizaciones/{cotizacionId}")
+    @GET("cliente/cotizaciones/{cotizacionId}")
     suspend fun requote(@Path("cotizacionId") cotizacionId: String): OfferOutDto
 
-    @POST("movil/cliente/polizas")
+    @POST("cliente/polizas")
     suspend fun accept(
         @Header("Idempotency-Key") key: String,
         @Body body: IdDto,
     ): JsonElement
 
-    @GET("movil/cliente/polizas")
+    @GET("cliente/polizas")
     suspend fun wallet(): WalletDto
 
-    @GET("movil/cliente/polizas/{numero}")
+    @GET("cliente/polizas/{numero}")
     suspend fun detail(@Path("numero") numero: String): DetailDto
 
-    @POST("movil/cliente/siniestros")
+    @POST("cliente/siniestros")
     suspend fun notify(
         @Header("Idempotency-Key") key: String,
         @Body body: ClaimNoticeDto,
     ): ClaimReceiptDto
 
-    @GET("movil/cliente/siniestros")
+    @GET("cliente/siniestros")
     suspend fun claims(): ClaimsDto
 
-    @GET("movil/cliente/pagos-automaticos")
+    @GET("cliente/pagos-automaticos")
     suspend fun payment(): PaymentDto
 
-    @POST("movil/cliente/oferta-hipotecaria")
+    @POST("cliente/oferta-hipotecaria")
     suspend fun mortgage(@Body body: MortgageInDto): MortgageOutDto
 
-    @GET("movil/cliente/avisos")
+    @GET("cliente/avisos")
     suspend fun notices(): NoticesDto
 
-    @POST("movil/cliente/polizas/{numero}/ciclo")
+    @POST("cliente/polizas/{numero}/ciclo")
     suspend fun cycle(
         @Path("numero") numero: String,
         @Header("Idempotency-Key") key: String?,
         @Body body: PolicyCommandDto,
     ): IssuedDto
 
-    @GET("movil/cliente/inicio")
+    @GET("cliente/inicio")
     suspend fun home(): HomeDto
 
-    @POST("movil/cliente/push")
+    @POST("cliente/push")
     suspend fun registerPush(@Body body: PushRegistrationDto): PushRegistrationDto
 
-    @GET("movil/cliente/push")
+    @GET("cliente/push")
     suspend fun pushNotice(): PushNoticeDto
 
-    @GET("movil/cliente/prestadores")
+    @GET("cliente/prestadores")
     suspend fun providers(): ProvidersDto
 
-    @POST("movil/cliente/asistencias")
+    @POST("cliente/asistencias")
     suspend fun assistance(@Body body: AssistanceInDto): AssistanceOutDto
 }

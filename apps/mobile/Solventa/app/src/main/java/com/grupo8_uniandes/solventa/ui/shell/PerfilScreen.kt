@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +67,8 @@ fun PerfilScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { SharedPrefsRegionRepository(context.applicationContext) }
+    val registration = remember { SharedPrefsRegistrationRepository(context.applicationContext) }
+    var biometricOn by remember { mutableStateOf(registration.biometricUnlockEnabled()) }
     val viewModel = remember {
         IdiomaRegionViewModel(repository = repository, surface = RegionSurface.Profile)
     }
@@ -89,7 +94,10 @@ fun PerfilScreen(
     var profilingOpen by remember { mutableStateOf(false) }
     var signOutOpen by remember { mutableStateOf(false) }
     LaunchedEffect(signedOut) {
-        if (signedOut) onSignedOut()
+        if (signedOut) {
+            onSignedOut()
+            profileViewModel.consumeSignOut()
+        }
     }
     Column(
         modifier = modifier
@@ -114,6 +122,24 @@ fun PerfilScreen(
             onClick = {
                 viewModel.syncToApplied()
                 sheetOpen = true
+            },
+        )
+        SolventaListRow(
+            label = stringResource(R.string.profile_biometric),
+            supporting = stringResource(R.string.profile_biometric_support),
+            testTag = "profile_biometric",
+            trailing = {
+                val label = stringResource(R.string.profile_biometric)
+                Switch(
+                    checked = biometricOn,
+                    onCheckedChange = { enabled ->
+                        registration.setBiometricUnlock(enabled)
+                        biometricOn = enabled
+                    },
+                    modifier = Modifier
+                        .semantics { contentDescription = label }
+                        .testTag("profile_biometric_switch"),
+                )
             },
         )
         PermissionKind.entries.forEach { kind ->

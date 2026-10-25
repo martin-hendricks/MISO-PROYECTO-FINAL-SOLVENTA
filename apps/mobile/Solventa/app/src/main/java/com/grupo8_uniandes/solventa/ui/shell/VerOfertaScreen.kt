@@ -2,13 +2,18 @@ package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.offer.OfferPhase
@@ -24,14 +29,15 @@ fun VerOfertaScreen(
     state: OfferUiState,
     onAccept: (String) -> Unit,
     onQuoteAgain: () -> Unit,
+    onDecline: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(SolventaSpacing.gutter)
+            .padding(horizontal = SolventaSpacing.gutter, vertical = SolventaSpacing.s12)
             .testTag("screen_ver_oferta"),
-        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s16),
+        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
     ) {
         when (state.phase) {
             OfferPhase.Pending -> Text(
@@ -52,23 +58,40 @@ fun VerOfertaScreen(
                         modifier = Modifier.testTag("offer_expired"),
                     )
                 }
-                SolventaCard(testTag = "offer_price") {
+                SolventaCard(outlined = true, testTag = "offer_price") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.offer_premium_title, state.premiumText),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("offer_premium"),
+                        )
+                        Icon(
+                            painter = painterResource(R.drawable.chevron_right),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
-                        text = state.premiumText,
-                        style = SolventaTypography.amount,
-                        modifier = Modifier.testTag("offer_premium"),
+                        text = stringResource(R.string.offer_card_body, state.ramo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = state.endDateText,
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = stringResource(R.string.offer_card_meta, state.endDateText),
+                        style = SolventaTypography.amount,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.testTag("offer_end_date"),
                     )
                 }
                 SolventaButton(
-                    text = stringResource(R.string.action_accept_offer),
+                    text = stringResource(R.string.action_accept_and_issue),
                     style = SolventaButtonStyle.Filled,
                     onClick = { onAccept(state.cotizacionId) },
                     enabled = state.acceptEnabled,
+                    modifier = Modifier.fillMaxWidth(),
                     testTag = "action_accept_offer",
                 )
                 if (state.expired) {
@@ -76,7 +99,16 @@ fun VerOfertaScreen(
                         text = stringResource(R.string.action_quote_again),
                         style = SolventaButtonStyle.Tonal,
                         onClick = onQuoteAgain,
+                        modifier = Modifier.fillMaxWidth(),
                         testTag = "action_quote_again",
+                    )
+                } else {
+                    SolventaButton(
+                        text = stringResource(R.string.action_not_now),
+                        style = SolventaButtonStyle.Outlined,
+                        onClick = onDecline,
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "action_not_now",
                     )
                 }
             }

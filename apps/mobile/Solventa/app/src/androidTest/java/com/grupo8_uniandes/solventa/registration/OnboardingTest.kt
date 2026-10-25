@@ -66,17 +66,20 @@ class OnboardingTest {
         openAccount()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-        rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
+        rule.onNodeWithText("Foto del documento").assertIsDisplayed()
+        rule.onNodeWithText("Una sola cara, sin flash").assertIsDisplayed()
+        rule.onNodeWithText("Confirmar contraseña").assertIsDisplayed()
         listOf(
             "field_nombre",
             "field_apellidos",
             "field_correo",
             "field_numero",
             "field_contrasena",
+            "field_confirmar",
         ).forEach { tag ->
             rule.assertValue(tag, "")
         }
-        rule.onNodeWithText("Tipo: ").assertIsDisplayed()
+        rule.onNodeWithTag("solventa_select_closed").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
         rule.onAllNodes(isDialog()).assertCountEquals(0)
@@ -105,8 +108,11 @@ class OnboardingTest {
         fill(email = "camila@correo.com")
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().assertIsEnabled()
+        rule.onNodeWithTag("action_continuar").assertIsEnabled()
         rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithText("Prueba de vida").assertIsDisplayed()
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -130,9 +136,9 @@ class OnboardingTest {
     fun givenPartialForm_whenYaTengoCuenta_thenLoginWithoutRegistration() {
         openAccount()
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+        rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
         rule.waitForTag("screen_login")
-        rule.onNodeWithText("Ingresa a tus seguros").assertIsDisplayed()
+        rule.onNodeWithText("La biometría no estuvo disponible").assertIsDisplayed()
         rule.onAllNodesWithText("Login").assertCountEquals(0)
         rule.onNodeWithTag("field_login_correo").assertIsDisplayed()
         rule.onAllNodesWithTag("field_correo").assertCountEquals(0)
@@ -152,7 +158,9 @@ class OnboardingTest {
             rule.waitForTag("screen_onboarding")
             rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
             rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-            rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
+            rule.onNodeWithText("Foto del documento").assertIsDisplayed()
+            rule.onNodeWithText("Una sola cara, sin flash").assertIsDisplayed()
+            rule.onNodeWithText("Confirmar contraseña").assertIsDisplayed()
         }
     }
 
@@ -166,10 +174,11 @@ class OnboardingTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput(email)
-        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
+        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
         rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret")
+        rule.onNodeWithTag("field_contrasena").performTextInput("secret12")
+        rule.onNodeWithTag("field_confirmar").performTextInput("secret12")
     }
 
     private fun confirmRegion(tag: String) {

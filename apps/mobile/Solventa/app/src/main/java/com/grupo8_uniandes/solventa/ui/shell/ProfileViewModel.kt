@@ -23,4 +23,8 @@ class ProfileViewModel(
         signOut()
         _signedOut.value = true
     }
+
+    fun consumeSignOut() {
+        _signedOut.value = false
+    }
 }

@@ -25,7 +25,7 @@ class RegisterAccountTest {
                 email = " camila@correo.com ",
                 documentType = " CC ",
                 documentNumber = "1023456789",
-                password = "secret",
+                password = "secret12",
                 documentPhoto = photo,
             ),
             Region.Colombia,
@@ -38,7 +38,7 @@ class RegisterAccountTest {
         assertEquals("camila@correo.com", stored?.email)
         assertEquals("CC", stored?.documentType)
         assertEquals("1023456789", stored?.documentNumber)
-        assertEquals("secret", stored?.password)
+        assertEquals("secret12", stored?.password)
         assertTrue(photo.contentEquals(stored?.documentPhoto))
         assertFalse(stored?.email?.contains(photo.decodeToString()) == true)
     }
@@ -76,7 +76,7 @@ class RegisterAccountTest {
         email: String = "camila@correo.com",
         documentType: String = "CC",
         documentNumber: String = "1023456789",
-        password: String = "secret",
+        password: String = "secret12",
         documentPhoto: ByteArray? = byteArrayOf(1),
     ) = AccountDraft(
         givenName = givenName,

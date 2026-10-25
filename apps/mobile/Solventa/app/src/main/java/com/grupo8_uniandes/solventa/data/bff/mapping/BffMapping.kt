@@ -122,7 +122,7 @@ internal fun LineRisk.toRequestElement(): JsonElement = when (this) {
     }
     is ClimateRisk -> buildJsonObject {
         put("evento", event)
-        put("referencia", reference)
+        if (reference.isNotBlank()) put("referencia", reference)
         put("umbral", threshold)
     }
     is MortgageRisk -> buildJsonObject {

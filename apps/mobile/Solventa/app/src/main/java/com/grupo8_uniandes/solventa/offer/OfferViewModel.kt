@@ -23,6 +23,7 @@ data class OfferUiState(
     val acceptEnabled: Boolean = false,
     val expired: Boolean = false,
     val cotizacionId: String = "",
+    val ramo: String = "",
 )
 
 class OfferViewModel(
@@ -58,6 +59,7 @@ class OfferViewModel(
             acceptEnabled = inForce,
             expired = expired,
             cotizacionId = cotizacionId,
+            ramo = ramo,
         )
     }
 

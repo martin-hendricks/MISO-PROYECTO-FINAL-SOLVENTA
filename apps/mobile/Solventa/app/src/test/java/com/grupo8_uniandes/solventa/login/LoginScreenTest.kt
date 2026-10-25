@@ -13,9 +13,11 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.grupo8_uniandes.solventa.ui.login.LoginFailure
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
@@ -49,6 +51,7 @@ class LoginScreenTest {
                     onIngresar = { ingresar += 1 },
                     onBack = {},
                     onCreateAccount = {},
+                    onBiometric = {},
                     modifier = Modifier,
                 )
             }
@@ -90,6 +93,7 @@ class LoginScreenTest {
                     onIngresar = {},
                     onBack = {},
                     onCreateAccount = {},
+                    onBiometric = {},
                 )
             }
         }
@@ -113,6 +117,7 @@ class LoginScreenTest {
                     onIngresar = {},
                     onBack = {},
                     onCreateAccount = {},
+                    onBiometric = {},
                 )
             }
         }
@@ -135,6 +140,7 @@ class LoginScreenTest {
                     onIngresar = {},
                     onBack = {},
                     onCreateAccount = {},
+                    onBiometric = {},
                 )
             }
         }
@@ -147,4 +153,135 @@ class LoginScreenTest {
                 SemanticsMatcher.keyIsDefined(SemanticsProperties.Password),
         ).assertExists()
     }
+
+    @Test
+    fun givenPasswordAndBiometric_whenToggledAndRetried_thenPasswordShowsAndCallbackRuns() {
+        var password by mutableStateOf("")
+        var biometric = 0
+        var signedIn = 0
+        rule.setContent {
+            SolventaTheme {
+                LoginScreen(
+                    email = "",
+                    password = password,
+                    failure = LoginFailure.None,
+                    onEmail = {},
+                    onPassword = { password = it },
+                    onIngresar = { signedIn += 1 },
+                    onBack = {},
+                    onCreateAccount = {},
+                    onBiometric = { biometric += 1 },
+                    biometricEnabled = true,
+                )
+            }
+        }
+
+        rule.onNodeWithText("Entra con huella o rostro").assertIsDisplayed()
+        rule.onNodeWithText(
+            "Android pide la biometría del dispositivo. Si falla, usa correo y contraseña.",
+        ).assertIsDisplayed()
+        rule.onNodeWithText("Usar biometría").assertIsDisplayed()
+        rule.onNodeWithText("Ingresar").assertIsDisplayed()
+        rule.onNodeWithText("Crear cuenta").assertIsDisplayed()
+        rule.onNodeWithTag("field_login_contrasena").performTextInput("secret")
+        rule.onNode(
+            hasTestTag("field_login_contrasena") and
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.Password),
+        ).assertExists()
+        assertEquals("••••••", rule.onNodeWithTag("field_login_contrasena").shownText())
+        rule.onNodeWithTag("toggle_login_contrasena").performClick()
+        rule.onNodeWithContentDescription("Ocultar contraseña").assertIsDisplayed()
+        assertEquals("secret", rule.onNodeWithTag("field_login_contrasena").shownText())
+        rule.onNodeWithTag("action_biometric").performClick()
+        rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
+        assertEquals(1, biometric)
+        assertEquals(1, signedIn)
+        assertEquals("secret", password)
+    }
+
+    @Test
+    fun givenBiometricFallback_whenShown_thenPasswordEntryReplacesThePrompt() {
+        rule.setContent {
+            SolventaTheme {
+                LoginScreen(
+                    email = "camila@correo.com",
+                    password = "secret",
+                    failure = LoginFailure.Rejected,
+                    onEmail = {},
+                    onPassword = {},
+                    onIngresar = {},
+                    onBack = {},
+                    onCreateAccount = {},
+                    onBiometric = {},
+                    biometricEnabled = true,
+                    biometricFallback = true,
+                )
+            }
+        }
+
+        rule.onNodeWithText("La biometría no estuvo disponible").assertIsDisplayed()
+        rule.onNodeWithText(
+            "Entra con correo y contraseña para no quedar fuera de tus pólizas.",
+        ).assertIsDisplayed()
+        rule.onNodeWithText("Ingresar").assertIsDisplayed()
+        rule.onNodeWithText("Correo o contraseña incorrectos. Reintenta en esta vista.").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_biometric").assertCountEquals(0)
+        rule.onAllNodesWithText("Usar biometría").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenConfirm_whenAcceptedOrDeclined_thenTheChoiceIsReported() {
+        var accepted = 0
+        var declined = 0
+        rule.setContent {
+            SolventaTheme {
+                LoginScreen(
+                    email = "camila@correo.com",
+                    password = "secret",
+                    failure = LoginFailure.None,
+                    onEmail = {},
+                    onPassword = {},
+                    onIngresar = {},
+                    onBack = {},
+                    onCreateAccount = {},
+                    onBiometric = {},
+                    confirmBiometric = true,
+                    onAcceptBiometric = { accepted += 1 },
+                    onDeclineBiometric = { declined += 1 },
+                )
+            }
+        }
+
+        rule.onNodeWithText("¿Quieres ingresar con huella o rostro la próxima vez?").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_biometric").assertCountEquals(0)
+        rule.onNodeWithText("Ahora no").performClick()
+        assertEquals(1, declined)
+        assertEquals(0, accepted)
+    }
+
+    @Test
+    fun givenSignedOut_whenShown_thenBackIsHidden() {
+        rule.setContent {
+            SolventaTheme {
+                LoginScreen(
+                    email = "",
+                    password = "",
+                    failure = LoginFailure.None,
+                    onEmail = {},
+                    onPassword = {},
+                    onIngresar = {},
+                    onBack = {},
+                    showBack = false,
+                    onCreateAccount = {},
+                    onBiometric = {},
+                )
+            }
+        }
+
+        rule.onNodeWithTag("top_bar_root").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_volver").assertCountEquals(0)
+    }
 }
+
+private fun androidx.compose.ui.test.SemanticsNodeInteraction.shownText(): String =
+    fetchSemanticsNode().config[SemanticsProperties.EditableText].text

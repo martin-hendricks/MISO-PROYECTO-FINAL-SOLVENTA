@@ -190,7 +190,7 @@ class LoadInicioTest {
 
     @Test
     fun givenEmptyRepository_whenLoaded_thenNoSlots() {
-        val panel = LoadInicio(EmptyHomeRepository()).panel()
+        val panel = LoadInicio(EmptyHomeRepository()).panel()!!
         assertNull(panel.offerId)
         assertNull(panel.policyId)
         assertNull(panel.claimId)
@@ -217,5 +217,5 @@ class LoadInicioTest {
     }
 
     private fun panel(situation: HomeSituation) =
-        LoadInicio(HomeRepository { situation }).panel()
+        LoadInicio(HomeRepository { situation }).panel()!!
 }

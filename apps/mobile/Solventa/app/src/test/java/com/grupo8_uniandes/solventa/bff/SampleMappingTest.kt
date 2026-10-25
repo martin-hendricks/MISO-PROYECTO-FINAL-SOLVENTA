@@ -64,7 +64,10 @@ import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
 import com.grupo8_uniandes.solventa.domain.bff.push.PushType
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
+import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -337,6 +340,16 @@ class SampleMappingTest {
         val where = AssistanceGeoDto(4.6533, -74.0836)
         assertEquals("PR-1", AssistanceInDto("PR-1", where, "POL-88219-CO").prestadorId)
         assertEquals("registrada", AssistanceOutDto("AS-18", "registrada").estado)
+    }
+
+    @Test
+    fun givenClimateWithoutAReference_whenEncoded_thenReferenciaIsOmitted() {
+        val blank = ClimateRisk("Retraso de vuelo", "  ", 4).toRequestElement().toString()
+        assertFalse(blank.contains("referencia"))
+        assertTrue(blank.contains("evento"))
+        assertTrue(blank.contains("umbral"))
+        val kept = ClimateRisk("lluvia", "BOG", 40).toRequestElement().toString()
+        assertTrue(kept.contains("referencia"))
     }
 
     private fun <T> StandInAnswer<T>.ready(): T {

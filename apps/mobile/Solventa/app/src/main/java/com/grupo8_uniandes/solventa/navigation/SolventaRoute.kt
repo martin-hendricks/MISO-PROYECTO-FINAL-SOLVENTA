@@ -31,3 +31,6 @@ data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
 data object PolizaEmitidaRoute
+
+@Serializable
+data object SuscripcionRechazadaRoute

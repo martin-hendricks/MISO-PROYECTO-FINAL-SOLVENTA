@@ -22,6 +22,7 @@ fun SolventaListRow(
     onClick: (() -> Unit)? = null,
     value: String? = null,
     supporting: String? = null,
+    trailing: @Composable (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -45,5 +46,6 @@ fun SolventaListRow(
         if (value != null) {
             Text(value, style = MaterialTheme.typography.bodyMedium)
         }
+        trailing?.invoke()
     }
 }

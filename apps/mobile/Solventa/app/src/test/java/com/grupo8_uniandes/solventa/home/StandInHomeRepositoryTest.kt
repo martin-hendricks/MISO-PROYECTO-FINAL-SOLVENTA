@@ -8,24 +8,20 @@ import com.grupo8_uniandes.solventa.domain.bff.home.HomeClaimSlot
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeOfferSlot
 import com.grupo8_uniandes.solventa.domain.bff.home.HomePolicySlot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StandInHomeRepositoryTest {
     @Test
-    fun givenAFailedStandIn_whenLoaded_thenTheHomeIsEmpty() {
+    fun givenAFailedStandIn_whenLoaded_thenTheHomeIsUnavailable() {
         val repository = StandInHomeRepository(
             home = object : HomeBffRepository {
                 override suspend fun load(): StandInAnswer<BffHome> = StandInAnswer.Failed
             },
         )
 
-        val situation = repository.load()
-
-        assertTrue(situation.quotes.isEmpty())
-        assertTrue(situation.policies.isEmpty())
-        assertTrue(situation.claims.isEmpty())
-        assertTrue(!situation.origination.present)
+        assertNull(repository.load())
     }
 
     @Test
@@ -43,6 +39,6 @@ class StandInHomeRepositoryTest {
             },
         )
 
-        assertEquals(true, repository.load().origination.present)
+        assertEquals(true, repository.load()!!.origination.present)
     }
 }

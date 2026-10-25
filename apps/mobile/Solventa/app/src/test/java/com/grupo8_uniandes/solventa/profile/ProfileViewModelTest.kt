@@ -35,6 +35,8 @@ class ProfileViewModelTest {
         assertTrue(viewModel.signedOut.value)
         assertEquals(1, session.closes)
         assertFalse(session.isOpen())
+        viewModel.consumeSignOut()
+        assertFalse(viewModel.signedOut.value)
     }
 
     private fun viewModel(session: SessionRepository = MemorySession()) = ProfileViewModel(

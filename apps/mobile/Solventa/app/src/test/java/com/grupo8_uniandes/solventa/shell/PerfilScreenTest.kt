@@ -39,6 +39,7 @@ import com.grupo8_uniandes.solventa.domain.registration.Registration
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -294,6 +295,24 @@ class PerfilScreenTest {
                 resources.getString(com.grupo8_uniandes.solventa.R.string.sign_out_body),
             )
         }
+    }
+
+    @Test
+    fun givenProfile_whenBiometricToggled_thenPreferenceIsStored() {
+        val registration = SharedPrefsRegistrationRepository(context)
+        rule.setContent {
+            SolventaTheme {
+                PerfilScreen()
+            }
+        }
+
+        rule.onNodeWithTag("profile_biometric").assertIsDisplayed()
+        rule.onNodeWithText("Ingresa con huella o rostro").assertIsDisplayed()
+        assertFalse(registration.biometricUnlockEnabled())
+        rule.onNodeWithTag("profile_biometric_switch").performClick()
+        assertTrue(registration.biometricUnlockEnabled())
+        rule.onNodeWithTag("profile_biometric_switch").performClick()
+        assertFalse(registration.biometricUnlockEnabled())
     }
 
     private fun sampleRegistration() = Registration(

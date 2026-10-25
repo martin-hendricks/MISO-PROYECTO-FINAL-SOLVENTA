@@ -69,7 +69,9 @@ class ConsentTest {
         fillAccount()
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().performClick()
+        rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -97,7 +99,9 @@ class ConsentTest {
         fillAccount()
         OnboardingPhotoInjector.next = byteArrayOf(4)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().performClick()
+        rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onNodeWithTag("solventa_switch").performClick()
         rule.onNodeWithTag("action_volver").performClick()
@@ -136,10 +140,11 @@ class ConsentTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
+        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
         rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret")
+        rule.onNodeWithTag("field_contrasena").performTextInput("secret12")
+        rule.onNodeWithTag("field_confirmar").performTextInput("secret12")
     }
 }
 
@@ -278,6 +283,7 @@ private fun saveRegistration() {
             documentPhoto = byteArrayOf(1),
         ),
     )
+    SharedPrefsRegistrationRepository(appContext()).completeLiveness()
 }
 
 private fun consentRecords(): String? {

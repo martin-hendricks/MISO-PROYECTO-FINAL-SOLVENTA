@@ -3,8 +3,10 @@ package com.grupo8_uniandes.solventa.home
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -14,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
+import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
 import org.junit.Test
@@ -32,8 +35,8 @@ class InicioNavigationTest {
         show(HomePanel(offerId = "Q-42"))
         rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onNodeWithTag("emision_offer_id").assertIsDisplayed()
-        rule.onNodeWithText("Q-42").assertIsDisplayed()
+        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.onAllNodesWithText("Q-42").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
     }
 
@@ -53,7 +56,7 @@ class InicioNavigationTest {
             }
         }
         rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onAllNodesWithTag("emision_offer_id").assertCountEquals(0)
+        rule.onNodeWithTag("emision_body").assertIsDisplayed()
     }
 
     @Test
@@ -61,7 +64,7 @@ class InicioNavigationTest {
         show(HomePanel(offerId = "COT-1042"))
         rule.onNodeWithTag("home_offer").performClick()
         rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
-        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
     }
 
@@ -74,7 +77,7 @@ class InicioNavigationTest {
         rule.onNodeWithTag("answer_no").performClick()
         rule.onNodeWithTag("action_quote").performClick()
         rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
-        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
     }
 
     @Test
@@ -91,10 +94,23 @@ class InicioNavigationTest {
         show(HomePanel(policyId = "POL-9"))
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("POL-9").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
         rule.onNodeWithText("Cancelar").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenInicio_whenReportarSiniestro_thenSiniestrosOpensAndTheActionLeaves() {
+        rule.setContent {
+            SolventaTheme {
+                SignedInShell(homeState = HomeUiState())
+            }
+        }
+        rule.onNodeWithText("Reportar siniestro").assertIsDisplayed()
+        rule.onNodeWithTag("solventa_floating_action").performClick()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onAllNodesWithTag("solventa_floating_action").assertCountEquals(0)
     }
 
     @Test

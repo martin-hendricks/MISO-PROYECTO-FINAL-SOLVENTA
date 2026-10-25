@@ -136,17 +136,15 @@ class BffCallTest {
     }
 
     @Test
-    fun givenNoStoredWallet_whenTheHostIsUnreachable_thenTheListIsEmpty() = runBlocking {
+    fun givenNoStoredWallet_whenTheHostIsUnreachable_thenTheLoadFails() = runBlocking {
         val dead = deadClients()
-        val empty = RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() as StandInAnswer.Ready
-        assertTrue(empty.value.isEmpty())
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
 
         enqueue(PublishedSamples.WALLET)
         val stored = RemoteIssuanceRepository(api(), gate, cache).wallet() as StandInAnswer.Ready
         assertEquals("POL-88219-CO", stored.value.single().numero)
 
-        val again = RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() as StandInAnswer.Ready
-        assertEquals("POL-88219-CO", again.value.single().numero)
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
 
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"codigo":"x","mensaje":"no"}"""))
         assertTrue(RemoteIssuanceRepository(api(), gate, cache).wallet() is StandInAnswer.Failed)

@@ -30,7 +30,7 @@ class CotizacionFlowTest {
         show(offerPanel())
         rule.onNodeWithTag("home_offer").performScrollTo().performClick()
         rule.waitForTag("screen_ver_oferta")
-        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
         rule.onNodeWithTag("tab_Inicio").assertIsSelected()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
     }
@@ -43,7 +43,8 @@ class CotizacionFlowTest {
         assertTrue(acceptTop < quoteTop)
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
         rule.waitForTag("screen_emision")
-        rule.onNodeWithText("COT-1042").assertIsDisplayed()
+        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.onAllNodesWithText("COT-1042").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
     }
 
@@ -57,7 +58,7 @@ class CotizacionFlowTest {
         rule.onNodeWithTag("answer_no").performScrollTo().performClick()
         rule.onNodeWithTag("action_quote").performScrollTo().performClick()
         rule.waitForTag("screen_ver_oferta")
-        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
     }
 
     @Test

@@ -56,9 +56,11 @@ class DeviceBiometricPromptTest {
     @Test
     fun givenPlainActivity_whenAuthenticate_thenUnavailable() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val prompt = DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar")
         val results = mutableListOf<DeviceUnlock>()
 
-        DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar").authenticate(results::add)
+        assertFalse(prompt.available())
+        prompt.authenticate(results::add)
 
         assertEquals(listOf(DeviceUnlock.Unavailable), results)
     }
@@ -66,10 +68,12 @@ class DeviceBiometricPromptTest {
     @Test
     fun givenInstrumentedFragment_whenAuthenticate_thenUnavailableWithoutAPrompt() {
         val activity = Robolectric.buildActivity(FragmentActivity::class.java).setup().get()
+        val prompt = DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar")
         val results = mutableListOf<DeviceUnlock>()
 
         assertTrue(runningUnderInstrumentation())
-        DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar").authenticate(results::add)
+        assertFalse(prompt.available())
+        prompt.authenticate(results::add)
 
         assertEquals(listOf(DeviceUnlock.Unavailable), results)
     }
@@ -78,10 +82,12 @@ class DeviceBiometricPromptTest {
     fun givenDefaultInstrumentation_whenTheDeviceCannotAuthenticate_thenUnavailable() {
         instrumentationClassName = { "android.app.Instrumentation" }
         val activity = Robolectric.buildActivity(FragmentActivity::class.java).setup().get()
+        val prompt = DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar")
         val results = mutableListOf<DeviceUnlock>()
 
         assertFalse(runningUnderInstrumentation())
-        DeviceBiometricPrompt(activity, "Huella o rostro", "Cancelar").authenticate(results::add)
+        assertFalse(prompt.available())
+        prompt.authenticate(results::add)
 
         assertEquals(listOf(DeviceUnlock.Unavailable), results)
     }

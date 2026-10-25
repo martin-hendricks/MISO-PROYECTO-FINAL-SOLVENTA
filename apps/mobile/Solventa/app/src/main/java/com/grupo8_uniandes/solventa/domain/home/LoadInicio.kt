@@ -9,7 +9,10 @@ import java.time.Instant
 class LoadInicio(
     private val repository: HomeRepository,
 ) {
-    fun panel(): HomePanel = select(repository.load())
+    fun panel(): HomePanel? {
+        val situation = repository.load() ?: return null
+        return select(situation)
+    }
 
     fun select(situation: HomeSituation): HomePanel {
         val offer = keepLatest(situation.quotes.filter { it.consultable }) { it.becameCurrentAt }
