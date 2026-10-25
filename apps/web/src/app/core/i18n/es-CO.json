@@ -3,11 +3,32 @@
     "portal": "Solventa",
     "market": "Colombia",
     "nav": {
-      "user": "Cliente"
+      "user": "Cliente",
+      "polizas": "Pólizas"
     },
     "user": {
       "title": "Portal del cliente"
     }
+  },
+  "polizas": {
+    "lista": {
+      "title": "Pólizas",
+      "subtitle": "Billetera de coberturas vigentes y por vencer.",
+      "loading": "Cargando tus pólizas…",
+      "error": { "body": "No pudimos cargar tus pólizas.", "retry": "Reintentar" },
+      "empty": {
+        "title": "Aún no tienes pólizas",
+        "body": "Cuando emitas una póliza la verás aquí."
+      }
+    },
+    "column": {
+      "producto": "Producto",
+      "numero": "N.º póliza",
+      "vigencia": "Vigencia",
+      "estado": "Estado",
+      "prima": "Prima"
+    },
+    "estado": { "VIGENTE": "Vigente", "CANCELADA": "Cancelada" }
   },
   "login": {
     "customer": {

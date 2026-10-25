@@ -61,6 +61,11 @@ export const routes: Routes = [
         path: 'user',
         loadComponent: () => import('./features/user/user.view').then((m) => m.UserView),
       },
+      {
+        path: 'polizas',
+        loadComponent: () =>
+          import('./features/polizas/lista/polizas-lista.view').then((m) => m.PolizasListaView),
+      },
     ],
   },
 ];

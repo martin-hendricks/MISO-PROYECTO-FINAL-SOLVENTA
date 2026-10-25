@@ -14,6 +14,9 @@ describe('ShellLayout', () => {
     const host = fixture.nativeElement as HTMLElement;
 
     expect(host.querySelector('[data-testid="nav-user"]')?.getAttribute('href')).toBe('/user');
+    expect(host.querySelector('[data-testid="nav-polizas"]')?.getAttribute('href')).toBe(
+      '/polizas',
+    );
     expect(host.querySelector('[data-testid="nav-cms"]')).toBeNull();
   });
 });
