@@ -164,7 +164,17 @@
     }
   },
   "consentimiento": {
-    "title": "Consentimiento de datos"
+    "title": "Consentimiento de datos",
+    "hint": "Autoriza el tratamiento para cotizar y emitir. Este permiso se otorga solo en el alta, no desde Perfil.",
+    "treatment": "Tratamiento",
+    "accept": "Acepto la política de datos",
+    "submit": "Autorizar y continuar",
+    "submitting": "Autorizando…",
+    "decline": "Ahora no",
+    "error": {
+      "required": "Acepta la política de datos para crear tu cuenta.",
+      "failed": "No pudimos crear tu cuenta. Intenta de nuevo."
+    }
   },
   "backoffice": {
     "tag": "Back-office",

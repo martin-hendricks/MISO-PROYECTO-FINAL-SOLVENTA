@@ -1,5 +1,79 @@
-<main class="panel">
-  <section class="card" data-testid="consentimiento">
-    <h1>{{ 'consentimiento.title' | translate }}</h1>
+<div class="split">
+  <section class="brand">
+    <p class="brand-name">{{ 'shell.portal' | translate }}</p>
+    <p class="brand-claim">{{ 'login.customer.claim' | translate }}</p>
+    <p class="brand-body">{{ 'registro.body' | translate }}</p>
   </section>
-</main>
+
+  <main class="panel">
+    <form
+      class="card"
+      novalidate
+      data-testid="consentimiento"
+      [attr.data-status]="vm.status()"
+      (submit)="submit($event)"
+    >
+      <h1>{{ 'consentimiento.title' | translate }}</h1>
+      <p class="hint">{{ 'consentimiento.hint' | translate }}</p>
+
+      @if (vm.status() === 'error') {
+        <p class="banner" role="alert" data-testid="consentimiento-error">
+          {{ 'consentimiento.error.failed' | translate }}
+        </p>
+      }
+
+      <div class="field" role="group" aria-labelledby="consentimiento-treatment">
+        <p id="consentimiento-treatment" class="caption">
+          {{ 'consentimiento.treatment' | translate }}
+        </p>
+        <label class="check">
+          <input
+            #accept
+            type="checkbox"
+            data-testid="consentimiento-accept"
+            [checked]="vm.accepted()"
+            [attr.aria-invalid]="vm.missing() ? 'true' : null"
+            [attr.aria-describedby]="vm.missing() ? 'consentimiento-accept-error' : null"
+            (change)="vm.accepted.set(accept.checked)"
+          />
+          {{ 'consentimiento.accept' | translate }}
+        </label>
+        @if (vm.missing()) {
+          <p
+            id="consentimiento-accept-error"
+            class="field-error"
+            data-testid="consentimiento-accept-error"
+          >
+            {{ 'consentimiento.error.required' | translate }}
+          </p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="filled"
+        data-testid="consentimiento-submit"
+        [disabled]="vm.status() === 'submitting'"
+      >
+        {{
+          (vm.status() === 'submitting' ? 'consentimiento.submitting' : 'consentimiento.submit')
+            | translate
+        }}
+      </button>
+      <button
+        type="button"
+        class="text"
+        data-testid="consentimiento-decline"
+        [disabled]="vm.status() === 'submitting'"
+        (click)="decline()"
+      >
+        {{ 'consentimiento.decline' | translate }}
+      </button>
+    </form>
+  </main>
+</div>
+
+<footer>
+  <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+  <p class="footer-legal">{{ 'login.footer' | translate }}</p>
+</footer>

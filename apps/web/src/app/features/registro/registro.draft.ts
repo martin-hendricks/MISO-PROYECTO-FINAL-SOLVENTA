@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
 
 /** The sign-up data. It travels to `bff-web` only when the customer grants consent (HU-115). */
 export interface Alta {
@@ -26,3 +27,7 @@ export class RegistroDraft {
     this.altaState.set(null);
   }
 }
+
+/** Consent is granted only during the sign-up: without its data the customer starts it again. */
+export const requireDraft: CanActivateFn = () =>
+  inject(RegistroDraft).alta() !== null || inject(Router).createUrlTree(['/registro']);

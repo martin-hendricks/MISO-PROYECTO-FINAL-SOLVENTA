@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { Given, Then, When } from '@cucumber/cucumber';
 import { emptyHome, signUp } from '../support/data/generators';
 import { PortalWorld } from '../support/world';
@@ -81,4 +82,33 @@ Then('no document photo or biometrics are requested', async function (this: Port
 
 Then('the customer goes to the web login', async function (this: PortalWorld) {
   await this.login.expectVisible('customer');
+});
+
+Given('the customer completed sign-up', async function (this: PortalWorld) {
+  this.alta = signUp();
+  await this.bff.acceptSignUp();
+  await this.bff.serveHome(emptyHome());
+  await this.registro.open();
+  await this.registro.fill(this.alta);
+  await this.registro.expectConsentStep();
+});
+
+When('the customer grants data processing consent', async function (this: PortalWorld) {
+  await this.consentimiento.grant();
+});
+
+Then('the consent mark is auditable', async function (this: PortalWorld) {
+  const { nombre, apellidos, documento, correo, contrasena } = this.alta;
+  assert.deepEqual(this.bff.signUpRequest(), {
+    nombre,
+    apellidos,
+    documento,
+    correo,
+    contrasena,
+    habeasData: true,
+  });
+  const mark = this.bff.grantedConsent();
+  assert.equal(mark?.habeasData, true);
+  assert.ok(mark?.version, 'the mark names the policy version');
+  assert.ok(!Number.isNaN(Date.parse(mark?.otorgadoEn ?? '')), 'the mark is dated');
 });
