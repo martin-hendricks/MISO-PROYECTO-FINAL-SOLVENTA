@@ -15,6 +15,7 @@
 #     arn:aws:s3:::solventa-*-spa-*
 #   - cloudfront:CreateInvalidation
 #
+#
 # apps/web/src/app/core/api/api-base-url.ts expone un InjectionToken con un
 # valor fijo ('/web', pensado para un bff-web que hoy no está desplegado).
 # Este workflow reemplaza ese valor por la URL real del API Gateway antes
