@@ -42,6 +42,9 @@ class SesionFalsa:
     def add(self, objeto) -> None:
         self.agregados.append(objeto)
 
+    async def flush(self) -> None:
+        pass
+
     async def delete(self, objeto) -> None:
         self.eliminados.append(objeto)
 
