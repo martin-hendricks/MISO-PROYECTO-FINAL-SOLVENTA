@@ -1,0 +1,67 @@
+<section data-testid="ver-oferta" [attr.data-state]="vm.status()">
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="oferta-loading">
+        {{ 'cotizacion.oferta.loading' | translate }}
+      </p>
+    }
+    @case ('not-found') {
+      <div class="empty-state" role="alert" data-testid="oferta-not-found">
+        <h2>{{ 'cotizacion.oferta.notFound.title' | translate }}</h2>
+        <p>{{ 'cotizacion.oferta.notFound.body' | translate }}</p>
+        <a class="filled" routerLink="/cotizacion">{{ 'cotizacion.oferta.nueva' | translate }}</a>
+      </div>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="oferta-error">
+        <p>{{ 'cotizacion.error.servicio' | translate }}</p>
+        <button type="button" class="outlined" data-testid="oferta-retry" (click)="vm.load()">
+          {{ 'cotizacion.reintentar' | translate }}
+        </button>
+      </div>
+    }
+    @default {
+      @let oferta = vm.oferta()!;
+      @let expired = vm.status() === 'expired';
+      <div class="page-head">
+        <div>
+          <h1>{{ 'cotizacion.oferta.title' | translate }}</h1>
+          <p class="subtitle">{{ oferta.ramo }}</p>
+        </div>
+      </div>
+      <article class="card" data-testid="oferta">
+        <p class="label">{{ 'cotizacion.oferta.prima' | translate }}</p>
+        <p class="mono premium" data-testid="oferta-prima">
+          {{ oferta.prima | svMoney: oferta.moneda }}
+        </p>
+        <dl>
+          <dt>{{ 'cotizacion.oferta.moneda' | translate }}</dt>
+          <dd data-testid="oferta-moneda">{{ oferta.moneda }}</dd>
+          <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>
+          <dd data-testid="oferta-vence">{{ oferta.venceEn | svDateTime }}</dd>
+        </dl>
+        @if (expired) {
+          <p class="banner" role="alert" data-testid="oferta-vencida">
+            {{ 'cotizacion.oferta.vencida' | translate }}
+          </p>
+        }
+      </article>
+      <div class="actions">
+        @if (expired) {
+          <a class="filled" routerLink="/cotizacion" data-testid="oferta-nueva">{{
+            'cotizacion.oferta.nueva' | translate
+          }}</a>
+        } @else {
+          <a
+            class="filled"
+            data-testid="oferta-aceptar"
+            routerLink="/emision"
+            [queryParams]="{ cotizacion: oferta.cotizacionId }"
+            >{{ 'cotizacion.oferta.aceptar' | translate }}</a
+          >
+        }
+        <a class="outlined" routerLink="/inicio">{{ 'emision.irInicio' | translate }}</a>
+      </div>
+    }
+  }
+</section>

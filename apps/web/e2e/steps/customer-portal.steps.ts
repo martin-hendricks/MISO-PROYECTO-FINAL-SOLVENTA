@@ -34,7 +34,7 @@ Then(
   async function (this: PortalWorld) {
     const offer = this.home.ofertaVigente!;
     await this.inicio.expectCard('offer', offer.ramo);
-    await this.inicio.expectLink('inicio-accept', `/emision/${offer.cotizacionId}`);
+    await this.inicio.expectLink('inicio-accept', `/emision?cotizacion=${offer.cotizacionId}`);
   },
 );
 

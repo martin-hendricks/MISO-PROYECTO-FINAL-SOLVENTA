@@ -66,6 +66,13 @@ export const routes: Routes = [
       },
       section('cotizaciones'),
       {
+        path: 'cotizaciones/nueva',
+        loadComponent: () =>
+          import('./features/backoffice/cotizacion/asesor-cotizacion.view').then(
+            (m) => m.AsesorCotizacionView,
+          ),
+      },
+      {
         path: 'cotizaciones/:cotizacionId/emision',
         loadComponent: () =>
           import('./features/backoffice/emision/asesor-emision.view').then(
@@ -108,7 +115,18 @@ export const routes: Routes = [
             (m) => m.SuscripcionRechazadaView,
           ),
       },
-      destino('cotizacion', 'cotizacion'),
+      {
+        path: 'cotizacion',
+        loadComponent: () =>
+          import('./features/cotizacion/nueva/nueva-cotizacion.view').then(
+            (m) => m.NuevaCotizacionView,
+          ),
+      },
+      {
+        path: 'cotizaciones/:cotizacionId',
+        loadComponent: () =>
+          import('./features/cotizacion/oferta/ver-oferta.view').then((m) => m.VerOfertaView),
+      },
       destino('emision/:id', 'emision'),
       destino('siniestros/:id', 'siniestro'),
       destino('vida-crediticia', 'vidaCrediticia'),

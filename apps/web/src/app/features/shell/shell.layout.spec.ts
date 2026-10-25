@@ -17,6 +17,9 @@ describe('ShellLayout', () => {
     expect(host.querySelector('[data-testid="nav-polizas"]')?.getAttribute('href')).toBe(
       '/polizas',
     );
+    expect(host.querySelector('[data-testid="header-new-quote"]')?.getAttribute('href')).toBe(
+      '/cotizacion',
+    );
     expect(host.querySelector('[data-testid="nav-cms"]')).toBeNull();
   });
 });

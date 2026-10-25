@@ -195,7 +195,12 @@
       "title": "Suscripción y emisión",
       "back": "Cotización {{cotizacion}}",
       "loading": "Consultando la decisión del núcleo…",
-      "paso": { "COTIZAR": "Cotizar", "OFERTA": "Oferta", "EMISION": "Emisión", "POLIZA": "Póliza" },
+      "paso": {
+        "COTIZAR": "Cotizar",
+        "OFERTA": "Oferta",
+        "EMISION": "Emisión",
+        "POLIZA": "Póliza"
+      },
       "estadoPaso": {
         "COMPLETADO": "completado",
         "ACTUAL": "paso actual",
@@ -248,8 +253,10 @@
         "documento": "Documento",
         "canal": "Canal",
         "estado": "Estado",
-        "consentimiento": "Consentimiento"
+        "consentimiento": "Consentimiento",
+        "acciones": "Acciones"
       },
+      "cotizar": "Cotizar",
       "canal": {
         "web": "Web",
         "android": "Android"
@@ -273,6 +280,40 @@
         "retry": "Reintentar"
       }
     },
+    "cotizacion": {
+      "title": "Nueva cotización",
+      "nueva": "Nueva cotización",
+      "cliente": "Datos del cliente",
+      "campo": {
+        "nombre": "Nombre",
+        "documento": "Documento",
+        "vigencia": "Vigencia",
+        "placa": "Placa"
+      },
+      "vigencia": "1 año",
+      "error": {
+        "nombre": {
+          "required": "Campo obligatorio"
+        },
+        "documento": {
+          "required": "Campo obligatorio",
+          "format": "Solo números, entre 5 y 12 dígitos"
+        },
+        "placa": {
+          "required": "Campo obligatorio",
+          "format": "Formato ABC12D"
+        }
+      },
+      "calcular": "Calcular prima",
+      "continuar": "Continuar a emisión",
+      "oferta": {
+        "title": "Oferta en firme",
+        "id": "Cotización",
+        "calculando": "Calculando la prima…",
+        "sinOferta": "Sin oferta",
+        "sinOfertaBody": "Completa los datos y calcula la prima."
+      }
+    },
     "cotizaciones": {
       "title": "Cotizaciones"
     },
@@ -292,5 +333,75 @@
       "body": "Tu rol actual es {{current}}. Esta sección es exclusiva del rol {{required}}. Solicita el cambio de rol al administrador.",
       "home": "Volver al inicio"
     }
+  },
+  "cotizacion": {
+    "riesgo": "Datos del riesgo",
+    "rango": "Entre {{minimo}} y {{maximo}}",
+    "reintentar": "Reintentar",
+    "campo": {
+      "ramo": "Ramo",
+      "valorDispositivo": "Valor del dispositivo",
+      "marca": "Marca",
+      "modelo": "Modelo",
+      "masDe12Meses": "¿Equipo con más de 12 meses?",
+      "cilindraje_cc": "Cilindraje (cc)",
+      "modelo_anio": "Modelo (año)",
+      "ciudad_circulacion": "Ciudad de circulación",
+      "sumaAsegurada": "Suma asegurada",
+      "edad": "Edad",
+      "evento": "Evento",
+      "referencia": "Referencia",
+      "umbral": "Umbral",
+      "valor": "Valor del crédito",
+      "plazoMeses": "Plazo (meses)",
+      "cuota": "Cuota",
+      "destino": "Destino",
+      "duracion": "Duración (días)"
+    },
+    "error": {
+      "required": "Campo obligatorio",
+      "range": "Fuera de rango: entre {{minimo}} y {{maximo}}",
+      "rangeNucleo": "Fuera del rango permitido",
+      "catalogo": "No pudimos cargar los rangos del producto.",
+      "servicio": "No pudimos calcular la prima. Intenta de nuevo en unos minutos.",
+      "positive": "Debe ser un número entero mayor que cero",
+      "option": "Elige una de las opciones"
+    },
+    "nueva": {
+      "title": "Nueva cotización",
+      "subtitle": "Elige el ramo y completa los datos del riesgo; el precio lo calcula Solventa.",
+      "cotizar": "Cotizar",
+      "cancelar": "Cancelar"
+    },
+    "oferta": {
+      "title": "Tu oferta",
+      "loading": "Consultando la oferta…",
+      "prima": "Prima",
+      "moneda": "Moneda",
+      "venceEn": "Oferta válida hasta",
+      "aceptar": "Aceptar",
+      "vencida": "Esta oferta venció. Su precio no cambia, pero ya no se puede aceptar.",
+      "nueva": "Cotizar de nuevo",
+      "notFound": {
+        "title": "No encontramos esta oferta",
+        "body": "Puede que el enlace esté incompleto. Cotiza de nuevo para obtener un precio."
+      }
+    },
+    "valor": {
+      "bogota": "Bogotá",
+      "medellin": "Medellín",
+      "cali": "Cali",
+      "barranquilla": "Barranquilla",
+      "bucaramanga": "Bucaramanga",
+      "samsung": "Samsung",
+      "apple": "Apple",
+      "xiaomi": "Xiaomi",
+      "motorola": "Motorola"
+    },
+    "proximamente": "Próximamente",
+    "coberturas": "Coberturas",
+    "selecciona": "Selecciona una opción",
+    "si": "Sí",
+    "no": "No"
   }
 }

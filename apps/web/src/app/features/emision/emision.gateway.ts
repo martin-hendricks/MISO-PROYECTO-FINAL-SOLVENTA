@@ -13,9 +13,9 @@ export interface Motivo {
 export type ResultadoEmision =
   { resultado: 'EMITIDA'; poliza: PolizaResumen } | { resultado: 'RECHAZADA'; motivo: Motivo };
 
+/** The offer is the quote (HU-6): bff-web creates the offer id on acceptance. */
 export interface Aceptacion {
   cotizacionId: string;
-  ofertaId: string;
 }
 
 @Injectable({ providedIn: 'root' })

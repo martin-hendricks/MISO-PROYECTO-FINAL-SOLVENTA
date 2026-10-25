@@ -55,5 +55,12 @@ describe('SectionView', () => {
 
     expect(host.querySelector('h1')?.textContent).toContain('Pólizas');
     expect(element('section-pending')).not.toBeNull();
+    expect(element('nueva-cotizacion')).toBeNull();
+  });
+
+  it('opens a new quote from Cotizaciones (HU-10)', () => {
+    const { element } = render('cotizaciones', 'asesor');
+
+    expect(element('nueva-cotizacion')?.getAttribute('href')).toBe('/cms/cotizaciones/nueva');
   });
 });

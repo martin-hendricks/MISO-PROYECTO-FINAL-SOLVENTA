@@ -41,9 +41,9 @@ export interface EmisionAsesor {
   poliza: { numero: string; expedidaEn: string; inicioVigencia: string; finVigencia: string };
 }
 
+/** The offer is the quote (HU-6): bff-web creates the offer id on acceptance. */
 export interface AceptacionAsesor {
   cotizacionId: string;
-  ofertaId: string;
   clienteId: string;
 }
 

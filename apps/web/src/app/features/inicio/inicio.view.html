@@ -41,7 +41,8 @@
             <div class="actions">
               <a
                 class="filled"
-                [routerLink]="['/emision', offer.cotizacionId]"
+                routerLink="/emision"
+                [queryParams]="{ cotizacion: offer.cotizacionId }"
                 data-testid="inicio-accept"
               >
                 {{ 'inicio.offer.accept' | translate }}

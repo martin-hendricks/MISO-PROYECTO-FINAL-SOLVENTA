@@ -20,9 +20,8 @@ export class AsesorEmisionView {
   private readonly route = inject(ActivatedRoute).snapshot;
   // The `cotizaciones/:cotizacionId/emision` route always carries the param.
   protected readonly cotizacionId = this.route.paramMap.get('cotizacionId')!;
-  private readonly ofertaId = this.route.queryParamMap.get('oferta');
   protected readonly clienteId = this.route.queryParamMap.get('cliente');
-  protected readonly valid = !!this.ofertaId && !!this.clienteId;
+  protected readonly valid = !!this.clienteId;
   protected readonly required = requiredRole('cotizaciones');
   protected readonly role = inject(SessionService).role;
   protected readonly allowed = this.role() === this.required;
@@ -30,7 +29,6 @@ export class AsesorEmisionView {
     () =>
       this.gateway.decide({
         cotizacionId: this.cotizacionId,
-        ofertaId: this.ofertaId!,
         clienteId: this.clienteId!,
       }),
     (solicitudId) => this.gateway.issue(solicitudId),

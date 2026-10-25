@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../../core/session/session.service';
 import { NoPermission } from '../no-permission/no-permission';
@@ -9,7 +9,7 @@ import { requiredRole, Section } from '../sections';
 @Component({
   selector: 'sv-backoffice-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NoPermission],
+  imports: [TranslatePipe, NoPermission, RouterLink],
   templateUrl: './section.view.html',
   styleUrl: '../backoffice.page.css',
 })

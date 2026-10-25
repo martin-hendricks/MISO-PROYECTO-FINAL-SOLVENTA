@@ -1,4 +1,4 @@
-@quotation @pendiente @HU-10 @SOLV-103
+@quotation @HU-10 @SOLV-103
 Feature: Advisor quote
 
   Scenario: Request and view an offer
