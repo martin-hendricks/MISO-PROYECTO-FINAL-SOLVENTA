@@ -12,12 +12,14 @@ from app.clients.ms_pagos import ClienteMsPagos
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.clients.ms_polizas import ClienteMsPolizas
 from app.clients.ms_siniestros import ClienteMsSiniestros
+from app.clients.ms_suscripcion import ClienteMsSuscripcion
 from app.dependencies import (
     obtener_cliente_cotizacion,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
     obtener_cliente_siniestros,
+    obtener_cliente_suscripcion,
 )
 from app.main import app
 
@@ -76,7 +78,19 @@ def nucleo_siniestros() -> NucleoSimulado:
 
 
 @pytest.fixture
-def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento, nucleo_siniestros) -> TestClient:
+def nucleo_suscripcion() -> NucleoSimulado:
+    return NucleoSimulado()
+
+
+@pytest.fixture
+def client(
+    nucleo_cotizacion,
+    nucleo_pagos,
+    nucleo_polizas,
+    nucleo_perfilamiento,
+    nucleo_siniestros,
+    nucleo_suscripcion,
+) -> TestClient:
     http_cotizacion = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_cotizacion), base_url="http://ms-cotizacion")
     http_pagos = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_pagos), base_url="http://ms-pagos")
     http_polizas = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_polizas), base_url="http://ms-polizas")
@@ -86,6 +100,9 @@ def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
     http_siniestros = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_siniestros), base_url="http://ms-siniestros"
     )
+    http_suscripcion = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_suscripcion), base_url="http://ms-suscripcion"
+    )
 
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http_cotizacion, "corr-test")
     app.dependency_overrides[obtener_cliente_pagos] = lambda: ClienteMsPagos(http_pagos, "corr-test")
@@ -94,6 +111,9 @@ def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
         http_perfilamiento, "corr-test"
     )
     app.dependency_overrides[obtener_cliente_siniestros] = lambda: ClienteMsSiniestros(http_siniestros, "corr-test")
+    app.dependency_overrides[obtener_cliente_suscripcion] = lambda: ClienteMsSuscripcion(
+        http_suscripcion, "corr-test"
+    )
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -103,7 +123,7 @@ def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
 
 def token(client: TestClient, rol: str) -> str:
     response = client.post(
-        "/sesion/ingreso",
+        "/v1/sesion/ingreso",
         json={"correo": "persona@solventa.com", "contrasena": "secreto", "rol": rol},
     )
     assert response.status_code == 200

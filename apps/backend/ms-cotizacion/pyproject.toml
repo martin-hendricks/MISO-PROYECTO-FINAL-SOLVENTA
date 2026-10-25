@@ -11,6 +11,13 @@ dependencies = [
   "sqlalchemy[asyncio]>=2.0.30,<2.1",
   "asyncpg>=0.30,<1.0",
   "prometheus-client>=0.21,<1.0",
+  # Dependencia de runtime, no solo de test: app/infrastructure/suscripciones.py
+  # (SuscripcionesHTTP) usa httpx.AsyncClient para llamar a ms-suscripcion al
+  # aceptar una oferta. Estaba solo en el extra "test" -- el target "runtime"
+  # del Dockerfile (pip install . sin [test]) fallaba con
+  # "ModuleNotFoundError: No module named 'httpx'" al arrancar main.py,
+  # confirmado con docker-compose contra una imagen runtime real.
+  "httpx>=0.27,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -19,7 +26,6 @@ test = [
   "pytest-asyncio>=0.24",
   "pytest-cov>=5",
   "pytest-socket>=0.7",
-  "httpx>=0.27,<1.0",
 ]
 
 contract = [

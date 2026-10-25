@@ -29,12 +29,14 @@ async def lifespan(app: FastAPI):
             base_url=config.ms_perfilamiento_url, timeout=config.timeout_nucleo_s
         ) as http_perfilamiento,
         httpx.AsyncClient(base_url=config.ms_siniestros_url, timeout=config.timeout_nucleo_s) as http_siniestros,
+        httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_nucleo_s) as http_suscripcion,
     ):
         app.state.http_ms_cotizacion = http_cotizacion
         app.state.http_ms_pagos = http_pagos
         app.state.http_ms_polizas = http_polizas
         app.state.http_ms_perfilamiento = http_perfilamiento
         app.state.http_ms_siniestros = http_siniestros
+        app.state.http_ms_suscripcion = http_suscripcion
         yield
 
 
@@ -56,11 +58,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(sesion.router)
-app.include_router(registro.router)
-app.include_router(cliente.router)
-app.include_router(asesor.router)
-app.include_router(operador.router)
+# Prefijo de versión centralizado: cada router sigue declarando su propio
+# prefix (/cliente, /asesor, etc.) sin "/v1" -- así el prefijo de versión no
+# se repite en cada archivo ni se puede olvidar en uno nuevo.
+app.include_router(sesion.router, prefix="/v1")
+app.include_router(registro.router, prefix="/v1")
+app.include_router(cliente.router, prefix="/v1")
+app.include_router(asesor.router, prefix="/v1")
+app.include_router(operador.router, prefix="/v1")
 
 
 @app.get("/health", include_in_schema=False)

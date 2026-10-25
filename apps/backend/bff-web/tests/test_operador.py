@@ -38,7 +38,7 @@ def test_cola_sin_asistencia(client, nucleo_siniestros):
         200, json=[SINIESTRO_SALIDA]
     )
 
-    body = client.get("/operador/avisos", headers=_auth(client)).json()
+    body = client.get("/v1/operador/avisos", headers=_auth(client)).json()
     assert body["avisos"]
     assert all("asistenciaId" not in item for item in body["avisos"])
     assert body["avisos"][0]["siniestroId"] == SINIESTRO_ID
@@ -54,13 +54,13 @@ def test_cola_servicio_no_disponible_es_503(client, nucleo_siniestros):
 
     nucleo_siniestros.respuestas[("GET", "/v1/siniestros")] = caido
 
-    response = client.get("/operador/avisos", headers=_auth(client))
+    response = client.get("/v1/operador/avisos", headers=_auth(client))
     assert response.status_code == 503
 
 
 def test_rechazo_sin_motivo_es_400(client):
     response = client.post(
-        "/operador/avisos/decision",
+        "/v1/operador/avisos/decision",
         headers=_auth(client),
         json={"siniestroId": SINIESTRO_ID, "decision": "rechazar"},
     )
@@ -73,7 +73,7 @@ def test_aprobar_decision_cambia_estado(client, nucleo_siniestros):
     )
 
     response = client.post(
-        "/operador/avisos/decision",
+        "/v1/operador/avisos/decision",
         headers=_auth(client),
         json={"siniestroId": SINIESTRO_ID, "decision": "aprobar"},
     )
@@ -95,7 +95,7 @@ def test_decision_con_transicion_invalida_es_409(client, nucleo_siniestros):
     )
 
     response = client.post(
-        "/operador/avisos/decision",
+        "/v1/operador/avisos/decision",
         headers=_auth(client),
         json={"siniestroId": SINIESTRO_ID, "decision": "aprobar"},
     )
@@ -106,7 +106,7 @@ def test_decision_con_transicion_invalida_es_409(client, nucleo_siniestros):
 
 def test_decision_siniestro_id_invalido_es_400(client):
     response = client.post(
-        "/operador/avisos/decision",
+        "/v1/operador/avisos/decision",
         headers=_auth(client),
         json={"siniestroId": "no-es-uuid", "decision": "aprobar"},
     )
@@ -115,7 +115,7 @@ def test_decision_siniestro_id_invalido_es_400(client):
 
 def test_cancelar_sin_motivo_es_400(client):
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar"},
     )
@@ -124,7 +124,7 @@ def test_cancelar_sin_motivo_es_400(client):
 
 def test_ciclo_con_verbo_no_permitido_es_400(client):
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "eliminar"},
     )
@@ -133,7 +133,7 @@ def test_ciclo_con_verbo_no_permitido_es_400(client):
 
 def test_ciclo_sin_poliza_id_responde_501(client):
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "verbo": "cancelar", "motivo": "El cliente lo pidió"},
     )
@@ -146,7 +146,7 @@ def test_cancelar_con_poliza_id_y_motivo_cambia_estado(client, nucleo_polizas):
     )
 
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar", "motivo": "El cliente lo pidió"},
     )
@@ -165,7 +165,7 @@ def test_renovar_con_poliza_id_cambia_vigencia(client, nucleo_polizas):
     )
 
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "renovar"},
     )
@@ -176,7 +176,7 @@ def test_renovar_con_poliza_id_cambia_vigencia(client, nucleo_polizas):
 
 def test_modificar_sin_coberturas_es_400(client):
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "modificar"},
     )
@@ -189,7 +189,7 @@ def test_modificar_con_coberturas_reemplaza_coberturas(client, nucleo_polizas):
     )
 
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={
             "numero": "POL-88219-CO",
@@ -209,7 +209,7 @@ def test_ciclo_con_transicion_invalida_del_nucleo_se_propaga_409(client, nucleo_
     )
 
     response = client.post(
-        "/operador/polizas/ciclo",
+        "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar", "motivo": "Otro motivo"},
     )
@@ -219,10 +219,10 @@ def test_ciclo_con_transicion_invalida_del_nucleo_se_propaga_409(client, nucleo_
 
 
 def test_estado_de_asistencia(client):
-    body = client.get("/operador/asistencias/AS-18", headers=_auth(client)).json()
+    body = client.get("/v1/operador/asistencias/AS-18", headers=_auth(client)).json()
     assert body["asistenciaId"] == "AS-18"
     assert body["estado"] == "registrada"
 
 
 def test_operador_no_abre_cartera(client):
-    assert client.get("/asesor/cartera", headers=_auth(client)).status_code == 403
+    assert client.get("/v1/asesor/cartera", headers=_auth(client)).status_code == 403

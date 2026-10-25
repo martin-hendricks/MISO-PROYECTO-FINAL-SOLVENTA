@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from decimal import Decimal
 from typing import Annotated
@@ -6,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
@@ -184,18 +186,27 @@ async def emitir(
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
 ) -> dict:
-    """Aceptar la oferta y emitir la póliza. Flujo real de 3 pasos:
+    """Aceptar la oferta y emitir la póliza. Flujo real:
 
     1. ms-cotizacion POST /v1/cotizaciones/{id}/aceptacion -- ya orquesta la
        decisión de suscripción internamente (el BFF no llama a
-       ms-suscripcion por separado). Devuelve oferta_id.
-    2. ms-pagos POST /v1/pagos/primas -- cobra la prima aceptada.
-    3. ms-polizas POST /v1/polizas -- emite la póliza con el pago confirmado.
+       ms-suscripcion por separado). Devuelve oferta_id + decision/motivo.
+    2. Si la decisión fue RECHAZADA, el flujo se detiene aquí: un rechazo de
+       suscripción es un resultado de negocio válido, no una falla técnica
+       del sistema, así que se devuelve 200 con
+       {resultado: "RECHAZADA", motivo} en vez de propagar un error HTTP.
+       No se cobra ni se intenta emitir sobre una suscripción rechazada.
+    3. Si fue ACEPTADA: ms-pagos POST /v1/pagos/primas cobra la prima.
+    4. ms-polizas POST /v1/polizas emite la póliza con el pago confirmado.
+    5. Se reconsulta la cotización (ms-cotizacion GET /v1/cotizaciones/{id})
+       para resolver el producto real de la póliza emitida -- ms-polizas no
+       guarda ramo/producto, solo coberturas sueltas.
 
-    Si cualquier paso falla, la excepción tipificada (ServicioNoDisponible/
-    RecursoNoEncontrado/RechazoDelNucleo) se propaga sin capturar y los
-    exception handlers de main.py la traducen a 503/404/409/422. Si el paso
-    2 (pago) falla, el paso 3 (emisión) nunca se ejecuta.
+    Si cualquier paso de I/O falla por un motivo técnico (servicio caído,
+    recurso no encontrado, rechazo de validación del núcleo), la excepción
+    tipificada (ServicioNoDisponible/RecursoNoEncontrado/RechazoDelNucleo) se
+    propaga sin capturar y los exception handlers de main.py la traducen a
+    503/404/409/422. Si el paso de pago falla, la emisión nunca se ejecuta.
     """
     # TODO: mismo placeholder de identidad que en cotizar() -- no hay
     # ms-identidad real para resolver el correo de la sesión a un contexto.
@@ -213,6 +224,9 @@ async def emitir(
         perfil_id=contexto.perfil_id,
         score=score_stub,
     )
+
+    if aceptacion["decision"].upper() != "ACEPTADA":
+        return {"resultado": "RECHAZADA", "motivo": aceptacion["motivo"]}
 
     oferta_id = UUID(aceptacion["oferta_id"])
     solicitud_id = UUID(aceptacion["cotizacion_id"])
@@ -244,24 +258,40 @@ async def emitir(
         coberturas=cobertura_minima,
     )
 
+    cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
+    ramo = cotizacion.get("producto", "")
+
     return {
-        "numero": poliza["numero"],
-        "ramo": poliza.get("estado", ""),
-        "estado": poliza["estado"],
-        "venceEn": poliza.get("fin_vigencia", ""),
+        "resultado": "EMITIDA",
+        "poliza": {
+            "numero": poliza["numero"],
+            "ramo": ramo,
+            "estado": poliza["estado"],
+            "venceEn": poliza.get("fin_vigencia", ""),
+        },
     }
 
 
-def _poliza_billetera(poliza: dict) -> dict:
+RAMO_SIN_CLASIFICAR = "Sin clasificar"
+
+
+async def _ramo_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza: dict) -> str:
+    """Resuelve el producto real reconsultando ms-cotizacion por oferta_id
+    (ver ClienteMsCotizacion.reconsultar_por_oferta). Si la cotización
+    original ya no existe o el servicio no responde, se degrada al
+    placeholder en vez de tumbar toda la respuesta de billetera/detalle: el
+    ramo es un dato de presentación, no debe bloquear ver la póliza."""
+    try:
+        cotizacion = await cliente_cotizacion.reconsultar_por_oferta(UUID(str(poliza["oferta_id"])))
+        return cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
+    except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
+        return RAMO_SIN_CLASIFICAR
+
+
+def _poliza_billetera(poliza: dict, ramo: str) -> dict:
     return {
         "numero": poliza["numero"],
-        # TODO: ms-polizas no tiene campo "ramo"/"resumen" (solo guarda
-        # coberturas sueltas, ver app/domain/modelos.py de ms-polizas). Ese
-        # dato vendría de relacionar la póliza con su cotización/producto
-        # original en ms-cotizacion (oferta_id -> producto). Mientras esa
-        # relación no se integre en este BFF, se usa un placeholder claro en
-        # vez de inventar un ramo real.
-        "ramo": "Sin clasificar",
+        "ramo": ramo,
         "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
         "estado": poliza["estado"].lower(),
         "venceEn": poliza["fin_vigencia"],
@@ -271,6 +301,7 @@ def _poliza_billetera(poliza: dict) -> dict:
 @router.get("/polizas")
 async def billetera(
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no
     # hay ms-identidad real para resolver el correo de la sesión a un
@@ -278,7 +309,8 @@ async def billetera(
     contexto = ContextoUsuario("sesion-cliente@solventa.com")
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
-    return {"polizas": [_poliza_billetera(p) for p in polizas]}
+    ramos = await asyncio.gather(*(_ramo_de_poliza(cliente_cotizacion, p) for p in polizas))
+    return {"polizas": [_poliza_billetera(p, ramo) for p, ramo in zip(polizas, ramos, strict=True)]}
 
 
 # "queHacer" es contenido estático de ayuda al usuario (guía de qué hacer
@@ -294,9 +326,11 @@ QUE_HACER_POR_DEFECTO = (
 async def detalle(
     numero: str,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     poliza = await cliente_polizas.obtener_por_numero(numero)
-    salida = _poliza_billetera(poliza)
+    ramo = await _ramo_de_poliza(cliente_cotizacion, poliza)
+    salida = _poliza_billetera(poliza, ramo)
     salida["queHacer"] = QUE_HACER_POR_DEFECTO
     return salida
 
