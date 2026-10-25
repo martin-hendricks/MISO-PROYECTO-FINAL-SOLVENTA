@@ -3,13 +3,14 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
-import { FUERA_DE_RANGO, OFERTA_WIRE } from '../cotizacion.testing';
+import { CATALOGO_WIRE, FUERA_DE_RANGO, OFERTA_WIRE } from '../cotizacion.testing';
 import { NuevaCotizacionView } from './nueva-cotizacion.view';
 
 describe('NuevaCotizacionView', () => {
   const URL = '/web/cliente/cotizaciones';
+  const CATALOGO_URL = '/web/cliente/catalogo/SOAT%20motocicleta';
 
-  function render() {
+  function render(catalogo: object | null = CATALOGO_WIRE) {
     TestBed.configureTestingModule({
       imports: [NuevaCotizacionView],
       providers: [
@@ -23,6 +24,10 @@ describe('NuevaCotizacionView', () => {
     const fixture = TestBed.createComponent(NuevaCotizacionView);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    if (catalogo) {
+      http.expectOne(CATALOGO_URL).flush(catalogo);
+      fixture.detectChanges();
+    }
     const host = fixture.nativeElement as HTMLElement;
     const element = <T extends HTMLElement = HTMLElement>(testId: string) =>
       host.querySelector<T>(`[data-testid="${testId}"]`);
@@ -126,5 +131,34 @@ describe('NuevaCotizacionView', () => {
     const { element } = render();
 
     expect(element('cancelar')?.getAttribute('href')).toBe('/inicio');
+  });
+
+  it('blocks "Cotizar" when the catalog fails and retries it', () => {
+    const { fixture, http, element } = render(null);
+
+    http.expectOne(CATALOGO_URL).flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    expect(element('catalogo-error')).not.toBeNull();
+    expect(element<HTMLButtonElement>('cotizar')!.disabled).toBeTrue();
+
+    element('catalogo-retry')!.click();
+    http.expectOne(CATALOGO_URL).flush(CATALOGO_WIRE);
+    fixture.detectChanges();
+    expect(element('catalogo-error')).toBeNull();
+  });
+
+  it('marks a field the core rejects even when the catalog has no range for it', () => {
+    const sinRangos = { ...CATALOGO_WIRE, datosRiesgo: CATALOGO_WIRE.datosRiesgo.slice(2) };
+    const { fixture, http, element, fill, cotizar } = render(sinRangos);
+    fill();
+
+    expect(element('riesgo-cilindraje_cc')?.nextElementSibling).toBeNull();
+    cotizar();
+    http.expectOne(URL).flush(FUERA_DE_RANGO, { status: 422, statusText: 'Unprocessable Entity' });
+    fixture.detectChanges();
+
+    expect(element('riesgo-cilindraje_cc-error')?.textContent).toContain(
+      'Fuera del rango permitido',
+    );
   });
 });

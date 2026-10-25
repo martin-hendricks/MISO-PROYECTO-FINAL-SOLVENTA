@@ -12,7 +12,7 @@ export interface Oferta {
   prima: number;
   moneda: string;
   venceEn: string;
-  /** Breakdown the core already returns (HU-4); shown only once bff-web exposes it. */
+  /** Breakdown of the premium (HU-4); optional so an older answer still renders. */
   primaNeta?: number;
   expedicion?: number;
 }
@@ -23,6 +23,39 @@ type OfertaWire = Omit<Oferta, 'prima' | 'primaNeta' | 'expedicion'> & {
   primaNeta?: number | string | null;
   expedicion?: number | string | null;
 };
+
+/** A risk datum of the line of business with its valid domain (HU-1). */
+export type DatoRiesgo =
+  | { nombre: string; tipo: 'rango'; minimo: number; maximo: number }
+  | { nombre: string; tipo: 'valores'; valores: string[] };
+
+export interface Catalogo {
+  ramo: string;
+  nombre: string;
+  moneda: string;
+  datosRiesgo: DatoRiesgo[];
+}
+
+type DatoRiesgoWire =
+  | { nombre: string; tipo: 'rango'; minimo: number | string; maximo: number | string }
+  | { nombre: string; tipo: 'valores'; valores: string[] };
+
+type CatalogoWire = Omit<Catalogo, 'datosRiesgo'> & { datosRiesgo: DatoRiesgoWire[] };
+
+function toCatalogo(wire: CatalogoWire): Catalogo {
+  return {
+    ramo: wire.ramo,
+    nombre: wire.nombre,
+    moneda: wire.moneda,
+    datosRiesgo: wire.datosRiesgo.map((dato) =>
+      dato.tipo === 'rango'
+        ? { ...dato, minimo: Number(dato.minimo), maximo: Number(dato.maximo) }
+        : dato,
+    ),
+  };
+}
+
+export type Canal = 'cliente' | 'asesor';
 
 /** Typed core rejection of the risk data (HU-3), e.g. `dato_riesgo_fuera_de_rango`. */
 export interface RechazoCotizacion {
@@ -55,6 +88,13 @@ export function rechazoDe(error: unknown): RechazoCotizacion | null {
 export class CotizacionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+
+  /** Valid ranges of the risk data, so the form blocks the CTA before quoting. */
+  catalog(canal: Canal): Observable<Catalogo> {
+    return this.http
+      .get<CatalogoWire>(`${this.baseUrl}/${canal}/catalogo/${encodeURIComponent(RAMO)}`)
+      .pipe(map(toCatalogo));
+  }
 
   /** Customer quote of the single line of business. */
   quote(datosRiesgo: DatosRiesgo): Observable<Oferta> {

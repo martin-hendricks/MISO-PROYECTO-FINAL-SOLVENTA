@@ -352,6 +352,8 @@
     "error": {
       "required": "Campo obligatorio",
       "range": "Fuera de rango: entre {{minimo}} y {{maximo}}",
+      "rangeNucleo": "Fuera del rango permitido",
+      "catalogo": "No pudimos cargar los rangos del producto.",
       "servicio": "No pudimos calcular la prima. Intenta de nuevo en unos minutos."
     },
     "nueva": {

@@ -28,9 +28,16 @@ export class AsesorCotizacionView {
   protected readonly role = inject(SessionService).role;
   protected readonly allowed = this.role() === this.required;
   protected readonly campos: readonly CampoCliente[] = ['nombre', 'documento'];
-  protected readonly vm = new AsesorCotizacionViewModel((clienteId, datos) =>
-    this.gateway.quoteFor(clienteId, datos),
+  protected readonly vm = new AsesorCotizacionViewModel(
+    () => this.gateway.catalog('asesor'),
+    (clienteId, datos) => this.gateway.quoteFor(clienteId, datos),
   );
+
+  constructor() {
+    if (this.allowed) {
+      this.vm.form.loadCatalog();
+    }
+  }
 
   protected submit(event: Event): void {
     event.preventDefault();

@@ -19,9 +19,14 @@ export class NuevaCotizacionView {
   private readonly router = inject(Router);
   protected readonly ramo = RAMO;
   protected readonly vm = new CotizacionFormViewModel(
+    () => this.gateway.catalog('cliente'),
     (datos) => this.gateway.quote(datos),
     (oferta) => void this.router.navigate(['/cotizaciones', oferta.cotizacionId]),
   );
+
+  constructor() {
+    this.vm.loadCatalog();
+  }
 
   protected submit(event: Event): void {
     event.preventDefault();

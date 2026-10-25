@@ -1,8 +1,16 @@
 @let form = vm();
 @let id = prefix();
+@if (form.catalogoStatus() === 'error') {
+  <p class="banner" role="alert" data-testid="catalogo-error">
+    {{ 'cotizacion.error.catalogo' | translate }}
+    <button type="button" class="text" data-testid="catalogo-retry" (click)="form.loadCatalog()">
+      {{ 'cotizacion.reintentar' | translate }}
+    </button>
+  </p>
+}
 @for (campo of campos; track campo) {
   @let issue = form.issue(campo);
-  @let rango = form.rangos[campo];
+  @let rango = form.rangos()[campo];
   <div class="field">
     <label [for]="id + '-' + campo">{{ 'cotizacion.campo.' + campo | translate }}</label>
     <input
@@ -23,9 +31,13 @@
         [id]="id + '-' + campo + '-hint'"
         [attr.data-testid]="'riesgo-' + campo + '-error'"
       >
-        {{ 'cotizacion.error.' + issue | translate: rango }}
+        @if (rango || issue === 'required') {
+          {{ 'cotizacion.error.' + issue | translate: rango }}
+        } @else {
+          {{ 'cotizacion.error.rangeNucleo' | translate }}
+        }
       </p>
-    } @else {
+    } @else if (rango) {
       <p class="hint" [id]="id + '-' + campo + '-hint'">
         {{ 'cotizacion.rango' | translate: rango }}
       </p>
@@ -40,7 +52,7 @@
     data-testid="riesgo-ciudad_circulacion"
     (change)="form.edit('ciudad', ciudad.value)"
   >
-    @for (opcion of form.ciudades; track opcion) {
+    @for (opcion of form.ciudades(); track opcion) {
       <option [value]="opcion" [selected]="opcion === form.ciudad()">
         {{ 'cotizacion.ciudad.' + opcion | translate }}
       </option>

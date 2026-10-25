@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CotizacionFormViewModel } from './cotizacion-form.viewmodel';
-import { CampoRango } from './soat-motocicleta';
+import { CAMPOS_RANGO } from './soat-motocicleta';
 
 /** SOAT motocicleta risk data, shared by the customer and advisor quotes. */
 @Component({
@@ -16,5 +16,5 @@ export class RiesgoFields {
   readonly vm = input.required<CotizacionFormViewModel>();
   /** Id prefix so two forms never share label targets. */
   readonly prefix = input('cotizacion');
-  protected readonly campos: readonly CampoRango[] = ['cilindraje_cc', 'modelo_anio'];
+  protected readonly campos = CAMPOS_RANGO;
 }

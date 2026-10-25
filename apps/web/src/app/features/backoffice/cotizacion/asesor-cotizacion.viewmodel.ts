@@ -1,7 +1,7 @@
 import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CotizacionFormViewModel } from '../../cotizacion/cotizacion-form.viewmodel';
-import { Oferta } from '../../cotizacion/cotizacion.gateway';
+import { Catalogo, Oferta } from '../../cotizacion/cotizacion.gateway';
 import { DatosRiesgo } from '../../cotizacion/soat-motocicleta';
 
 /** Motorcycle plate as Colombia issues it: three letters, two digits, one letter (ABC12D). */
@@ -45,10 +45,11 @@ export class AsesorCotizacionViewModel {
   });
 
   constructor(
+    catalogSource: () => Observable<Catalogo>,
     source: (clienteId: string, datos: DatosRiesgo) => Observable<Oferta>,
     private readonly now: () => Date = () => new Date(),
   ) {
-    this.form = new CotizacionFormViewModel((datos) =>
+    this.form = new CotizacionFormViewModel(catalogSource, (datos) =>
       source(this.documento(), { ...datos, placa: this.placa() }),
     );
   }

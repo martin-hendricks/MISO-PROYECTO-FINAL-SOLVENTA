@@ -1,8 +1,15 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { CotizacionGateway, Oferta, rechazoDe } from './cotizacion.gateway';
-import { FUERA_DE_RANGO, OFERTA, OFERTA_DESGLOSE_WIRE, OFERTA_WIRE } from './cotizacion.testing';
+import { Catalogo, CotizacionGateway, Oferta, rechazoDe } from './cotizacion.gateway';
+import {
+  CATALOGO,
+  CATALOGO_WIRE,
+  FUERA_DE_RANGO,
+  OFERTA,
+  OFERTA_DESGLOSE_WIRE,
+  OFERTA_WIRE,
+} from './cotizacion.testing';
 
 describe('CotizacionGateway', () => {
   const DATOS = { cilindraje_cc: 150, modelo_anio: 2022, ciudad_circulacion: 'bogota' };
@@ -18,6 +25,18 @@ describe('CotizacionGateway', () => {
   }
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
+
+  it('reads the catalog ranges of the line of business for each channel', () => {
+    const { gateway, http } = setup();
+    const catalogos: Catalogo[] = [];
+
+    gateway.catalog('cliente').subscribe((catalogo) => catalogos.push(catalogo));
+    http.expectOne('/web/cliente/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
+    gateway.catalog('asesor').subscribe((catalogo) => catalogos.push(catalogo));
+    http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
+
+    expect(catalogos).toEqual([CATALOGO, CATALOGO]);
+  });
 
   it('quotes the single line of business for the customer', () => {
     const { gateway, http } = setup();

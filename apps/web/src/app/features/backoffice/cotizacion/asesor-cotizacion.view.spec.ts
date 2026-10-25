@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import { Role } from '../../../core/session/session.service';
 import {
+  CATALOGO_WIRE,
   FUERA_DE_RANGO,
   OFERTA_DESGLOSE_WIRE,
   OFERTA_WIRE,
@@ -30,6 +31,10 @@ describe('AsesorCotizacionView', () => {
     const fixture = TestBed.createComponent(AsesorCotizacionView);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    if (role === 'asesor') {
+      http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
+      fixture.detectChanges();
+    }
     const host = fixture.nativeElement as HTMLElement;
     const element = <T extends HTMLElement = HTMLElement>(testId: string) =>
       host.querySelector<T>(`[data-testid="${testId}"]`);
