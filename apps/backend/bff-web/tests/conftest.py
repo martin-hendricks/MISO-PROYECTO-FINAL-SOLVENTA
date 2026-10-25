@@ -103,7 +103,7 @@ def client(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
 
 def token(client: TestClient, rol: str) -> str:
     response = client.post(
-        "/sesion/ingreso",
+        "/v1/sesion/ingreso",
         json={"correo": "persona@solventa.com", "contrasena": "secreto", "rol": rol},
     )
     assert response.status_code == 200

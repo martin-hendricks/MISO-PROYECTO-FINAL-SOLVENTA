@@ -56,11 +56,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(sesion.router)
-app.include_router(registro.router)
-app.include_router(cliente.router)
-app.include_router(asesor.router)
-app.include_router(operador.router)
+# Prefijo de versión centralizado: cada router sigue declarando su propio
+# prefix (/cliente, /asesor, etc.) sin "/v1" -- así el prefijo de versión no
+# se repite en cada archivo ni se puede olvidar en uno nuevo.
+app.include_router(sesion.router, prefix="/v1")
+app.include_router(registro.router, prefix="/v1")
+app.include_router(cliente.router, prefix="/v1")
+app.include_router(asesor.router, prefix="/v1")
+app.include_router(operador.router, prefix="/v1")
 
 
 @app.get("/health", include_in_schema=False)

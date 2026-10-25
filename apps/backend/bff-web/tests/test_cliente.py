@@ -68,7 +68,7 @@ def test_cotizacion_y_reconsulta(client, nucleo_cotizacion):
 
     headers = _auth(client)
     created = client.post(
-        "/cliente/cotizaciones",
+        "/v1/cliente/cotizaciones",
         headers=headers,
         json={"ramo": "Protección de dispositivo", "datosRiesgo": {"valorDispositivo": 2400000}},
     )
@@ -85,14 +85,14 @@ def test_cotizacion_y_reconsulta(client, nucleo_cotizacion):
 
     assert _json.loads(cuerpo)["producto"] == "proteccion-dispositivo"
 
-    again = client.get(f"/cliente/cotizaciones/{COTIZACION_ID}", headers=headers)
+    again = client.get(f"/v1/cliente/cotizaciones/{COTIZACION_ID}", headers=headers)
     assert again.status_code == 200
     assert again.json()["cotizacionId"] == COTIZACION_ID
 
 
 def test_cliente_id_en_cotizacion_de_cliente_es_400(client):
     response = client.post(
-        "/cliente/cotizaciones",
+        "/v1/cliente/cotizaciones",
         headers=_auth(client),
         json={"ramo": "x", "datosRiesgo": {}, "clienteId": "CLI-18"},
     )
@@ -106,7 +106,7 @@ def test_cotizacion_servicio_no_disponible_es_503(client, nucleo_cotizacion):
     nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = caido
 
     response = client.post(
-        "/cliente/cotizaciones",
+        "/v1/cliente/cotizaciones",
         headers=_auth(client),
         json={"ramo": "Protección de dispositivo", "datosRiesgo": {}},
     )
@@ -120,7 +120,7 @@ def test_cotizacion_rechazo_de_negocio_se_propaga(client, nucleo_cotizacion):
     )
 
     response = client.post(
-        "/cliente/cotizaciones",
+        "/v1/cliente/cotizaciones",
         headers=_auth(client),
         json={"ramo": "Protección de dispositivo", "datosRiesgo": {}},
     )
@@ -136,7 +136,7 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
 
     response = client.post(
-        "/cliente/polizas",
+        "/v1/cliente/polizas",
         headers=_auth(client),
         json={"cotizacionId": COTIZACION_ID},
     )
@@ -165,7 +165,7 @@ def test_emision_cuando_pago_falla_no_llama_a_polizas(client, nucleo_cotizacion,
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = pago_caido
 
     response = client.post(
-        "/cliente/polizas",
+        "/v1/cliente/polizas",
         headers=_auth(client),
         json={"cotizacionId": COTIZACION_ID},
     )
@@ -180,7 +180,7 @@ def test_emision_rechazo_de_aceptacion_se_propaga(client, nucleo_cotizacion, nuc
     )
 
     response = client.post(
-        "/cliente/polizas",
+        "/v1/cliente/polizas",
         headers=_auth(client),
         json={"cotizacionId": COTIZACION_ID},
     )
@@ -196,7 +196,7 @@ def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas):
         200, json=[POLIZA_SALIDA]
     )
 
-    respuesta = client.get("/cliente/polizas", headers=_auth(client))
+    respuesta = client.get("/v1/cliente/polizas", headers=_auth(client))
 
     assert respuesta.status_code == 200
     polizas = respuesta.json()["polizas"]
@@ -216,7 +216,7 @@ def test_billetera_servicio_no_disponible_es_503(client, nucleo_polizas):
 
     nucleo_polizas.respuestas[("GET", "/v1/polizas")] = caido
 
-    respuesta = client.get("/cliente/polizas", headers=_auth(client))
+    respuesta = client.get("/v1/cliente/polizas", headers=_auth(client))
 
     assert respuesta.status_code == 503
 
@@ -226,7 +226,7 @@ def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas):
         200, json=POLIZA_SALIDA
     )
 
-    respuesta = client.get("/cliente/polizas/POL-88219-CO", headers=_auth(client))
+    respuesta = client.get("/v1/cliente/polizas/POL-88219-CO", headers=_auth(client))
 
     assert respuesta.status_code == 200
     detalle = respuesta.json()
@@ -235,7 +235,7 @@ def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas):
 
 
 def test_detalle_poliza_inexistente_es_404(client, nucleo_polizas):
-    respuesta = client.get("/cliente/polizas/POL-NO-EXISTE", headers=_auth(client))
+    respuesta = client.get("/v1/cliente/polizas/POL-NO-EXISTE", headers=_auth(client))
 
     assert respuesta.status_code == 404
 
@@ -246,13 +246,13 @@ def test_detalle_servicio_no_disponible_es_503(client, nucleo_polizas):
 
     nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = caido
 
-    respuesta = client.get("/cliente/polizas/POL-88219-CO", headers=_auth(client))
+    respuesta = client.get("/v1/cliente/polizas/POL-88219-CO", headers=_auth(client))
 
     assert respuesta.status_code == 503
 
 
 def test_pago_automatico_es_numero(client):
-    body = client.get("/cliente/pagos-automaticos", headers=_auth(client)).json()
+    body = client.get("/v1/cliente/pagos-automaticos", headers=_auth(client)).json()
     assert isinstance(body["monto"], int)
     assert body["moneda"] == "COP"
     assert "locale" not in body
@@ -285,7 +285,7 @@ def test_hipoteca_con_consentimiento_llama_a_perfilamiento(client, nucleo_perfil
 
     headers = _auth(client)
     ready = client.post(
-        "/cliente/oferta-hipotecaria",
+        "/v1/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
     )
@@ -307,7 +307,7 @@ def test_hipoteca_con_consentimiento_llama_a_perfilamiento(client, nucleo_perfil
 def test_hipoteca_sin_consentimiento_no_llama_a_perfilamiento(client, nucleo_perfilamiento):
     headers = _auth(client)
     degraded = client.post(
-        "/cliente/oferta-hipotecaria",
+        "/v1/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": False},
     )
@@ -326,7 +326,7 @@ def test_hipoteca_servicio_no_disponible_es_503(client, nucleo_perfilamiento):
     nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = caido
 
     response = client.post(
-        "/cliente/oferta-hipotecaria",
+        "/v1/cliente/oferta-hipotecaria",
         headers=_auth(client),
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
     )
@@ -334,9 +334,9 @@ def test_hipoteca_servicio_no_disponible_es_503(client, nucleo_perfilamiento):
 
 
 def test_inicio(client):
-    body = client.get("/cliente/inicio", headers=_auth(client)).json()
+    body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
     assert body["hipotecario"] is None
 
 
 def test_sin_token_es_401(client):
-    assert client.get("/cliente/inicio").status_code == 401
+    assert client.get("/v1/cliente/inicio").status_code == 401
