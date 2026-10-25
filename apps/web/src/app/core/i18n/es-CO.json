@@ -21,6 +21,21 @@
         "body": "Cuando emitas una póliza la verás aquí."
       }
     },
+    "detalle": {
+      "back": "Volver",
+      "title": "Póliza {{producto}}",
+      "loading": "Cargando la póliza…",
+      "error": { "body": "No pudimos cargar la póliza.", "retry": "Reintentar" },
+      "notFound": {
+        "title": "No encontramos esta póliza",
+        "body": "Revisa el número o vuelve a tu lista de pólizas.",
+        "action": "Ir a mis pólizas"
+      },
+      "coberturas": "Coberturas",
+      "hasta": "Hasta",
+      "prima": "Prima anual",
+      "readOnly": "Renovación y cambios se gestionan con tu asesor. Aquí solo consultas la póliza."
+    },
     "column": {
       "producto": "Producto",
       "numero": "N.º póliza",

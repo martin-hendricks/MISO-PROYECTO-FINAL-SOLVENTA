@@ -66,6 +66,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/polizas/lista/polizas-lista.view').then((m) => m.PolizasListaView),
       },
+      {
+        path: 'polizas/:numero',
+        loadComponent: () =>
+          import('./features/polizas/detalle/poliza-detalle.view').then((m) => m.PolizaDetalleView),
+      },
     ],
   },
 ];

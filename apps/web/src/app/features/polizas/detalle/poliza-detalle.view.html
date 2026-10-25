@@ -1,0 +1,75 @@
+<section data-testid="poliza-detalle" [attr.data-state]="vm.status()">
+  <a class="back" routerLink="/polizas" data-testid="poliza-back">
+    <span aria-hidden="true">←</span> {{ 'polizas.detalle.back' | translate }}
+  </a>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="poliza-loading">
+        {{ 'polizas.detalle.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="poliza-error">
+        <p>{{ 'polizas.detalle.error.body' | translate }}</p>
+        <button type="button" class="outlined" data-testid="poliza-retry" (click)="vm.load()">
+          {{ 'polizas.detalle.error.retry' | translate }}
+        </button>
+      </div>
+    }
+    @case ('not-found') {
+      <div class="empty-state" data-testid="poliza-not-found">
+        <h2>{{ 'polizas.detalle.notFound.title' | translate }}</h2>
+        <p>{{ 'polizas.detalle.notFound.body' | translate }}</p>
+        <a class="outlined" routerLink="/polizas">{{
+          'polizas.detalle.notFound.action' | translate
+        }}</a>
+      </div>
+    }
+    @default {
+      @let poliza = vm.poliza()!;
+      <div class="page-head">
+        <div>
+          <h1 data-testid="poliza-title">
+            {{ 'polizas.detalle.title' | translate: { producto: poliza.producto } }}
+            {{ poliza.numero }}
+          </h1>
+          <p class="subtitle">
+            <span class="badge" data-testid="poliza-estado" [attr.data-estado]="poliza.estado">{{
+              'polizas.estado.' + poliza.estado | translate
+            }}</span>
+            <span data-testid="poliza-vigencia">
+              {{ 'polizas.column.vigencia' | translate }}
+              {{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="cards">
+        <article class="card">
+          <h2>{{ 'polizas.detalle.coberturas' | translate }}</h2>
+          <ul data-testid="poliza-coberturas">
+            @for (cobertura of poliza.coberturas; track cobertura.nombre) {
+              <li>
+                <span>{{ cobertura.nombre }}</span>
+                <span class="mono amount">
+                  {{ 'polizas.detalle.hasta' | translate }}
+                  {{ cobertura.sumaAsegurada | svMoney: poliza.moneda }}
+                </span>
+              </li>
+            }
+          </ul>
+        </article>
+
+        <article class="card">
+          <p class="label">{{ 'polizas.detalle.prima' | translate }}</p>
+          <p class="mono premium" data-testid="poliza-prima">
+            {{ poliza.primaTotal | svMoney: poliza.moneda }}
+          </p>
+          <p class="note">{{ 'polizas.detalle.readOnly' | translate }}</p>
+        </article>
+      </div>
+    }
+  }
+</section>

@@ -1,4 +1,4 @@
-import { PolizaResumen } from './polizas.gateway';
+import { PolizaDetalle, PolizaResumen } from './polizas.gateway';
 
 /** Wallet shaped as the proposed `bff-web` contract (HU-149). For specs only. */
 export const POLIZAS: PolizaResumen[] = [
@@ -21,3 +21,12 @@ export const POLIZAS: PolizaResumen[] = [
     primaTotal: 148900,
   },
 ];
+
+export const DETALLE: PolizaDetalle = {
+  ...POLIZAS[0],
+  coberturas: [
+    { nombre: 'Incendio y terremoto', sumaAsegurada: 400000000, deducible: 500000 },
+    { nombre: 'Hurto calificado', sumaAsegurada: 40000000, deducible: 200000 },
+    { nombre: 'RC familiar', sumaAsegurada: 80000000, deducible: 0 },
+  ],
+};
