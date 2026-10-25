@@ -16,7 +16,7 @@ from ..dependencies import (
     obtener_cliente_suscripcion,
     require_roles,
 )
-from .cliente import ContextoUsuario, _idempotency_key, _producto_de
+from .cliente import ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
 
 router = APIRouter(
     prefix="/asesor",
@@ -98,14 +98,18 @@ async def venta(
         canal="asesor",
         datos_riesgo=body.datosRiesgo,
     )
-    return {
-        "cotizacionId": datos["cotizacion_id"],
-        "ramo": body.ramo,
-        "estado": datos["estado"],
-        "prima": datos["prima"],
-        "moneda": datos["moneda"],
-        "venceEn": datos["vence_en"],
-    }
+    return _cotizacion_salida(datos, body.ramo)
+
+
+@router.get("/catalogo/{ramo}")
+async def catalogo(
+    ramo: str,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """SOLV-245: mismo catálogo que GET /cliente/catalogo/{ramo}, expuesto
+    también para el asesor (ver routers/cliente.py:catalogo)."""
+    producto = await cliente_cotizacion.obtener_producto(_producto_de(ramo))
+    return _catalogo_salida(producto, ramo)
 
 
 class ConsultarEmision(BaseModel):

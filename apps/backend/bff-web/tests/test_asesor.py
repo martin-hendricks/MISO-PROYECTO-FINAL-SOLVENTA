@@ -107,7 +107,42 @@ def test_cartera_ficha_y_venta(client, nucleo_cotizacion):
         json={"clienteId": "CLI-18", "ramo": "Protección de dispositivo", "datosRiesgo": {}},
     )
     assert sale.status_code == 200
-    assert isinstance(sale.json()["prima"], str)
+    venta = sale.json()
+    assert isinstance(venta["prima"], str)
+    assert venta["primaNeta"] == "80000.00"
+    assert venta["expedicion"] == "9000.00"
+
+
+PRODUCTO_SALIDA = {
+    "nombre": "Protección de dispositivo",
+    "moneda": "COP",
+    "coberturas": [
+        {"codigo": "ROBO", "nombre": "Robo", "limite": "5000000.00", "unidad_limite": "COP"},
+    ],
+    "datos_riesgo": [
+        {"nombre": "valorDispositivo", "tipo": "rango", "minimo": "500000", "maximo": "10000000"},
+    ],
+}
+
+
+def test_catalogo_de_asesor_traduce_coberturas_y_datos_riesgo(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/proteccion-dispositivo")] = lambda _: httpx.Response(
+        200, json=PRODUCTO_SALIDA
+    )
+
+    response = client.get(
+        "/v1/asesor/catalogo/Protección de dispositivo",
+        headers=_auth(client, "asesor"),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ramo"] == "Protección de dispositivo"
+    assert body["coberturas"] == [
+        {"codigo": "ROBO", "nombre": "Robo", "limite": "5000000.00", "unidadLimite": "COP"},
+    ]
+    assert body["datosRiesgo"] == [
+        {"nombre": "valorDispositivo", "tipo": "rango", "minimo": "500000", "maximo": "10000000"},
+    ]
 
 
 def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotizacion, nucleo_suscripcion):
