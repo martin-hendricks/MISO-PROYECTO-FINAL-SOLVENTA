@@ -5,7 +5,8 @@
     "nav": {
       "inicio": "Inicio",
       "polizas": "Pólizas"
-    }
+    },
+    "signOut": "Cerrar sesión"
   },
   "inicio": {
     "title": "Hola",

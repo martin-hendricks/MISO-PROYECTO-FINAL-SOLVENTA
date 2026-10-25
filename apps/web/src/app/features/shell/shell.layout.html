@@ -11,5 +11,8 @@
   <a class="cta" routerLink="/cotizacion" data-testid="header-new-quote">{{
     'inicio.newQuote' | translate
   }}</a>
+  <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
+    {{ 'shell.signOut' | translate }}
+  </button>
 </header>
 <router-outlet />

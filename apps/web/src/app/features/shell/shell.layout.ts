@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { SessionService } from '../../core/session/session.service';
 
 @Component({
   selector: 'sv-shell-layout',
@@ -9,4 +10,12 @@ import { TranslatePipe } from '@ngx-translate/core';
   templateUrl: './shell.layout.html',
   styleUrl: './shell.layout.css',
 })
-export class ShellLayout {}
+export class ShellLayout {
+  private readonly session = inject(SessionService);
+  private readonly router = inject(Router);
+
+  protected signOut(): void {
+    this.session.signOut();
+    void this.router.navigateByUrl('/login');
+  }
+}
