@@ -27,7 +27,6 @@ describe('AsesorEmisionView', () => {
             snapshot: {
               paramMap: convertToParamMap({ cotizacionId: 'COT-4471' }),
               queryParamMap: convertToParamMap({
-                oferta: 'OF-4471-1',
                 cliente: 'CLI-18',
                 ...query,
               }),
@@ -58,7 +57,6 @@ describe('AsesorEmisionView', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({
       cotizacionId: 'COT-4471',
-      ofertaId: 'OF-4471-1',
       clienteId: 'CLI-18',
     });
     expect(element('emision-loading')).not.toBeNull();
@@ -171,8 +169,8 @@ describe('AsesorEmisionView', () => {
     expect(element('poliza-emitida')).not.toBeNull();
   });
 
-  it('does not call the BFF without an offer and a customer', () => {
-    const { http, element } = render('asesor', { oferta: '' });
+  it('does not call the BFF without the customer it serves', () => {
+    const { http, element } = render('asesor', { cliente: '' });
 
     http.expectNone(URL);
     expect(element('emision-invalid')).not.toBeNull();

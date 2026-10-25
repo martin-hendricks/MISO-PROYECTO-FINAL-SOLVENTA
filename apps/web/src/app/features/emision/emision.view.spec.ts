@@ -8,7 +8,7 @@ import { EmisionView } from './emision.view';
 
 describe('EmisionView', () => {
   const URL = '/web/cliente/polizas';
-  const OFERTA = { cotizacion: 'COT-0042', oferta: 'OF-0042-1' };
+  const OFERTA = { cotizacion: 'COT-0042' };
 
   function render(query: Record<string, string> = OFERTA) {
     TestBed.configureTestingModule({
@@ -41,7 +41,7 @@ describe('EmisionView', () => {
 
     const request = http.expectOne(URL);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042', ofertaId: 'OF-0042-1' });
+    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042' });
     expect(element('emision-progreso')).not.toBeNull();
     expect(element('emision-progreso')?.querySelector('[role="progressbar"]')).not.toBeNull();
     request.flush(EMITIDA);
@@ -96,7 +96,7 @@ describe('EmisionView', () => {
   });
 
   it('does not call the BFF without an offer to accept', () => {
-    const { http, element } = render({ cotizacion: 'COT-0042' });
+    const { http, element } = render({});
 
     http.expectNone(URL);
     expect(element('emision-invalid')).not.toBeNull();

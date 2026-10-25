@@ -1,0 +1,49 @@
+@let form = vm();
+@let id = prefix();
+@for (campo of campos; track campo) {
+  @let issue = form.issue(campo);
+  @let rango = form.rangos[campo];
+  <div class="field">
+    <label [for]="id + '-' + campo">{{ 'cotizacion.campo.' + campo | translate }}</label>
+    <input
+      #field
+      type="number"
+      inputmode="numeric"
+      [id]="id + '-' + campo"
+      [attr.data-testid]="'riesgo-' + campo"
+      [value]="campo === 'cilindraje_cc' ? form.cilindraje() : form.modelo()"
+      [attr.aria-invalid]="issue ? 'true' : null"
+      [attr.aria-describedby]="id + '-' + campo + '-hint'"
+      (input)="form.edit(campo, field.value)"
+      (blur)="form.touch(campo)"
+    />
+    @if (issue) {
+      <p
+        class="field-error"
+        [id]="id + '-' + campo + '-hint'"
+        [attr.data-testid]="'riesgo-' + campo + '-error'"
+      >
+        {{ 'cotizacion.error.' + issue | translate: rango }}
+      </p>
+    } @else {
+      <p class="hint" [id]="id + '-' + campo + '-hint'">
+        {{ 'cotizacion.rango' | translate: rango }}
+      </p>
+    }
+  </div>
+}
+<div class="field">
+  <label [for]="id + '-ciudad'">{{ 'cotizacion.campo.ciudad_circulacion' | translate }}</label>
+  <select
+    #ciudad
+    [id]="id + '-ciudad'"
+    data-testid="riesgo-ciudad_circulacion"
+    (change)="form.edit('ciudad', ciudad.value)"
+  >
+    @for (opcion of form.ciudades; track opcion) {
+      <option [value]="opcion" [selected]="opcion === form.ciudad()">
+        {{ 'cotizacion.ciudad.' + opcion | translate }}
+      </option>
+    }
+  </select>
+</div>

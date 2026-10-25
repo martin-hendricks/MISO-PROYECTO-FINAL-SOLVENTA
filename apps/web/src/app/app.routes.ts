@@ -108,7 +108,18 @@ export const routes: Routes = [
             (m) => m.SuscripcionRechazadaView,
           ),
       },
-      destino('cotizacion', 'cotizacion'),
+      {
+        path: 'cotizacion',
+        loadComponent: () =>
+          import('./features/cotizacion/nueva/nueva-cotizacion.view').then(
+            (m) => m.NuevaCotizacionView,
+          ),
+      },
+      {
+        path: 'cotizaciones/:cotizacionId',
+        loadComponent: () =>
+          import('./features/cotizacion/oferta/ver-oferta.view').then((m) => m.VerOfertaView),
+      },
       destino('emision/:id', 'emision'),
       destino('siniestros/:id', 'siniestro'),
       destino('vida-crediticia', 'vidaCrediticia'),

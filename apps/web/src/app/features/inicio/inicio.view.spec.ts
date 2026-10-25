@@ -38,7 +38,7 @@ describe('InicioView', () => {
     fixture.detectChanges();
 
     expect(element('inicio-offer')?.textContent).toContain('Protección de dispositivo');
-    expect(element('inicio-accept')?.getAttribute('href')).toBe('/emision/COT-1042');
+    expect(element('inicio-accept')?.getAttribute('href')).toBe('/emision?cotizacion=COT-1042');
     expect(element('inicio-policy-link')?.getAttribute('href')).toBe('/polizas/POL-88219-CO');
     expect(element('inicio-claim')?.textContent).toContain('SIN-441');
     expect(element('inicio-claim')?.textContent).toContain('En evaluación');

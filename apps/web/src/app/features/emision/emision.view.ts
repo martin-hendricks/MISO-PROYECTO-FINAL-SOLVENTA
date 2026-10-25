@@ -18,10 +18,9 @@ export class EmisionView {
   private readonly router = inject(Router);
   private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
   private readonly cotizacionId = this.query.get('cotizacion');
-  private readonly ofertaId = this.query.get('oferta');
-  protected readonly valid = !!this.cotizacionId && !!this.ofertaId;
+  protected readonly valid = !!this.cotizacionId;
   protected readonly vm = new EmisionViewModel(
-    () => this.gateway.accept({ cotizacionId: this.cotizacionId!, ofertaId: this.ofertaId! }),
+    () => this.gateway.accept({ cotizacionId: this.cotizacionId! }),
     (motivo) => void this.router.navigate(['/suscripcion-rechazada'], { state: { motivo } }),
   );
 
