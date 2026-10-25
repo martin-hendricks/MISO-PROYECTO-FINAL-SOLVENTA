@@ -52,6 +52,11 @@ export const routes: Routes = [
     ],
   },
   {
+    path: 'emision',
+    canActivate: [requireRole(CUSTOMER, '/login')],
+    loadComponent: () => import('./features/emision/emision.view').then((m) => m.EmisionView),
+  },
+  {
     path: '',
     canActivate: [requireRole(CUSTOMER, '/login')],
     loadComponent: () => import('./features/shell/shell.layout').then((m) => m.ShellLayout),
@@ -70,6 +75,13 @@ export const routes: Routes = [
         path: 'polizas/:numero',
         loadComponent: () =>
           import('./features/polizas/detalle/poliza-detalle.view').then((m) => m.PolizaDetalleView),
+      },
+      {
+        path: 'suscripcion-rechazada',
+        loadComponent: () =>
+          import('./features/emision/rechazada/suscripcion-rechazada.view').then(
+            (m) => m.SuscripcionRechazadaView,
+          ),
       },
     ],
   },

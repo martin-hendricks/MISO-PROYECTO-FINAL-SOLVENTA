@@ -45,6 +45,29 @@
     },
     "estado": { "VIGENTE": "Vigente", "CANCELADA": "Cancelada" }
   },
+  "emision": {
+    "irInicio": "Ir al inicio",
+    "progreso": {
+      "title": "Emitiendo tu póliza",
+      "subtitle": "No cambies de sección. Esto toma unos segundos.",
+      "steps": "Validando suscripción · generando carátula · notificando"
+    },
+    "emitida": {
+      "title": "Póliza emitida",
+      "subtitle": "{{producto}} ya está en tu billetera.",
+      "verPoliza": "Ver mi póliza"
+    },
+    "rechazada": {
+      "title": "No pudimos emitir",
+      "subtitle": "La suscripción rechazó esta oferta. Puedes cotizar de nuevo.",
+      "motivo": "Motivo"
+    },
+    "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
+    "invalid": {
+      "title": "No hay una oferta para emitir",
+      "body": "Vuelve a la oferta y acéptala de nuevo."
+    }
+  },
   "login": {
     "customer": {
       "claim": "Tu seguro, en un solo lugar.",

@@ -1,0 +1,14 @@
+<section data-testid="suscripcion-rechazada">
+  <a class="back" routerLink="/" data-testid="rechazo-inicio">
+    <span aria-hidden="true">←</span> {{ 'emision.irInicio' | translate }}
+  </a>
+  <h1>{{ 'emision.rechazada.title' | translate }}</h1>
+  <p class="subtitle">{{ 'emision.rechazada.subtitle' | translate }}</p>
+
+  @if (motivo) {
+    <div class="motivo" role="alert" data-testid="rechazo-motivo">
+      <p class="label">{{ 'emision.rechazada.motivo' | translate }}</p>
+      <p>{{ motivo.mensaje }}</p>
+    </div>
+  }
+</section>
