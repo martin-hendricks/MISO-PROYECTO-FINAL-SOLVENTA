@@ -155,12 +155,16 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
     )
 
     respuesta = client.post(
-        "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID}
+        "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID, "clienteId": "CLI-18"}
     )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["solicitudId"] == COTIZACION_ID
+    assert cuerpo["cliente"] == {"clienteId": "CLI-18", "nombre": "Andrés Gómez"}
+    assert cuerpo["producto"] == COTIZACION_SALIDA["producto"]
+    assert cuerpo["referencia"] == COTIZACION_ID
+    assert [(p["paso"], p["estado"]) for p in cuerpo["pasos"]][2] == ("EMISION", "ACTUAL")
     assert cuerpo["decision"]["resultado"] == "ACEPTADA"
     assert cuerpo["decision"]["detalle"] == "riesgo_aceptable"
     assert cuerpo["decision"]["regla"] is None
@@ -185,6 +189,7 @@ def test_consultar_emision_rechazada(client, nucleo_cotizacion, nucleo_suscripci
 
     assert respuesta.status_code == 200
     assert respuesta.json()["decision"]["resultado"] == "RECHAZADA"
+    assert respuesta.json()["pasos"][2] == {"paso": "EMISION", "estado": "ERROR"}
 
 
 def test_consultar_emision_cotizacion_inexistente_es_404(client, nucleo_cotizacion):
@@ -214,6 +219,11 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     assert cuerpo["resultado"] == "EMITIDA"
     assert cuerpo["poliza"]["numero"] == "POL-88219-CO"
     assert cuerpo["poliza"]["ramo"] == COTIZACION_SALIDA["producto"]
+    assert cuerpo["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert cuerpo["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
+    assert cuerpo["poliza"]["expedidaEn"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert cuerpo["firma"]["firmadaEn"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert cuerpo["pasos"][3] == {"paso": "POLIZA", "estado": "COMPLETADO"}
 
 
 def test_firmar_y_emitir_con_decision_rechazada_no_cobra_ni_emite(
