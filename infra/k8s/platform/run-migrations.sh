@@ -14,6 +14,10 @@
 set -eu
 
 DB_URL=$(echo "$database_url" | sed 's/+asyncpg//')
+# Contraseña de la base (decodificada), disponible para los .sql como
+# :'dbpass' -- p. ej. para sembrar usuarios sin escribirla en el repo.
+DB_PASS=$(echo "$DB_URL" | sed -n 's#^[a-z]*://[^:]*:\([^@]*\)@.*#\1#p')
+DB_PASS=$(printf '%b' "$(echo "$DB_PASS" | sed 's/%/\\x/g')")
 
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
 CREATE TABLE IF NOT EXISTS public.schema_migrations (
@@ -33,7 +37,7 @@ for archivo in $(ls /migrations/*.sql | sort); do
     fi
 
     echo "APPLY ${nombre}"
-    psql "$DB_URL" -v ON_ERROR_STOP=1 -q -1 \
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -v dbpass="$DB_PASS" -q -1 \
         -c "\i ${archivo}" \
         -c "INSERT INTO public.schema_migrations (filename) VALUES ('${nombre}')"
 done
