@@ -14,8 +14,6 @@
 set -eu
 
 DB_URL=$(echo "$database_url" | sed 's/+asyncpg//')
-# Contraseña de la base (decodificada), disponible para los .sql como
-# :'dbpass' -- p. ej. para sembrar usuarios sin escribirla en el repo.
 DB_PASS=$(echo "$DB_URL" | sed -n 's#^[a-z]*://[^:]*:\([^@]*\)@.*#\1#p')
 DB_PASS=$(printf '%b' "$(echo "$DB_PASS" | sed 's/%/\\x/g')")
 
