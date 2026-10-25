@@ -24,3 +24,18 @@ nav a.active {
   color: var(--sv-primary);
   font-weight: 500;
 }
+
+.sign-out {
+  padding: 0;
+  border: 0;
+  color: var(--sv-primary);
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sign-out:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: 2px;
+}
