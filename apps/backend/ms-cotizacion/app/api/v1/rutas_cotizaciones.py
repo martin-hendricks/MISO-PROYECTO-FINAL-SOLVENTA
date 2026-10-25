@@ -68,6 +68,22 @@ async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow):
     return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
 
 
+# Registrada antes de "/{cotizacion_id}/aceptacion" no hace falta (prefijos
+# distintos, "por-oferta" nunca calza con un UUID), pero el orden de registro
+# en FastAPI sí importa frente a cualquier futura ruta GET "/{cotizacion_id}/
+# algo": este prefijo literal es inequívoco porque nunca es un UUID válido.
+@router.get(
+    "/por-oferta/{oferta_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}}
+)
+async def reconsultar_oferta_por_id(oferta_id: UUID, uow: Uow):
+    """Resuelve el producto real de una oferta ya aceptada/emitida a partir
+    de su oferta_id -- lo único que ms-polizas guarda de la cotización
+    original (no guarda cotizacion_id). Usado por bff-web en billetera()/
+    detalle() para no mostrar un placeholder de ramo."""
+    resultado = await casos_uso.reconsultar_oferta_por_id(uow, oferta_id)
+    return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
+
+
 @router.post(
     "/{cotizacion_id}/aceptacion",
     response_model=AceptacionSalida,

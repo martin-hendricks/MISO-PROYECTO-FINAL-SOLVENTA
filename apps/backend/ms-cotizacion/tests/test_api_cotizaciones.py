@@ -91,3 +91,20 @@ def test_get_cotizacion_vencida_devuelve_vencida_true(client, almacen):
     cuerpo = respuesta.json()
     assert cuerpo["vencida"] is True
     assert Decimal(cuerpo["prima"]) == Decimal(creada["prima"])
+
+
+def test_get_cotizacion_por_oferta_id_devuelve_el_mismo_producto(client, almacen):
+    payload = _payload()
+    client.post("/v1/cotizaciones", json=payload, headers=CABECERAS)
+    oferta_id = next(iter(almacen.ofertas))
+
+    respuesta = client.get(f"/v1/cotizaciones/por-oferta/{oferta_id}")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["producto"] == payload["producto"]
+
+
+def test_get_cotizacion_por_oferta_id_inexistente_devuelve_404(client):
+    respuesta = client.get(f"/v1/cotizaciones/por-oferta/{uuid4()}")
+
+    assert respuesta.status_code == 404

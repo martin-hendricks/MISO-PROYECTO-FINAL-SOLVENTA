@@ -37,6 +37,12 @@ class ClienteMsCotizacion(ClienteServicio):
     async def reconsultar(self, cotizacion_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/cotizaciones/{cotizacion_id}")
 
+    async def reconsultar_por_oferta(self, oferta_id: UUID) -> dict[str, Any]:
+        """Resuelve el producto real de una oferta ya emitida -- ms-polizas
+        solo guarda oferta_id, no cotizacion_id (ver billetera()/detalle() en
+        routers/cliente.py)."""
+        return await self._pedir("GET", f"/v1/cotizaciones/por-oferta/{oferta_id}")
+
     async def aceptar_oferta(
         self,
         cotizacion_id: str,

@@ -28,9 +28,13 @@ ACEPTACION_SALIDA = {
     "moneda": "COP",
     "aceptada_en": "2026-10-01T00:00:00Z",
     "suscripcion_id": "44444444-4444-4444-4444-444444444444",
-    "decision": "aprobada",
+    # Valores reales del enum Decision de ms-suscripcion (ver
+    # apps/backend/ms-suscripcion/app/domain/modelos.py): ACEPTADA/RECHAZADA.
+    "decision": "ACEPTADA",
     "motivo": "riesgo_aceptable",
 }
+
+ACEPTACION_RECHAZADA = {**ACEPTACION_SALIDA, "decision": "RECHAZADA", "motivo": "score_fuera_de_apetito"}
 
 PAGO_SALIDA = {
     "id": PAGO_ID,
@@ -132,6 +136,9 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
         201, json=ACEPTACION_SALIDA
     )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
 
@@ -143,8 +150,10 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
 
     assert response.status_code == 200
     body = response.json()
-    assert body["numero"] == "POL-88219-CO"
-    assert body["estado"] == "vigente"
+    assert body["resultado"] == "EMITIDA"
+    assert body["poliza"]["numero"] == "POL-88219-CO"
+    assert body["poliza"]["estado"] == "vigente"
+    assert body["poliza"]["ramo"] == COTIZACION_SALIDA["producto"]
 
     pago_enviado = nucleo_pagos.peticiones[-1]
     assert pago_enviado is not None
@@ -152,6 +161,25 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     import json as _json
 
     assert _json.loads(poliza_enviada.read())["token_pago_confirmado"] == PAGO_ID
+
+
+def test_emision_cuando_decision_es_rechazada_no_cobra_ni_emite(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_RECHAZADA
+    )
+
+    response = client.post(
+        "/v1/cliente/polizas",
+        headers=_auth(client),
+        json={"cotizacionId": COTIZACION_ID},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"resultado": "RECHAZADA", "motivo": ACEPTACION_RECHAZADA["motivo"]}
+    assert nucleo_pagos.peticiones == []
+    assert nucleo_polizas.peticiones == []
 
 
 def test_emision_cuando_pago_falla_no_llama_a_polizas(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
@@ -191,9 +219,12 @@ def test_emision_rechazo_de_aceptacion_se_propaga(client, nucleo_cotizacion, nuc
     assert nucleo_polizas.peticiones == []
 
 
-def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas):
+def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas, nucleo_cotizacion):
     nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
         200, json=[POLIZA_SALIDA]
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-oferta/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
     )
 
     respuesta = client.get("/v1/cliente/polizas", headers=_auth(client))
@@ -204,10 +235,28 @@ def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas):
     assert polizas[0]["numero"] == "POL-88219-CO"
     assert polizas[0]["estado"] == "vigente"
     assert polizas[0]["venceEn"] == "2027-10-01T00:00:00Z"
+    assert polizas[0]["ramo"] == COTIZACION_SALIDA["producto"]
     assert "cobertura-base" in polizas[0]["resumen"]
 
     peticion = nucleo_polizas.peticiones[-1]
     assert peticion.url.params["limite"] == "20"
+
+
+def test_billetera_degrada_a_placeholder_si_ms_cotizacion_no_responde(client, nucleo_polizas, nucleo_cotizacion):
+    """Si la reconsulta del producto falla (servicio caído o la cotización ya
+    no existe), la póliza se devuelve igual con el placeholder de ramo: el
+    dato de presentación no debe bloquear ver la póliza."""
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
+        200, json=[POLIZA_SALIDA]
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-oferta/{OFERTA_ID}")] = lambda _: httpx.Response(
+        503
+    )
+
+    respuesta = client.get("/v1/cliente/polizas", headers=_auth(client))
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["polizas"][0]["ramo"] == "Sin clasificar"
 
 
 def test_billetera_servicio_no_disponible_es_503(client, nucleo_polizas):
@@ -221,9 +270,12 @@ def test_billetera_servicio_no_disponible_es_503(client, nucleo_polizas):
     assert respuesta.status_code == 503
 
 
-def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas):
+def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas, nucleo_cotizacion):
     nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
         200, json=POLIZA_SALIDA
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-oferta/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
     )
 
     respuesta = client.get("/v1/cliente/polizas/POL-88219-CO", headers=_auth(client))
@@ -231,6 +283,7 @@ def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas):
     assert respuesta.status_code == 200
     detalle = respuesta.json()
     assert detalle["numero"] == "POL-88219-CO"
+    assert detalle["ramo"] == COTIZACION_SALIDA["producto"]
     assert detalle["queHacer"]
 
 

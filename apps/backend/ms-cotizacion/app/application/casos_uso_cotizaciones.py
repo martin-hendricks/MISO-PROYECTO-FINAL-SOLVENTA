@@ -182,6 +182,21 @@ async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
 
 
+async def reconsultar_oferta_por_id(uow: FabricaUnidadDeTrabajo, oferta_id: UUID) -> ReconsultaOferta:
+    """Igual que reconsultar_oferta, pero busca por el id de la Oferta en vez
+    de por el id de la SolicitudCotizacion ("cotizacion_id"). ms-polizas solo
+    guarda oferta_id (no cotizacion_id) en la póliza emitida -- este camino
+    es lo que permite al BFF resolver el producto real de una póliza ya
+    emitida a partir de ese único dato (ver GET /v1/cotizaciones/por-oferta/
+    {oferta_id})."""
+    async with uow() as tx:
+        oferta = await tx.ofertas.obtener(oferta_id)
+        solicitud = await tx.solicitudes.obtener(oferta.solicitud_id) if oferta is not None else None
+    if oferta is None or solicitud is None:
+        raise NoEncontrado(f"Oferta {oferta_id} no existe")
+    return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
+
+
 @dataclass(frozen=True)
 class Aceptacion:
     solicitud: SolicitudCotizacion
