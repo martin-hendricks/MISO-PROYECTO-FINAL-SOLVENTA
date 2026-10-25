@@ -9,10 +9,14 @@
 #   docker compose down -v   (-v: también borra los volúmenes de datos)
 #
 # Puertos expuestos al host (para pegarle desde curl/Postman):
-#   8000 ms-cotizacion   8001 ms-suscripcion   8002 ms-pagos
+#   8000 bff-web         8001 ms-suscripcion   8002 ms-pagos
 #   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
-#   8006 api-socios      8007 bff-web          8010 ms-identidad
-#   (8008/8009 reservados, sin usar todavia)
+#   8006 api-socios      8009 ms-cotizacion    8010 ms-identidad
+#
+# bff-web queda en :8000 a propósito: apps/web/proxy.conf.json (el dev
+# server de Angular, "pnpm start") reenvía /web -> http://localhost:8000/v1
+# -- ver apps/web/src/app/core/api/api-base-url.ts. Si corres el frontend en
+# local contra este compose, no cambies ese mapeo.
 
 services:
   db-cotizacion:
@@ -124,7 +128,7 @@ services:
       # ms-suscripcion escucha en :8080) -- se sobreescribe aquí explícito.
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
     ports:
-      - "8000:8000"
+      - "8009:8000"
     depends_on:
       db-cotizacion:
         condition: service_healthy
@@ -239,7 +243,7 @@ services:
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       MS_IDENTIDAD_URL: http://ms-identidad:8080
     ports:
-      - "8007:8000"
+      - "8000:8000"
     depends_on:
       - ms-cotizacion
       - ms-pagos
