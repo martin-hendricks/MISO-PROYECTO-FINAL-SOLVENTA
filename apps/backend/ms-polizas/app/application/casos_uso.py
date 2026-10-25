@@ -7,6 +7,7 @@ from uuid import UUID
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import (
     Cobertura,
+    ConstanciaFirma,
     Poliza,
     numero_de_poliza,
     poliza_cancelada,
@@ -14,6 +15,7 @@ from app.domain.modelos import (
     poliza_modificada,
     poliza_renovada,
 )
+from app.ports.firma import FirmaElectronica
 from app.ports.persistencia import FabricaUnidadDeTrabajo, PolizaYaEmitida
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
 
@@ -41,6 +43,7 @@ async def emitir_poliza(
     uow: FabricaUnidadDeTrabajo,
     suscripciones: VerificadorSuscripcion,
     cobros: VerificadorCobro,
+    firma: FirmaElectronica,
     solicitud: SolicitudEmision,
 ) -> Emision:
     # Reintentar sobre la misma oferta devuelve la póliza ya emitida, sin volver a validar ni numerar.
@@ -56,10 +59,30 @@ async def emitir_poliza(
     if not await cobros.exitoso(solicitud.oferta_id, solicitud.token_pago_confirmado):
         raise ReglaDeNegocioViolada("cobro_no_exitoso", "La póliza solo se emite con el cobro de la prima exitoso")
 
+    # HU-17: la constancia de firma se persiste siempre. Si la firma falla se
+    # confirma sola y no se emite; si es exitosa viaja en la misma transacción
+    # que la póliza, que guarda su hash.
+    resultado = await firma.firmar(solicitud.oferta_id)
+    constancia = ConstanciaFirma(
+        oferta_id=solicitud.oferta_id,
+        exitosa=resultado.exitosa,
+        firmada_en=datetime.now(UTC),
+        motivo=resultado.motivo,
+        firma_hash=resultado.firma_hash,
+    )
+    if not resultado.exitosa:
+        async with uow() as tx:
+            await tx.firmas.agregar(constancia)
+            await tx.confirmar()
+        raise ReglaDeNegocioViolada("firma_no_exitosa", f"La firma electrónica no fue exitosa: {resultado.motivo}")
+
     async with uow() as tx:
         hoy = _hoy()
         numero = numero_de_poliza(hoy.year, await tx.polizas.siguiente_secuencia())
-        poliza = Poliza.emitir(solicitud.oferta_id, solicitud.usuario_id, numero, solicitud.coberturas, hoy)
+        poliza = Poliza.emitir(
+            solicitud.oferta_id, solicitud.usuario_id, numero, solicitud.coberturas, hoy, resultado.firma_hash
+        )
+        await tx.firmas.agregar(constancia)
         await tx.polizas.agregar(poliza)
         await tx.outbox.agregar(poliza_emitida(poliza))
         try:
@@ -73,6 +96,14 @@ async def emitir_poliza(
     if ganadora is None:
         raise RuntimeError("Oferta duplicada sin póliza visible")
     return Emision(ganadora, creada=False)
+
+
+async def consultar_firma(uow: FabricaUnidadDeTrabajo, oferta_id: UUID) -> ConstanciaFirma:
+    async with uow() as tx:
+        constancia = await tx.firmas.ultima_por_oferta(oferta_id)
+    if constancia is None:
+        raise NoEncontrado(f"La oferta {oferta_id} no tiene constancia de firma")
+    return constancia
 
 
 async def consultar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> Poliza:

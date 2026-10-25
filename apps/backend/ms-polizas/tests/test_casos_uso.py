@@ -8,15 +8,15 @@ from app.application import casos_uso
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import Cobertura, EstadoPoliza, Poliza
 
-from .dobles import coberturas, solicitud
+from .dobles import FirmaFalsa, coberturas, solicitud
 
 
-async def test_emision_tras_cobro_exitoso(uow, almacen, suscripciones, cobros):
+async def test_emision_tras_cobro_exitoso(uow, almacen, suscripciones, cobros, firma):
     # Dado una suscripción aceptada con el cobro de prima exitoso
     pedido = solicitud()
 
     # Cuando el núcleo emite la póliza
-    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, pedido)
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
 
     # Entonces la póliza tiene número único, vigencia, coberturas y estado vigente
     poliza = emision.poliza
@@ -31,13 +31,13 @@ async def test_emision_tras_cobro_exitoso(uow, almacen, suscripciones, cobros):
     assert (await casos_uso.consultar_poliza(uow, poliza.id)).numero == poliza.numero
 
 
-async def test_reintento_no_duplica_la_poliza(uow, almacen, suscripciones, cobros):
+async def test_reintento_no_duplica_la_poliza(uow, almacen, suscripciones, cobros, firma):
     # Dado una póliza ya emitida para esa oferta aceptada
     pedido = solicitud()
-    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, pedido)
+    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
 
     # Cuando se reintenta la emisión
-    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, pedido)
+    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
 
     # Entonces no se genera una segunda póliza ni un nuevo número
     assert not segunda.creada
@@ -48,50 +48,50 @@ async def test_reintento_no_duplica_la_poliza(uow, almacen, suscripciones, cobro
     assert (segunda.poliza.id, segunda.poliza.numero) == (primera.poliza.id, primera.poliza.numero)
 
 
-async def test_ofertas_distintas_reciben_numeros_distintos(uow, suscripciones, cobros):
-    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
-    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+async def test_ofertas_distintas_reciben_numeros_distintos(uow, suscripciones, cobros, firma):
+    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
+    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
 
     assert primera.poliza.numero != segunda.poliza.numero
 
 
-async def test_sin_suscripcion_aceptada_no_se_emite(uow, almacen, suscripciones, cobros):
+async def test_sin_suscripcion_aceptada_no_se_emite(uow, almacen, suscripciones, cobros, firma):
     suscripciones.respuesta = False
 
     with pytest.raises(ReglaDeNegocioViolada) as error:
-        await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
 
     assert error.value.codigo == "suscripcion_no_aceptada"
     assert almacen.polizas == {} and almacen.secuencia == 0
 
 
-async def test_sin_cobro_exitoso_no_se_emite(uow, almacen, suscripciones, cobros):
+async def test_sin_cobro_exitoso_no_se_emite(uow, almacen, suscripciones, cobros, firma):
     cobros.respuesta = False
 
     with pytest.raises(ReglaDeNegocioViolada) as error:
-        await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
 
     assert error.value.codigo == "cobro_no_exitoso"
     assert almacen.polizas == {} and almacen.secuencia == 0
 
 
-async def test_emision_concurrente_devuelve_la_poliza_ganadora(uow, almacen, suscripciones, cobros):
+async def test_emision_concurrente_devuelve_la_poliza_ganadora(uow, almacen, suscripciones, cobros, firma):
     pedido = solicitud()
     ganadora = Poliza.emitir(pedido.oferta_id, pedido.usuario_id, "POL-2026-00000099", coberturas(), pedido_hoy())
     almacen.chocar_en_proximo_commit = ganadora
 
-    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, pedido)
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
 
     assert not emision.creada
     assert emision.poliza.numero == "POL-2026-00000099"
     assert almacen.eventos == []
 
 
-async def test_choque_sin_ganadora_visible_falla(uow, almacen, suscripciones, cobros):
+async def test_choque_sin_ganadora_visible_falla(uow, almacen, suscripciones, cobros, firma):
     almacen.chocar_en_proximo_commit = Poliza.emitir(uuid4(), uuid4(), "POL-X", coberturas(), pedido_hoy())
 
     with pytest.raises(RuntimeError, match="sin póliza visible"):
-        await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
 
 
 async def test_consultar_poliza_inexistente(uow):
@@ -99,8 +99,8 @@ async def test_consultar_poliza_inexistente(uow):
         await casos_uso.consultar_poliza(uow, uuid4())
 
 
-async def test_consultar_poliza_por_numero(uow, suscripciones, cobros):
-    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+async def test_consultar_poliza_por_numero(uow, suscripciones, cobros, firma):
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
 
     encontrada = await casos_uso.consultar_poliza_por_numero(uow, emision.poliza.numero)
 
@@ -112,10 +112,10 @@ async def test_consultar_poliza_por_numero_inexistente(uow):
         await casos_uso.consultar_poliza_por_numero(uow, "POL-2026-99999999")
 
 
-async def test_listar_polizas_de_usuario_ordena_por_inicio_de_vigencia_descendente(uow, suscripciones, cobros):
+async def test_listar_polizas_de_usuario_ordena_por_inicio_de_vigencia_descendente(uow, suscripciones, cobros, firma):
     usuario_id = uuid4()
-    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
-    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
+    primera = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud_de(usuario_id))
+    segunda = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud_de(usuario_id))
 
     # Ambas pólizas se emiten "hoy": fuerzo que la primera quede con una
     # vigencia anterior para verificar el orden descendente sin depender del
@@ -132,17 +132,17 @@ async def test_listar_polizas_de_usuario_ordena_por_inicio_de_vigencia_descenden
     assert [p.id for p in listado] == [segunda.poliza.id, primera.poliza.id]
 
 
-async def test_listar_polizas_de_usuario_respeta_el_limite(uow, suscripciones, cobros):
+async def test_listar_polizas_de_usuario_respeta_el_limite(uow, suscripciones, cobros, firma):
     usuario_id = uuid4()
     for _ in range(3):
-        await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud_de(usuario_id))
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud_de(usuario_id))
 
     listado = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite=2)
 
     assert len(listado) == 2
 
 
-async def test_listar_polizas_de_usuario_sin_polizas_devuelve_vacio(uow):
+async def test_listar_polizas_de_usuario_sin_polizas_devuelve_vacio(uow, firma):
     assert await casos_uso.listar_polizas_de_usuario(uow, uuid4(), limite=10) == []
 
 
@@ -162,7 +162,7 @@ def pedido_hoy():
 
 
 async def _emitida(uow, suscripciones, cobros) -> Poliza:
-    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud())
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, FirmaFalsa(), solicitud())
     return emision.poliza
 
 
@@ -259,3 +259,77 @@ async def test_cancelar_poliza_dos_veces_lanza_transicion_invalida(uow, suscripc
 
     with pytest.raises(TransicionInvalida):
         await casos_uso.cancelar_poliza(uow, poliza.id, "Otro motivo")
+
+
+async def test_firma_exitosa_persiste_constancia_y_emite_la_poliza(uow, almacen, suscripciones, cobros, firma):
+    # Dado una suscripción aceptada en proceso de emisión
+    pedido = solicitud()
+
+    # Cuando el stub de firma responde ok
+    emision = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+
+    # Entonces la constancia queda persistida con su marca de tiempo
+    [constancia] = almacen.constancias
+    assert constancia.oferta_id == pedido.oferta_id
+    assert constancia.exitosa and constancia.motivo is None
+    assert constancia.firmada_en.tzinfo is not None
+    # Y el flujo continúa hacia la emisión de la póliza, que lleva el hash de la firma
+    assert emision.creada
+    assert emision.poliza.firma_hash == constancia.firma_hash == f"hash-{pedido.oferta_id}"
+    assert [e.tipo for e in almacen.eventos] == ["PolizaEmitida"]
+
+
+async def test_firma_no_exitosa_no_emite_y_deja_el_motivo(uow, almacen, suscripciones, cobros, firma):
+    # Dado una suscripción aceptada en proceso de emisión
+    firma.exitosa = False
+    pedido = solicitud()
+
+    # Cuando el stub de firma responde no
+    with pytest.raises(ReglaDeNegocioViolada) as error:
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+
+    # Entonces no se emite póliza
+    assert error.value.codigo == "firma_no_exitosa"
+    assert almacen.polizas == {} and almacen.secuencia == 0 and almacen.eventos == []
+    # Y el estado refleja el motivo de la firma fallida
+    assert "Firma rechazada por el firmante" in error.value.mensaje
+    [constancia] = almacen.constancias
+    assert not constancia.exitosa and constancia.motivo == "Firma rechazada por el firmante"
+    assert constancia.firma_hash is None
+
+
+async def test_sin_cobro_exitoso_no_se_firma(uow, almacen, suscripciones, cobros, firma):
+    cobros.respuesta = False
+
+    with pytest.raises(ReglaDeNegocioViolada):
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud())
+
+    assert firma.firmadas == [] and almacen.constancias == []
+
+
+async def test_reintento_de_emision_no_vuelve_a_firmar(uow, almacen, suscripciones, cobros, firma):
+    pedido = solicitud()
+    await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+
+    await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+
+    assert firma.firmadas == [pedido.oferta_id]
+    assert len(almacen.constancias) == 1
+
+
+async def test_consultar_firma_devuelve_la_ultima_constancia_de_la_oferta(uow, suscripciones, cobros, firma):
+    pedido = solicitud()
+    firma.exitosa = False
+    with pytest.raises(ReglaDeNegocioViolada):
+        await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+    firma.exitosa = True
+    await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, pedido)
+
+    constancia = await casos_uso.consultar_firma(uow, pedido.oferta_id)
+
+    assert constancia.exitosa
+
+
+async def test_consultar_firma_sin_constancia(uow):
+    with pytest.raises(NoEncontrado):
+        await casos_uso.consultar_firma(uow, uuid4())

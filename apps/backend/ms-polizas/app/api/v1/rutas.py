@@ -4,12 +4,20 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.application import casos_uso
-from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow, obtener_uow_lectura
+from app.dependencies import (
+    obtener_cobros,
+    obtener_firma,
+    obtener_suscripciones,
+    obtener_uow,
+    obtener_uow_lectura,
+)
+from app.ports.firma import FirmaElectronica
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
 
 from .schemas import (
     CancelarPolizaEntrada,
+    ConstanciaFirmaSalida,
     EmitirPolizaEntrada,
     ErrorSalida,
     ModificarCoberturasEntrada,
@@ -24,13 +32,19 @@ Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
 UowLectura = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow_lectura)]
 Suscripciones = Annotated[VerificadorSuscripcion, Depends(obtener_suscripciones)]
 Cobros = Annotated[VerificadorCobro, Depends(obtener_cobros)]
+Firma = Annotated[FirmaElectronica, Depends(obtener_firma)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}, 503: {"model": ErrorSalida}}
 ERRORES_CICLO_VIDA = {**ERRORES, 409: {"model": ErrorSalida}}
 
 
 @router.post("", response_model=PolizaSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
 async def emitir(
-    entrada: EmitirPolizaEntrada, response: Response, uow: Uow, suscripciones: Suscripciones, cobros: Cobros
+    entrada: EmitirPolizaEntrada,
+    response: Response,
+    uow: Uow,
+    suscripciones: Suscripciones,
+    cobros: Cobros,
+    firma: Firma,
 ):
     solicitud = casos_uso.SolicitudEmision(
         solicitud_id=entrada.solicitud_id,
@@ -39,7 +53,7 @@ async def emitir(
         token_pago_confirmado=entrada.token_pago_confirmado,
         coberturas=[c.a_dominio() for c in entrada.coberturas],
     )
-    resultado = await casos_uso.emitir_poliza(uow, suscripciones, cobros, solicitud)
+    resultado = await casos_uso.emitir_poliza(uow, suscripciones, cobros, firma, solicitud)
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return PolizaSalida.desde(resultado.poliza)
@@ -59,6 +73,14 @@ async def listar(uow: UowLectura, usuario_id: UUID, limite: Annotated[int, Query
 @router.get("/numero/{numero}", response_model=PolizaSalida, responses=ERRORES)
 async def consultar_por_numero(numero: str, uow: UowLectura):
     return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero))
+
+
+# Igual que "/numero/": el prefijo literal "/firmas/" va antes de "/{poliza_id}".
+# Lee del writer, no de la réplica: el flujo consulta la firma justo después
+# de emitir y no debe ver un estado atrasado (HU-17).
+@router.get("/firmas/{oferta_id}", response_model=ConstanciaFirmaSalida, responses=ERRORES)
+async def consultar_firma(oferta_id: UUID, uow: Uow):
+    return ConstanciaFirmaSalida.desde(await casos_uso.consultar_firma(uow, oferta_id))
 
 
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)

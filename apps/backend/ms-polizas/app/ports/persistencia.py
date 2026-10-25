@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Protocol
 from uuid import UUID
 
-from app.domain.modelos import EventoDominio, Poliza
+from app.domain.modelos import ConstanciaFirma, EventoDominio, Poliza
 
 
 class PolizaYaEmitida(Exception):
@@ -27,12 +27,19 @@ class RepositorioPolizas(Protocol):
     async def actualizar(self, poliza: Poliza) -> None: ...
 
 
+class RepositorioFirmas(Protocol):
+    async def agregar(self, constancia: ConstanciaFirma) -> None: ...
+
+    async def ultima_por_oferta(self, oferta_id: UUID) -> ConstanciaFirma | None: ...
+
+
 class Outbox(Protocol):
     async def agregar(self, evento: EventoDominio) -> None: ...
 
 
 class UnidadDeTrabajo(Protocol):
     polizas: RepositorioPolizas
+    firmas: RepositorioFirmas
     outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...

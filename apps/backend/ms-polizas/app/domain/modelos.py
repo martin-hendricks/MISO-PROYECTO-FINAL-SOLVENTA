@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
@@ -72,6 +72,7 @@ class Poliza:
     coberturas: tuple[Cobertura, ...]
     motivo_cancelacion: str | None = None
     cancelada_en: date | None = None
+    firma_hash: str | None = None
 
     @classmethod
     def emitir(
@@ -81,6 +82,7 @@ class Poliza:
         numero: str,
         coberturas: list[Cobertura],
         hoy: date,
+        firma_hash: str | None = None,
     ) -> Poliza:
         _validar_coberturas(coberturas)
         return cls(
@@ -92,6 +94,7 @@ class Poliza:
             fin_vigencia=_un_anio_despues(hoy),
             estado=EstadoPoliza.VIGENTE,
             coberturas=tuple(coberturas),
+            firma_hash=firma_hash,
         )
 
     def _exigir_vigente(self) -> None:
@@ -128,6 +131,20 @@ class Poliza:
         self.estado = EstadoPoliza.CANCELADA
         self.motivo_cancelacion = motivo.strip()
         self.cancelada_en = hoy
+
+
+@dataclass(frozen=True)
+class ConstanciaFirma:
+    """HU-17: registro auditable del resultado de la firma de una oferta,
+    exitosa o no. Una oferta puede acumular varias (un rechazo y un reintento);
+    la vigente es la más reciente."""
+
+    oferta_id: UUID
+    exitosa: bool
+    firmada_en: datetime
+    motivo: str | None = None
+    firma_hash: str | None = None
+    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(frozen=True)
