@@ -15,6 +15,7 @@
 #     arn:aws:s3:::solventa-*-spa-*
 #   - cloudfront:CreateInvalidation
 #
+#
 # apps/web/src/app/core/api/api-base-url.ts expone un InjectionToken con un
 # valor fijo ('/web', pensado para un bff-web que hoy no está desplegado).
 # Este workflow reemplaza ese valor por la URL real del API Gateway antes
@@ -114,11 +115,16 @@ jobs:
       # para este único valor. El API Gateway cambia de URL en cada
       # terraform destroy/apply (el ID es aleatorio), así que este valor
       # nunca puede quedar commiteado -- siempre se resuelve en build time.
+      # bff-web versiona sus rutas bajo /v1 y el API Gateway solo enruta
+      # /v1/..., así que la versión va en la URL base, igual que el proxy
+      # local reescribe /web -> /v1 (proxy.conf.json).
       - name: Inyectar la URL del API Gateway en el build
         run: |
-          sed -i "s#factory: () => '/web'#factory: () => '${{ steps.resolve.outputs.api_url }}'#" \
+          sed -i "s#factory: () => '/web'#factory: () => '${{ steps.resolve.outputs.api_url }}/v1'#" \
             src/app/core/api/api-base-url.ts
           grep -n "factory:" src/app/core/api/api-base-url.ts
+          # Falla si el patrón dejó de coincidir: sin esto el build saldría con '/web'.
+          grep -q "factory: () => '${{ steps.resolve.outputs.api_url }}/v1'" src/app/core/api/api-base-url.ts
 
       - name: Build de producción
         run: pnpm build
