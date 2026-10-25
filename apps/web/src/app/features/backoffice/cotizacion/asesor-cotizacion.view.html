@@ -1,0 +1,155 @@
+<section
+  data-testid="asesor-cotizacion"
+  [attr.data-state]="allowed ? vm.form.status() : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.cotizacion.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <a class="back" routerLink="/cms/cotizaciones" data-testid="cotizacion-back">
+      <span aria-hidden="true">←</span>
+      {{ 'backoffice.cotizaciones.title' | translate }}
+    </a>
+    <h1>{{ 'backoffice.cotizacion.title' | translate }}</h1>
+
+    <div class="columns">
+      <form class="form" novalidate (submit)="submit($event)">
+        <fieldset>
+          <legend>{{ 'backoffice.cotizacion.cliente' | translate }}</legend>
+          @for (campo of campos; track campo) {
+            @let issue = vm.issue(campo);
+            <div class="field">
+              <label [for]="'asesor-' + campo">{{
+                'backoffice.cotizacion.campo.' + campo | translate
+              }}</label>
+              <input
+                #field
+                [id]="'asesor-' + campo"
+                [attr.data-testid]="'cliente-' + campo"
+                [attr.inputmode]="campo === 'documento' ? 'numeric' : null"
+                [value]="vm[campo]()"
+                [attr.aria-invalid]="issue ? 'true' : null"
+                (input)="vm.edit(campo, field.value)"
+                (blur)="vm.touch(campo)"
+              />
+              @if (issue) {
+                <p class="field-error" [attr.data-testid]="'cliente-' + campo + '-error'">
+                  {{ 'backoffice.cotizacion.error.' + campo + '.' + issue | translate }}
+                </p>
+              }
+            </div>
+          }
+          <div class="field">
+            <label for="asesor-producto">{{ 'cotizacion.campo.producto' | translate }}</label>
+            <input id="asesor-producto" data-testid="cotizacion-producto" readonly [value]="ramo" />
+          </div>
+          <div class="field">
+            <label for="asesor-vigencia">{{
+              'backoffice.cotizacion.campo.vigencia' | translate
+            }}</label>
+            <input
+              id="asesor-vigencia"
+              readonly
+              [value]="'backoffice.cotizacion.vigencia' | translate"
+            />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
+          @let placaIssue = vm.issue('placa');
+          <div class="field">
+            <label for="asesor-placa">{{ 'backoffice.cotizacion.campo.placa' | translate }}</label>
+            <input
+              #placa
+              id="asesor-placa"
+              data-testid="riesgo-placa"
+              autocomplete="off"
+              [value]="vm.placa()"
+              [attr.aria-invalid]="placaIssue ? 'true' : null"
+              (input)="vm.edit('placa', placa.value)"
+              (blur)="vm.touch('placa')"
+            />
+            @if (placaIssue) {
+              <p class="field-error" data-testid="riesgo-placa-error">
+                {{ 'backoffice.cotizacion.error.placa.' + placaIssue | translate }}
+              </p>
+            }
+          </div>
+          <sv-riesgo-fields [vm]="vm.form" prefix="asesor" />
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="filled" data-testid="calcular" [disabled]="!vm.canQuote()">
+            {{ 'backoffice.cotizacion.calcular' | translate }}
+          </button>
+        </div>
+      </form>
+
+      <aside class="offer" aria-live="polite" data-testid="panel-oferta">
+        @if (vm.form.oferta(); as oferta) {
+          <p class="label">{{ 'backoffice.cotizacion.oferta.title' | translate }}</p>
+          <p class="mono premium" data-testid="oferta-prima">
+            {{ oferta.prima | svMoney: oferta.moneda }}
+          </p>
+          <dl>
+            @if (oferta.primaNeta !== undefined) {
+              <dt>{{ 'backoffice.emision.resumen.primaNeta' | translate }}</dt>
+              <dd class="mono" data-testid="oferta-prima-neta">
+                {{ oferta.primaNeta | svMoney: oferta.moneda }}
+              </dd>
+            }
+            @if (oferta.expedicion !== undefined) {
+              <dt>{{ 'backoffice.emision.resumen.expedicion' | translate }}</dt>
+              <dd class="mono" data-testid="oferta-expedicion">
+                {{ oferta.expedicion | svMoney: oferta.moneda }}
+              </dd>
+            }
+            <dt>{{ 'backoffice.cotizacion.campo.vigencia' | translate }}</dt>
+            <dd>{{ 'backoffice.cotizacion.vigencia' | translate }}</dd>
+            <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>
+            <dd data-testid="oferta-vence">{{ oferta.venceEn | svDateTime }}</dd>
+            <dt>{{ 'backoffice.cotizacion.oferta.id' | translate }}</dt>
+            <dd class="mono" data-testid="oferta-id">{{ oferta.cotizacionId }}</dd>
+          </dl>
+          @if (vm.canContinue()) {
+            <a
+              class="filled"
+              data-testid="continuar-emision"
+              [routerLink]="['/cms/cotizaciones', oferta.cotizacionId, 'emision']"
+              [queryParams]="{ cliente: vm.documento() }"
+              >{{ 'backoffice.cotizacion.continuar' | translate }}</a
+            >
+          } @else {
+            <p class="banner" role="alert" data-testid="oferta-vencida">
+              {{ 'cotizacion.oferta.vencida' | translate }}
+            </p>
+          }
+        } @else {
+          @switch (vm.form.status()) {
+            @case ('quoting') {
+              <p class="label" role="status" data-testid="oferta-calculando">
+                {{ 'backoffice.cotizacion.oferta.calculando' | translate }}
+              </p>
+            }
+            @case ('rejected') {
+              <p class="banner" role="alert" data-testid="cotizacion-rechazo">
+                {{ vm.form.rechazo()!.mensaje }}
+              </p>
+            }
+            @case ('error') {
+              <p class="banner" role="alert" data-testid="cotizacion-error">
+                {{ 'cotizacion.error.servicio' | translate }}
+              </p>
+            }
+          }
+          <div class="empty" data-testid="sin-oferta">
+            <p class="label">{{ 'backoffice.cotizacion.oferta.sinOferta' | translate }}</p>
+            <p class="hint">{{ 'backoffice.cotizacion.oferta.sinOfertaBody' | translate }}</p>
+          </div>
+        }
+      </aside>
+    </div>
+  }
+</section>

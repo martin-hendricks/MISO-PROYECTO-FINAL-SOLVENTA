@@ -66,6 +66,13 @@ export const routes: Routes = [
       },
       section('cotizaciones'),
       {
+        path: 'cotizaciones/nueva',
+        loadComponent: () =>
+          import('./features/backoffice/cotizacion/asesor-cotizacion.view').then(
+            (m) => m.AsesorCotizacionView,
+          ),
+      },
+      {
         path: 'cotizaciones/:cotizacionId/emision',
         loadComponent: () =>
           import('./features/backoffice/emision/asesor-emision.view').then(

@@ -8,6 +8,11 @@
     <div class="empty-state" data-testid="section-pending">
       <h2>{{ 'backoffice.pending.title' | translate }}</h2>
       <p>{{ 'backoffice.pending.body' | translate }}</p>
+      @if (section === 'cotizaciones') {
+        <a class="filled" routerLink="/cms/cotizaciones/nueva" data-testid="nueva-cotizacion">{{
+          'backoffice.cotizacion.nueva' | translate
+        }}</a>
+      }
     </div>
   } @else {
     <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
