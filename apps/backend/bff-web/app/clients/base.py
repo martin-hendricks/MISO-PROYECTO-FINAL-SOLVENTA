@@ -57,7 +57,7 @@ class ClienteServicio:
 
         if respuesta.status_code == 404:
             raise RecursoNoEncontrado(ruta)
-        if respuesta.status_code in (409, 422):
+        if respuesta.status_code in (401, 409, 422):
             cuerpo = _json_o_vacio(respuesta)
             raise RechazoDelNucleo(
                 respuesta.status_code,

@@ -1,9 +1,10 @@
 from datetime import datetime
 
+import httpx
 import jwt
 import pytest
 
-from app.routers.registro import POLITICA_VERSION
+from app.routers.registro import POLITICA_VERSION, TIPO_DOCUMENTO_DEFECTO
 
 BODY = {
     "nombre": "Camila",
@@ -49,3 +50,24 @@ def test_alta_sin_consentimiento_se_rechaza(client):
 def test_alta_incompleta_se_rechaza(client, campo):
     body = {key: value for key, value in BODY.items() if key != campo}
     assert client.post("/v1/registro", json=body).status_code == 422
+
+
+def test_alta_envia_documento_y_correo_a_ms_identidad(client, nucleo_identidad):
+    client.post("/v1/registro", json=BODY)
+
+    peticion = nucleo_identidad.peticiones[-1]
+    assert (peticion.method, peticion.url.path) == ("POST", "/v1/usuarios")
+    cuerpo = peticion.read()
+    assert BODY["documento"].encode() in cuerpo
+    assert BODY["correo"].encode() in cuerpo
+    assert TIPO_DOCUMENTO_DEFECTO.encode() in cuerpo
+
+
+def test_alta_con_cuenta_ya_existente_en_ms_identidad_es_409(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        409, json={"codigo": "cuenta_duplicada", "mensaje": "La cuenta ya existe"}
+    )
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 409

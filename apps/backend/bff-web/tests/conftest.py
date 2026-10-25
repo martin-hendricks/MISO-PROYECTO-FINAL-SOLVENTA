@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.clients.ms_cotizacion import ClienteMsCotizacion
+from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_pagos import ClienteMsPagos
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.clients.ms_polizas import ClienteMsPolizas
@@ -15,6 +16,7 @@ from app.clients.ms_siniestros import ClienteMsSiniestros
 from app.clients.ms_suscripcion import ClienteMsSuscripcion
 from app.dependencies import (
     obtener_cliente_cotizacion,
+    obtener_cliente_identidad,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
@@ -83,6 +85,36 @@ def nucleo_suscripcion() -> NucleoSimulado:
 
 
 @pytest.fixture
+def nucleo_identidad() -> NucleoSimulado:
+    # A diferencia del default generico 404 de NucleoSimulado, alta y
+    # autenticacion exitosas son el caso feliz mas comun en los tests de
+    # registro.py/sesion.py -- cada test que necesite un rechazo (409/401)
+    # sobrescribe la respuesta explicitamente, igual que con los demas.
+    doble = NucleoSimulado()
+    doble.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        201,
+        json={
+            "usuario_id": "11111111-1111-1111-1111-111111111111",
+            "tipo_documento": "CC",
+            "numero_documento": "0",
+            "email": "sin-email@solventa.com",
+            "estado": "ACTIVO",
+        },
+    )
+    doble.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
+        200,
+        json={
+            "usuario_id": "11111111-1111-1111-1111-111111111111",
+            "tipo_documento": "CC",
+            "numero_documento": "0",
+            "email": "sin-email@solventa.com",
+            "estado": "ACTIVO",
+        },
+    )
+    return doble
+
+
+@pytest.fixture
 def client(
     nucleo_cotizacion,
     nucleo_pagos,
@@ -90,6 +122,7 @@ def client(
     nucleo_perfilamiento,
     nucleo_siniestros,
     nucleo_suscripcion,
+    nucleo_identidad,
 ) -> TestClient:
     http_cotizacion = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_cotizacion), base_url="http://ms-cotizacion")
     http_pagos = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_pagos), base_url="http://ms-pagos")
@@ -103,6 +136,9 @@ def client(
     http_suscripcion = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_suscripcion), base_url="http://ms-suscripcion"
     )
+    http_identidad = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_identidad), base_url="http://ms-identidad"
+    )
 
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http_cotizacion, "corr-test")
     app.dependency_overrides[obtener_cliente_pagos] = lambda: ClienteMsPagos(http_pagos, "corr-test")
@@ -114,6 +150,7 @@ def client(
     app.dependency_overrides[obtener_cliente_suscripcion] = lambda: ClienteMsSuscripcion(
         http_suscripcion, "corr-test"
     )
+    app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(http_identidad, "corr-test")
     try:
         with TestClient(app) as test_client:
             yield test_client

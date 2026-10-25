@@ -25,5 +25,9 @@ class Settings(BaseSettings):
     # suscripción sin pasar por la aceptación del canal cliente -- ver
     # app/clients/ms_suscripcion.py.
     ms_suscripcion_url: str = "http://localhost:8080"
+    # ms-identidad: alta de cuenta y validación de credenciales reales
+    # (SOLV-215). registro.py y sesion.py lo consultan antes de emitir el
+    # par de tokens con issue_pair -- ver app/clients/ms_identidad.py.
+    ms_identidad_url: str = "http://localhost:8080"
 
     timeout_nucleo_s: float = 2.0
