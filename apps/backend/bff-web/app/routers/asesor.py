@@ -114,6 +114,27 @@ async def catalogo(
 
 class ConsultarEmision(BaseModel):
     cotizacionId: str = Field(min_length=1)
+    clienteId: str | None = None
+
+
+def _pasos(aceptada: bool) -> list[dict]:
+    """Stepper del web: COTIZAR y OFERTA ya ocurrieron; EMISION queda como
+    paso actual si la suscripción aceptó, o en error si rechazó."""
+    return [
+        {"paso": "COTIZAR", "estado": "COMPLETADO"},
+        {"paso": "OFERTA", "estado": "COMPLETADO"},
+        {"paso": "EMISION", "estado": "ACTUAL" if aceptada else "ERROR"},
+        {"paso": "POLIZA", "estado": "PENDIENTE"},
+    ]
+
+
+def _cliente_salida(cliente_id: str | None) -> dict:
+    """Datos del cliente atendido. Sin ms-identidad se resuelve contra la
+    cartera de ejemplo; si no está, el id hace de nombre para no dejar vacío
+    el encabezado de la pantalla."""
+    cliente_id = cliente_id or ""
+    conocido = next((c for c in CLIENTES if c["clienteId"] == cliente_id), None)
+    return {"clienteId": cliente_id, "nombre": conocido["nombre"] if conocido else cliente_id}
 
 
 def _decision_salida(suscripcion: dict) -> dict:
@@ -184,9 +205,14 @@ async def consultar_emision(
         score=score_stub,
     )
 
+    decision = _decision_salida(suscripcion)
     return {
         "solicitudId": body.cotizacionId,
-        "decision": _decision_salida(suscripcion),
+        "cliente": _cliente_salida(body.clienteId),
+        "producto": cotizacion["producto"],
+        "referencia": body.cotizacionId,
+        "pasos": _pasos(decision["resultado"] == "ACEPTADA"),
+        "decision": decision,
         "oferta": _oferta_resumen(cotizacion),
     }
 
@@ -258,13 +284,25 @@ async def firmar_y_emitir(
     cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
     ramo = cotizacion.get("producto", "")
 
+    # La firma de HU-17 es un stub: firmar y emitir son el mismo instante.
+    inicio = poliza.get("inicio_vigencia", "")
     return {
         "resultado": "EMITIDA",
+        "pasos": [
+            {"paso": "COTIZAR", "estado": "COMPLETADO"},
+            {"paso": "OFERTA", "estado": "COMPLETADO"},
+            {"paso": "EMISION", "estado": "COMPLETADO"},
+            {"paso": "POLIZA", "estado": "COMPLETADO"},
+        ],
+        "firma": {"firmadaEn": inicio, "hash": poliza.get("hash_firma_legal") or ""},
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
+            "expedidaEn": inicio,
+            "inicioVigencia": inicio,
+            "finVigencia": poliza.get("fin_vigencia", ""),
         },
     }
 
