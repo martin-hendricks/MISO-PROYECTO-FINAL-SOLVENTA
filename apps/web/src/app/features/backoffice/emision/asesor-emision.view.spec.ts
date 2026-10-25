@@ -91,6 +91,7 @@ describe('AsesorEmisionView', () => {
     expect(resumen).toContain('16.500');
     expect(resumen).toContain('12');
     expect(element('emitir')).not.toBeNull();
+    expect(element('guardar-salir')?.getAttribute('href')).toBe('/cms/cotizaciones');
     expect(element('poliza-emitida')).toBeNull();
   });
 

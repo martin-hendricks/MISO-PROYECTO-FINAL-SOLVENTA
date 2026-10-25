@@ -141,6 +141,7 @@
         "meses": "{{meses}} meses"
       },
       "emitir": "Emitir póliza",
+      "guardarSalir": "Guardar y salir",
       "issuing": "Firmando y emitiendo la póliza…",
       "emitida": "Póliza {{numero}} emitida",
       "rechazo": {

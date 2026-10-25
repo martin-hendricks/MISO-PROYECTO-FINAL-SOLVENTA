@@ -70,6 +70,9 @@
                 <button type="button" class="filled" data-testid="emitir" (click)="vm.issue()">
                   {{ 'backoffice.emision.emitir' | translate }}
                 </button>
+                <a class="outlined" data-testid="guardar-salir" routerLink="/cms/cotizaciones">{{
+                  'backoffice.emision.guardarSalir' | translate
+                }}</a>
               </div>
             }
             @case ('issuing') {
