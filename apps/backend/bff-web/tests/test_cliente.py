@@ -81,6 +81,8 @@ def test_cotizacion_y_reconsulta(client, nucleo_cotizacion):
     assert offer["cotizacionId"] == COTIZACION_ID
     assert offer["moneda"] == "COP"
     assert offer["ramo"] == "Protección de dispositivo"
+    assert offer["primaNeta"] == "80000.00"
+    assert offer["expedicion"] == "9000.00"
 
     peticion = nucleo_cotizacion.peticiones[-1]
     assert peticion.headers["Idempotency-Key"]
@@ -384,6 +386,48 @@ def test_hipoteca_servicio_no_disponible_es_503(client, nucleo_perfilamiento):
         json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
     )
     assert response.status_code == 503
+
+
+PRODUCTO_SALIDA = {
+    "nombre": "Protección de dispositivo",
+    "moneda": "COP",
+    "coberturas": [
+        {"codigo": "ROBO", "nombre": "Robo", "limite": "5000000.00", "unidad_limite": "COP"},
+    ],
+    "datos_riesgo": [
+        {"nombre": "valorDispositivo", "tipo": "rango", "minimo": "500000", "maximo": "10000000"},
+        {"nombre": "marca", "tipo": "lista", "valores": ["samsung", "apple", "xiaomi"]},
+    ],
+}
+
+
+def test_catalogo_traduce_coberturas_y_datos_riesgo(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/proteccion-dispositivo")] = lambda _: httpx.Response(
+        200, json=PRODUCTO_SALIDA
+    )
+
+    response = client.get("/v1/cliente/catalogo/Protección de dispositivo", headers=_auth(client))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ramo"] == "Protección de dispositivo"
+    assert body["nombre"] == "Protección de dispositivo"
+    assert body["moneda"] == "COP"
+    assert body["coberturas"] == [
+        {"codigo": "ROBO", "nombre": "Robo", "limite": "5000000.00", "unidadLimite": "COP"},
+    ]
+    assert body["datosRiesgo"] == [
+        {"nombre": "valorDispositivo", "tipo": "rango", "minimo": "500000", "maximo": "10000000"},
+        {"nombre": "marca", "tipo": "lista", "valores": ["samsung", "apple", "xiaomi"]},
+    ]
+
+
+def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/ramo-inventado")] = lambda _: httpx.Response(
+        404, json={"codigo": "no_encontrado", "mensaje": "No existe"}
+    )
+
+    response = client.get("/v1/cliente/catalogo/ramo-inventado", headers=_auth(client))
+    assert response.status_code == 404
 
 
 def test_inicio(client):

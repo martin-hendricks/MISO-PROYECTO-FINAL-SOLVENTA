@@ -126,15 +126,66 @@ def _offer(cotizacion_id: str) -> dict:
 
 def _cotizacion_salida(datos: dict, ramo: str) -> dict:
     """Traduce la salida real de ms-cotizacion al shape que el canal web ya
-    espera, para no romper el contrato existente del frontend."""
+    espera, para no romper el contrato existente del frontend.
+
+    primaNeta/expedicion (SOLV-103): ms-cotizacion ya devuelve el desglose
+    completo (prima_neta, gastos_expedicion) desde HU-4/HU-6 -- antes este
+    traductor solo exponía el total "prima" y descartaba el desglose."""
     return {
         "cotizacionId": datos["cotizacion_id"],
         "ramo": ramo,
         "estado": datos["estado"],
         "prima": datos["prima"],
+        "primaNeta": datos["prima_neta"],
+        "expedicion": datos["gastos_expedicion"],
         "moneda": datos["moneda"],
         "venceEn": datos["vence_en"],
     }
+
+
+def _dato_riesgo_salida(dato: dict) -> dict:
+    """Traduce DatoRiesgoSalida (snake_case, ms-cotizacion) a camelCase
+    (convención del contrato de bff-web)."""
+    salida = {"nombre": dato["nombre"], "tipo": dato["tipo"]}
+    if dato["tipo"] == "rango":
+        salida["minimo"] = dato["minimo"]
+        salida["maximo"] = dato["maximo"]
+    else:
+        salida["valores"] = dato["valores"]
+    return salida
+
+
+def _catalogo_salida(producto: dict, ramo: str) -> dict:
+    """Traduce ProductoSalida (ms-cotizacion, HU-1/HU-2) al shape propuesto
+    para SOLV-245: el frontend bloquea "Continuar" con estos rangos antes de
+    cotizar, en vez de esperar al 422 de dato fuera de rango."""
+    return {
+        "ramo": ramo,
+        "nombre": producto["nombre"],
+        "moneda": producto["moneda"],
+        "coberturas": [
+            {
+                "codigo": c["codigo"],
+                "nombre": c["nombre"],
+                "limite": c["limite"],
+                "unidadLimite": c["unidad_limite"],
+            }
+            for c in producto["coberturas"]
+        ],
+        "datosRiesgo": [_dato_riesgo_salida(d) for d in producto["datos_riesgo"]],
+    }
+
+
+@router.get("/catalogo/{ramo}")
+async def catalogo(
+    ramo: str,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """SOLV-245: rangos válidos de los datos de riesgo de un ramo, para que
+    el frontend bloquee "Continuar" antes de cotizar (RecursoNoEncontrado ya
+    propaga 404 si el ramo no mapea a ningún producto real)."""
+    producto = await cliente_cotizacion.obtener_producto(_producto_de(ramo))
+    return _catalogo_salida(producto, ramo)
 
 
 @router.post("/cotizaciones")

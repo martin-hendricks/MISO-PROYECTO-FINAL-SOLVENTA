@@ -37,6 +37,13 @@ class ClienteMsCotizacion(ClienteServicio):
     async def reconsultar(self, cotizacion_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/cotizaciones/{cotizacion_id}")
 
+    async def obtener_producto(self, producto: str) -> dict[str, Any]:
+        """Catálogo de un producto (HU-1/HU-2, SOLV-94/SOLV-95): coberturas y
+        rangos válidos de datos de riesgo. Usado por GET /cliente/catalogo/
+        {ramo} y /asesor/catalogo/{ramo} para bloquear "Continuar" en el
+        frontend antes de cotizar, sin esperar al 422 de ms-cotizacion."""
+        return await self._pedir("GET", f"/v1/productos/{producto}")
+
     async def reconsultar_por_oferta(self, oferta_id: UUID) -> dict[str, Any]:
         """Resuelve el producto real de una oferta ya emitida -- ms-polizas
         solo guarda oferta_id, no cotizacion_id (ver billetera()/detalle() en
