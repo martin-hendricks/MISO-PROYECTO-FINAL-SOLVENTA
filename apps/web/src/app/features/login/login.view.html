@@ -71,9 +71,9 @@
         {{ (vm.status() === 'submitting' ? 'login.submitting' : 'login.submit') | translate }}
       </button>
       @if (variant.canRegister) {
-        <button type="button" class="text" data-testid="login-register" disabled>
+        <a class="text" routerLink="/registro" data-testid="login-register">
           {{ 'login.register' | translate }}
-        </button>
+        </a>
       }
     </form>
   </main>

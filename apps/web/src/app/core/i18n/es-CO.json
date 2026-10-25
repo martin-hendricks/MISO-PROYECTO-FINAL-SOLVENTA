@@ -144,6 +144,28 @@
       }
     }
   },
+  "registro": {
+    "title": "Crear cuenta",
+    "hint": "Registro con datos personales y documento. Sin oficina, sin foto ni biometría.",
+    "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Misma cuenta que en la app Android.",
+    "field": {
+      "nombre": "Nombre",
+      "apellidos": "Apellidos",
+      "documento": "Documento",
+      "correo": "Correo",
+      "contrasena": "Contraseña"
+    },
+    "submit": "Registrarme",
+    "haveAccount": "Ya tengo cuenta",
+    "error": {
+      "required": "Completa este campo.",
+      "format": "Escribe un correo válido.",
+      "length": "Usa al menos 8 caracteres."
+    }
+  },
+  "consentimiento": {
+    "title": "Consentimiento de datos"
+  },
   "backoffice": {
     "tag": "Back-office",
     "nav": {

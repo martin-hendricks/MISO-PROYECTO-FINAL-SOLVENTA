@@ -1,5 +1,5 @@
 import { Given, Then, When } from '@cucumber/cucumber';
-import { emptyHome } from '../support/data/generators';
+import { emptyHome, signUp } from '../support/data/generators';
 import { PortalWorld } from '../support/world';
 
 Given('the customer login page is open', async function (this: PortalWorld) {
@@ -46,3 +46,39 @@ Then(
     await this.login.expectVisible('customer');
   },
 );
+
+Given(
+  'the customer comes from language and region or from "Crear cuenta" on login',
+  async function (this: PortalWorld) {
+    await this.registro.watchCamera();
+    await this.login.open('customer');
+    await this.registro.openFromLogin();
+  },
+);
+
+Given('the customer is on sign-up', async function (this: PortalWorld) {
+  await this.registro.open();
+});
+
+When(
+  'the customer fills in name, document, email and password',
+  async function (this: PortalWorld) {
+    await this.registro.fill(signUp());
+  },
+);
+
+When('the customer chooses to sign in', async function (this: PortalWorld) {
+  await this.registro.chooseSignIn();
+});
+
+Then('the customer continues to data consent', async function (this: PortalWorld) {
+  await this.registro.expectConsentStep();
+});
+
+Then('no document photo or biometrics are requested', async function (this: PortalWorld) {
+  await this.registro.expectNoPhotoOrBiometrics();
+});
+
+Then('the customer goes to the web login', async function (this: PortalWorld) {
+  await this.login.expectVisible('customer');
+});
