@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { redirectSignedIn, requireRole } from './core/session/session.guard';
 import { Role, SessionService } from './core/session/session.service';
 import { homeSection, Section } from './features/backoffice/sections';
+import type { Destino } from './features/destino/destino.view';
 import { BACKOFFICE_LOGIN, CUSTOMER_LOGIN } from './features/login/login.variant';
 
 const CUSTOMER: readonly Role[] = ['cliente'];
@@ -15,6 +16,11 @@ const section = (name: Section) => ({
   path: name,
   data: { section: name },
   loadComponent: loadSection,
+});
+const destino = (path: string, name: Destino) => ({
+  path,
+  data: { destino: name },
+  loadComponent: () => import('./features/destino/destino.view').then((m) => m.DestinoView),
 });
 
 export const routes: Routes = [
@@ -56,11 +62,16 @@ export const routes: Routes = [
     canActivate: [requireRole(CUSTOMER, '/login')],
     loadComponent: () => import('./features/shell/shell.layout').then((m) => m.ShellLayout),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'user' },
+      { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       {
-        path: 'user',
-        loadComponent: () => import('./features/user/user.view').then((m) => m.UserView),
+        path: 'inicio',
+        loadComponent: () => import('./features/inicio/inicio.view').then((m) => m.InicioView),
       },
+      destino('cotizacion', 'cotizacion'),
+      destino('emision/:id', 'emision'),
+      destino('polizas/:id', 'poliza'),
+      destino('siniestros/:id', 'siniestro'),
+      destino('vida-crediticia', 'vidaCrediticia'),
     ],
   },
 ];

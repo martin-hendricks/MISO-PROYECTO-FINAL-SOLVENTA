@@ -1,0 +1,103 @@
+<section data-testid="inicio" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'inicio.title' | translate }}</h1>
+      <p class="subtitle">{{ 'inicio.subtitle' | translate }} · {{ 'shell.market' | translate }}</p>
+    </div>
+    @if (!vm.panel().offer && vm.status() !== 'loading') {
+      <a class="filled" routerLink="/cotizacion" data-testid="inicio-new-quote">
+        {{ 'inicio.newQuote' | translate }}
+      </a>
+    }
+  </div>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="inicio-loading">
+        {{ 'inicio.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="inicio-error">
+        <p>{{ 'inicio.error.body' | translate }}</p>
+        <button type="button" class="outlined" data-testid="inicio-retry" (click)="vm.load()">
+          {{ 'inicio.error.retry' | translate }}
+        </button>
+      </div>
+    }
+    @case ('empty') {
+      <div class="empty-state" data-testid="inicio-empty">
+        <h2>{{ 'inicio.empty.title' | translate }}</h2>
+        <p>{{ 'inicio.empty.body' | translate }}</p>
+      </div>
+    }
+    @default {
+      <div class="cards">
+        @if (vm.panel().offer; as offer) {
+          <article class="card" data-testid="inicio-offer">
+            <p class="card-label">{{ 'inicio.offer.label' | translate }}</p>
+            <p class="card-body">{{ offer.ramo }}</p>
+            <p class="card-face">{{ 'inicio.estado.' + offer.estado | translate }}</p>
+            <div class="actions">
+              <a
+                class="filled"
+                [routerLink]="['/emision', offer.cotizacionId]"
+                data-testid="inicio-accept"
+              >
+                {{ 'inicio.offer.accept' | translate }}
+              </a>
+              <a class="outlined" routerLink="/cotizacion" data-testid="inicio-new-quote">
+                {{ 'inicio.newQuote' | translate }}
+              </a>
+            </div>
+          </article>
+        }
+        @if (vm.panel().policy; as policy) {
+          <article class="card" data-testid="inicio-policy">
+            <p class="card-label">{{ 'inicio.policy.label' | translate }}</p>
+            <p class="card-body">{{ policy.ramo }} · {{ policy.numero }}</p>
+            <p class="card-face">{{ 'inicio.estado.' + policy.estado | translate }}</p>
+            <div class="actions">
+              <a
+                class="outlined"
+                [routerLink]="['/polizas', policy.numero]"
+                data-testid="inicio-policy-link"
+              >
+                {{ 'inicio.policy.link' | translate }}
+              </a>
+            </div>
+          </article>
+        }
+        @if (vm.panel().claim; as claim) {
+          <article class="card" data-testid="inicio-claim">
+            <p class="card-label">{{ 'inicio.claim.label' | translate }}</p>
+            <p class="card-body">
+              {{ 'inicio.claim.body' | translate: { id: claim.siniestroId } }}
+            </p>
+            <p class="card-face">{{ 'inicio.estado.' + claim.estado | translate }}</p>
+            <div class="actions">
+              <a
+                class="outlined"
+                [routerLink]="['/siniestros', claim.siniestroId]"
+                data-testid="inicio-claim-link"
+              >
+                {{ 'inicio.claim.link' | translate }}
+              </a>
+            </div>
+          </article>
+        }
+        @if (vm.panel().vidaCrediticia) {
+          <article class="card" data-testid="inicio-vida-crediticia">
+            <p class="card-label">{{ 'inicio.vidaCrediticia.label' | translate }}</p>
+            <p class="card-body">{{ 'inicio.vidaCrediticia.body' | translate }}</p>
+            <div class="actions">
+              <a class="outlined" routerLink="/vida-crediticia" data-testid="inicio-vida-link">
+                {{ 'inicio.vidaCrediticia.link' | translate }}
+              </a>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  }
+</section>

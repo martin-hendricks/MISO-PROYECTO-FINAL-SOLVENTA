@@ -1,7 +1,9 @@
 <header>
   <p data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
   <nav>
-    <a routerLink="/user" data-testid="nav-user">{{ 'shell.nav.user' | translate }}</a>
+    <a routerLink="/inicio" routerLinkActive="active" data-testid="nav-inicio">{{
+      'shell.nav.inicio' | translate
+    }}</a>
   </nav>
 </header>
 <router-outlet />

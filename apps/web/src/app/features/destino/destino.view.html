@@ -1,0 +1,13 @@
+<section [attr.data-testid]="'destino-' + destino" [attr.data-id]="id">
+  <h1>{{ 'destino.' + destino | translate }}</h1>
+  @if (id) {
+    <p class="subtitle">{{ id }}</p>
+  }
+  <div class="empty-state" data-testid="destino-pending">
+    <h2>{{ 'destino.pending.title' | translate }}</h2>
+    <p>{{ 'destino.pending.body' | translate }}</p>
+    <a class="outlined" routerLink="/inicio" data-testid="destino-home">
+      {{ 'destino.pending.home' | translate }}
+    </a>
+  </div>
+</section>
