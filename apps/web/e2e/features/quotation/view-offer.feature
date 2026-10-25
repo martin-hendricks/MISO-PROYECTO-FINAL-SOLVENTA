@@ -1,4 +1,4 @@
-@quotation @pendiente @HU-113 @SOLV-237
+@quotation @HU-113 @SOLV-237
 Feature: View offer
 
   Scenario: Firm price

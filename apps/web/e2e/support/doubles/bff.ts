@@ -1,5 +1,5 @@
 import { Page } from 'playwright';
-import { Client, Home } from '../data/generators';
+import { Catalog, Client, Home, Offer } from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
@@ -27,9 +27,13 @@ export function tokenPair(subject: string, rol: Role) {
   return { accessToken: `header.${payload}.signature`, refreshToken: 'refresh', expiraEn: 900 };
 }
 
+export type Canal = 'cliente' | 'asesor';
+
 export class BffDoubles {
   private clientsServed = false;
   private quoteRequests = 0;
+  private quoteBodies: Record<string, unknown>[] = [];
+  private offerReads = 0;
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
 
@@ -105,6 +109,38 @@ export class BffDoubles {
       this.quoteRequests += 1;
       return route.fulfill({ status: 500, json: { detail: 'No se esperaba una cotización' } });
     });
+  }
+
+  /** Answers `GET /{canal}/catalogo/{ramo}` with the catalog of the requested line. */
+  async serveCatalogs(canal: Canal, catalogs: Record<string, Catalog>): Promise<void> {
+    await this.page.route(`**/web/${canal}/catalogo/*`, (route) => {
+      const ramo = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!);
+      const catalog = catalogs[ramo];
+      return catalog
+        ? route.fulfill({ json: catalog })
+        : route.fulfill({ status: 404, json: { codigo: 'no_encontrado', mensaje: 'No existe' } });
+    });
+  }
+
+  /** Quotes once with `offer` and reconsults it by id without recalculating (HU-7). */
+  async serveQuote(canal: Canal, offer: Offer): Promise<void> {
+    await this.page.route(`**/web/${canal}/cotizaciones`, (route) => {
+      this.quoteRequests += 1;
+      this.quoteBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ json: offer });
+    });
+    await this.page.route(`**/web/cliente/cotizaciones/${offer.cotizacionId}`, (route) => {
+      this.offerReads += 1;
+      return route.fulfill({ json: offer });
+    });
+  }
+
+  quoteBody(): Record<string, unknown> | undefined {
+    return this.quoteBodies.at(-1);
+  }
+
+  offersRead(): number {
+    return this.offerReads;
   }
 
   quotesRequested(): number {

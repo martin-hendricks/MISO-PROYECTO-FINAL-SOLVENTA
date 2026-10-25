@@ -89,3 +89,75 @@ export function fullHome(): Home {
 export function emptyHome(): Home {
   return { ofertaVigente: null, poliza: null, siniestroEnCurso: null, hipotecario: null };
 }
+
+export interface Catalog {
+  ramo: string;
+  nombre: string;
+  moneda: string;
+  coberturas: { codigo: string; nombre: string; limite: string; unidadLimite: string }[];
+  datosRiesgo: (
+    | { nombre: string; tipo: 'rango'; minimo: string; maximo: string }
+    | { nombre: string; tipo: 'valores'; valores: string[] }
+  )[];
+}
+
+/** Catalogs as bff-web serves the ms-cotizacion seeds, keyed by the `ramo` the portal sends. */
+export const CATALOGS: Record<string, Catalog> = {
+  'Protección de dispositivo': {
+    ramo: 'Protección de dispositivo',
+    nombre: 'Protección de dispositivo',
+    moneda: 'COP',
+    coberturas: [
+      { codigo: 'robo', nombre: 'Robo', limite: '5000000', unidadLimite: 'MONEDA' },
+      { codigo: 'dano', nombre: 'Daño accidental', limite: '5000000', unidadLimite: 'MONEDA' },
+    ],
+    datosRiesgo: [
+      { nombre: 'valorDispositivo', tipo: 'rango', minimo: '500000', maximo: '10000000' },
+      { nombre: 'marca', tipo: 'valores', valores: ['samsung', 'apple', 'xiaomi', 'motorola'] },
+    ],
+  },
+  'SOAT motocicleta': {
+    ramo: 'SOAT motocicleta',
+    nombre: 'SOAT motocicleta',
+    moneda: 'COP',
+    coberturas: [
+      {
+        codigo: 'muerte',
+        nombre: 'Muerte y gastos funerarios',
+        limite: '750',
+        unidadLimite: 'SMLDV',
+      },
+    ],
+    datosRiesgo: [
+      { nombre: 'cilindraje_cc', tipo: 'rango', minimo: '50', maximo: '1800' },
+      { nombre: 'modelo_anio', tipo: 'rango', minimo: '2000', maximo: '2026' },
+      { nombre: 'ciudad_circulacion', tipo: 'valores', valores: ['bogota', 'medellin', 'cali'] },
+    ],
+  },
+};
+
+export interface Offer {
+  cotizacionId: string;
+  ramo: string;
+  estado: string;
+  prima: string;
+  primaNeta: string;
+  expedicion: string;
+  moneda: string;
+  venceEn: string;
+}
+
+/** A firm offer still valid for a month, as bff-web returns it. */
+export function offer(ramo = 'Protección de dispositivo'): Offer {
+  const neta = faker.number.int({ min: 60, max: 200 }) * 1000;
+  return {
+    cotizacionId: faker.string.uuid(),
+    ramo,
+    estado: 'cotizada',
+    prima: `${neta + 9000}.00`,
+    primaNeta: `${neta}.00`,
+    expedicion: '9000.00',
+    moneda: 'COP',
+    venceEn: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+  };
+}

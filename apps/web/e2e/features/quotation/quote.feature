@@ -1,4 +1,4 @@
-@quotation @pendiente @HU-104 @SOLV-228
+@quotation @HU-104 @SOLV-228
 Feature: Customer quote
 
   Scenario: One line of business

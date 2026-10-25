@@ -34,10 +34,11 @@ export class InicioPage {
     await this.page.getByTestId('inicio-accept').click();
   }
 
+  /** Issuance takes only the quote id (HU-149): bff-web creates the offer id on acceptance. */
   async expectIssuance(cotizacionId: string): Promise<void> {
-    const destination = this.page.getByTestId('destino-emision');
-    await destination.waitFor({ state: 'visible' });
-    assert.equal(await destination.getAttribute('data-id'), cotizacionId);
-    assert.equal(new URL(this.page.url()).pathname, `/emision/${cotizacionId}`);
+    await this.page.getByTestId('emision').waitFor({ state: 'visible' });
+    const url = new URL(this.page.url());
+    assert.equal(url.pathname, '/emision');
+    assert.equal(url.searchParams.get('cotizacion'), cotizacionId);
   }
 }
