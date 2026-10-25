@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
-import { DatosRiesgo, RAMO } from './soat-motocicleta';
+import { DatosRiesgo } from './ramos';
 
 /** Firm offer (HU-6): the core calculates it once and reconsulting returns the same price. */
 export interface Oferta {
@@ -29,29 +29,46 @@ export type DatoRiesgo =
   | { nombre: string; tipo: 'rango'; minimo: number; maximo: number }
   | { nombre: string; tipo: 'valores'; valores: string[] };
 
+export interface Cobertura {
+  codigo: string;
+  nombre: string;
+}
+
 export interface Catalogo {
   ramo: string;
   nombre: string;
   moneda: string;
+  coberturas: Cobertura[];
   datosRiesgo: DatoRiesgo[];
 }
 
-type DatoRiesgoWire =
-  | { nombre: string; tipo: 'rango'; minimo: number | string; maximo: number | string }
-  | { nombre: string; tipo: 'valores'; valores: string[] };
+/** Anything that is not a range is a closed list of values. */
+interface DatoRiesgoWire {
+  nombre: string;
+  tipo: string;
+  minimo?: number | string;
+  maximo?: number | string;
+  valores?: string[];
+}
 
-type CatalogoWire = Omit<Catalogo, 'datosRiesgo'> & { datosRiesgo: DatoRiesgoWire[] };
+interface CatalogoWire extends Omit<Catalogo, 'datosRiesgo' | 'coberturas'> {
+  coberturas: Cobertura[];
+  datosRiesgo: DatoRiesgoWire[];
+}
+
+function toDatoRiesgo({ nombre, tipo, minimo, maximo, valores }: DatoRiesgoWire): DatoRiesgo {
+  return tipo === 'rango'
+    ? { nombre, tipo, minimo: Number(minimo), maximo: Number(maximo) }
+    : { nombre, tipo: 'valores', valores: valores ?? [] };
+}
 
 function toCatalogo(wire: CatalogoWire): Catalogo {
   return {
     ramo: wire.ramo,
     nombre: wire.nombre,
     moneda: wire.moneda,
-    datosRiesgo: wire.datosRiesgo.map((dato) =>
-      dato.tipo === 'rango'
-        ? { ...dato, minimo: Number(dato.minimo), maximo: Number(dato.maximo) }
-        : dato,
-    ),
+    coberturas: wire.coberturas.map(({ codigo, nombre }) => ({ codigo, nombre })),
+    datosRiesgo: wire.datosRiesgo.map(toDatoRiesgo),
   };
 }
 
@@ -89,28 +106,24 @@ export class CotizacionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  /** Valid ranges of the risk data, so the form blocks the CTA before quoting. */
-  catalog(canal: Canal): Observable<Catalogo> {
+  /** Coverages and valid ranges of a line, so the form blocks the CTA before quoting. */
+  catalog(canal: Canal, ramo: string): Observable<Catalogo> {
     return this.http
-      .get<CatalogoWire>(`${this.baseUrl}/${canal}/catalogo/${encodeURIComponent(RAMO)}`)
+      .get<CatalogoWire>(`${this.baseUrl}/${canal}/catalogo/${encodeURIComponent(ramo)}`)
       .pipe(map(toCatalogo));
   }
 
-  /** Customer quote of the single line of business. */
-  quote(datosRiesgo: DatosRiesgo): Observable<Oferta> {
+  /** Customer quote of the chosen line. */
+  quote(ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, { ramo: RAMO, datosRiesgo })
+      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, { ramo, datosRiesgo })
       .pipe(map(toOferta));
   }
 
   /** Assisted sale: the advisor quotes on behalf of the customer they serve. */
-  quoteFor(clienteId: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
+  quoteFor(clienteId: string, ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, {
-        clienteId,
-        ramo: RAMO,
-        datosRiesgo,
-      })
+      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, { clienteId, ramo, datosRiesgo })
       .pipe(map(toOferta));
   }
 

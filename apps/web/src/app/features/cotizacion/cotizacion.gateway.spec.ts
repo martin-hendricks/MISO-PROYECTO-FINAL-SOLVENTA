@@ -3,8 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Catalogo, CotizacionGateway, Oferta, rechazoDe } from './cotizacion.gateway';
 import {
-  CATALOGO,
-  CATALOGO_WIRE,
+  CATALOGO_DISPOSITIVO,
+  CATALOGO_DISPOSITIVO_WIRE,
   FUERA_DE_RANGO,
   OFERTA,
   OFERTA_DESGLOSE_WIRE,
@@ -12,7 +12,13 @@ import {
 } from './cotizacion.testing';
 
 describe('CotizacionGateway', () => {
-  const DATOS = { cilindraje_cc: 150, modelo_anio: 2022, ciudad_circulacion: 'bogota' };
+  const RAMO = 'Protección de dispositivo';
+  const DATOS = {
+    valorDispositivo: 2400000,
+    marca: 'apple',
+    modelo: 'iPhone 15',
+    masDe12Meses: false,
+  };
 
   function setup() {
     TestBed.configureTestingModule({
@@ -26,27 +32,49 @@ describe('CotizacionGateway', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('reads the catalog ranges of the line of business for each channel', () => {
+  it('reads coverages and ranges of a line for each channel', () => {
     const { gateway, http } = setup();
     const catalogos: Catalogo[] = [];
+    const url = '/catalogo/Protecci%C3%B3n%20de%20dispositivo';
 
-    gateway.catalog('cliente').subscribe((catalogo) => catalogos.push(catalogo));
-    http.expectOne('/web/cliente/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
-    gateway.catalog('asesor').subscribe((catalogo) => catalogos.push(catalogo));
-    http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
+    gateway.catalog('cliente', RAMO).subscribe((catalogo) => catalogos.push(catalogo));
+    http.expectOne(`/web/cliente${url}`).flush(CATALOGO_DISPOSITIVO_WIRE);
+    gateway.catalog('asesor', RAMO).subscribe((catalogo) => catalogos.push(catalogo));
+    http.expectOne(`/web/asesor${url}`).flush(CATALOGO_DISPOSITIVO_WIRE);
 
-    expect(catalogos).toEqual([CATALOGO, CATALOGO]);
+    expect(catalogos).toEqual([CATALOGO_DISPOSITIVO, CATALOGO_DISPOSITIVO]);
   });
 
-  it('quotes the single line of business for the customer', () => {
+  it('reads any non range datum as a closed list, even without values', () => {
+    const { gateway, http } = setup();
+    let catalogo: Catalogo | undefined;
+
+    gateway.catalog('cliente', RAMO).subscribe((answer) => (catalogo = answer));
+    http
+      .expectOne(() => true)
+      .flush({
+        ...CATALOGO_DISPOSITIVO_WIRE,
+        datosRiesgo: [
+          { nombre: 'marca', tipo: 'lista', valores: ['apple'] },
+          { nombre: 'color', tipo: 'lista' },
+        ],
+      });
+
+    expect(catalogo?.datosRiesgo).toEqual([
+      { nombre: 'marca', tipo: 'valores', valores: ['apple'] },
+      { nombre: 'color', tipo: 'valores', valores: [] },
+    ]);
+  });
+
+  it('quotes the chosen line for the customer', () => {
     const { gateway, http } = setup();
     let oferta: Oferta | undefined;
 
-    gateway.quote(DATOS).subscribe((answer) => (oferta = answer));
+    gateway.quote(RAMO, DATOS).subscribe((answer) => (oferta = answer));
 
     const request = http.expectOne('/web/cliente/cotizaciones');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ ramo: 'SOAT motocicleta', datosRiesgo: DATOS });
+    expect(request.request.body).toEqual({ ramo: RAMO, datosRiesgo: DATOS });
     request.flush(OFERTA_WIRE);
     expect(oferta).toEqual(OFERTA);
   });
@@ -55,12 +83,12 @@ describe('CotizacionGateway', () => {
     const { gateway, http } = setup();
     let oferta: Oferta | undefined;
 
-    gateway.quoteFor('CLI-18', DATOS).subscribe((answer) => (oferta = answer));
+    gateway.quoteFor('CLI-18', RAMO, DATOS).subscribe((answer) => (oferta = answer));
 
     const request = http.expectOne('/web/asesor/cotizaciones');
     expect(request.request.body).toEqual({
       clienteId: 'CLI-18',
-      ramo: 'SOAT motocicleta',
+      ramo: RAMO,
       datosRiesgo: DATOS,
     });
     request.flush(OFERTA_DESGLOSE_WIRE);

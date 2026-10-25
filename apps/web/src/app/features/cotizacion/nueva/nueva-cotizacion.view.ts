@@ -4,7 +4,6 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { CotizacionFormViewModel } from '../cotizacion-form.viewmodel';
 import { CotizacionGateway } from '../cotizacion.gateway';
 import { RiesgoFields } from '../riesgo-fields';
-import { RAMO } from '../soat-motocicleta';
 
 /** Customer quote of the single line of business (HU-104); success opens the offer. */
 @Component({
@@ -17,10 +16,9 @@ import { RAMO } from '../soat-motocicleta';
 export class NuevaCotizacionView {
   private readonly gateway = inject(CotizacionGateway);
   private readonly router = inject(Router);
-  protected readonly ramo = RAMO;
   protected readonly vm = new CotizacionFormViewModel(
-    () => this.gateway.catalog('cliente'),
-    (datos) => this.gateway.quote(datos),
+    (ramo) => this.gateway.catalog('cliente', ramo),
+    (ramo, datos) => this.gateway.quote(ramo, datos),
     (oferta) => void this.router.navigate(['/cotizaciones', oferta.cotizacionId]),
   );
 

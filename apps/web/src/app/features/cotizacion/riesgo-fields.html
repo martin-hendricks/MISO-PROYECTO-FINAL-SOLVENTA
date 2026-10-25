@@ -1,5 +1,29 @@
 @let form = vm();
 @let id = prefix();
+@let ramo = form.ramo();
+<div class="field">
+  <label [for]="id + '-ramo'">{{ 'cotizacion.campo.ramo' | translate }}</label>
+  <select
+    #ramoSelect
+    [id]="id + '-ramo'"
+    data-testid="cotizacion-ramo"
+    (change)="form.select(ramoSelect.value)"
+  >
+    @for (opcion of form.ramos; track opcion.id) {
+      <option
+        [value]="opcion.id"
+        [selected]="opcion.id === ramo.id"
+        [disabled]="!opcion.disponible"
+      >
+        {{ opcion.ramo }}
+        @if (!opcion.disponible) {
+          · {{ 'cotizacion.proximamente' | translate }}
+        }
+      </option>
+    }
+  </select>
+</div>
+
 @if (form.catalogoStatus() === 'error') {
   <p class="banner" role="alert" data-testid="catalogo-error">
     {{ 'cotizacion.error.catalogo' | translate }}
@@ -8,54 +32,101 @@
     </button>
   </p>
 }
-@for (campo of campos; track campo) {
-  @let issue = form.issue(campo);
-  @let rango = form.rangos()[campo];
-  <div class="field">
-    <label [for]="id + '-' + campo">{{ 'cotizacion.campo.' + campo | translate }}</label>
-    <input
-      #field
-      type="number"
-      inputmode="numeric"
-      [id]="id + '-' + campo"
-      [attr.data-testid]="'riesgo-' + campo"
-      [value]="campo === 'cilindraje_cc' ? form.cilindraje() : form.modelo()"
-      [attr.aria-invalid]="issue ? 'true' : null"
-      [attr.aria-describedby]="id + '-' + campo + '-hint'"
-      (input)="form.edit(campo, field.value)"
-      (blur)="form.touch(campo)"
-    />
+
+@if (form.coberturas().length) {
+  <div class="field coberturas" data-testid="coberturas">
+    <span class="label">{{ 'cotizacion.coberturas' | translate }}</span>
+    <p>
+      @for (cobertura of form.coberturas(); track cobertura.codigo; let last = $last) {
+        {{ cobertura.nombre }}{{ last ? '' : ' · ' }}
+      }
+    </p>
+  </div>
+}
+
+@for (campo of ramo.campos; track campo.clave) {
+  @let clave = campo.clave;
+  @let issue = form.issue(clave);
+  @let rango = form.rangos()[clave];
+  @let fieldId = id + '-' + clave;
+  <div class="field" [attr.data-campo]="clave">
+    @switch (campo.tipo) {
+      @case ('opciones') {
+        <label [for]="fieldId">{{ 'cotizacion.campo.' + clave | translate }}</label>
+        <select
+          #select
+          [id]="fieldId"
+          [attr.data-testid]="'riesgo-' + clave"
+          [attr.aria-invalid]="issue ? 'true' : null"
+          (change)="form.edit(clave, select.value)"
+          (blur)="form.touch(clave)"
+        >
+          <option value="" [selected]="form.valor(clave) === ''">
+            {{ 'cotizacion.selecciona' | translate }}
+          </option>
+          @for (opcion of form.opciones(clave); track opcion) {
+            <option [value]="opcion" [selected]="opcion === form.valor(clave)">
+              {{ etiqueta(opcion) }}
+            </option>
+          }
+        </select>
+      }
+      @case ('siNo') {
+        <span class="label" [id]="fieldId">{{ 'cotizacion.campo.' + clave | translate }}</span>
+        <div class="choices" role="radiogroup" [attr.aria-labelledby]="fieldId">
+          @for (opcion of ['si', 'no']; track opcion) {
+            <label class="choice">
+              <input
+                type="radio"
+                [name]="fieldId"
+                [value]="opcion"
+                [attr.data-testid]="'riesgo-' + clave + '-' + opcion"
+                [checked]="form.valor(clave) === opcion"
+                (change)="form.edit(clave, opcion)"
+              />
+              {{ 'cotizacion.' + opcion | translate }}
+            </label>
+          }
+        </div>
+      }
+      @default {
+        <label [for]="fieldId">{{ 'cotizacion.campo.' + clave | translate }}</label>
+        <input
+          #field
+          [type]="campo.tipo === 'texto' ? 'text' : 'number'"
+          [attr.inputmode]="campo.tipo === 'texto' ? null : 'numeric'"
+          [id]="fieldId"
+          [attr.data-testid]="'riesgo-' + clave"
+          [value]="form.valor(clave)"
+          [attr.aria-invalid]="issue ? 'true' : null"
+          [attr.aria-describedby]="fieldId + '-hint'"
+          (input)="form.edit(clave, field.value)"
+          (blur)="form.touch(clave)"
+        />
+      }
+    }
     @if (issue) {
       <p
         class="field-error"
-        [id]="id + '-' + campo + '-hint'"
-        [attr.data-testid]="'riesgo-' + campo + '-error'"
+        [id]="fieldId + '-hint'"
+        [attr.data-testid]="'riesgo-' + clave + '-error'"
       >
-        @if (rango || issue === 'required') {
-          {{ 'cotizacion.error.' + issue | translate: rango }}
-        } @else {
+        @if (issue === 'range' && !rango) {
           {{ 'cotizacion.error.rangeNucleo' | translate }}
+        } @else {
+          {{ 'cotizacion.error.' + issue | translate: rango }}
         }
       </p>
-    } @else if (rango) {
-      <p class="hint" [id]="id + '-' + campo + '-hint'">
-        {{ 'cotizacion.rango' | translate: rango }}
+    } @else if (campo.tipo === 'moneda' && form.valor(clave)) {
+      <p
+        class="hint mono"
+        [id]="fieldId + '-hint'"
+        [attr.data-testid]="'riesgo-' + clave + '-monto'"
+      >
+        {{ form.numero(clave) | svMoney: form.moneda() }}
       </p>
+    } @else if (rango) {
+      <p class="hint" [id]="fieldId + '-hint'">{{ 'cotizacion.rango' | translate: rango }}</p>
     }
   </div>
 }
-<div class="field">
-  <label [for]="id + '-ciudad'">{{ 'cotizacion.campo.ciudad_circulacion' | translate }}</label>
-  <select
-    #ciudad
-    [id]="id + '-ciudad'"
-    data-testid="riesgo-ciudad_circulacion"
-    (change)="form.edit('ciudad', ciudad.value)"
-  >
-    @for (opcion of form.ciudades(); track opcion) {
-      <option [value]="opcion" [selected]="opcion === form.ciudad()">
-        {{ 'cotizacion.ciudad.' + opcion | translate }}
-      </option>
-    }
-  </select>
-</div>

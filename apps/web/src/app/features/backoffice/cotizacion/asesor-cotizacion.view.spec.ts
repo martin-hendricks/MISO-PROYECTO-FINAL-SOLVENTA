@@ -5,7 +5,8 @@ import { provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import { Role } from '../../../core/session/session.service';
 import {
-  CATALOGO_WIRE,
+  CATALOGO_DISPOSITIVO_WIRE,
+  CATALOGO_SOAT_WIRE,
   FUERA_DE_RANGO,
   OFERTA_DESGLOSE_WIRE,
   OFERTA_WIRE,
@@ -15,6 +16,7 @@ import { AsesorCotizacionView } from './asesor-cotizacion.view';
 
 describe('AsesorCotizacionView', () => {
   const URL = '/web/asesor/cotizaciones';
+  const DISPOSITIVO_URL = '/web/asesor/catalogo/Protecci%C3%B3n%20de%20dispositivo';
   const VIGENTE = { ...OFERTA_DESGLOSE_WIRE, venceEn: '2999-01-01T00:00:00Z' };
 
   function render(role: Role = 'asesor') {
@@ -32,7 +34,7 @@ describe('AsesorCotizacionView', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     if (role === 'asesor') {
-      http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_WIRE);
+      http.expectOne(DISPOSITIVO_URL).flush(CATALOGO_DISPOSITIVO_WIRE);
       fixture.detectChanges();
     }
     const host = fixture.nativeElement as HTMLElement;
@@ -44,28 +46,39 @@ describe('AsesorCotizacionView', () => {
       input.dispatchEvent(new Event('input'));
       fixture.detectChanges();
     };
-    const fill = () => {
+    const choose = (testId: string, value: string) => {
+      const select = element<HTMLSelectElement>(testId)!;
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+    const cliente = () => {
       type('cliente-nombre', 'Andrés Gómez');
       type('cliente-documento', '1020334556');
-      type('riesgo-placa', 'abc 12d');
-      type('riesgo-cilindraje_cc', '150');
-      type('riesgo-modelo_anio', '2022');
+    };
+    const fill = () => {
+      cliente();
+      type('riesgo-valorDispositivo', '2400000');
+      choose('riesgo-marca', 'samsung');
+      type('riesgo-modelo', 'Galaxy S24');
+      element('riesgo-masDe12Meses-si')!.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
     };
     const calcular = () => {
       element('calcular')!.closest('form')!.dispatchEvent(new Event('submit'));
       fixture.detectChanges();
     };
-    return { fixture, http, element, type, fill, calcular };
+    return { fixture, http, element, type, choose, cliente, fill, calcular };
   }
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('groups the form in customer and risk data with the product locked', () => {
+  it('groups customer and risk data, with the line picker and no plate for devices', () => {
     const { element } = render();
 
-    expect(element<HTMLInputElement>('cotizacion-producto')!.value).toBe('SOAT motocicleta');
     expect(element('cliente-nombre')).not.toBeNull();
-    expect(element('riesgo-placa')).not.toBeNull();
+    expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
+    expect(element('riesgo-placa')).toBeNull();
     expect(element('sin-oferta')).not.toBeNull();
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
     expect(element('cotizacion-back')?.getAttribute('href')).toBe('/cms/cotizaciones');
@@ -80,12 +93,12 @@ describe('AsesorCotizacionView', () => {
     const request = http.expectOne(URL);
     expect(request.request.body).toEqual({
       clienteId: '1020334556',
-      ramo: 'SOAT motocicleta',
+      ramo: 'Protección de dispositivo',
       datosRiesgo: {
-        cilindraje_cc: 150,
-        modelo_anio: 2022,
-        ciudad_circulacion: 'bogota',
-        placa: 'ABC12D',
+        valorDispositivo: 2400000,
+        marca: 'samsung',
+        modelo: 'Galaxy S24',
+        masDe12Meses: true,
       },
     });
     request.flush(VIGENTE);
@@ -101,7 +114,34 @@ describe('AsesorCotizacionView', () => {
     );
   });
 
-  it('omits the breakdown until bff-web sends it', () => {
+  it('asks for the plate only on SOAT and keeps the customer data when the line changes', () => {
+    const { fixture, http, element, type, choose, cliente, calcular } = render();
+    cliente();
+
+    choose('cotizacion-ramo', 'soat');
+    http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_SOAT_WIRE);
+    fixture.detectChanges();
+    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
+    type('riesgo-placa', 'AB1');
+    element('riesgo-placa')!.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    expect(element('riesgo-placa-error')?.textContent).toContain('ABC12D');
+
+    type('riesgo-placa', 'abc 12d');
+    type('riesgo-cilindraje_cc', '150');
+    type('riesgo-modelo_anio', '2022');
+    choose('riesgo-ciudad_circulacion', 'cali');
+    calcular();
+
+    expect(http.expectOne(URL).request.body.datosRiesgo).toEqual({
+      cilindraje_cc: 150,
+      modelo_anio: 2022,
+      ciudad_circulacion: 'cali',
+      placa: 'ABC12D',
+    });
+  });
+
+  it('omits the breakdown when bff-web does not send it', () => {
     const { fixture, http, element, fill, calcular } = render();
     fill();
 
@@ -126,38 +166,37 @@ describe('AsesorCotizacionView', () => {
     expect(element('oferta-vencida')).not.toBeNull();
   });
 
-  it('resolves an out of range value in this view and degrades to no offer', () => {
+  it('resolves an out of range insured value in this view and degrades to no offer', () => {
     const { fixture, http, element, fill, type, calcular } = render();
     fill();
     calcular();
     http.expectOne(URL).flush(VIGENTE);
     fixture.detectChanges();
 
-    type('riesgo-cilindraje_cc', '2500');
+    type('riesgo-valorDispositivo', '20000000');
 
-    expect(element('riesgo-cilindraje_cc-error')?.textContent).toContain('entre 50 y 1800');
+    expect(element('riesgo-valorDispositivo-error')?.textContent).toContain(
+      'entre 500000 y 10000000',
+    );
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
     expect(element('sin-oferta')).not.toBeNull();
     expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
   });
 
-  it('validates customer data and plate before quoting', () => {
+  it('validates customer data before quoting', () => {
     const { fixture, element, type } = render();
 
     type('cliente-documento', '12ab');
-    type('riesgo-placa', 'AB1');
     element('cliente-nombre')!.dispatchEvent(new Event('blur'));
-    element('riesgo-placa')!.dispatchEvent(new Event('blur'));
     fixture.detectChanges();
 
     expect(element('cliente-documento-error')?.textContent).toContain('entre 5 y 12');
-    expect(element('riesgo-placa-error')?.textContent).toContain('ABC12D');
     expect(element('cliente-nombre-error')?.textContent).toContain('obligatorio');
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
   });
 
   it('shows the core rejection and an outage in the offer panel', () => {
-    const { fixture, http, element, fill, calcular } = render();
+    const { fixture, http, element, type, fill, calcular } = render();
     fill();
 
     calcular();
@@ -165,9 +204,7 @@ describe('AsesorCotizacionView', () => {
     fixture.detectChanges();
     expect(element('cotizacion-rechazo')?.textContent).toContain('fuera de rango');
 
-    element<HTMLInputElement>('riesgo-cilindraje_cc')!.value = '160';
-    element('riesgo-cilindraje_cc')!.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
+    type('riesgo-valorDispositivo', '2500000');
     calcular();
     http.expectOne(URL).flush({}, { status: 503, statusText: 'Unavailable' });
     fixture.detectChanges();

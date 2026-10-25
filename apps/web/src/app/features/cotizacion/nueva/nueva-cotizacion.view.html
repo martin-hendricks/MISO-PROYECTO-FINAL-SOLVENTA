@@ -9,10 +9,6 @@
   <form class="form" novalidate (submit)="submit($event)">
     <fieldset>
       <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
-      <div class="field">
-        <label for="nueva-producto">{{ 'cotizacion.campo.producto' | translate }}</label>
-        <input id="nueva-producto" data-testid="cotizacion-producto" readonly [value]="ramo" />
-      </div>
       <sv-riesgo-fields [vm]="vm" prefix="nueva" />
     </fieldset>
 

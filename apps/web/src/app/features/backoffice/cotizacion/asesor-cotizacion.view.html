@@ -41,10 +41,6 @@
             </div>
           }
           <div class="field">
-            <label for="asesor-producto">{{ 'cotizacion.campo.producto' | translate }}</label>
-            <input id="asesor-producto" data-testid="cotizacion-producto" readonly [value]="ramo" />
-          </div>
-          <div class="field">
             <label for="asesor-vigencia">{{
               'backoffice.cotizacion.campo.vigencia' | translate
             }}</label>
@@ -58,26 +54,30 @@
 
         <fieldset>
           <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
-          @let placaIssue = vm.issue('placa');
-          <div class="field">
-            <label for="asesor-placa">{{ 'backoffice.cotizacion.campo.placa' | translate }}</label>
-            <input
-              #placa
-              id="asesor-placa"
-              data-testid="riesgo-placa"
-              autocomplete="off"
-              [value]="vm.placa()"
-              [attr.aria-invalid]="placaIssue ? 'true' : null"
-              (input)="vm.edit('placa', placa.value)"
-              (blur)="vm.touch('placa')"
-            />
-            @if (placaIssue) {
-              <p class="field-error" data-testid="riesgo-placa-error">
-                {{ 'backoffice.cotizacion.error.placa.' + placaIssue | translate }}
-              </p>
-            }
-          </div>
           <sv-riesgo-fields [vm]="vm.form" prefix="asesor" />
+          @if (vm.pidePlaca()) {
+            @let placaIssue = vm.issue('placa');
+            <div class="field">
+              <label for="asesor-placa">{{
+                'backoffice.cotizacion.campo.placa' | translate
+              }}</label>
+              <input
+                #placa
+                id="asesor-placa"
+                data-testid="riesgo-placa"
+                autocomplete="off"
+                [value]="vm.placa()"
+                [attr.aria-invalid]="placaIssue ? 'true' : null"
+                (input)="vm.edit('placa', placa.value)"
+                (blur)="vm.touch('placa')"
+              />
+              @if (placaIssue) {
+                <p class="field-error" data-testid="riesgo-placa-error">
+                  {{ 'backoffice.cotizacion.error.placa.' + placaIssue | translate }}
+                </p>
+              }
+            </div>
+          }
         </fieldset>
 
         <div class="actions">

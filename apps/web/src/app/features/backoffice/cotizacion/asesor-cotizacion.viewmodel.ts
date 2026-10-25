@@ -2,7 +2,7 @@ import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CotizacionFormViewModel } from '../../cotizacion/cotizacion-form.viewmodel';
 import { Catalogo, Oferta } from '../../cotizacion/cotizacion.gateway';
-import { DatosRiesgo } from '../../cotizacion/soat-motocicleta';
+import { DatosRiesgo } from '../../cotizacion/ramos';
 
 /** Motorcycle plate as Colombia issues it: three letters, two digits, one letter (ABC12D). */
 const PLACA = /^[A-Z]{3}\d{2}[A-Z]$/;
@@ -10,9 +10,10 @@ const PLACA = /^[A-Z]{3}\d{2}[A-Z]$/;
 export type CampoCliente = 'nombre' | 'documento' | 'placa';
 
 /**
- * Assisted sale (HU-10): the advisor captures the customer and the risk, and
- * quotes on the customer's behalf. Without a customer search (out of scope),
- * the identity document is the id the quote is tied to.
+ * Assisted sale (HU-10): the advisor captures the customer and the risk of
+ * the chosen line, and quotes on the customer's behalf. Customer data is kept
+ * when the line changes. Without a customer search (out of scope), the
+ * identity document is the id the quote is tied to.
  */
 export class AsesorCotizacionViewModel {
   readonly nombre = signal('');
@@ -20,6 +21,9 @@ export class AsesorCotizacionViewModel {
   readonly placa = signal('');
 
   readonly form: CotizacionFormViewModel;
+
+  /** The plate is SOAT's own datum; no other line asks for it. */
+  readonly pidePlaca = computed(() => this.form.ramo().id === 'soat');
 
   private readonly touched = signal<ReadonlySet<CampoCliente>>(new Set());
 
@@ -30,7 +34,8 @@ export class AsesorCotizacionViewModel {
       : this.documento()
         ? 'format'
         : 'required',
-    placa: PLACA.test(this.placa()) ? null : this.placa() ? 'format' : 'required',
+    placa:
+      !this.pidePlaca() || PLACA.test(this.placa()) ? null : this.placa() ? 'format' : 'required',
   }));
 
   readonly canQuote = computed(
@@ -45,12 +50,12 @@ export class AsesorCotizacionViewModel {
   });
 
   constructor(
-    catalogSource: () => Observable<Catalogo>,
-    source: (clienteId: string, datos: DatosRiesgo) => Observable<Oferta>,
+    catalogSource: (ramo: string) => Observable<Catalogo>,
+    source: (clienteId: string, ramo: string, datos: DatosRiesgo) => Observable<Oferta>,
     private readonly now: () => Date = () => new Date(),
   ) {
-    this.form = new CotizacionFormViewModel(catalogSource, (datos) =>
-      source(this.documento(), { ...datos, placa: this.placa() }),
+    this.form = new CotizacionFormViewModel(catalogSource, (ramo, datos) =>
+      source(this.documento(), ramo, this.pidePlaca() ? { ...datos, placa: this.placa() } : datos),
     );
   }
 

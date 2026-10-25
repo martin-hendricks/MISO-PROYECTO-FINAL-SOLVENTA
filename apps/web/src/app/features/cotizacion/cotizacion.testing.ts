@@ -4,7 +4,7 @@ import { Catalogo, Oferta } from './cotizacion.gateway';
 /** Answers shaped as bff-web's `/v1/{cliente,asesor}/cotizaciones`. For specs only. */
 export const OFERTA_WIRE = {
   cotizacionId: 'COT-4471',
-  ramo: 'SOAT motocicleta',
+  ramo: 'Protección de dispositivo',
   estado: 'cotizada',
   prima: '128500.00',
   moneda: 'COP',
@@ -18,12 +18,35 @@ export const OFERTA: Oferta = {
   expedicion: undefined,
 };
 
-/** `/v1/{cliente,asesor}/catalogo/{ramo}` as bff-web serves the ms-cotizacion seed. */
-export const CATALOGO_WIRE = {
+/** Answer with the premium breakdown (SOLV-103). */
+export const OFERTA_DESGLOSE_WIRE = { ...OFERTA_WIRE, primaNeta: '120000', expedicion: '8500' };
+
+/** `/v1/{cliente,asesor}/catalogo/{ramo}` as bff-web serves the ms-cotizacion seeds. */
+export const CATALOGO_DISPOSITIVO_WIRE = {
+  ramo: 'Protección de dispositivo',
+  nombre: 'Protección de dispositivo',
+  moneda: 'COP',
+  coberturas: [
+    { codigo: 'robo', nombre: 'Robo', limite: '5000000', unidadLimite: 'MONEDA' },
+    { codigo: 'dano', nombre: 'Daño accidental', limite: '5000000', unidadLimite: 'MONEDA' },
+    {
+      codigo: 'reposicion',
+      nombre: 'Reposición por equipo nuevo',
+      limite: '5000000',
+      unidadLimite: 'MONEDA',
+    },
+  ],
+  datosRiesgo: [
+    { nombre: 'valorDispositivo', tipo: 'rango', minimo: '500000', maximo: '10000000' },
+    { nombre: 'marca', tipo: 'valores', valores: ['samsung', 'apple', 'xiaomi', 'motorola'] },
+  ],
+};
+
+export const CATALOGO_SOAT_WIRE = {
   ramo: 'SOAT motocicleta',
   nombre: 'SOAT motocicleta',
   moneda: 'COP',
-  coberturas: [],
+  coberturas: [{ codigo: 'muerte', nombre: 'Muerte y gastos funerarios', limite: '750' }],
   datosRiesgo: [
     { nombre: 'cilindraje_cc', tipo: 'rango', minimo: '50', maximo: '1800' },
     { nombre: 'modelo_anio', tipo: 'rango', minimo: '2000', maximo: '2026' },
@@ -31,10 +54,26 @@ export const CATALOGO_WIRE = {
   ],
 };
 
-export const CATALOGO: Catalogo = {
+export const CATALOGO_DISPOSITIVO: Catalogo = {
+  ramo: 'Protección de dispositivo',
+  nombre: 'Protección de dispositivo',
+  moneda: 'COP',
+  coberturas: [
+    { codigo: 'robo', nombre: 'Robo' },
+    { codigo: 'dano', nombre: 'Daño accidental' },
+    { codigo: 'reposicion', nombre: 'Reposición por equipo nuevo' },
+  ],
+  datosRiesgo: [
+    { nombre: 'valorDispositivo', tipo: 'rango', minimo: 500000, maximo: 10000000 },
+    { nombre: 'marca', tipo: 'valores', valores: ['samsung', 'apple', 'xiaomi', 'motorola'] },
+  ],
+};
+
+export const CATALOGO_SOAT: Catalogo = {
   ramo: 'SOAT motocicleta',
   nombre: 'SOAT motocicleta',
   moneda: 'COP',
+  coberturas: [{ codigo: 'muerte', nombre: 'Muerte y gastos funerarios' }],
   datosRiesgo: [
     { nombre: 'cilindraje_cc', tipo: 'rango', minimo: 50, maximo: 1800 },
     { nombre: 'modelo_anio', tipo: 'rango', minimo: 2000, maximo: 2026 },
@@ -42,12 +81,9 @@ export const CATALOGO: Catalogo = {
   ],
 };
 
-/** Answer with the premium breakdown (SOLV-103). */
-export const OFERTA_DESGLOSE_WIRE = { ...OFERTA_WIRE, primaNeta: '120000', expedicion: '8500' };
-
 export const FUERA_DE_RANGO = {
   codigo: 'dato_riesgo_fuera_de_rango',
-  mensaje: "'cilindraje_cc' fuera de rango: 50 a 1800",
+  mensaje: "'valorDispositivo' fuera de rango: 500000 a 10000000",
 };
 
 export const fueraDeRango = () => new HttpErrorResponse({ status: 422, error: FUERA_DE_RANGO });

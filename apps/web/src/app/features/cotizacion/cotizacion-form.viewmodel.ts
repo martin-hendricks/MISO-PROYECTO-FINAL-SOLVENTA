@@ -2,54 +2,63 @@ import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Catalogo, Oferta, RechazoCotizacion, rechazoDe } from './cotizacion.gateway';
 import {
-  CAMPO_CIUDAD,
-  CampoRango,
-  CAMPOS_RANGO,
   DatosRiesgo,
   datosRiesgo,
   ProblemaCampo,
+  Ramo,
+  RAMO_INICIAL,
+  ramoPorId,
+  RAMOS,
   Rango,
-  validarRango,
-} from './soat-motocicleta';
+  validarCampo,
+} from './ramos';
 
 export type CotizacionStatus = 'idle' | 'quoting' | 'quoted' | 'rejected' | 'error';
 export type CatalogoStatus = 'loading' | 'ready' | 'error';
 
-const esCampoRango = (nombre: string): nombre is CampoRango =>
-  (CAMPOS_RANGO as readonly string[]).includes(nombre);
-
 /**
- * Risk data capture shared by the customer and advisor quotes. The valid
- * ranges come from the catalog bff-web publishes (HU-2), so invalid input is
- * resolved in place: the field shows its valid range, the CTA stays disabled
- * and whatever was typed is kept.
+ * Risk data capture shared by the customer and advisor quotes. Each line has
+ * its own fields; coverages, ranges and options come from the catalog bff-web
+ * publishes (HU-2), so invalid input is resolved in place: the field shows the
+ * problem, the CTA stays disabled and whatever was typed is kept.
  */
 export class CotizacionFormViewModel {
-  readonly cilindraje = signal('');
-  readonly modelo = signal('');
-  readonly ciudad = signal('');
+  readonly ramos = RAMOS;
+
+  private readonly ramoState = signal<Ramo>(RAMO_INICIAL);
+  readonly ramo = this.ramoState.asReadonly();
+
+  private readonly valoresState = signal<Readonly<Record<string, string>>>({});
 
   private readonly catalogoState = signal<Catalogo | null>(null);
   private readonly catalogoStatusState = signal<CatalogoStatus>('loading');
   readonly catalogoStatus = this.catalogoStatusState.asReadonly();
 
+  readonly coberturas = computed(() => this.catalogoState()?.coberturas ?? []);
+  readonly moneda = computed(() => this.catalogoState()?.moneda ?? 'COP');
+
   readonly rangos = computed(() => {
-    const rangos: Partial<Record<CampoRango, Rango>> = {};
+    const rangos: Record<string, Rango> = {};
     for (const dato of this.catalogoState()?.datosRiesgo ?? []) {
-      if (dato.tipo === 'rango' && esCampoRango(dato.nombre)) {
+      if (dato.tipo === 'rango') {
         rangos[dato.nombre] = { minimo: dato.minimo, maximo: dato.maximo };
       }
     }
     return rangos;
   });
 
-  readonly ciudades = computed(() => {
-    const dato = this.catalogoState()?.datosRiesgo.find((d) => d.nombre === CAMPO_CIUDAD);
-    return dato?.tipo === 'valores' ? dato.valores : [];
+  private readonly opcionesState = computed(() => {
+    const opciones: Record<string, readonly string[]> = {};
+    for (const dato of this.catalogoState()?.datosRiesgo ?? []) {
+      if (dato.tipo === 'valores') {
+        opciones[dato.nombre] = dato.valores;
+      }
+    }
+    return opciones;
   });
 
   /** A field the user has left at least once; untouched empty fields show no error yet. */
-  private readonly touchedState = signal<ReadonlySet<CampoRango>>(new Set());
+  private readonly touchedState = signal<ReadonlySet<string>>(new Set());
 
   private readonly statusState = signal<CotizacionStatus>('idle');
   readonly status = this.statusState.asReadonly();
@@ -61,66 +70,90 @@ export class CotizacionFormViewModel {
   readonly rechazo = this.rechazoState.asReadonly();
 
   /** Field the core rejected (HU-3 names it), until the user edits it. */
-  private readonly rejectedField = signal<CampoRango | null>(null);
+  private readonly rejectedField = signal<string | null>(null);
 
-  private readonly problems = computed<Record<CampoRango, ProblemaCampo | null>>(() => ({
-    cilindraje_cc: validarRango(this.rangos().cilindraje_cc, this.cilindraje()),
-    modelo_anio: validarRango(this.rangos().modelo_anio, this.modelo()),
-  }));
+  private readonly problems = computed(() => {
+    const problems: Record<string, ProblemaCampo | null> = {};
+    for (const campo of this.ramoState().campos) {
+      problems[campo.clave] = validarCampo(
+        campo,
+        this.valor(campo.clave),
+        this.rangos()[campo.clave],
+        this.opciones(campo.clave),
+      );
+    }
+    return problems;
+  });
 
   readonly valid = computed(
     () =>
       this.catalogoStatusState() === 'ready' &&
-      Object.values(this.problems()).every((problem) => problem === null) &&
-      !!this.ciudad(),
+      Object.values(this.problems()).every((problem) => problem === null),
   );
 
   readonly canQuote = computed(() => this.valid() && this.statusState() !== 'quoting');
 
   constructor(
-    private readonly catalogSource: () => Observable<Catalogo>,
-    private readonly source: (datos: DatosRiesgo) => Observable<Oferta>,
+    private readonly catalogSource: (ramo: string) => Observable<Catalogo>,
+    private readonly source: (ramo: string, datos: DatosRiesgo) => Observable<Oferta>,
     private readonly onQuoted: (oferta: Oferta) => void = () => undefined,
   ) {}
 
+  /** Switches line: its own fields start empty and its catalog is loaded. */
+  select(id: string): void {
+    const ramo = ramoPorId(id);
+    if (!ramo?.disponible) {
+      return;
+    }
+    this.ramoState.set(ramo);
+    this.valoresState.set({});
+    this.touchedState.set(new Set());
+    this.rejectedField.set(null);
+    this.invalidate();
+    this.loadCatalog();
+  }
+
   loadCatalog(): void {
     this.catalogoStatusState.set('loading');
-    this.catalogSource().subscribe({
+    this.catalogoState.set(null);
+    this.catalogSource(this.ramoState().ramo).subscribe({
       next: (catalogo) => {
         this.catalogoState.set(catalogo);
-        if (!this.ciudad()) {
-          this.ciudad.set(this.ciudades()[0] ?? '');
-        }
         this.catalogoStatusState.set('ready');
       },
       error: () => this.catalogoStatusState.set('error'),
     });
   }
 
-  /** Problem to show for a field: a typed value out of range, or the core's rejection. */
-  issue(campo: CampoRango): ProblemaCampo | null {
-    if (this.rejectedField() === campo) {
-      return 'range';
-    }
-    const problem = this.problems()[campo];
-    const typed = (campo === 'cilindraje_cc' ? this.cilindraje() : this.modelo()) !== '';
-    return typed || this.touchedState().has(campo) ? problem : null;
+  valor(clave: string): string {
+    return this.valoresState()[clave] ?? '';
   }
 
-  touch(campo: CampoRango): void {
-    this.touchedState.update((touched) => new Set(touched).add(campo));
+  numero(clave: string): number {
+    return Number(this.valor(clave));
+  }
+
+  opciones(clave: string): readonly string[] {
+    return this.opcionesState()[clave] ?? [];
+  }
+
+  /** Problem to show for a field: a typed value that is not valid, or the core's rejection. */
+  issue(clave: string): ProblemaCampo | null {
+    if (this.rejectedField() === clave) {
+      return 'range';
+    }
+    const typed = this.valor(clave) !== '';
+    return typed || this.touchedState().has(clave) ? this.problems()[clave] : null;
+  }
+
+  touch(clave: string): void {
+    this.touchedState.update((touched) => new Set(touched).add(clave));
   }
 
   /** Any edit invalidates the offer on screen: the panel degrades to "Sin oferta". */
-  edit(campo: CampoRango | 'ciudad', value: string): void {
-    if (campo === 'cilindraje_cc') {
-      this.cilindraje.set(value);
-    } else if (campo === 'modelo_anio') {
-      this.modelo.set(value);
-    } else {
-      this.ciudad.set(value);
-    }
-    if (this.rejectedField() === campo) {
+  edit(clave: string, value: string): void {
+    this.valoresState.update((valores) => ({ ...valores, [clave]: value }));
+    if (this.rejectedField() === clave) {
       this.rejectedField.set(null);
     }
     this.invalidate();
@@ -137,14 +170,10 @@ export class CotizacionFormViewModel {
     if (!this.canQuote()) {
       return;
     }
+    const ramo = this.ramoState();
     this.statusState.set('quoting');
     this.rechazoState.set(null);
-    const datos = datosRiesgo({
-      cilindraje: this.cilindraje(),
-      modelo: this.modelo(),
-      ciudad: this.ciudad(),
-    });
-    this.source(datos).subscribe({
+    this.source(ramo.ramo, datosRiesgo(ramo, this.valoresState())).subscribe({
       next: (oferta) => {
         this.ofertaState.set(oferta);
         this.statusState.set('quoted');
@@ -157,9 +186,9 @@ export class CotizacionFormViewModel {
           this.statusState.set('error');
           return;
         }
-        const campo = /'(\w+)'/.exec(rechazo.mensaje)?.[1] ?? '';
+        const clave = /'(\w+)'/.exec(rechazo.mensaje)?.[1];
         this.rechazoState.set(rechazo);
-        this.rejectedField.set(esCampoRango(campo) ? campo : null);
+        this.rejectedField.set(ramo.campos.some((c) => c.clave === clave) ? clave! : null);
         this.statusState.set('rejected');
       },
     });

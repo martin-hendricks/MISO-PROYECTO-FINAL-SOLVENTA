@@ -93,3 +93,25 @@ button:disabled {
 .mono {
   font-family: var(--sv-font-mono);
 }
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.coberturas p {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+}
+
+.choices {
+  display: flex;
+  gap: 16px;
+}
+
+.choice {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 400;
+}

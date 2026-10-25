@@ -5,7 +5,6 @@ import { DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { CotizacionGateway } from '../../cotizacion/cotizacion.gateway';
 import { RiesgoFields } from '../../cotizacion/riesgo-fields';
-import { RAMO } from '../../cotizacion/soat-motocicleta';
 import { NoPermission } from '../no-permission/no-permission';
 import { requiredRole } from '../sections';
 import { AsesorCotizacionViewModel, CampoCliente } from './asesor-cotizacion.viewmodel';
@@ -23,14 +22,13 @@ import { AsesorCotizacionViewModel, CampoCliente } from './asesor-cotizacion.vie
 })
 export class AsesorCotizacionView {
   private readonly gateway = inject(CotizacionGateway);
-  protected readonly ramo = RAMO;
   protected readonly required = requiredRole('cotizaciones');
   protected readonly role = inject(SessionService).role;
   protected readonly allowed = this.role() === this.required;
   protected readonly campos: readonly CampoCliente[] = ['nombre', 'documento'];
   protected readonly vm = new AsesorCotizacionViewModel(
-    () => this.gateway.catalog('asesor'),
-    (clienteId, datos) => this.gateway.quoteFor(clienteId, datos),
+    (ramo) => this.gateway.catalog('asesor', ramo),
+    (clienteId, ramo, datos) => this.gateway.quoteFor(clienteId, ramo, datos),
   );
 
   constructor() {

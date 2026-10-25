@@ -337,28 +337,37 @@
     "rango": "Entre {{minimo}} y {{maximo}}",
     "reintentar": "Reintentar",
     "campo": {
-      "producto": "Producto",
+      "ramo": "Ramo",
+      "valorDispositivo": "Valor del dispositivo",
+      "marca": "Marca",
+      "modelo": "Modelo",
+      "masDe12Meses": "¿Equipo con más de 12 meses?",
       "cilindraje_cc": "Cilindraje (cc)",
       "modelo_anio": "Modelo (año)",
-      "ciudad_circulacion": "Ciudad de circulación"
-    },
-    "ciudad": {
-      "bogota": "Bogotá",
-      "medellin": "Medellín",
-      "cali": "Cali",
-      "barranquilla": "Barranquilla",
-      "bucaramanga": "Bucaramanga"
+      "ciudad_circulacion": "Ciudad de circulación",
+      "sumaAsegurada": "Suma asegurada",
+      "edad": "Edad",
+      "evento": "Evento",
+      "referencia": "Referencia",
+      "umbral": "Umbral",
+      "valor": "Valor del crédito",
+      "plazoMeses": "Plazo (meses)",
+      "cuota": "Cuota",
+      "destino": "Destino",
+      "duracion": "Duración (días)"
     },
     "error": {
       "required": "Campo obligatorio",
       "range": "Fuera de rango: entre {{minimo}} y {{maximo}}",
       "rangeNucleo": "Fuera del rango permitido",
       "catalogo": "No pudimos cargar los rangos del producto.",
-      "servicio": "No pudimos calcular la prima. Intenta de nuevo en unos minutos."
+      "servicio": "No pudimos calcular la prima. Intenta de nuevo en unos minutos.",
+      "positive": "Debe ser un número entero mayor que cero",
+      "option": "Elige una de las opciones"
     },
     "nueva": {
       "title": "Nueva cotización",
-      "subtitle": "Cotiza tu SOAT en un paso; el precio lo calcula Solventa.",
+      "subtitle": "Elige el ramo y completa los datos del riesgo; el precio lo calcula Solventa.",
       "cotizar": "Cotizar",
       "cancelar": "Cancelar"
     },
@@ -375,6 +384,22 @@
         "title": "No encontramos esta oferta",
         "body": "Puede que el enlace esté incompleto. Cotiza de nuevo para obtener un precio."
       }
-    }
+    },
+    "valor": {
+      "bogota": "Bogotá",
+      "medellin": "Medellín",
+      "cali": "Cali",
+      "barranquilla": "Barranquilla",
+      "bucaramanga": "Bucaramanga",
+      "samsung": "Samsung",
+      "apple": "Apple",
+      "xiaomi": "Xiaomi",
+      "motorola": "Motorola"
+    },
+    "proximamente": "Próximamente",
+    "coberturas": "Coberturas",
+    "selecciona": "Selecciona una opción",
+    "si": "Sí",
+    "no": "No"
   }
 }
