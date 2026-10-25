@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
@@ -32,6 +32,11 @@ export class AsesorCotizacionView {
   );
 
   constructor() {
+    const query = inject(ActivatedRoute).snapshot.queryParamMap;
+    const cliente = query.get('cliente');
+    if (cliente) {
+      this.vm.prefill(cliente, query.get('nombre') ?? '', query.get('documento') ?? '');
+    }
     if (this.allowed) {
       this.vm.form.loadCatalog();
     }

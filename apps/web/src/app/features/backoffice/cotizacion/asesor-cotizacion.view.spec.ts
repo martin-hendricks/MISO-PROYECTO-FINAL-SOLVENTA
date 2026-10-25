@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import { Role } from '../../../core/session/session.service';
 import {
@@ -19,7 +19,7 @@ describe('AsesorCotizacionView', () => {
   const DISPOSITIVO_URL = '/web/asesor/catalogo/Protecci%C3%B3n%20de%20dispositivo';
   const VIGENTE = { ...OFERTA_DESGLOSE_WIRE, venceEn: '2999-01-01T00:00:00Z' };
 
-  function render(role: Role = 'asesor') {
+  function render(role: Role = 'asesor', query: Record<string, string> = {}) {
     TestBed.configureTestingModule({
       imports: [AsesorCotizacionView],
       providers: [
@@ -28,6 +28,10 @@ describe('AsesorCotizacionView', () => {
         provideHttpClientTesting(),
         ...provideSolventaI18n(),
         sessionAs(role).provider,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap(query) } },
+        },
       ],
     });
     const fixture = TestBed.createComponent(AsesorCotizacionView);
@@ -139,6 +143,56 @@ describe('AsesorCotizacionView', () => {
       ciudad_circulacion: 'cali',
       placa: 'ABC12D',
     });
+  });
+
+  it('quotes with the real id of the client opened from Clientes (HU-10)', () => {
+    const { fixture, http, element, type, choose, calcular } = render('asesor', {
+      cliente: 'CLI-18',
+      nombre: 'Andrés Gómez',
+      documento: '1020334556',
+    });
+
+    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
+    expect(element<HTMLInputElement>('cliente-documento')!.value).toBe('1020334556');
+    type('riesgo-valorDispositivo', '2400000');
+    choose('riesgo-marca', 'apple');
+    type('riesgo-modelo', 'iPhone 15');
+    element('riesgo-masDe12Meses-no')!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    calcular();
+
+    const request = http.expectOne(URL);
+    expect(request.request.body.clienteId).toBe('CLI-18');
+    request.flush(VIGENTE);
+    fixture.detectChanges();
+    expect(element('continuar-emision')?.getAttribute('href')).toBe(
+      '/cms/cotizaciones/COT-4471/emision?cliente=CLI-18',
+    );
+  });
+
+  it('falls back to the document once the advisor edits a prefilled client', () => {
+    const { fixture, http, element, type, choose, calcular } = render('asesor', {
+      cliente: 'CLI-18',
+      nombre: 'Andrés Gómez',
+      documento: '1020334556',
+    });
+
+    type('cliente-documento', '52448901');
+    type('riesgo-valorDispositivo', '2400000');
+    choose('riesgo-marca', 'apple');
+    type('riesgo-modelo', 'iPhone 15');
+    element('riesgo-masDe12Meses-no')!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    calcular();
+
+    expect(http.expectOne(URL).request.body.clienteId).toBe('52448901');
+  });
+
+  it('prefills only the id when Clientes sends no name or document', () => {
+    const { element } = render('asesor', { cliente: 'CLI-18' });
+
+    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('');
+    expect(element<HTMLInputElement>('cliente-documento')!.value).toBe('');
   });
 
   it('omits the breakdown when bff-web does not send it', () => {

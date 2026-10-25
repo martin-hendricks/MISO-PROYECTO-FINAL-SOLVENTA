@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../../core/session/session.service';
 import { NoPermission } from '../no-permission/no-permission';
@@ -11,7 +12,7 @@ const KPIS = ['active', 'web', 'android', 'pendingConsent'] as const;
 @Component({
   selector: 'sv-backoffice-clientes',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, NoPermission],
+  imports: [TranslatePipe, NoPermission, RouterLink],
   templateUrl: './clientes.view.html',
   styleUrls: ['../backoffice.page.css', './clientes.view.css'],
 })

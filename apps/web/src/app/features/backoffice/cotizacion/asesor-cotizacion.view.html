@@ -118,7 +118,7 @@
               class="filled"
               data-testid="continuar-emision"
               [routerLink]="['/cms/cotizaciones', oferta.cotizacionId, 'emision']"
-              [queryParams]="{ cliente: vm.documento() }"
+              [queryParams]="{ cliente: vm.clienteRef() }"
               >{{ 'backoffice.cotizacion.continuar' | translate }}</a
             >
           } @else {

@@ -253,8 +253,10 @@
         "documento": "Documento",
         "canal": "Canal",
         "estado": "Estado",
-        "consentimiento": "Consentimiento"
+        "consentimiento": "Consentimiento",
+        "acciones": "Acciones"
       },
+      "cotizar": "Cotizar",
       "canal": {
         "web": "Web",
         "android": "Android"

@@ -22,6 +22,10 @@ export class AsesorCotizacionViewModel {
 
   readonly form: CotizacionFormViewModel;
 
+  /** Real id of a client opened from Clientes; the document stands in otherwise. */
+  private readonly clienteId = signal<string | null>(null);
+  readonly clienteRef = computed(() => this.clienteId() ?? this.documento());
+
   /** The plate is SOAT's own datum; no other line asks for it. */
   readonly pidePlaca = computed(() => this.form.ramo().id === 'soat');
 
@@ -55,8 +59,15 @@ export class AsesorCotizacionViewModel {
     private readonly now: () => Date = () => new Date(),
   ) {
     this.form = new CotizacionFormViewModel(catalogSource, (ramo, datos) =>
-      source(this.documento(), ramo, this.pidePlaca() ? { ...datos, placa: this.placa() } : datos),
+      source(this.clienteRef(), ramo, this.pidePlaca() ? { ...datos, placa: this.placa() } : datos),
     );
+  }
+
+  /** Prefills the client the advisor opened from Clientes. */
+  prefill(clienteId: string, nombre: string, documento: string): void {
+    this.clienteId.set(clienteId);
+    this.nombre.set(nombre);
+    this.documento.set(documento);
   }
 
   issue(campo: CampoCliente): 'required' | 'format' | null {
@@ -71,6 +82,9 @@ export class AsesorCotizacionViewModel {
   /** Customer data is part of the quote: editing it also drops the offer on screen. */
   edit(campo: CampoCliente, value: string): void {
     this[campo].set(campo === 'placa' ? value.toUpperCase().replace(/\s/g, '') : value);
+    if (campo === 'documento') {
+      this.clienteId.set(null);
+    }
     this.form.invalidate();
   }
 
