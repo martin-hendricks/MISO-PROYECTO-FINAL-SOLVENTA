@@ -53,9 +53,21 @@ export const routes: Routes = [
           import('./features/backoffice/clientes/clientes.view').then((m) => m.ClientesView),
       },
       section('cotizaciones'),
+      {
+        path: 'cotizaciones/:cotizacionId/emision',
+        loadComponent: () =>
+          import('./features/backoffice/emision/asesor-emision.view').then(
+            (m) => m.AsesorEmisionView,
+          ),
+      },
       section('polizas'),
       section('avisos'),
     ],
+  },
+  {
+    path: 'emision',
+    canActivate: [requireRole(CUSTOMER, '/login')],
+    loadComponent: () => import('./features/emision/emision.view').then((m) => m.EmisionView),
   },
   {
     path: '',
@@ -67,9 +79,25 @@ export const routes: Routes = [
         path: 'inicio',
         loadComponent: () => import('./features/inicio/inicio.view').then((m) => m.InicioView),
       },
+      {
+        path: 'polizas',
+        loadComponent: () =>
+          import('./features/polizas/lista/polizas-lista.view').then((m) => m.PolizasListaView),
+      },
+      {
+        path: 'polizas/:numero',
+        loadComponent: () =>
+          import('./features/polizas/detalle/poliza-detalle.view').then((m) => m.PolizaDetalleView),
+      },
+      {
+        path: 'suscripcion-rechazada',
+        loadComponent: () =>
+          import('./features/emision/rechazada/suscripcion-rechazada.view').then(
+            (m) => m.SuscripcionRechazadaView,
+          ),
+      },
       destino('cotizacion', 'cotizacion'),
       destino('emision/:id', 'emision'),
-      destino('polizas/:id', 'poliza'),
       destino('siniestros/:id', 'siniestro'),
       destino('vida-crediticia', 'vidaCrediticia'),
     ],

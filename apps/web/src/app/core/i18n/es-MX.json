@@ -3,7 +3,8 @@
     "portal": "Solventa",
     "market": "México",
     "nav": {
-      "inicio": "Inicio"
+      "inicio": "Inicio",
+      "polizas": "Pólizas"
     }
   },
   "inicio": {
@@ -55,6 +56,64 @@
       "home": "Volver al inicio"
     }
   },
+  "polizas": {
+    "lista": {
+      "title": "Pólizas",
+      "subtitle": "Billetera de coberturas vigentes y por vencer.",
+      "loading": "Cargando tus pólizas…",
+      "error": { "body": "No pudimos cargar tus pólizas.", "retry": "Reintentar" },
+      "empty": {
+        "title": "Aún no tienes pólizas",
+        "body": "Cuando emitas una póliza la verás aquí."
+      }
+    },
+    "detalle": {
+      "back": "Volver",
+      "title": "Póliza {{producto}}",
+      "loading": "Cargando la póliza…",
+      "error": { "body": "No pudimos cargar la póliza.", "retry": "Reintentar" },
+      "notFound": {
+        "title": "No encontramos esta póliza",
+        "body": "Revisa el número o vuelve a tu lista de pólizas.",
+        "action": "Ir a mis pólizas"
+      },
+      "coberturas": "Coberturas",
+      "hasta": "Hasta",
+      "prima": "Prima anual",
+      "readOnly": "Renovación y cambios se gestionan con tu asesor. Aquí solo consultas la póliza."
+    },
+    "column": {
+      "producto": "Producto",
+      "numero": "N.º póliza",
+      "vigencia": "Vigencia",
+      "estado": "Estado",
+      "prima": "Prima"
+    },
+    "estado": { "VIGENTE": "Vigente", "CANCELADA": "Cancelada" }
+  },
+  "emision": {
+    "irInicio": "Ir al inicio",
+    "progreso": {
+      "title": "Emitiendo tu póliza",
+      "subtitle": "No cambies de sección. Esto toma unos segundos.",
+      "steps": "Validando suscripción · generando carátula · notificando"
+    },
+    "emitida": {
+      "title": "Póliza emitida",
+      "subtitle": "{{producto}} ya está en tu billetera.",
+      "verPoliza": "Ver mi póliza"
+    },
+    "rechazada": {
+      "title": "No pudimos emitir",
+      "subtitle": "La suscripción rechazó esta oferta. Puedes cotizar de nuevo.",
+      "motivo": "Motivo"
+    },
+    "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
+    "invalid": {
+      "title": "No hay una oferta para emitir",
+      "body": "Vuelve a la oferta y acéptala de nuevo."
+    }
+  },
   "login": {
     "customer": {
       "claim": "Tu seguro, en un solo lugar.",
@@ -100,6 +159,49 @@
       "operador": "Operador"
     },
     "signOut": "Cerrar sesión",
+    "emision": {
+      "title": "Suscripción y emisión",
+      "back": "Cotización {{cotizacion}}",
+      "loading": "Consultando la decisión del núcleo…",
+      "paso": { "COTIZAR": "Cotizar", "OFERTA": "Oferta", "EMISION": "Emisión", "POLIZA": "Póliza" },
+      "estadoPaso": {
+        "COMPLETADO": "completado",
+        "ACTUAL": "paso actual",
+        "ERROR": "con error",
+        "PENDIENTE": "pendiente"
+      },
+      "decision": {
+        "title": "Decisión de suscripción",
+        "ACEPTADA": "Aprobada",
+        "RECHAZADA": "Rechazada",
+        "regla": "Regla",
+        "detalle": "Detalle",
+        "decididoPor": "Decidido por"
+      },
+      "resumen": {
+        "title": "Resumen de la oferta",
+        "primaTotal": "Prima total",
+        "primaNeta": "Prima neta",
+        "expedicion": "Expedición",
+        "vigencia": "Vigencia",
+        "meses": "{{meses}} meses"
+      },
+      "emitir": "Emitir póliza",
+      "guardarSalir": "Guardar y salir",
+      "issuing": "Firmando y emitiendo la póliza…",
+      "emitida": "Póliza {{numero}} emitida",
+      "rechazo": {
+        "title": "No se emite póliza",
+        "body": "El cliente recibe el motivo por correo. Puedes cotizar otro producto sin volver a capturar los datos.",
+        "cotizarOtro": "Cotizar otro producto",
+        "volverCartera": "Volver a la cartera"
+      },
+      "error": { "body": "No pudimos completar este paso.", "retry": "Reintentar" },
+      "invalid": {
+        "title": "Falta la oferta o el cliente",
+        "body": "Abre la emisión desde la cotización del cliente."
+      }
+    },
     "clientes": {
       "title": "Clientes",
       "new": "Nuevo cliente",
