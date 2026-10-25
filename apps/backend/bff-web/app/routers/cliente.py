@@ -333,26 +333,32 @@ async def emitir(
 RAMO_SIN_CLASIFICAR = "Sin clasificar"
 
 
-async def _ramo_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza: dict) -> str:
-    """Resuelve el producto real reconsultando ms-cotizacion por oferta_id
-    (ver ClienteMsCotizacion.reconsultar_por_oferta). Si la cotización
-    original ya no existe o el servicio no responde, se degrada al
-    placeholder en vez de tumbar toda la respuesta de billetera/detalle: el
-    ramo es un dato de presentación, no debe bloquear ver la póliza."""
+async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza: dict) -> dict:
+    """Reconsulta ms-cotizacion por oferta_id (ver
+    ClienteMsCotizacion.reconsultar_por_oferta) para resolver producto, prima
+    y moneda, que ms-polizas no guarda. Si la cotización original ya no
+    existe o el servicio no responde, se degrada a {} en vez de tumbar toda la
+    respuesta de billetera/detalle: son datos de presentación, no deben
+    bloquear ver la póliza."""
     try:
-        cotizacion = await cliente_cotizacion.reconsultar_por_oferta(UUID(str(poliza["oferta_id"])))
-        return cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
+        return await cliente_cotizacion.reconsultar_por_oferta(UUID(str(poliza["oferta_id"])))
     except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
-        return RAMO_SIN_CLASIFICAR
+        return {}
 
 
-def _poliza_billetera(poliza: dict, ramo: str) -> dict:
+def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
+    ramo = cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
     return {
         "numero": poliza["numero"],
         "ramo": ramo,
+        "producto": ramo,
         "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
-        "estado": poliza["estado"].lower(),
+        "estado": poliza["estado"].upper(),
         "venceEn": poliza["fin_vigencia"],
+        "inicioVigencia": poliza["inicio_vigencia"],
+        "finVigencia": poliza["fin_vigencia"],
+        "moneda": cotizacion.get("moneda", ""),
+        "primaTotal": float(cotizacion.get("prima", 0)),
     }
 
 
@@ -367,8 +373,8 @@ async def billetera(
     contexto = ContextoUsuario("sesion-cliente@solventa.com")
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
-    ramos = await asyncio.gather(*(_ramo_de_poliza(cliente_cotizacion, p) for p in polizas))
-    return {"polizas": [_poliza_billetera(p, ramo) for p, ramo in zip(polizas, ramos, strict=True)]}
+    cotizaciones = await asyncio.gather(*(_cotizacion_de_poliza(cliente_cotizacion, p) for p in polizas))
+    return {"polizas": [_poliza_billetera(p, c) for p, c in zip(polizas, cotizaciones, strict=True)]}
 
 
 # "queHacer" es contenido estático de ayuda al usuario (guía de qué hacer
@@ -387,8 +393,15 @@ async def detalle(
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     poliza = await cliente_polizas.obtener_por_numero(numero)
-    ramo = await _ramo_de_poliza(cliente_cotizacion, poliza)
-    salida = _poliza_billetera(poliza, ramo)
+    salida = _poliza_billetera(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
+    salida["coberturas"] = [
+        {
+            "nombre": c["nombre"],
+            "sumaAsegurada": float(c["suma_asegurada"]),
+            "deducible": float(c["deducible"]),
+        }
+        for c in poliza["coberturas"]
+    ]
     salida["queHacer"] = QUE_HACER_POR_DEFECTO
     return salida
 
