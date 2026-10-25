@@ -1,8 +1,22 @@
+from decimal import Decimal
+from typing import Annotated
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from ..dependencies import require_roles
-from .cliente import OFFER, _offer
+from ..clients.ms_cotizacion import ClienteMsCotizacion
+from ..clients.ms_pagos import ClienteMsPagos
+from ..clients.ms_polizas import ClienteMsPolizas
+from ..clients.ms_suscripcion import ClienteMsSuscripcion
+from ..dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_pagos,
+    obtener_cliente_polizas,
+    obtener_cliente_suscripcion,
+    require_roles,
+)
+from .cliente import ContextoUsuario, _idempotency_key, _producto_de
 
 router = APIRouter(
     prefix="/asesor",
@@ -59,15 +73,196 @@ class Desactivar(BaseModel):
     estado: str
 
 
-# TODO: la venta asistida de asesores podría reusar ms-cotizacion igual que
-# el canal cliente (ver routers/cliente.py), pero aquí no hay sesión de
-# cliente real de la que derivar usuario_id/socio_id/consentimiento_id --
-# falta ms-identidad para resolver el cliente atendido por el asesor.
 @router.post("/cotizaciones")
-def venta(body: VentaAsistida) -> dict:
-    offer = _offer(OFFER["cotizacionId"])
-    offer["ramo"] = body.ramo
-    return offer
+async def venta(
+    body: VentaAsistida,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """Cotización asistida: el asesor cotiza en nombre del cliente que
+    atiende. Reusa ms-cotizacion igual que el canal cliente (routers/
+    cliente.py), derivando el contexto a partir de body.clienteId (no del
+    correo del asesor que está en la sesión) -- la cotización queda asociada
+    de forma estable al cliente atendido, no a quien la generó. No hay
+    ms-identidad real que resuelva clienteId a una identidad verificada;
+    ContextoUsuario deriva UUIDs deterministas a partir del string tal cual
+    llega (mismo patrón ya documentado en cliente.py)."""
+    contexto = ContextoUsuario(body.clienteId)
+    producto = _producto_de(body.ramo)
+
+    datos = await cliente_cotizacion.cotizar(
+        idempotency_key=_idempotency_key(),
+        usuario_id=contexto.usuario_id,
+        socio_id=contexto.socio_id,
+        consentimiento_id=contexto.consentimiento_id,
+        producto=producto,
+        canal="asesor",
+        datos_riesgo=body.datosRiesgo,
+    )
+    return {
+        "cotizacionId": datos["cotizacion_id"],
+        "ramo": body.ramo,
+        "estado": datos["estado"],
+        "prima": datos["prima"],
+        "moneda": datos["moneda"],
+        "venceEn": datos["vence_en"],
+    }
+
+
+class ConsultarEmision(BaseModel):
+    cotizacionId: str = Field(min_length=1)
+
+
+def _decision_salida(suscripcion: dict) -> dict:
+    """Traduce SuscripcionSalida de ms-suscripcion al shape de "decision"
+    de la propuesta de análisis del equipo de frontend (HU-149).
+
+    TODO: ms-suscripcion no expone "regla" (solo su efecto: decision +
+    motivo, ver app/domain/modelos.py de ms-suscripcion) ni "decididoPor"
+    (la decisión es una evaluación automática contra una regla de datos, no
+    hay un humano que "decide" -- el concepto no existe en ese dominio).
+    Ambos campos quedan None en vez de inventados; "detalle" reusa el mismo
+    texto que "motivo" porque ms-suscripcion no distingue las dos cosas.
+    """
+    return {
+        "resultado": suscripcion["decision"],
+        "regla": None,
+        "detalle": suscripcion["motivo"],
+        "decididoPor": None,
+        "decididoEn": suscripcion["evaluada_en"],
+    }
+
+
+def _oferta_resumen(cotizacion: dict) -> dict:
+    """Traduce CotizacionSalida al shape de "oferta" de la propuesta.
+
+    TODO: "vigenciaMeses" no tiene equivalente real -- ms-cotizacion guarda
+    vence_en (una fecha absoluta de expiración de la oferta, no una duración
+    de vigencia de póliza en meses); ambos conceptos son distintos y no hay
+    forma de derivar el segundo del primero sin inventarlo. Se omite en vez
+    de devolver un valor falso.
+    """
+    return {
+        "moneda": cotizacion["moneda"],
+        "primaTotal": cotizacion["prima"],
+        "primaNeta": cotizacion["prima_neta"],
+        "expedicion": cotizacion["gastos_expedicion"],
+        "vigenciaMeses": None,
+    }
+
+
+@router.post("/emisiones")
+async def consultar_emision(
+    body: ConsultarEmision,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_suscripcion: Annotated[ClienteMsSuscripcion, Depends(obtener_cliente_suscripcion)],
+) -> dict:
+    """Consulta la decisión de suscripción SIN emitir (HU-149, SOLV-112).
+
+    A diferencia de POST /cliente/polizas (que acepta la oferta en
+    ms-cotizacion -- eso cambia el estado de la solicitud a "aceptada"),
+    aquí se evalúa la suscripción directo contra ms-suscripcion. Es
+    idempotente por solicitud_id: reintentar esta consulta nunca duplica
+    ni cambia nada, siempre devuelve la misma decisión ya persistida la
+    primera vez que se evaluó para esa cotización.
+
+    TODO: "score" es el mismo stub fijo que usa cliente.py -- no hay
+    ms-perfilamiento conectado a este flujo para calcular un score real.
+    TODO: no hay sesión de cliente real para resolver "cliente" (nombre,
+    documento, etc. de la propuesta) -- requiere ms-identidad.
+    """
+    cotizacion = await cliente_cotizacion.reconsultar(body.cotizacionId)
+
+    score_stub = Decimal("0.5000")
+    perfil_id = ContextoUsuario(body.cotizacionId).perfil_id
+    suscripcion = await cliente_suscripcion.evaluar(
+        solicitud_id=UUID(body.cotizacionId),
+        perfil_id=perfil_id,
+        score=score_stub,
+    )
+
+    return {
+        "solicitudId": body.cotizacionId,
+        "decision": _decision_salida(suscripcion),
+        "oferta": _oferta_resumen(cotizacion),
+    }
+
+
+@router.post("/emisiones/{solicitud_id}/poliza")
+async def firmar_y_emitir(
+    solicitud_id: str,
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+) -> dict:
+    """Firma y emite una solicitud ya evaluada por POST /asesor/emisiones
+    (HU-149, HU-17 stub de firma electrónica).
+
+    Mismo flujo que POST /cliente/polizas (ver cliente.emitir): acepta la
+    oferta en ms-cotizacion (idempotente -- si ya se evaluó en
+    consultar_emision, reutiliza esa misma decisión en vez de recalcularla,
+    porque ms-suscripcion.evaluar es idempotente por solicitud_id), cobra la
+    prima y emite la póliza. Un rechazo de suscripción responde 200 con
+    {resultado: RECHAZADA, motivo} igual que en el canal cliente -- no es
+    una falla técnica.
+
+    TODO: la "firma electrónica" de HU-17 es un stub -- no hay integración
+    real con un proveedor de firma, este endpoint asume que firmar y emitir
+    son la misma operación mientras ese adaptador no exista.
+    """
+    score_stub = Decimal("0.5000")
+    perfil_id = ContextoUsuario(solicitud_id).perfil_id
+
+    aceptacion = await cliente_cotizacion.aceptar_oferta(
+        cotizacion_id=solicitud_id,
+        idempotency_key=_idempotency_key(),
+        perfil_id=perfil_id,
+        score=score_stub,
+    )
+
+    if aceptacion["decision"].upper() != "ACEPTADA":
+        return {"resultado": "RECHAZADA", "motivo": aceptacion["motivo"]}
+
+    oferta_id = UUID(aceptacion["oferta_id"])
+    solicitud_uuid = UUID(aceptacion["cotizacion_id"])
+    contexto = ContextoUsuario(solicitud_id)
+
+    # TODO: `token_medio_pago` es un placeholder -- mismo faltante que en
+    # cliente.emitir() (sin pasarela real integrada todavía).
+    pago = await cliente_pagos.cobrar_prima(
+        solicitud_id=solicitud_uuid,
+        oferta_id=oferta_id,
+        usuario_id=contexto.usuario_id,
+        monto=Decimal(str(aceptacion["prima"])),
+        token_medio_pago="stub-medio-pago",
+    )
+
+    cobertura_minima = [
+        {
+            "nombre": aceptacion.get("estado", "cobertura-base"),
+            "suma_asegurada": str(aceptacion["prima"]),
+            "deducible": "0",
+        }
+    ]
+    poliza = await cliente_polizas.emitir(
+        solicitud_id=solicitud_uuid,
+        oferta_id=oferta_id,
+        usuario_id=contexto.usuario_id,
+        token_pago_confirmado=UUID(str(pago["id"])),
+        coberturas=cobertura_minima,
+    )
+
+    cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
+    ramo = cotizacion.get("producto", "")
+
+    return {
+        "resultado": "EMITIDA",
+        "poliza": {
+            "numero": poliza["numero"],
+            "ramo": ramo,
+            "estado": poliza["estado"],
+            "venceEn": poliza.get("fin_vigencia", ""),
+        },
+    }
 
 
 # TODO: no hay microservicio que agregue KPIs/cartera de un asesor -- requiere

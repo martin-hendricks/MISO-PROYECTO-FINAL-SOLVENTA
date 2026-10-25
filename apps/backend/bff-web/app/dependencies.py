@@ -11,6 +11,7 @@ from .clients.ms_pagos import ClienteMsPagos
 from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
 from .clients.ms_siniestros import ClienteMsSiniestros
+from .clients.ms_suscripcion import ClienteMsSuscripcion
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -94,3 +95,7 @@ def obtener_cliente_perfilamiento(request: Request) -> ClienteMsPerfilamiento:
 
 def obtener_cliente_siniestros(request: Request) -> ClienteMsSiniestros:
     return ClienteMsSiniestros(request.app.state.http_ms_siniestros, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_suscripcion(request: Request) -> ClienteMsSuscripcion:
+    return ClienteMsSuscripcion(request.app.state.http_ms_suscripcion, getattr(request.state, "correlacion", None))
