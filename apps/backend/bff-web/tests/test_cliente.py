@@ -156,6 +156,11 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     assert body["poliza"]["numero"] == "POL-88219-CO"
     assert body["poliza"]["estado"] == "vigente"
     assert body["poliza"]["ramo"] == COTIZACION_SALIDA["producto"]
+    assert body["poliza"]["producto"] == COTIZACION_SALIDA["producto"]
+    assert body["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert body["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
+    assert body["poliza"]["moneda"] == ACEPTACION_SALIDA["moneda"]
+    assert body["poliza"]["primaTotal"] == float(ACEPTACION_SALIDA["prima"])
 
     pago_enviado = nucleo_pagos.peticiones[-1]
     assert pago_enviado is not None
@@ -179,7 +184,10 @@ def test_emision_cuando_decision_es_rechazada_no_cobra_ni_emite(
     )
 
     assert response.status_code == 200
-    assert response.json() == {"resultado": "RECHAZADA", "motivo": ACEPTACION_RECHAZADA["motivo"]}
+    assert response.json() == {
+        "resultado": "RECHAZADA",
+        "motivo": {"codigo": ACEPTACION_RECHAZADA["motivo"], "mensaje": ACEPTACION_RECHAZADA["motivo"]},
+    }
     assert nucleo_pagos.peticiones == []
     assert nucleo_polizas.peticiones == []
 

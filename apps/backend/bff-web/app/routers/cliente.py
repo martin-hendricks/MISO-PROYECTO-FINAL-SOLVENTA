@@ -277,7 +277,9 @@ async def emitir(
     )
 
     if aceptacion["decision"].upper() != "ACEPTADA":
-        return {"resultado": "RECHAZADA", "motivo": aceptacion["motivo"]}
+        # ms-suscripcion solo entrega un código; el web espera {codigo, mensaje}.
+        motivo = aceptacion["motivo"]
+        return {"resultado": "RECHAZADA", "motivo": {"codigo": motivo, "mensaje": motivo}}
 
     oferta_id = UUID(aceptacion["oferta_id"])
     solicitud_id = UUID(aceptacion["cotizacion_id"])
@@ -317,8 +319,13 @@ async def emitir(
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "producto": ramo,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
+            "inicioVigencia": poliza.get("inicio_vigencia", ""),
+            "finVigencia": poliza.get("fin_vigencia", ""),
+            "moneda": aceptacion.get("moneda", ""),
+            "primaTotal": float(aceptacion["prima"]),
         },
     }
 
