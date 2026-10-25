@@ -151,6 +151,14 @@ class RepositorioPolizasSQL:
                 firma_hash=poliza.firma_hash,
             )
         )
+        # Flush explícito: sin relationship() ORM declarado entre PolizaFila
+        # y CoberturaFila (solo FK a nivel de columna), el autoflush de
+        # SQLAlchemy no garantiza que el INSERT de "poliza" preceda al de
+        # "cobertura" dentro del mismo flush -- confirmado en pruebas
+        # funcionales end-to-end reales: violaba cobertura_poliza_id_fkey
+        # porque el batch de coberturas se enviaba antes de que la póliza
+        # existiera en la base. El flush aquí fuerza el orden correcto.
+        await self._s.flush()
         self._agregar_coberturas(poliza)
 
     def _agregar_coberturas(self, poliza: Poliza) -> None:

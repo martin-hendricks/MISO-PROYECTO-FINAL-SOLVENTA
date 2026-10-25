@@ -1,0 +1,220 @@
+# Orquesta todo el backend de Solventa en local: una base Postgres por
+# microservicio (mismo patrón que cada docker-compose.yml individual, solo
+# que aquí conviven todos a la vez) + api-socios y bff-web hablando con el
+# núcleo real por red interna de Docker, igual que harían vía Service de
+# Kubernetes en el cluster real.
+#
+# Uso:
+#   cd apps/backend && docker compose up -d --build
+#   docker compose down -v   (-v: también borra los volúmenes de datos)
+#
+# Puertos expuestos al host (para pegarle desde curl/Postman):
+#   8000 ms-cotizacion   8001 ms-suscripcion   8002 ms-pagos
+#   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
+#   8006 api-socios      8007 bff-web
+
+services:
+  db-cotizacion:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-cotizacion/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-suscripcion:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-suscripcion/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-pagos:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-pagos/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-polizas:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-polizas/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-perfilamiento:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-perfilamiento/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-siniestros:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./ms-siniestros/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  ms-cotizacion:
+    build:
+      context: ./ms-cotizacion
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-cotizacion
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-cotizacion:5432/solventa
+      # Default roto en app/config.py (http://ms-suscripcion:8000, pero
+      # ms-suscripcion escucha en :8080) -- se sobreescribe aquí explícito.
+      MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      db-cotizacion:
+        condition: service_healthy
+
+  ms-suscripcion:
+    build:
+      context: ./ms-suscripcion
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-suscripcion
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-suscripcion:5432/solventa
+    ports:
+      - "8001:8080"
+    depends_on:
+      db-suscripcion:
+        condition: service_healthy
+
+  ms-pagos:
+    build:
+      context: ./ms-pagos
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-pagos
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-pagos:5432/solventa
+      MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+    ports:
+      - "8002:8080"
+    depends_on:
+      db-pagos:
+        condition: service_healthy
+
+  ms-polizas:
+    build:
+      context: ./ms-polizas
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-polizas
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-polizas:5432/solventa
+      DATABASE_URL_READ: postgresql+asyncpg://postgres:postgres@db-polizas:5432/solventa
+      MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+      MS_PAGOS_URL: http://ms-pagos:8080
+    ports:
+      - "8003:8080"
+    depends_on:
+      db-polizas:
+        condition: service_healthy
+
+  ms-perfilamiento:
+    build:
+      context: ./ms-perfilamiento
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-perfilamiento
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-perfilamiento:5432/solventa
+    ports:
+      - "8004:8080"
+    depends_on:
+      db-perfilamiento:
+        condition: service_healthy
+
+  ms-siniestros:
+    build:
+      context: ./ms-siniestros
+      target: runtime
+    environment:
+      SERVICE_NAME: ms-siniestros
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-siniestros:5432/solventa
+    ports:
+      - "8005:8080"
+    depends_on:
+      db-siniestros:
+        condition: service_healthy
+
+  api-socios:
+    build:
+      context: .
+      dockerfile: ./api-socios/Dockerfile
+      target: runtime
+    environment:
+      SERVICE_NAME: api-socios
+      MS_COTIZACION_URL: http://ms-cotizacion:8000
+    ports:
+      - "8006:8080"
+    depends_on:
+      - ms-cotizacion
+
+  bff-web:
+    build:
+      context: ./bff-web
+      target: runtime
+    environment:
+      SERVICE_NAME: bff-web
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
+      MS_COTIZACION_URL: http://ms-cotizacion:8000
+      MS_PAGOS_URL: http://ms-pagos:8080
+      MS_POLIZAS_URL: http://ms-polizas:8080
+      MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
+      MS_SINIESTROS_URL: http://ms-siniestros:8080
+      MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+    ports:
+      - "8007:8000"
+    depends_on:
+      - ms-cotizacion
+      - ms-pagos
+      - ms-polizas
+      - ms-perfilamiento
+      - ms-siniestros
+      - ms-suscripcion
