@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .clients.ms_cotizacion import ClienteMsCotizacion
+from .clients.ms_identidad import ClienteMsIdentidad
 from .clients.ms_pagos import ClienteMsPagos
 from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
@@ -99,3 +100,7 @@ def obtener_cliente_siniestros(request: Request) -> ClienteMsSiniestros:
 
 def obtener_cliente_suscripcion(request: Request) -> ClienteMsSuscripcion:
     return ClienteMsSuscripcion(request.app.state.http_ms_suscripcion, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_identidad(request: Request) -> ClienteMsIdentidad:
+    return ClienteMsIdentidad(request.app.state.http_ms_identidad, getattr(request.state, "correlacion", None))

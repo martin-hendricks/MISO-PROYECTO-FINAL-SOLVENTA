@@ -18,13 +18,32 @@ def test_rol_fuera_de_lista_es_400(client):
     assert response.status_code == 400
 
 
-def test_contrasena_rechazada_es_401_sin_tokens(client):
+def test_credenciales_rechazadas_por_ms_identidad_son_401_sin_tokens(client, nucleo_identidad):
+    import httpx
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
+        401, json={"codigo": "credenciales_invalidas", "mensaje": "Correo o contraseña incorrectos"}
+    )
+
     response = client.post(
         "/v1/sesion/ingreso",
         json={"correo": "camila@correo.com", "contrasena": "incorrecta", "rol": "cliente"},
     )
     assert response.status_code == 401
     assert "accessToken" not in response.json()
+
+
+def test_ingreso_envia_correo_y_contrasena_a_ms_identidad(client, nucleo_identidad):
+    client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "clave-secreta-123", "rol": "cliente"},
+    )
+
+    peticion = nucleo_identidad.peticiones[-1]
+    assert (peticion.method, peticion.url.path) == ("POST", "/v1/usuarios/autenticacion")
+    cuerpo = peticion.read()
+    assert b"camila@correo.com" in cuerpo
+    assert b"clave-secreta-123" in cuerpo
 
 
 def test_refresh_rota_el_par(client):
