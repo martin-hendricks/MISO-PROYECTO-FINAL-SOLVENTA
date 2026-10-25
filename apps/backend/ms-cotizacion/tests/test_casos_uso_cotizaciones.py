@@ -168,6 +168,22 @@ async def test_reconsultar_oferta_vencida_devuelve_vencida_true_con_precio_origi
     assert resultado.consulta.oferta.prima == registrada.oferta.prima
 
 
+async def test_reconsultar_por_oferta_id_devuelve_la_solicitud_original(uow, catalogo):
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0"))
+    registrada = await _cotizar(uow, catalogo, adaptador)
+
+    resultado = await casos_uso.reconsultar_oferta_por_id(uow, registrada.oferta.id)
+
+    assert resultado.solicitud.id == registrada.solicitud.id
+    assert resultado.solicitud.producto == registrada.solicitud.producto
+    assert resultado.consulta.oferta.id == registrada.oferta.id
+
+
+async def test_reconsultar_por_oferta_id_inexistente_lanza_no_encontrado(uow):
+    with pytest.raises(NoEncontrado):
+        await casos_uso.reconsultar_oferta_por_id(uow, uuid4())
+
+
 async def test_carrera_sin_ganador_visible_lanza_runtime_error(catalogo):
     class _RepoSolicitudesSinGanador:
         async def obtener_por_clave(self, _clave):

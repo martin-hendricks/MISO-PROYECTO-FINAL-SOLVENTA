@@ -20,5 +20,10 @@ class Settings(BaseSettings):
     # del cluster en despliegues reales.
     ms_perfilamiento_url: str = "http://localhost:8080"
     ms_siniestros_url: str = "http://localhost:8080"
+    # ms-suscripcion ya está mergeado a develop. El flujo de asesor
+    # (routers/asesor.py) lo consulta directo para evaluar la decisión de
+    # suscripción sin pasar por la aceptación del canal cliente -- ver
+    # app/clients/ms_suscripcion.py.
+    ms_suscripcion_url: str = "http://localhost:8080"
 
     timeout_nucleo_s: float = 2.0

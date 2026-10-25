@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
@@ -10,12 +10,14 @@ from sqlalchemy.exc import IntegrityError
 
 from app import main
 from app.config import Settings
-from app.dependencies import obtener_cobros, obtener_suscripciones, obtener_uow
+from app.dependencies import obtener_cobros, obtener_firma, obtener_suscripciones, obtener_uow
 from app.domain.errores import DependenciaNoDisponible
-from app.domain.modelos import Poliza, poliza_emitida
+from app.domain.modelos import ConstanciaFirma, Poliza, poliza_emitida
+from app.infrastructure.firma import FirmaStub
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
 from app.infrastructure.sql import (
     CoberturaFila,
+    ConstanciaFirmaFila,
     OutboxFila,
     PolizaFila,
     UnidadDeTrabajoSQL,
@@ -95,6 +97,81 @@ async def test_agregar_poliza_escribe_poliza_coberturas_y_evento_y_confirma():
     assert len(filas_cobertura) == 2
     assert isinstance(evento, OutboxFila) and evento.tipo == "PolizaEmitida"
     assert (sesion.commits, sesion.cierres) == (1, 1)
+
+
+async def test_agregar_poliza_guarda_su_hash_de_firma():
+    sesion = SesionFalsa()
+    poliza = Poliza.emitir(uuid4(), uuid4(), "POL-2026-00000008", coberturas(), date(2026, 10, 23), "abc123")
+
+    async with UnidadDeTrabajoSQL(lambda: sesion) as tx:
+        await tx.polizas.agregar(poliza)
+
+    assert sesion.agregados[0].firma_hash == "abc123"
+
+
+async def test_obtener_mapea_el_hash_de_firma_al_dominio():
+    poliza = Poliza.emitir(uuid4(), uuid4(), "POL-2026-00000009", coberturas(), date(2026, 10, 23), "abc123")
+    fila = PolizaFila(
+        poliza_id=poliza.id,
+        oferta_id=poliza.oferta_id,
+        usuario_id=poliza.usuario_id,
+        numero=poliza.numero,
+        inicio_vigencia=poliza.inicio_vigencia,
+        fin_vigencia=poliza.fin_vigencia,
+        estado="VIGENTE",
+        firma_hash="abc123",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        assert (await tx.polizas.obtener(poliza.id)).firma_hash == "abc123"
+
+
+async def test_agregar_constancia_de_firma_escribe_la_fila():
+    sesion = SesionFalsa()
+    constancia = ConstanciaFirma(
+        oferta_id=uuid4(), exitosa=False, firmada_en=datetime(2026, 10, 24, tzinfo=UTC), motivo="rechazada"
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: sesion) as tx:
+        await tx.firmas.agregar(constancia)
+
+    [fila] = sesion.agregados
+    assert isinstance(fila, ConstanciaFirmaFila)
+    assert (fila.constancia_id, fila.oferta_id, fila.exitosa, fila.motivo, fila.firma_hash, fila.firmada_en) == (
+        constancia.id,
+        constancia.oferta_id,
+        False,
+        "rechazada",
+        None,
+        constancia.firmada_en,
+    )
+
+
+async def test_ultima_constancia_por_oferta_mapea_la_fila_al_dominio():
+    fila = ConstanciaFirmaFila(
+        constancia_id=uuid4(),
+        oferta_id=uuid4(),
+        exitosa=True,
+        motivo=None,
+        firma_hash="abc123",
+        firmada_en=datetime(2026, 10, 24, tzinfo=UTC),
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        constancia = await tx.firmas.ultima_por_oferta(fila.oferta_id)
+
+    assert constancia == ConstanciaFirma(
+        id=fila.constancia_id,
+        oferta_id=fila.oferta_id,
+        exitosa=True,
+        firmada_en=fila.firmada_en,
+        firma_hash="abc123",
+    )
+
+
+async def test_ultima_constancia_sin_fila_devuelve_none():
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        assert await tx.firmas.ultima_por_oferta(uuid4()) is None
 
 
 async def test_siguiente_secuencia_usa_la_secuencia_de_la_bd():
@@ -358,6 +435,7 @@ def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
         assert app.state.fabrica_uow_lectura is not None
         assert isinstance(app.state.suscripciones, SuscripcionesHTTP)
         assert isinstance(app.state.cobros, CobrosHTTP)
+        assert isinstance(app.state.firma, FirmaStub)
         assert cliente.get("/health/live").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
@@ -365,9 +443,10 @@ def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
 
 
 def test_dependencias_leen_el_estado_de_la_app():
-    estado = SimpleNamespace(fabrica_uow=object(), suscripciones=object(), cobros=object())
+    estado = SimpleNamespace(fabrica_uow=object(), suscripciones=object(), cobros=object(), firma=object())
     request = SimpleNamespace(app=SimpleNamespace(state=estado))
 
     assert obtener_uow(request) is estado.fabrica_uow
     assert obtener_suscripciones(request) is estado.suscripciones
     assert obtener_cobros(request) is estado.cobros
+    assert obtener_firma(request) is estado.firma

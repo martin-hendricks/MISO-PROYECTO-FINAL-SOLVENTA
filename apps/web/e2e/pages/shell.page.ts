@@ -7,7 +7,7 @@ export class ShellPage {
     await this.page.goto('/');
   }
 
-  async expectUserShell(): Promise<void> {
-    await this.page.getByTestId('user-shell').waitFor({ state: 'visible' });
+  async expectInicio(): Promise<void> {
+    await this.page.getByTestId('inicio').waitFor({ state: 'visible' });
   }
 }

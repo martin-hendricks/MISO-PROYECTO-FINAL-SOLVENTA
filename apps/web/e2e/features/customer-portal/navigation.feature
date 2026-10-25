@@ -10,7 +10,7 @@ Feature: Customer portal navigation
   Scenario: A signed-in customer who reopens login stays in the portal
     Given the customer is signed in
     When the customer opens the login page
-    Then the user shell is visible
+    Then the customer lands on Inicio
 
   @pendiente @HU-107 @SOLV-231
   Scenario: Destinations on desktop

@@ -9,10 +9,11 @@ from sqlalchemy import text
 from app.application import casos_uso
 from app.application.casos_uso import SolicitudEmision
 from app.config import Settings
+from app.domain.errores import ReglaDeNegocioViolada
 from app.domain.modelos import Cobertura
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
 
-from .dobles import CobrosFalsos, SuscripcionesFalsas, solicitud
+from .dobles import CobrosFalsos, FirmaFalsa, SuscripcionesFalsas, solicitud
 
 pytestmark = [
     pytest.mark.integration,
@@ -30,8 +31,8 @@ async def uow():
 async def test_emision_idempotente_con_coberturas_y_outbox_en_la_misma_transaccion(uow):
     pedido = solicitud()
 
-    primera = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), pedido)
-    segunda = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), pedido)
+    primera = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+    segunda = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
 
     assert primera.creada and not segunda.creada
     assert segunda.poliza.numero == primera.poliza.numero
@@ -46,14 +47,14 @@ async def test_emision_idempotente_con_coberturas_y_outbox_en_la_misma_transacci
 
 
 async def test_cada_oferta_recibe_un_numero_nuevo(uow):
-    primera = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
-    segunda = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
+    primera = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), solicitud())
+    segunda = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), solicitud())
 
     assert primera.poliza.numero != segunda.poliza.numero
 
 
 async def test_consultar_poliza_por_numero(uow):
-    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), solicitud())
 
     encontrada = await casos_uso.consultar_poliza_por_numero(uow, emision.poliza.numero)
 
@@ -79,8 +80,8 @@ async def test_listar_polizas_de_usuario_devuelve_las_del_usuario_mas_recientes_
         coberturas=pedido_2.coberturas,
     )
 
-    await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), pedido_1)
-    await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), pedido_2)
+    await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido_1)
+    await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido_2)
 
     listado = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite=10)
 
@@ -89,7 +90,7 @@ async def test_listar_polizas_de_usuario_devuelve_las_del_usuario_mas_recientes_
 
 
 async def test_ciclo_de_vida_renovar_modificar_y_cancelar_persisten_contra_bd_real(uow):
-    emitida = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), solicitud())
+    emitida = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), solicitud())
     poliza_id = emitida.poliza.id
 
     nueva_fecha = date(emitida.poliza.fin_vigencia.year + 1, 1, 1)
@@ -115,3 +116,25 @@ async def test_ciclo_de_vida_renovar_modificar_y_cancelar_persisten_contra_bd_re
             {"id": poliza_id},
         )
     assert eventos == 4  # emitida + renovada + modificada + cancelada
+
+
+async def test_firma_persiste_constancia_y_hash_en_la_poliza(uow):
+    pedido = solicitud()
+
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+
+    constancia = await casos_uso.consultar_firma(uow, pedido.oferta_id)
+    assert constancia.exitosa and constancia.firmada_en.tzinfo is not None
+    assert (await casos_uso.consultar_poliza(uow, emision.poliza.id)).firma_hash == constancia.firma_hash
+
+
+async def test_firma_rechazada_persiste_constancia_sin_poliza(uow):
+    pedido = solicitud()
+
+    with pytest.raises(ReglaDeNegocioViolada):
+        await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(exitosa=False), pedido)
+
+    constancia = await casos_uso.consultar_firma(uow, pedido.oferta_id)
+    assert not constancia.exitosa and constancia.motivo
+    async with uow() as tx:
+        assert await tx.polizas.obtener_por_oferta(pedido.oferta_id) is None

@@ -1,10 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.domain.modelos import Cobertura, Poliza
+from app.domain.modelos import Cobertura, ConstanciaFirma, Poliza
 
 
 class CoberturaEntrada(BaseModel):
@@ -41,6 +41,7 @@ class PolizaSalida(BaseModel):
     coberturas: list[CoberturaSalida]
     motivo_cancelacion: str | None = None
     cancelada_en: date | None = None
+    hash_firma_legal: str | None = None
 
     @classmethod
     def desde(cls, poliza: Poliza) -> "PolizaSalida":
@@ -58,6 +59,25 @@ class PolizaSalida(BaseModel):
             ],
             motivo_cancelacion=poliza.motivo_cancelacion,
             cancelada_en=poliza.cancelada_en,
+            hash_firma_legal=poliza.firma_hash,
+        )
+
+
+class ConstanciaFirmaSalida(BaseModel):
+    oferta_id: UUID
+    resultado: str
+    motivo: str | None
+    firma_hash: str | None
+    firmada_en: datetime
+
+    @classmethod
+    def desde(cls, constancia: ConstanciaFirma) -> "ConstanciaFirmaSalida":
+        return cls(
+            oferta_id=constancia.oferta_id,
+            resultado="OK" if constancia.exitosa else "NO",
+            motivo=constancia.motivo,
+            firma_hash=constancia.firma_hash,
+            firmada_en=constancia.firmada_en,
         )
 
 

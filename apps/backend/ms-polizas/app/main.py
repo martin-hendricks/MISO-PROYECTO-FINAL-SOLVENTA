@@ -14,6 +14,7 @@ from app.domain.errores import (
     ReglaDeNegocioViolada,
     TransicionInvalida,
 )
+from app.infrastructure.firma import FirmaStub
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
 from app.infrastructure.sql import (
     crear_motor,
@@ -46,6 +47,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.fabrica_uow_lectura = fabrica_unidad_de_trabajo_lectura(motor_lectura)
         app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
         app.state.cobros = CobrosHTTP(http_pagos)
+        app.state.firma = FirmaStub(config.firma_stub_resultado)
         yield
         await http_suscripcion.aclose()
         await http_pagos.aclose()

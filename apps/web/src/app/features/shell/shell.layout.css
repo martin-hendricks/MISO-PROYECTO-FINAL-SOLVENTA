@@ -13,3 +13,8 @@ nav {
   display: flex;
   gap: 1rem;
 }
+
+nav a.active {
+  color: var(--sv-primary);
+  font-weight: 500;
+}

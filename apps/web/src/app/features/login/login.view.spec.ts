@@ -67,7 +67,7 @@ describe('LoginView', () => {
       });
       request.flush(fakeTokenPair());
 
-      expect(navigate).toHaveBeenCalledOnceWith('/user');
+      expect(navigate).toHaveBeenCalledOnceWith('/inicio');
     });
 
     it('shows the error in the same view on invalid credentials', () => {

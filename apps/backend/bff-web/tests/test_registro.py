@@ -6,7 +6,7 @@ def test_alta_web(client):
         "correo": "camila@correo.com",
         "habeasData": True,
     }
-    response = client.post("/registro", json=body)
+    response = client.post("/v1/registro", json=body)
     assert response.status_code == 200
     assert response.json()["habeasData"] is True
     assert "pruebaDeVida" not in response.json()

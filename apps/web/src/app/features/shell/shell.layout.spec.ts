@@ -13,7 +13,7 @@ describe('ShellLayout', () => {
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.querySelector('[data-testid="nav-user"]')?.getAttribute('href')).toBe('/user');
+    expect(host.querySelector('[data-testid="nav-inicio"]')?.getAttribute('href')).toBe('/inicio');
     expect(host.querySelector('[data-testid="nav-polizas"]')?.getAttribute('href')).toBe(
       '/polizas',
     );

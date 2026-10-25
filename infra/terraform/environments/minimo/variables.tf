@@ -391,12 +391,14 @@ variable "alb_routes" {
     }
     bff-web = {
       port = 8000
+      # bff-web versiona todas sus rutas bajo /v1 (apps/backend/bff-web/app/main.py,
+      # app.include_router(..., prefix="/v1")).
       paths = [
-        "/sesion",
-        "/registro",
-        "/cliente",
-        "/asesor",
-        "/operador",
+        "/v1/sesion",
+        "/v1/registro",
+        "/v1/cliente",
+        "/v1/asesor",
+        "/v1/operador",
       ]
       priority = 30
     }
