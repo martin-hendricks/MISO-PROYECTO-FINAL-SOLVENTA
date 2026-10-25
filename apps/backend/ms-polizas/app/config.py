@@ -19,3 +19,5 @@ class Settings(BaseSettings):
     ms_suscripcion_url: str = "http://localhost:8081"
     ms_pagos_url: str = "http://localhost:8082"
     timeout_dependencias: float = 2.0
+    # HU-17: resultado fijo del stub de firma electrónica (`ok` | `no`).
+    firma_stub_resultado: str = "ok"

@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
-from app.domain.modelos import Cobertura, EstadoPoliza, EventoDominio, Poliza
+from app.domain.modelos import Cobertura, ConstanciaFirma, EstadoPoliza, EventoDominio, Poliza
 from app.ports.persistencia import PolizaYaEmitida
 
 ESQUEMA = "ms_polizas"
@@ -65,6 +65,17 @@ class CoberturaFila(Base):
     deducible: Mapped[Decimal] = mapped_column(Numeric(14, 2))
 
 
+class ConstanciaFirmaFila(Base):
+    __tablename__ = "constancia_firma"
+
+    constancia_id: Mapped[UUID] = mapped_column(primary_key=True)
+    oferta_id: Mapped[UUID]
+    exitosa: Mapped[bool]
+    motivo: Mapped[str | None] = mapped_column(String)
+    firma_hash: Mapped[str | None] = mapped_column(String)
+    firmada_en: Mapped[datetime]
+
+
 class OutboxFila(Base):
     __tablename__ = "outbox_evento"
 
@@ -90,6 +101,7 @@ def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila]) -> Poliza:
         ),
         motivo_cancelacion=fila.motivo_cancelacion,
         cancelada_en=fila.cancelada_en,
+        firma_hash=fila.firma_hash,
     )
 
 
@@ -136,6 +148,7 @@ class RepositorioPolizasSQL:
                 inicio_vigencia=poliza.inicio_vigencia,
                 fin_vigencia=poliza.fin_vigencia,
                 estado=poliza.estado.value,
+                firma_hash=poliza.firma_hash,
             )
         )
         self._agregar_coberturas(poliza)
@@ -173,6 +186,41 @@ class RepositorioPolizasSQL:
         self._agregar_coberturas(poliza)
 
 
+class RepositorioFirmasSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def agregar(self, constancia: ConstanciaFirma) -> None:
+        self._s.add(
+            ConstanciaFirmaFila(
+                constancia_id=constancia.id,
+                oferta_id=constancia.oferta_id,
+                exitosa=constancia.exitosa,
+                motivo=constancia.motivo,
+                firma_hash=constancia.firma_hash,
+                firmada_en=constancia.firmada_en,
+            )
+        )
+
+    async def ultima_por_oferta(self, oferta_id: UUID) -> ConstanciaFirma | None:
+        fila = await self._s.scalar(
+            select(ConstanciaFirmaFila)
+            .where(ConstanciaFirmaFila.oferta_id == oferta_id)
+            .order_by(desc(ConstanciaFirmaFila.firmada_en))
+            .limit(1)
+        )
+        if fila is None:
+            return None
+        return ConstanciaFirma(
+            id=fila.constancia_id,
+            oferta_id=fila.oferta_id,
+            exitosa=fila.exitosa,
+            firmada_en=fila.firmada_en,
+            motivo=fila.motivo,
+            firma_hash=fila.firma_hash,
+        )
+
+
 class OutboxSQL:
     def __init__(self, sesion: AsyncSession) -> None:
         self._s = sesion
@@ -190,6 +238,7 @@ class UnidadDeTrabajoSQL:
     async def __aenter__(self) -> UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.polizas = RepositorioPolizasSQL(self._sesion)
+        self.firmas = RepositorioFirmasSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

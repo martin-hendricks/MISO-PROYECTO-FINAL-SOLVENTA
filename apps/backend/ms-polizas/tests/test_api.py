@@ -207,3 +207,43 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
     assert respuesta.status_code == 503
     assert respuesta.json() == {"status": "unavailable"}
+
+
+def test_emitir_devuelve_el_hash_de_firma_legal(client):
+    cuerpo = _cuerpo()
+
+    poliza = client.post("/v1/polizas", json=cuerpo).json()
+
+    assert poliza["hash_firma_legal"] == f"hash-{cuerpo['oferta_id']}"
+
+
+def test_firma_no_exitosa_responde_422_con_el_motivo(client, firma):
+    firma.exitosa = False
+
+    respuesta = client.post("/v1/polizas", json=_cuerpo())
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "firma_no_exitosa"
+    assert "Firma rechazada por el firmante" in respuesta.json()["mensaje"]
+
+
+def test_consultar_firma_muestra_el_estado_real(client, firma):
+    firma.exitosa = False
+    cuerpo = _cuerpo()
+    client.post("/v1/polizas", json=cuerpo)
+
+    respuesta = client.get(f"/v1/polizas/firmas/{cuerpo['oferta_id']}")
+
+    assert respuesta.status_code == 200
+    constancia = respuesta.json()
+    assert constancia["oferta_id"] == cuerpo["oferta_id"]
+    assert constancia["resultado"] == "NO"
+    assert constancia["motivo"] == "Firma rechazada por el firmante"
+    assert constancia["firma_hash"] is None
+    assert constancia["firmada_en"]
+
+
+def test_consultar_firma_inexistente_responde_404(client):
+    respuesta = client.get(f"/v1/polizas/firmas/{uuid4()}")
+
+    assert respuesta.status_code == 404

@@ -3,7 +3,8 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from app.application.casos_uso import SolicitudEmision
-from app.domain.modelos import Cobertura, EventoDominio, Poliza
+from app.domain.modelos import Cobertura, ConstanciaFirma, EventoDominio, Poliza
+from app.ports.firma import ResultadoFirma
 from app.ports.persistencia import PolizaYaEmitida
 
 
@@ -42,9 +43,22 @@ class CobrosFalsos:
         return self.respuesta
 
 
+class FirmaFalsa:
+    def __init__(self, exitosa: bool = True) -> None:
+        self.exitosa = exitosa
+        self.firmadas: list[UUID] = []
+
+    async def firmar(self, oferta_id):
+        self.firmadas.append(oferta_id)
+        if self.exitosa:
+            return ResultadoFirma(exitosa=True, firma_hash=f"hash-{oferta_id}")
+        return ResultadoFirma(exitosa=False, motivo="Firma rechazada por el firmante")
+
+
 class AlmacenEnMemoria:
     def __init__(self) -> None:
         self.polizas: dict[UUID, Poliza] = {}
+        self.constancias: list[ConstanciaFirma] = []
         self.eventos: list[EventoDominio] = []
         self.secuencia = 0
         self.chocar_en_proximo_commit: Poliza | None = None
@@ -87,6 +101,18 @@ class _Polizas:
         self._uow.pendientes[poliza.id] = poliza
 
 
+class _Firmas:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    async def agregar(self, constancia):
+        self._uow.constancias_pendientes.append(constancia)
+
+    async def ultima_por_oferta(self, oferta_id):
+        todas = [*self._uow.almacen.constancias, *self._uow.constancias_pendientes]
+        return next((c for c in reversed(todas) if c.oferta_id == oferta_id), None)
+
+
 class _Outbox:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
         self._uow = uow
@@ -100,7 +126,9 @@ class UnidadDeTrabajoEnMemoria:
         self.almacen = almacen
         self.pendientes: dict[UUID, Poliza] = {}
         self.eventos_pendientes: list[EventoDominio] = []
+        self.constancias_pendientes: list[ConstanciaFirma] = []
         self.polizas = _Polizas(self)
+        self.firmas = _Firmas(self)
         self.outbox = _Outbox(self)
 
     async def __aenter__(self):
@@ -109,6 +137,7 @@ class UnidadDeTrabajoEnMemoria:
     async def __aexit__(self, *exc):
         self.pendientes.clear()
         self.eventos_pendientes.clear()
+        self.constancias_pendientes.clear()
 
     async def confirmar(self):
         ganadora = self.almacen.chocar_en_proximo_commit
@@ -118,5 +147,7 @@ class UnidadDeTrabajoEnMemoria:
             raise PolizaYaEmitida
         self.almacen.polizas.update(self.pendientes)
         self.almacen.eventos.extend(self.eventos_pendientes)
+        self.almacen.constancias.extend(self.constancias_pendientes)
         self.pendientes.clear()
         self.eventos_pendientes.clear()
+        self.constancias_pendientes.clear()
