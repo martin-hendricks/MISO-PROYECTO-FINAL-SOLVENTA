@@ -20,12 +20,19 @@ puerto: 8080
 puertoMetricas: 9090
 
 recursos:
+  # Bajado de 512Mi/1Gi: con la cuota real de vCPU de la cuenta (16, ver
+  # terraform.tfvars del ambiente minimo), el Node Group B solo puede sostener
+  # 5 nodos t3.small -- los 7 servicios de este grupo en reposo con 512Mi
+  # cada uno dejaban ~95% de memoria reservada sin margen para un rolling
+  # update (confirmado: FailedScheduling "Insufficient memory" en todos los
+  # nodos durante un deploy). 300Mi deja margen real; subir junto con
+  # node_group_b_instance_types si hace falta representar carga real.
   requests:
     cpu: "300m"
-    memory: "512Mi"
+    memory: "300Mi"
   limits:
     cpu: "800m"
-    memory: "1Gi"
+    memory: "600Mi"
 
 probes:
   liveness:
