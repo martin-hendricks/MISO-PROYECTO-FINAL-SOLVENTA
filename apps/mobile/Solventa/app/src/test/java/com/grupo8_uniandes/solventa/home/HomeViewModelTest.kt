@@ -167,4 +167,43 @@ class HomeViewModelTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test
+    fun givenAMissingSituation_whenHomeOpens_thenFailedIsSet() {
+        val viewModel = HomeViewModel(LoadInicio(HomeRepository { null }))
+
+        assertTrue(viewModel.state.value.failed)
+        assertNull(viewModel.state.value.panel.offerId)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARefreshInFlight_whenRefreshAgain_thenTheSecondCallWaits() {
+        val reload = StandardTestDispatcher()
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var calls = 0
+            val viewModel = HomeViewModel(
+                LoadInicio(
+                    HomeRepository {
+                        calls += 1
+                        HomeSituation()
+                    },
+                ),
+                reloadDispatcher = reload,
+            )
+            assertEquals(1, calls)
+
+            viewModel.refresh()
+            viewModel.refresh()
+            assertEquals(1, calls)
+
+            reload.scheduler.advanceUntilIdle()
+
+            assertEquals(2, calls)
+            assertFalse(viewModel.state.value.failed)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
 }

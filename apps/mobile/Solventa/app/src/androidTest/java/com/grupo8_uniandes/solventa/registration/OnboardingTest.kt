@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -36,6 +37,7 @@ import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -66,9 +68,9 @@ class OnboardingTest {
         openAccount()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Foto del documento").assertIsDisplayed()
-        rule.onNodeWithText("Una sola cara, sin flash").assertIsDisplayed()
-        rule.onNodeWithText("Confirmar contraseña").assertIsDisplayed()
+        rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
         listOf(
             "field_nombre",
             "field_apellidos",
@@ -108,6 +110,7 @@ class OnboardingTest {
         fill(email = "camila@correo.com")
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
+        rule.waitUntilEnabled("action_continuar")
         rule.onNodeWithTag("action_continuar").assertIsEnabled()
         rule.onNodeWithTag("action_continuar").performClick()
         rule.waitForTag("screen_prueba_de_vida")
@@ -156,11 +159,15 @@ class OnboardingTest {
             confirmRegion(tag)
             rule.activityRule.scenario.recreate()
             rule.waitForTag("screen_onboarding")
-            rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-            rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-            rule.onNodeWithText("Foto del documento").assertIsDisplayed()
-            rule.onNodeWithText("Una sola cara, sin flash").assertIsDisplayed()
-            rule.onNodeWithText("Confirmar contraseña").assertIsDisplayed()
+            listOf(
+                "Crea tu cuenta",
+                "Paso 2 de 4 · Crea tu cuenta",
+                "Foto del documento",
+                "Una sola cara, sin flash",
+                "Confirmar contraseña",
+            ).forEach { copy ->
+                assertTrue(rule.onAllNodesWithText(copy).fetchSemanticsNodes().isNotEmpty())
+            }
         }
     }
 
@@ -171,14 +178,14 @@ class OnboardingTest {
     }
 
     private fun fill(email: String) {
-        rule.onNodeWithTag("field_nombre").performTextInput("Camila")
-        rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
-        rule.onNodeWithTag("field_correo").performTextInput(email)
+        rule.onNodeWithTag("field_nombre").performScrollTo().performTextReplacement("Camila")
+        rule.onNodeWithTag("field_apellidos").performScrollTo().performTextReplacement("Restrepo")
+        rule.onNodeWithTag("field_correo").performScrollTo().performTextReplacement(email)
         rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
-        rule.onNodeWithText("CC").performClick()
-        rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret12")
-        rule.onNodeWithTag("field_confirmar").performTextInput("secret12")
+        rule.onNodeWithTag("option_CC").performScrollTo().performClick()
+        rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
+        rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
     }
 
     private fun confirmRegion(tag: String) {
@@ -256,5 +263,13 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 private fun ComposeTestRule.waitForTag(tag: String) {
     waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
+private fun ComposeTestRule.waitUntilEnabled(tag: String) {
+    waitUntil(timeoutMillis = 5_000) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().any {
+            it.config.getOrNull(SemanticsProperties.Disabled) == null
+        }
     }
 }

@@ -59,10 +59,22 @@ class LivenessViewModelTest {
     fun givenScreen_whenYaTengoCuenta_thenLoginOpensAndDismissReturns() {
         val viewModel = LivenessViewModel(MemoryRegistration(account()))
 
+        viewModel.dismissLogin()
+        assertEquals(null, viewModel.state.value.effect)
+        viewModel.onSurnames("Ruiz")
+        viewModel.onEmail("ana@correo.com")
+        viewModel.onDocumentType("CE")
+        viewModel.onDocumentNumber("900")
+        viewModel.onPassword("otra")
         viewModel.yaTengoCuenta()
         assertEquals(LivenessEffect.OpenLogin, viewModel.state.value.effect)
         viewModel.dismissLogin()
         assertEquals(null, viewModel.state.value.effect)
+        assertEquals("Ruiz", viewModel.state.value.surnames)
+        assertEquals("ana@correo.com", viewModel.state.value.email)
+        assertEquals("CE", viewModel.state.value.documentType)
+        assertEquals("900", viewModel.state.value.documentNumber)
+        assertEquals("otra", viewModel.state.value.password)
     }
 }
 

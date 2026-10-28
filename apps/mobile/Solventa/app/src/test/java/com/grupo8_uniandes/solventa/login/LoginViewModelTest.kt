@@ -332,6 +332,97 @@ class LoginViewModelTest {
         viewModel.consumeEffect()
         assertNull(viewModel.state.value.effect)
     }
+
+    @Test
+    fun givenHomeAlreadyOpen_whenDeviceUnlockArrives_thenSignInDoesNotRunAgain() {
+        val signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn))
+        val viewModel = LoginViewModel(signIn)
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+        viewModel.ingresar()
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+        viewModel.acceptBiometric()
+        viewModel.declineBiometric()
+
+        assertEquals(1, signIn.calls)
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        viewModel.consumeEffect()
+        assertNull(viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenBiometricAttemptInProgress_whenUnlockArrivesAgain_thenSignInRunsOnce() {
+        lateinit var viewModel: LoginViewModel
+        val signIn = ReenteringUnlock {
+            viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+        }
+        viewModel = LoginViewModel(
+            signIn = signIn,
+            storedBiometricLogin = { BiometricLogin("camila@correo.com", "secret") },
+        )
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+
+        assertEquals(1, signIn.calls)
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenStoredLoginIncomplete_whenBiometricAccepted_thenFallbackStaysWithoutAFailure() {
+        val signIn = ScriptedSignIn(mutableListOf(SignInResult.Incomplete))
+        val viewModel = LoginViewModel(
+            signIn = signIn,
+            storedBiometricLogin = { BiometricLogin("camila@correo.com", "secret") },
+        )
+
+        viewModel.onDeviceUnlock(DeviceUnlock.Accepted)
+
+        assertTrue(viewModel.state.value.biometricFallback)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertNull(viewModel.state.value.effect)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenItStaysClosedOrThrows_thenTheUnavailableFailureStays() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val closed = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
+                openRemoteSession = { _, _ -> false },
+            )
+            closed.onEmail("camila@correo.com")
+            closed.onPassword("secret")
+            closed.ingresar()
+            assertEquals(LoginFailure.Unavailable, closed.state.value.failure)
+            assertNull(closed.state.value.effect)
+
+            val thrown = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
+                openRemoteSession = { _, _ -> error("bff") },
+            )
+            thrown.onEmail("camila@correo.com")
+            thrown.onPassword("secret")
+            thrown.ingresar()
+            assertEquals(LoginFailure.Unavailable, thrown.state.value.failure)
+            assertNull(thrown.state.value.effect)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun givenNoEffect_whenBiometricChoicesAreIgnored_thenTheScreenStays() {
+        val viewModel = LoginViewModel(ScriptedSignIn(mutableListOf()))
+
+        viewModel.acceptBiometric()
+        viewModel.declineBiometric()
+        viewModel.consumeEffect()
+
+        assertNull(viewModel.state.value.effect)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+    }
 }
 
 private class ScriptedSignIn(
@@ -350,6 +441,18 @@ private class ScriptedSignIn(
 }
 
 private class ReenteringSignIn(
+    private val again: () -> Unit,
+) : SignIn(ThrowingRegistrationRepository()) {
+    var calls: Int = 0
+
+    override fun submit(email: String, password: String): SignInResult {
+        calls += 1
+        if (calls == 1) again()
+        return SignInResult.SignedIn
+    }
+}
+
+private class ReenteringUnlock(
     private val again: () -> Unit,
 ) : SignIn(ThrowingRegistrationRepository()) {
     var calls: Int = 0

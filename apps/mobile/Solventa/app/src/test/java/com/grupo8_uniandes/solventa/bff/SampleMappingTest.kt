@@ -47,6 +47,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
+import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
@@ -59,6 +60,7 @@ import com.grupo8_uniandes.solventa.data.bff.mock.publishedOfferRequest
 import com.grupo8_uniandes.solventa.data.bff.mock.publishedSignup
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
@@ -350,6 +352,14 @@ class SampleMappingTest {
         assertTrue(blank.contains("umbral"))
         val kept = ClimateRisk("lluvia", "BOG", 40).toRequestElement().toString()
         assertTrue(kept.contains("referencia"))
+    }
+
+    @Test
+    fun givenLivenessNoAndNoGeo_whenMapped_thenThoseChoicesStay() {
+        val signup = publishedSignup().copy(pruebaDeVida = Liveness.NO)
+        assertEquals(LivenessDto.no, signup.toDto().pruebaDeVida)
+        val notice = ClaimNotice("POL-9", "2026-03-12", null, emptyList())
+        assertNull(notice.toDto().geo)
     }
 
     private fun <T> StandInAnswer<T>.ready(): T {

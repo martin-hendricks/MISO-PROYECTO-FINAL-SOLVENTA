@@ -127,6 +127,26 @@ class SharedPrefsRegistrationRepositoryTest {
         assertEquals("", stored?.documentNumber)
         assertEquals("", stored?.password)
         assertTrue(byteArrayOf(3).contentEquals(stored?.documentPhoto))
+        assertNull(repository.biometricLogin())
+    }
+
+    @Test
+    fun givenAccountWithoutBiometricKeys_whenLoginIsRead_thenTheAccountPairIsUsed() {
+        val photo = File(context.filesDir, "registration/document.jpg")
+        photo.parentFile?.mkdirs()
+        photo.writeBytes(byteArrayOf(4))
+        prefs().edit()
+            .putBoolean(KeyRegistrationCompleted, true)
+            .putString(KeyEmail, "  camila@correo.com  ")
+            .putString(KeyPassword, "secret")
+            .commit()
+
+        assertEquals(BiometricLogin("camila@correo.com", "secret"), repository.biometricLogin())
+
+        prefs().edit().putString(KeyPassword, "").commit()
+        assertNull(repository.biometricLogin())
+        prefs().edit().putString(KeyEmail, " ").putString(KeyPassword, "secret").commit()
+        assertNull(repository.biometricLogin())
     }
 
     private fun prefs() = context.getSharedPreferences(RegistrationPrefsFile, Context.MODE_PRIVATE)

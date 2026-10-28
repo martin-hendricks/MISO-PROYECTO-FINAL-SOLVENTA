@@ -489,6 +489,8 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
 internal fun Activity.openOnboarding(showStep: Boolean = false) {
     intent.putExtra(MainActivity.EXTRA_OPEN_ONBOARDING, true)
     intent.putExtra(MainActivity.EXTRA_ONBOARDING_STEP, showStep)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_LIVENESS)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_CONSENT)
     intent.removeExtra(MainActivity.EXTRA_SIGNED_OUT)
     recreate()
 }
@@ -509,10 +511,8 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        when (state.effect) {
-            ConsentEffect.OpenHome -> activity?.openHomeAfterOnboarding()
-            ConsentEffect.OpenAccount -> activity?.openOnboarding()
-            else -> Unit
+        if (state.effect == ConsentEffect.OpenHome) {
+            activity?.openHomeAfterOnboarding()
         }
     }
     ConsentScreen(
@@ -520,7 +520,10 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
         confirmEnabled = state.confirmEnabled,
         onSwitch = viewModel::onSwitch,
         onConfirm = viewModel::confirm,
-        onBack = viewModel::back,
+        onBack = {
+            viewModel.back()
+            activity?.openOnboarding(showStep = true)
+        },
         modifier = modifier,
     )
 }

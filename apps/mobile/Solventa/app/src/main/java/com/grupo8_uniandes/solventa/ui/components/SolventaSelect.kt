@@ -74,7 +74,10 @@ fun SolventaSelect(
                         onSelect(option)
                         onExpandedChange(false)
                     },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = SolventaSpacing.minTouch),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = SolventaSpacing.minTouch)
+                        .testTag("option_$option"),
                 ) {
                     Text(option)
                 }
@@ -134,7 +137,10 @@ private fun DocumentTypeMenu(
                         onSelect(option)
                         onExpandedChange(false)
                     },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = SolventaSpacing.minTouch),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = SolventaSpacing.minTouch)
+                        .testTag("option_$option"),
                 ) {
                     Text(
                         text = option,

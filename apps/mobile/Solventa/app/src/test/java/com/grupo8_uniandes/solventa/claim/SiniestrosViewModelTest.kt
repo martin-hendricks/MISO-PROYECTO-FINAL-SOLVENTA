@@ -63,6 +63,14 @@ class SiniestrosViewModelTest {
     }
 
     @Test
+    fun givenAPendingList_whenItLoads_thenNoClaimIsShown() {
+        val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Pending))
+
+        assertEquals(ClaimsPhase.Pending, viewModel.state.value.phase)
+        assertTrue(viewModel.state.value.claims.isEmpty())
+    }
+
+    @Test
     fun givenAFailedList_whenShown_thenNoIdIsInvented() {
         val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Failed))
         assertEquals(ClaimsPhase.Failed, viewModel.state.value.phase)

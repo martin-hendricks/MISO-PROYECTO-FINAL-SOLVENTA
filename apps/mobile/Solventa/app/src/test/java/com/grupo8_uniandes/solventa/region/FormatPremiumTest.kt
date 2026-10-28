@@ -80,7 +80,10 @@ class FormatPremiumTest {
     @Test
     fun givenDigits_whenFormattedForEachRegion_thenSymbolAndGroupingStayWhole() {
         assertEquals("", formatQuoteAmount("", Region.Colombia))
+        assertEquals("", formatQuoteAmount("9".repeat(20), Region.Colombia))
         assertEquals("", quoteAmountDigits("S/ "))
+        assertEquals("0", quoteAmountDigits("000"))
+        assertEquals("48", quoteAmountDigits("048"))
         assertEquals("48900", quoteAmountDigits("$48.900"))
         assertEquals("$48.900", formatQuoteAmount("48900", Region.Colombia))
         assertEquals("$48.900", formatQuoteAmount("48900", Region.Chile))

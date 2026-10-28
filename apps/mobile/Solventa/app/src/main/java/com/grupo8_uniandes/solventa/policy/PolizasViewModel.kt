@@ -75,7 +75,7 @@ class PolizaDetalleViewModel(
             _state.value = when (val answer = issuance.detail(numero)) {
                 StandInAnswer.Pending -> PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
                 StandInAnswer.Failed -> PolicyDetailUiState(phase = PolicyPhase.Failed, numero = numero)
-                is StandInAnswer.Ready -> answer.value.toUi()
+                is StandInAnswer.Ready -> answer.value.toUi().copy(numero = numero)
             }
         }
     }

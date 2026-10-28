@@ -94,7 +94,7 @@ class InicioNavigationTest {
         show(HomePanel(policyId = "POL-9"))
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
         rule.onNodeWithText("Cancelar").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)

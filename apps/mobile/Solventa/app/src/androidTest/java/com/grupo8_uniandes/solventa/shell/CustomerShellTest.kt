@@ -119,7 +119,6 @@ class CustomerShellTest {
 
     @Test
     fun givenOfferAccepted_whenIssuingAndIssued_thenBarIsHiddenUntilLeaving() {
-        rule.onNodeWithText("Nueva cotización").performClick()
         rule.onNodeWithText("Aceptar oferta").performClick()
         rule.onNodeWithTag("screen_emision").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
@@ -133,7 +132,6 @@ class CustomerShellTest {
 
     @Test
     fun givenIssuedPolicy_whenContinueToDetail_thenPolizasIsSelected() {
-        rule.onNodeWithText("Nueva cotización").performClick()
         rule.onNodeWithText("Aceptar oferta").performClick()
         rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_policy").performClick()
@@ -159,7 +157,7 @@ class CustomerShellTest {
         rule.onNodeWithText("Pólizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
-        rule.onNodeWithTag("solventa_button_outlined").assertIsDisplayed()
+        rule.onNodeWithTag("action_cancel_policy").assertIsDisplayed()
         rule.onNodeWithTag("solventa_card").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onAllNodesWithText("SOL-0001").assertCountEquals(0)

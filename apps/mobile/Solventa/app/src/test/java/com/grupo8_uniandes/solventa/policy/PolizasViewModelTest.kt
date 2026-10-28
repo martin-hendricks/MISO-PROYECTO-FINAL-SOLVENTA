@@ -136,6 +136,26 @@ class PolizasViewModelTest {
     }
 
     @Test
+    fun givenAPendingWallet_whenItLoads_thenTheListStaysEmpty() {
+        val viewModel = PolizasViewModel(scripted(wallet = StandInAnswer.Pending))
+
+        assertEquals(WalletPhase.Pending, viewModel.state.value.phase)
+        assertTrue(viewModel.state.value.policies.isEmpty())
+    }
+
+    @Test
+    fun givenAPolicyNumber_whenDetailIsPendingOrFailed_thenTheNumberStays() {
+        val pending = PolizaDetalleViewModel(scripted(detail = StandInAnswer.Pending), "POL-9")
+        assertEquals(PolicyPhase.Pending, pending.state.value.phase)
+        assertEquals("POL-9", pending.state.value.numero)
+
+        val failed = PolizaDetalleViewModel(scripted(detail = StandInAnswer.Failed), "POL-9")
+        assertEquals(PolicyPhase.Failed, failed.state.value.phase)
+        assertEquals("POL-9", failed.state.value.numero)
+        assertEquals("", failed.state.value.queHacer)
+    }
+
+    @Test
     fun givenAPolicyNumber_whenDetailLoads_thenThatNumberIsRequested() {
         val repository = scripted(
             detail = StandInAnswer.Ready(

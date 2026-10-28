@@ -17,6 +17,9 @@ class QuoteAmountVisualTransformationTest {
         assertEquals(0, mapping.transformedToOriginal(0))
         assertEquals(shown.text.length, mapping.originalToTransformed(8))
         assertEquals(2, mapping.transformedToOriginal(3))
+        val empty = quoteAmountOffsetMapping("S/ ")
+        assertEquals("S/ ".length, empty.originalToTransformed(1))
+        assertEquals(0, empty.transformedToOriginal(-1))
     }
 
     @Test

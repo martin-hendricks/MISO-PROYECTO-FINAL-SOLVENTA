@@ -236,6 +236,28 @@ class OnboardingViewModelTest {
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSessionInFlight_whenContinuarAgain_thenItSubmitsOnce() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var calls = 0
+            lateinit var remote: OnboardingViewModel
+            remote = OnboardingViewModel(register, openRemoteSession = { _, _ ->
+                calls += 1
+                remote.continuar()
+                true
+            })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertEquals(1, calls)
+            assertEquals(OnboardingEffect.ContinueToLiveness, remote.state.value.effect)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun fillValid() {
         fill(viewModel)
     }
