@@ -67,6 +67,17 @@ POLIZA_SALIDA = {
 }
 
 
+FIRMA_SALIDA = {
+    "oferta_id": OFERTA_ID,
+    "resultado": "OK",
+    "motivo": None,
+    "firma_hash": "3f9a0c",
+    "firmada_en": "2026-09-16T15:25:00Z",
+}
+
+FIRMA_FALLIDA = {"codigo": "firma_no_exitosa", "mensaje": "La firma electrónica no fue exitosa: Firma rechazada"}
+
+
 def _auth(client, rol):
     return {"Authorization": f"Bearer {token(client, rol)}"}
 
@@ -211,6 +222,9 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     )
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
+    nucleo_polizas.respuestas[("GET", f"/v1/polizas/firmas/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=FIRMA_SALIDA
+    )
 
     respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
 
@@ -222,7 +236,7 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     assert cuerpo["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
     assert cuerpo["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
     assert cuerpo["poliza"]["expedidaEn"] == POLIZA_SALIDA["inicio_vigencia"]
-    assert cuerpo["firma"]["firmadaEn"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert cuerpo["firma"] == {"firmadaEn": FIRMA_SALIDA["firmada_en"], "hash": FIRMA_SALIDA["firma_hash"]}
     assert cuerpo["pasos"][3] == {"paso": "POLIZA", "estado": "COMPLETADO"}
 
 
@@ -240,6 +254,46 @@ def test_firmar_y_emitir_con_decision_rechazada_no_cobra_ni_emite(
     assert respuesta.json() == {"resultado": "RECHAZADA", "motivo": ACEPTACION_RECHAZADA["motivo"]}
     assert nucleo_pagos.peticiones == []
     assert nucleo_polizas.peticiones == []
+
+
+def test_firmar_y_emitir_con_firma_fallida_responde_rechazo_con_motivo(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(422, json=FIRMA_FALLIDA)
+
+    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {
+        "resultado": "RECHAZADA",
+        "motivo": FIRMA_FALLIDA["mensaje"],
+        "pasos": [
+            {"paso": "COTIZAR", "estado": "COMPLETADO"},
+            {"paso": "OFERTA", "estado": "COMPLETADO"},
+            {"paso": "EMISION", "estado": "ERROR"},
+            {"paso": "POLIZA", "estado": "PENDIENTE"},
+        ],
+    }
+
+
+def test_firmar_y_emitir_propaga_otros_rechazos_del_nucleo(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(
+        422, json={"codigo": "sin_cobro_exitoso", "mensaje": "No hay cobro"}
+    )
+
+    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+
+    assert respuesta.status_code == 422
 
 
 def test_asesor_no_abre_otras_pantallas(client):

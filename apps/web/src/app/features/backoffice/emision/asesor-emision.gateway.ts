@@ -36,10 +36,20 @@ export interface SolicitudEmision {
 }
 
 export interface EmisionAsesor {
+  resultado: 'EMITIDA';
   pasos: Paso[];
   firma: { firmadaEn: string; hash: string };
   poliza: { numero: string; expedidaEn: string; inicioVigencia: string; finVigencia: string };
 }
+
+/** The core refused to issue (HU-17 failed signature): a business answer, not an HTTP error. */
+export interface EmisionRechazada {
+  resultado: 'RECHAZADA';
+  motivo: string;
+  pasos: Paso[];
+}
+
+export type ResultadoEmisionAsesor = EmisionAsesor | EmisionRechazada;
 
 /** The offer is the quote (HU-6): bff-web creates the offer id on acceptance. */
 export interface AceptacionAsesor {
@@ -57,8 +67,8 @@ export class AsesorEmisionGateway {
   }
 
   /** Signs (HU-17 stub) and issues an approved request. */
-  issue(solicitudId: string): Observable<EmisionAsesor> {
-    return this.http.post<EmisionAsesor>(
+  issue(solicitudId: string): Observable<ResultadoEmisionAsesor> {
+    return this.http.post<ResultadoEmisionAsesor>(
       `${this.baseUrl}/asesor/emisiones/${encodeURIComponent(solicitudId)}/poliza`,
       {},
     );

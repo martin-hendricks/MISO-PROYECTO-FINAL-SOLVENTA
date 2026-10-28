@@ -1,4 +1,4 @@
-import { EmisionAsesor, Paso, SolicitudEmision } from './asesor-emision.gateway';
+import { EmisionAsesor, EmisionRechazada, Paso, SolicitudEmision } from './asesor-emision.gateway';
 
 /** Answers shaped as the proposed `bff-web` contract (HU-149). For specs only. */
 const pasos = (emision: Paso['estado'], poliza: Paso['estado']): Paso[] => [
@@ -47,6 +47,7 @@ export const RECHAZADA: SolicitudEmision = {
 };
 
 export const EMITIDA: EmisionAsesor = {
+  resultado: 'EMITIDA',
   pasos: pasos('COMPLETADO', 'COMPLETADO'),
   firma: { firmadaEn: '2026-09-16T15:25:00Z', hash: '3f9a0c' },
   poliza: {
@@ -55,4 +56,10 @@ export const EMITIDA: EmisionAsesor = {
     inicioVigencia: '2026-09-16',
     finVigencia: '2027-09-16',
   },
+};
+
+export const FIRMA_FALLIDA: EmisionRechazada = {
+  resultado: 'RECHAZADA',
+  motivo: 'La firma electrónica no fue exitosa: Firma rechazada por el firmante',
+  pasos: pasos('ERROR', 'PENDIENTE'),
 };

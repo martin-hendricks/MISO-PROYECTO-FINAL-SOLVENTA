@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from ..clients.base import RechazoDelNucleo
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_polizas import ClienteMsPolizas
@@ -16,7 +17,7 @@ from ..dependencies import (
     obtener_cliente_suscripcion,
     require_roles,
 )
-from .cliente import ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
+from .cliente import FIRMA_NO_EXITOSA, ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
 
 router = APIRouter(
     prefix="/asesor",
@@ -235,9 +236,10 @@ async def firmar_y_emitir(
     {resultado: RECHAZADA, motivo} igual que en el canal cliente -- no es
     una falla técnica.
 
-    TODO: la "firma electrónica" de HU-17 es un stub -- no hay integración
-    real con un proveedor de firma, este endpoint asume que firmar y emitir
-    son la misma operación mientras ese adaptador no exista.
+    ms-polizas firma (stub de HU-17) dentro de la emisión. Una firma no
+    exitosa también responde 200 con {resultado: RECHAZADA, motivo, pasos} y
+    el paso Emisión en ERROR; si la firma es exitosa, su fecha y hash salen
+    de la constancia persistida, no de la póliza.
     """
     score_stub = Decimal("0.5000")
     perfil_id = ContextoUsuario(solicitud_id).perfil_id
@@ -273,18 +275,32 @@ async def firmar_y_emitir(
             "deducible": "0",
         }
     ]
-    poliza = await cliente_polizas.emitir(
-        solicitud_id=solicitud_uuid,
-        oferta_id=oferta_id,
-        usuario_id=contexto.usuario_id,
-        token_pago_confirmado=UUID(str(pago["id"])),
-        coberturas=cobertura_minima,
-    )
+    try:
+        poliza = await cliente_polizas.emitir(
+            solicitud_id=solicitud_uuid,
+            oferta_id=oferta_id,
+            usuario_id=contexto.usuario_id,
+            token_pago_confirmado=UUID(str(pago["id"])),
+            coberturas=cobertura_minima,
+        )
+    except RechazoDelNucleo as rechazo:
+        if rechazo.codigo != FIRMA_NO_EXITOSA:
+            raise
+        return {
+            "resultado": "RECHAZADA",
+            "motivo": rechazo.mensaje,
+            "pasos": [
+                {"paso": "COTIZAR", "estado": "COMPLETADO"},
+                {"paso": "OFERTA", "estado": "COMPLETADO"},
+                {"paso": "EMISION", "estado": "ERROR"},
+                {"paso": "POLIZA", "estado": "PENDIENTE"},
+            ],
+        }
 
+    constancia = await cliente_polizas.consultar_firma(oferta_id)
     cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
     ramo = cotizacion.get("producto", "")
 
-    # La firma de HU-17 es un stub: firmar y emitir son el mismo instante.
     inicio = poliza.get("inicio_vigencia", "")
     return {
         "resultado": "EMITIDA",
@@ -294,7 +310,7 @@ async def firmar_y_emitir(
             {"paso": "EMISION", "estado": "COMPLETADO"},
             {"paso": "POLIZA", "estado": "COMPLETADO"},
         ],
-        "firma": {"firmadaEn": inicio, "hash": poliza.get("hash_firma_legal") or ""},
+        "firma": {"firmadaEn": constancia["firmada_en"], "hash": constancia.get("firma_hash") or ""},
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
