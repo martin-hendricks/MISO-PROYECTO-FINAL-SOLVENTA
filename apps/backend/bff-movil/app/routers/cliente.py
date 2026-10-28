@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ..clients.bff_web import DETALLE_INCOMPLETA, autorizacion, es_v1, proyectar
 from ..dependencies import require_customer
 
 router = APIRouter(
@@ -83,31 +84,86 @@ class Asistencia(BaseModel):
     poliza: str
 
 
+CLAVES_OFERTA = ("cotizacionId", "ramo", "estado", "prima", "moneda", "venceEn")
+CLAVES_POLIZA = ("numero", "ramo", "estado", "venceEn")
+CLAVES_BILLETERA = ("numero", "ramo", "resumen", "estado", "venceEn")
+CLAVES_DETALLE = (*CLAVES_BILLETERA, "queHacer")
+CLAVES_PAGO = ("siniestroId", "poliza", "umbral", "monto", "moneda", "estado")
+CLAVES_HIPOTECA = ("ramo", "estado", "prima", "moneda", "factores", "degradada")
+CLAVES_INICIO = ("ofertaVigente", "poliza", "siniestroEnCurso", "hipotecario")
+
+
 def _offer(cotizacion_id: str) -> dict:
     body = dict(OFFER)
     body["cotizacionId"] = cotizacion_id
     return body
 
 
+def _traducir_aceptar(cuerpo: dict) -> dict:
+    resultado = cuerpo.get("resultado") if isinstance(cuerpo, dict) else None
+    if resultado == "EMITIDA":
+        return proyectar(cuerpo.get("poliza"), CLAVES_POLIZA)
+    if resultado == "RECHAZADA" and isinstance(cuerpo, dict) and "motivo" in cuerpo:
+        return {"estado": "rechazada", "motivo": cuerpo["motivo"]}
+    raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+
+
+def _traducir_billetera(cuerpo: dict) -> dict:
+    polizas = cuerpo.get("polizas") if isinstance(cuerpo, dict) else None
+    if not isinstance(polizas, list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    return {"polizas": [proyectar(item, CLAVES_BILLETERA) for item in polizas]}
+
+
+def _web(request: Request, metodo: str, ruta: str, cuerpo: dict | None = None) -> dict:
+    return request.app.state.bff_web.enviar(
+        metodo,
+        ruta,
+        json=cuerpo,
+        autorizacion=autorizacion(request),
+    )
+
+
 @router.post("/cotizaciones")
-def cotizar(body: Cotizacion) -> dict:
+def cotizar(body: Cotizacion, request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(
+            _web(
+                request,
+                "POST",
+                "/v1/cliente/cotizaciones",
+                {"ramo": body.ramo, "datosRiesgo": body.datosRiesgo},
+            ),
+            CLAVES_OFERTA,
+        )
     return _offer(OFFER["cotizacionId"])
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
-def reconsultar(cotizacion_id: str) -> dict:
+def reconsultar(cotizacion_id: str, request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(
+            _web(request, "GET", f"/v1/cliente/cotizaciones/{cotizacion_id}"),
+            CLAVES_OFERTA,
+        )
     return _offer(cotizacion_id)
 
 
 @router.post("/polizas")
-def aceptar(body: Aceptar) -> dict:
+def aceptar(body: Aceptar, request: Request) -> dict:
+    if es_v1(request):
+        return _traducir_aceptar(
+            _web(request, "POST", "/v1/cliente/polizas", {"cotizacionId": body.cotizacionId})
+        )
     if body.cotizacionId == "COT-RECHAZADA":
         return {"estado": "rechazada", "motivo": "Valor del equipo fuera de rango"}
     return dict(POLICY)
 
 
 @router.get("/polizas")
-def billetera() -> dict:
+def billetera(request: Request) -> dict:
+    if es_v1(request):
+        return _traducir_billetera(_web(request, "GET", "/v1/cliente/polizas"))
     return {
         "polizas": [
             {
@@ -122,7 +178,9 @@ def billetera() -> dict:
 
 
 @router.get("/polizas/{numero}")
-def detalle(numero: str) -> dict:
+def detalle(numero: str, request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(_web(request, "GET", f"/v1/cliente/polizas/{numero}"), CLAVES_DETALLE)
     return {
         "numero": numero,
         "ramo": "Protección de dispositivo",
@@ -153,12 +211,19 @@ def siniestros() -> dict:
 
 
 @router.get("/pagos-automaticos")
-def pagos() -> dict:
+def pagos(request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(_web(request, "GET", "/v1/cliente/pagos-automaticos"), CLAVES_PAGO)
     return dict(PAYMENT)
 
 
 @router.post("/oferta-hipotecaria")
-def hipoteca(body: Hipoteca) -> dict:
+def hipoteca(body: Hipoteca, request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(
+            _web(request, "POST", "/v1/cliente/oferta-hipotecaria", body.model_dump()),
+            CLAVES_HIPOTECA,
+        )
     ready = body.consentimientoPerfil
     return {
         "ramo": "Vida crediticia",
@@ -181,7 +246,9 @@ def avisos() -> dict:
 
 
 @router.get("/inicio")
-def inicio() -> dict:
+def inicio(request: Request) -> dict:
+    if es_v1(request):
+        return proyectar(_web(request, "GET", "/v1/cliente/inicio"), CLAVES_INICIO)
     return {
         "ofertaVigente": {
             "cotizacionId": "COT-1042",
