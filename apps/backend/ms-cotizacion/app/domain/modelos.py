@@ -35,6 +35,9 @@ class SolicitudCotizacion:
     creada_en: datetime
     aceptacion_key: str | None = None
     aceptada_en: datetime | None = None
+    # HU-163: solo las cotizaciones creadas por un asesor desde el back-office los llevan.
+    asesor_id: UUID | None = None
+    cliente_ref: str | None = None
 
     @classmethod
     def crear(
@@ -47,6 +50,8 @@ class SolicitudCotizacion:
         canal: str,
         datos_riesgo: dict[str, Any],
         catalogo: "CatalogoProductos",
+        asesor_id: UUID | None = None,
+        cliente_ref: str | None = None,
     ) -> SolicitudCotizacion:
         definicion = catalogo.obtener(producto)
         if definicion is None:
@@ -75,6 +80,8 @@ class SolicitudCotizacion:
             datos_riesgo=datos_riesgo,
             estado=EstadoSolicitud.RECIBIDA,
             creada_en=datetime.now(UTC),
+            asesor_id=asesor_id,
+            cliente_ref=cliente_ref,
         )
 
     def marcar_cotizada(self) -> None:
