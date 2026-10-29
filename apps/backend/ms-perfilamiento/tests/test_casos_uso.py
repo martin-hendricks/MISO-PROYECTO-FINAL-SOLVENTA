@@ -4,6 +4,7 @@ import pytest
 
 from app.application import casos_uso
 from app.domain.errores import ConsentimientoNoOtorgado, NoEncontrado
+from app.domain.modelos import Oferta, Perfil
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO
 
 from .dobles import AdaptadorConfigurable
@@ -74,6 +75,34 @@ async def test_perfilar_con_consentimiento_vigente_arma_oferta_explicable(
     assert len(resultado.oferta.factores) == 4
     nombres_snapshot = {a.nombre for a in resultado.oferta.snapshot_atributos}
     assert nombres_snapshot == {NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO, ANTIGUEDAD_DOCUMENTO}
+
+
+def _oferta_ganadora() -> Oferta:
+    perfil = Perfil.armar("cliente-1", [])
+    return Oferta.armar("cliente-1", Decimal("10"), [], perfil)
+
+
+async def test_choque_de_clave_devuelve_la_oferta_que_gano(uow, almacen, config, adaptador_open_finance, adaptador_open_data):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    ganadora = _oferta_ganadora()
+    almacen.chocar_en_proximo_commit = ("clave-0001", ganadora)
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow, adaptador_open_finance, adaptador_open_data, config, "clave-0001", "cliente-1"
+    )
+
+    assert not resultado.creada
+    assert resultado.oferta.id == ganadora.id
+
+
+async def test_choque_de_clave_sin_registro_visible_falla(uow, almacen, config, adaptador_open_finance, adaptador_open_data):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    almacen.chocar_en_proximo_commit = ("otra-clave", _oferta_ganadora())
+
+    with pytest.raises(RuntimeError):
+        await casos_uso.perfilar_y_ofertar(
+            uow, adaptador_open_finance, adaptador_open_data, config, "clave-0001", "cliente-1"
+        )
 
 
 async def test_reintento_con_la_misma_clave_no_duplica_oferta(uow, config, adaptador_open_finance, adaptador_open_data):

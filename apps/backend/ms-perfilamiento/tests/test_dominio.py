@@ -124,6 +124,17 @@ def test_oferta_armar_rechaza_precio_no_positivo():
     assert exc.value.codigo == "precio_no_positivo"
 
 
+def test_calcular_oferta_omite_el_peso_sin_atributo():
+    perfil = Perfil.armar("cliente-1", [_atributo(NIVEL_INGRESOS_ESTIMADO, "0.5")])
+    oferta = calcular_oferta(
+        "cliente-1",
+        perfil,
+        {NIVEL_INGRESOS_ESTIMADO: Decimal("0.1"), "peso_sin_dato": Decimal("0.9")},
+        Decimal("50000"),
+    )
+    assert [factor.factor for factor in oferta.factores] == [NIVEL_INGRESOS_ESTIMADO]
+
+
 def test_calcular_oferta_nunca_deja_precio_no_positivo():
     atributos = [_atributo(NIVEL_INGRESOS_ESTIMADO, "100")]
     perfil = Perfil.armar("cliente-1", atributos)

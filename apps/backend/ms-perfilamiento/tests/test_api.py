@@ -17,6 +17,14 @@ def test_consultar_consentimiento_inexistente_es_404(client):
     assert respuesta.json()["codigo"] == "no_encontrado"
 
 
+def test_consultar_consentimiento_vigente_devuelve_el_registro(client):
+    creado = client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+    consulta = client.get("/v1/consentimientos/cliente-1")
+    assert consulta.status_code == 200
+    assert consulta.json()["id"] == creado.json()["id"]
+    assert consulta.json()["vigente"] is True
+
+
 def test_revocar_consentimiento_impide_futura_consulta(client):
     client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
 
