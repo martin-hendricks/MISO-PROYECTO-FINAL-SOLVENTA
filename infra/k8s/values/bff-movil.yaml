@@ -15,7 +15,8 @@ imagen:
 replicas: 2
 grupoEscalado: "b"
 
-puerto: 8080
+# apps/backend/bff-movil/Dockerfile expone y arranca uvicorn en 8000.
+puerto: 8000
 puertoMetricas: 9090
 
 recursos:
@@ -27,12 +28,13 @@ recursos:
     memory: "768Mi"
 
 probes:
+  # bff-movil expone un único endpoint /health, igual que bff-web.
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:

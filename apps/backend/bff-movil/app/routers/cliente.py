@@ -1,13 +1,16 @@
+import uuid
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from ..clients.bff_web import DETALLE_INCOMPLETA, autorizacion, es_v1, proyectar
+from ..clients.nucleo import DETALLE_INCOMPLETA
 from ..dependencies import require_customer
 
 router = APIRouter(
     prefix="/cliente",
     tags=["cliente"],
-    dependencies=[Depends(require_customer())],
+    dependencies=[Depends(require_customer)],
 )
 
 OFFER = {
@@ -31,6 +34,16 @@ PAYMENT = {
     "monto": 250000,
     "moneda": "COP",
     "estado": "pagado",
+}
+QUE_HACER = "Toma la foto del daño y anota fecha y lugar."
+CANAL = "movil"
+SCORE = "0.5000"
+TOKEN_MEDIO_PAGO = "stub-medio-pago"
+RAMO_SIN_CLASIFICAR = "Sin clasificar"
+_NAMESPACE = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
+RAMO_A_PRODUCTO = {
+    "Protección de dispositivo": "proteccion-dispositivo",
+    "Vida crediticia": "vida-crediticia",
 }
 
 
@@ -84,13 +97,8 @@ class Asistencia(BaseModel):
     poliza: str
 
 
-CLAVES_OFERTA = ("cotizacionId", "ramo", "estado", "prima", "moneda", "venceEn")
-CLAVES_POLIZA = ("numero", "ramo", "estado", "venceEn")
-CLAVES_BILLETERA = ("numero", "ramo", "resumen", "estado", "venceEn")
-CLAVES_DETALLE = (*CLAVES_BILLETERA, "queHacer")
-CLAVES_PAGO = ("siniestroId", "poliza", "umbral", "monto", "moneda", "estado")
-CLAVES_HIPOTECA = ("ramo", "estado", "prima", "moneda", "factores", "degradada")
-CLAVES_INICIO = ("ofertaVigente", "poliza", "siniestroEnCurso", "hipotecario")
+def es_v1(request: Request) -> bool:
+    return request.url.path.startswith("/v1/")
 
 
 def _offer(cotizacion_id: str) -> dict:
@@ -99,96 +107,229 @@ def _offer(cotizacion_id: str) -> dict:
     return body
 
 
-def _traducir_aceptar(cuerpo: dict) -> dict:
-    resultado = cuerpo.get("resultado") if isinstance(cuerpo, dict) else None
-    if resultado == "EMITIDA":
-        return proyectar(cuerpo.get("poliza"), CLAVES_POLIZA)
-    if resultado == "RECHAZADA" and isinstance(cuerpo, dict) and "motivo" in cuerpo:
-        return {"estado": "rechazada", "motivo": cuerpo["motivo"]}
-    raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+def _producto_de(ramo: str) -> str:
+    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
 
 
-def _traducir_billetera(cuerpo: dict) -> dict:
-    polizas = cuerpo.get("polizas") if isinstance(cuerpo, dict) else None
-    if not isinstance(polizas, list):
+def _uuid_desde(*partes: str) -> str:
+    return str(uuid.uuid5(_NAMESPACE, "|".join(partes)))
+
+
+def _contexto(correo: str) -> dict:
+    return {
+        "usuario_id": _uuid_desde("usuario", correo),
+        "socio_id": _uuid_desde("socio", correo),
+        "consentimiento_id": _uuid_desde("consentimiento", correo),
+        "perfil_id": _uuid_desde("perfil", correo),
+    }
+
+
+def _exigir(cuerpo: dict, *claves: str) -> dict:
+    if not isinstance(cuerpo, dict) or any(clave not in cuerpo for clave in claves):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
-    return {"polizas": [proyectar(item, CLAVES_BILLETERA) for item in polizas]}
+    return cuerpo
 
 
-def _web(request: Request, metodo: str, ruta: str, cuerpo: dict | None = None) -> dict:
-    return request.app.state.bff_web.enviar(
-        metodo,
-        ruta,
-        json=cuerpo,
-        autorizacion=autorizacion(request),
-    )
+def _oferta_movil(datos: dict, ramo: str) -> dict:
+    datos = _exigir(datos, "cotizacion_id", "estado", "prima", "moneda", "vence_en")
+    return {
+        "cotizacionId": datos["cotizacion_id"],
+        "ramo": ramo,
+        "estado": datos["estado"],
+        "prima": datos["prima"],
+        "moneda": datos["moneda"],
+        "venceEn": datos["vence_en"],
+    }
+
+
+def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
+    poliza = _exigir(poliza, "numero", "estado", "fin_vigencia", "coberturas")
+    if not isinstance(poliza["coberturas"], list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    nombres = []
+    for cobertura in poliza["coberturas"]:
+        if not isinstance(cobertura, dict) or "nombre" not in cobertura:
+            raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        nombres.append(cobertura["nombre"])
+    cuerpo = {
+        "numero": poliza["numero"],
+        "ramo": cotizacion.get("producto") or RAMO_SIN_CLASIFICAR,
+        "resumen": ", ".join(nombres) or "Sin coberturas",
+        "estado": poliza["estado"],
+        "venceEn": poliza["fin_vigencia"],
+    }
+    if detalle:
+        cuerpo["queHacer"] = QUE_HACER
+    return cuerpo
+
+
+def _cotizacion_de_poliza(nucleo, poliza: dict) -> dict:
+    oferta_id = poliza.get("oferta_id") if isinstance(poliza, dict) else None
+    if not oferta_id:
+        return {}
+    try:
+        return nucleo.reconsultar_por_oferta(str(oferta_id))
+    except HTTPException as exc:
+        if exc.status_code in (404, 503):
+            return {}
+        raise
+
+
+def _hipoteca_degradada() -> dict:
+    return {
+        "ramo": "Vida crediticia",
+        "estado": "oferta_vigente",
+        "prima": 50000,
+        "moneda": "COP",
+        "factores": ["plazo", "valor del crédito"],
+        "degradada": True,
+    }
+
+
+def _hipoteca_movil(oferta: dict) -> dict:
+    oferta = _exigir(oferta, "precio", "moneda", "factores", "degradado")
+    if not isinstance(oferta["factores"], list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    factores = []
+    for factor in oferta["factores"]:
+        if not isinstance(factor, dict) or "factor" not in factor:
+            raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        factores.append(factor["factor"])
+    return {
+        "ramo": "Vida crediticia",
+        "estado": "oferta_vigente",
+        "prima": float(oferta["precio"]),
+        "moneda": oferta["moneda"],
+        "factores": factores,
+        "degradada": oferta["degradado"],
+    }
 
 
 @router.post("/cotizaciones")
-def cotizar(body: Cotizacion, request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(
-            _web(
-                request,
-                "POST",
-                "/v1/cliente/cotizaciones",
-                {"ramo": body.ramo, "datosRiesgo": body.datosRiesgo},
-            ),
-            CLAVES_OFERTA,
-        )
-    return _offer(OFFER["cotizacionId"])
+def cotizar(body: Cotizacion, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return _offer(OFFER["cotizacionId"])
+    contexto = _contexto(usuario["sub"])
+    datos = request.app.state.nucleo.cotizar(
+        idempotency_key=str(uuid.uuid4()),
+        usuario_id=contexto["usuario_id"],
+        socio_id=contexto["socio_id"],
+        consentimiento_id=contexto["consentimiento_id"],
+        producto=_producto_de(body.ramo),
+        canal=CANAL,
+        datos_riesgo=body.datosRiesgo,
+    )
+    return _oferta_movil(datos, body.ramo)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
 def reconsultar(cotizacion_id: str, request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(
-            _web(request, "GET", f"/v1/cliente/cotizaciones/{cotizacion_id}"),
-            CLAVES_OFERTA,
-        )
-    return _offer(cotizacion_id)
+    if not es_v1(request):
+        return _offer(cotizacion_id)
+    datos = request.app.state.nucleo.reconsultar(cotizacion_id)
+    datos = _exigir(datos, "producto")
+    return _oferta_movil(datos, datos["producto"])
 
 
 @router.post("/polizas")
-def aceptar(body: Aceptar, request: Request) -> dict:
-    if es_v1(request):
-        return _traducir_aceptar(
-            _web(request, "POST", "/v1/cliente/polizas", {"cotizacionId": body.cotizacionId})
-        )
-    if body.cotizacionId == "COT-RECHAZADA":
-        return {"estado": "rechazada", "motivo": "Valor del equipo fuera de rango"}
-    return dict(POLICY)
+def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        if body.cotizacionId == "COT-RECHAZADA":
+            return {"estado": "rechazada", "motivo": "Valor del equipo fuera de rango"}
+        return dict(POLICY)
+    nucleo = request.app.state.nucleo
+    contexto = _contexto(usuario["sub"])
+    aceptacion = _exigir(
+        nucleo.aceptar_oferta(
+            cotizacion_id=body.cotizacionId,
+            idempotency_key=str(uuid.uuid4()),
+            perfil_id=contexto["perfil_id"],
+            score=SCORE,
+        ),
+        "decision",
+    )
+    if str(aceptacion["decision"]).upper() != "ACEPTADA":
+        if "motivo" not in aceptacion:
+            raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        return {"estado": "rechazada", "motivo": aceptacion["motivo"]}
+    aceptacion = _exigir(aceptacion, "oferta_id", "cotizacion_id", "prima")
+    pago = _exigir(
+        nucleo.cobrar_prima(
+            solicitud_id=str(aceptacion["cotizacion_id"]),
+            oferta_id=str(aceptacion["oferta_id"]),
+            usuario_id=contexto["usuario_id"],
+            monto=str(Decimal(str(aceptacion["prima"]))),
+            token_medio_pago=TOKEN_MEDIO_PAGO,
+        ),
+        "id",
+    )
+    poliza = _exigir(
+        nucleo.emitir(
+            solicitud_id=str(aceptacion["cotizacion_id"]),
+            oferta_id=str(aceptacion["oferta_id"]),
+            usuario_id=contexto["usuario_id"],
+            token_pago_confirmado=str(pago["id"]),
+            coberturas=[
+                {
+                    "nombre": aceptacion.get("estado", "cobertura-base"),
+                    "suma_asegurada": str(aceptacion["prima"]),
+                    "deducible": "0",
+                }
+            ],
+        ),
+        "numero",
+        "estado",
+        "fin_vigencia",
+    )
+    cotizacion = _exigir(nucleo.reconsultar(str(aceptacion["cotizacion_id"])), "producto")
+    return {
+        "numero": poliza["numero"],
+        "ramo": cotizacion["producto"],
+        "estado": poliza["estado"],
+        "venceEn": poliza["fin_vigencia"],
+    }
 
 
 @router.get("/polizas")
-def billetera(request: Request) -> dict:
-    if es_v1(request):
-        return _traducir_billetera(_web(request, "GET", "/v1/cliente/polizas"))
+def billetera(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {
+            "polizas": [
+                {
+                    "numero": "POL-88219-CO",
+                    "ramo": "Protección de dispositivo",
+                    "resumen": "Robo, Pantalla, Hurto",
+                    "estado": "vigente",
+                    "venceEn": "2027-03-12",
+                }
+            ]
+        }
+    nucleo = request.app.state.nucleo
+    polizas = nucleo.listar_polizas(usuario_id=_contexto(usuario["sub"])["usuario_id"], limite=20)
+    if not isinstance(polizas, list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
     return {
         "polizas": [
-            {
-                "numero": "POL-88219-CO",
-                "ramo": "Protección de dispositivo",
-                "resumen": "Robo, Pantalla, Hurto",
-                "estado": "vigente",
-                "venceEn": "2027-03-12",
-            }
+            _poliza_movil(poliza, _cotizacion_de_poliza(nucleo, poliza), detalle=False)
+            for poliza in polizas
         ]
     }
 
 
 @router.get("/polizas/{numero}")
 def detalle(numero: str, request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(_web(request, "GET", f"/v1/cliente/polizas/{numero}"), CLAVES_DETALLE)
-    return {
-        "numero": numero,
-        "ramo": "Protección de dispositivo",
-        "resumen": "Robo y Pantalla",
-        "estado": "vigente",
-        "venceEn": "2027-03-12",
-        "queHacer": "Toma la foto del daño y anota fecha y lugar.",
-    }
+    if not es_v1(request):
+        return {
+            "numero": numero,
+            "ramo": "Protección de dispositivo",
+            "resumen": "Robo y Pantalla",
+            "estado": "vigente",
+            "venceEn": "2027-03-12",
+            "queHacer": QUE_HACER,
+        }
+    nucleo = request.app.state.nucleo
+    poliza = nucleo.obtener_por_numero(numero)
+    return _poliza_movil(poliza, _cotizacion_de_poliza(nucleo, poliza), detalle=True)
 
 
 @router.post("/siniestros")
@@ -211,28 +352,33 @@ def siniestros() -> dict:
 
 
 @router.get("/pagos-automaticos")
-def pagos(request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(_web(request, "GET", "/v1/cliente/pagos-automaticos"), CLAVES_PAGO)
+def pagos() -> dict:
     return dict(PAYMENT)
 
 
 @router.post("/oferta-hipotecaria")
-def hipoteca(body: Hipoteca, request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(
-            _web(request, "POST", "/v1/cliente/oferta-hipotecaria", body.model_dump()),
-            CLAVES_HIPOTECA,
+def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        ready = body.consentimientoPerfil
+        return {
+            "ramo": "Vida crediticia",
+            "estado": "oferta_vigente",
+            "prima": 64000 if ready else 50000,
+            "moneda": "COP",
+            "factores": ["plazo", "valor del crédito"],
+            "degradada": not ready,
+        }
+    if not body.consentimientoPerfil:
+        return _hipoteca_degradada()
+    nucleo = request.app.state.nucleo
+    cliente_id = _contexto(usuario["sub"])["usuario_id"]
+    nucleo.otorgar_consentimiento(cliente_id)
+    return _hipoteca_movil(
+        nucleo.solicitar_oferta_hipotecario(
+            idempotency_key=str(uuid.uuid4()),
+            cliente_id=cliente_id,
         )
-    ready = body.consentimientoPerfil
-    return {
-        "ramo": "Vida crediticia",
-        "estado": "oferta_vigente",
-        "prima": 64000 if ready else 50000,
-        "moneda": "COP",
-        "factores": ["plazo", "valor del crédito"],
-        "degradada": not ready,
-    }
+    )
 
 
 @router.get("/avisos")
@@ -246,9 +392,7 @@ def avisos() -> dict:
 
 
 @router.get("/inicio")
-def inicio(request: Request) -> dict:
-    if es_v1(request):
-        return proyectar(_web(request, "GET", "/v1/cliente/inicio"), CLAVES_INICIO)
+def inicio() -> dict:
     return {
         "ofertaVigente": {
             "cotizacionId": "COT-1042",
