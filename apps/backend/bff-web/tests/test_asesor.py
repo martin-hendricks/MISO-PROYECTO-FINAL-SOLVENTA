@@ -27,6 +27,7 @@ SUSCRIPCION_ACEPTADA = {
     "decision": "ACEPTADA",
     "motivo": "riesgo_aceptable",
     "evaluada_en": "2026-10-01T00:05:00Z",
+    "regla": "Score de riesgo hasta 0.7000",
 }
 
 SUSCRIPCION_RECHAZADA = {**SUSCRIPCION_ACEPTADA, "decision": "RECHAZADA", "motivo": "score_fuera_de_apetito"}
@@ -182,7 +183,7 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
     assert [(p["paso"], p["estado"]) for p in cuerpo["pasos"]][2] == ("EMISION", "ACTUAL")
     assert cuerpo["decision"]["resultado"] == "ACEPTADA"
     assert cuerpo["decision"]["detalle"] == "riesgo_aceptable"
-    assert cuerpo["decision"]["regla"] is None
+    assert cuerpo["decision"]["regla"] == "Score de riesgo hasta 0.7000"
     assert cuerpo["decision"]["decididoPor"] == "Motor automático"
     assert cuerpo["oferta"]["moneda"] == "COP"
     assert cuerpo["oferta"]["primaTotal"] == "89000.00"

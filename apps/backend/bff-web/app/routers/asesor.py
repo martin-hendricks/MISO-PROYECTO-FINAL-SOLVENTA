@@ -149,16 +149,16 @@ def _decision_salida(suscripcion: dict) -> dict:
     """Traduce SuscripcionSalida de ms-suscripcion al shape de "decision"
     de la propuesta de análisis del equipo de frontend (HU-149).
 
-    TODO: ms-suscripcion no expone "regla" (solo su efecto: decision +
-    motivo, ver app/domain/modelos.py de ms-suscripcion); queda None en vez
-    de inventada. "decididoPor" es el motor automático, porque la decisión
+    "regla" es la copia de la regla que ms-suscripcion guardó al decidir;
+    una decisión anterior a esa columna la trae vacía y queda None en vez de
+    inventada. "decididoPor" es el motor automático, porque la decisión
     es una evaluación contra una regla de datos sin un humano que decida.
     "detalle" reusa el mismo texto que "motivo" porque ms-suscripcion no
     distingue las dos cosas.
     """
     return {
         "resultado": suscripcion["decision"],
-        "regla": None,
+        "regla": suscripcion.get("regla") or None,
         "detalle": suscripcion["motivo"],
         "decididoPor": DECIDIDO_POR,
         "decididoEn": suscripcion["evaluada_en"],
