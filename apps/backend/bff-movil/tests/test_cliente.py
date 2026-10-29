@@ -50,6 +50,12 @@ def test_hipoteca_avisos_inicio_push_y_asistencia(client):
         json={"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": False},
     ).json()
     assert degraded["degradada"] is True and degraded["prima"] == 50000
+    ready = client.post(
+        "/cliente/oferta-hipotecaria",
+        headers=headers,
+        json={"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": True},
+    ).json()
+    assert ready["degradada"] is False and ready["prima"] == 64000
     assert client.get("/cliente/avisos", headers=headers).json()["avisos"]
     assert client.get("/cliente/inicio", headers=headers).json()["hipotecario"] is None
     token = client.post(
