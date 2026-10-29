@@ -35,6 +35,7 @@ class SuscripcionFila(Base):
     perfil_id: Mapped[UUID]
     decision: Mapped[str]
     motivo: Mapped[str | None] = mapped_column(String)
+    regla: Mapped[str | None] = mapped_column(String)
     evaluada_en: Mapped[datetime]
 
 
@@ -67,6 +68,7 @@ def _a_dominio(fila: SuscripcionFila) -> Suscripcion:
         decision=Decision(fila.decision),
         motivo=fila.motivo or "",
         evaluada_en=fila.evaluada_en,
+        regla=fila.regla or "",
     )
 
 
@@ -86,6 +88,7 @@ class RepositorioSuscripcionesSQL:
                 perfil_id=suscripcion.perfil_id,
                 decision=suscripcion.decision.value,
                 motivo=suscripcion.motivo,
+                regla=suscripcion.regla,
                 evaluada_en=suscripcion.evaluada_en,
             )
         )

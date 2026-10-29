@@ -22,6 +22,11 @@ def test_score_dentro_del_umbral_se_acepta_con_motivo_y_marca_de_tiempo():
     assert suscripcion.evaluada_en.tzinfo is not None
 
 
+def test_la_decision_guarda_la_regla_que_aplico():
+    assert _decidir("0.5").regla == "Score de riesgo hasta 0.7"
+    assert _decidir("0.9").regla == "Score de riesgo hasta 0.7"
+
+
 def test_score_igual_al_umbral_se_acepta():
     assert _decidir("0.7").decision is Decision.ACEPTADA
 

@@ -87,6 +87,7 @@ async def test_obtener_por_solicitud_mapea_la_fila_al_dominio():
         perfil_id=uuid4(),
         decision="ACEPTADA",
         motivo=None,
+        regla=None,
         evaluada_en=datetime.now(UTC),
     )
 
@@ -96,6 +97,8 @@ async def test_obtener_por_solicitud_mapea_la_fila_al_dominio():
     assert suscripcion.id == fila.suscripcion_id
     assert suscripcion.decision is Decision.ACEPTADA
     assert suscripcion.motivo == ""
+    # Decisiones anteriores a la columna regla (03_ms_suscripcion_regla_aplicada.sql).
+    assert suscripcion.regla == ""
 
 
 async def test_obtener_por_solicitud_sin_fila_devuelve_none():

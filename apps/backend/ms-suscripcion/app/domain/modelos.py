@@ -25,6 +25,10 @@ class ReglaSuscripcion:
     motivo_aceptacion: str
     motivo_rechazo: str
 
+    @property
+    def descripcion(self) -> str:
+        return f"Score de riesgo hasta {self.score_maximo}"
+
     def evaluar(self, score: Decimal) -> tuple[Decision, str]:
         if score <= self.score_maximo:
             return Decision.ACEPTADA, self.motivo_aceptacion
@@ -39,6 +43,9 @@ class Suscripcion:
     decision: Decision
     motivo: str
     evaluada_en: datetime
+    # Copia de la regla que aplicó: la decisión sigue siendo auditable aunque
+    # la regla vigente cambie después (HU-149 muestra "la regla aplicada").
+    regla: str = ""
 
     @classmethod
     def decidir(cls, solicitud_id: UUID, perfil_id: UUID, score: Decimal, regla: ReglaSuscripcion) -> Suscripcion:
@@ -52,6 +59,7 @@ class Suscripcion:
             decision=decision,
             motivo=motivo,
             evaluada_en=datetime.now(UTC),
+            regla=regla.descripcion,
         )
 
     @property

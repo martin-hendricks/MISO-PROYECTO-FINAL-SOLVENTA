@@ -18,6 +18,7 @@ def test_riesgo_dentro_del_apetito(client):
     cuerpo = respuesta.json()
     assert cuerpo["decision"] == "ACEPTADA"
     assert cuerpo["motivo"] == "Riesgo dentro del apetito"
+    assert cuerpo["regla"] == "Score de riesgo hasta 0.7"
     assert cuerpo["evaluada_en"]
     # El flujo continúa: cobro (HU-15) y emisión (HU-16) consultan esta decisión.
     consulta = client.get(f"/v1/suscripciones/{solicitud}")
