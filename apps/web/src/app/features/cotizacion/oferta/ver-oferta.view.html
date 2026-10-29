@@ -35,6 +35,20 @@
           {{ oferta.prima | svMoney: oferta.moneda }}
         </p>
         <dl>
+          @if (oferta.primaNeta !== undefined) {
+            <dt>{{ 'cotizacion.oferta.primaNeta' | translate }}</dt>
+            <dd class="mono" data-testid="oferta-prima-neta">
+              {{ oferta.primaNeta | svMoney: oferta.moneda }}
+            </dd>
+          }
+          @if (oferta.expedicion !== undefined) {
+            <dt>{{ 'cotizacion.oferta.expedicion' | translate }}</dt>
+            <dd class="mono" data-testid="oferta-expedicion">
+              {{ oferta.expedicion | svMoney: oferta.moneda }}
+            </dd>
+          }
+          <dt>{{ 'cotizacion.oferta.vigencia' | translate }}</dt>
+          <dd data-testid="oferta-vigencia">{{ 'cotizacion.oferta.vigenciaValor' | translate }}</dd>
           <dt>{{ 'cotizacion.oferta.moneda' | translate }}</dt>
           <dd data-testid="oferta-moneda">{{ oferta.moneda }}</dd>
           <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>
