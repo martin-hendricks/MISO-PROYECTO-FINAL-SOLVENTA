@@ -192,6 +192,44 @@ def test_emision_cuando_decision_es_rechazada_no_cobra_ni_emite(
     assert nucleo_polizas.peticiones == []
 
 
+def test_emision_con_firma_fallida_responde_rechazo_con_motivo(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    fallida = {"codigo": "firma_no_exitosa", "mensaje": "La firma electrónica no fue exitosa: Firma rechazada"}
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(422, json=fallida)
+
+    response = client.post(
+        "/v1/cliente/polizas",
+        headers=_auth(client),
+        json={"cotizacionId": COTIZACION_ID},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"resultado": "RECHAZADA", "motivo": fallida}
+
+
+def test_emision_propaga_otros_rechazos_de_polizas(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(
+        422, json={"codigo": "sin_cobro_exitoso", "mensaje": "No hay cobro"}
+    )
+
+    response = client.post(
+        "/v1/cliente/polizas",
+        headers=_auth(client),
+        json={"cotizacionId": COTIZACION_ID},
+    )
+
+    assert response.status_code == 422
+
+
 def test_emision_cuando_pago_falla_no_llama_a_polizas(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
         201, json=ACEPTACION_SALIDA

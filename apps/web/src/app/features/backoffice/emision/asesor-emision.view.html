@@ -96,6 +96,9 @@
               <div class="notice error" role="alert" data-testid="rechazo">
                 <p class="notice-title">{{ 'backoffice.emision.rechazo.title' | translate }}</p>
                 <p>{{ 'backoffice.emision.rechazo.body' | translate }}</p>
+                @if (vm.motivo(); as motivo) {
+                  <p data-testid="rechazo-motivo">{{ motivo }}</p>
+                }
               </div>
               <div class="actions">
                 <a

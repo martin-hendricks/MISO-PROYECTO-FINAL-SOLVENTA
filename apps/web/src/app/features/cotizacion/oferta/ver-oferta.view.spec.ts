@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
-import { OFERTA_WIRE } from '../cotizacion.testing';
+import { OFERTA_DESGLOSE_WIRE, OFERTA_WIRE } from '../cotizacion.testing';
 import { VerOfertaView } from './ver-oferta.view';
 
 describe('VerOfertaView', () => {
@@ -47,6 +47,19 @@ describe('VerOfertaView', () => {
     expect(element('oferta-prima')?.textContent).toContain('128.500');
     expect(element('oferta-moneda')?.textContent).toContain('COP');
     expect(element('oferta-vence')?.textContent).toContain('2999');
+    expect(element('oferta-vigencia')?.textContent).toContain('1 año');
+    expect(element('oferta-prima-neta')).toBeNull();
+    expect(element('oferta-expedicion')).toBeNull();
+  });
+
+  it('shows the premium breakdown when the core sends it, like the advisor offer', () => {
+    const { fixture, http, element } = render();
+
+    http.expectOne(URL).flush({ ...OFERTA_DESGLOSE_WIRE, venceEn: VIGENTE.venceEn });
+    fixture.detectChanges();
+
+    expect(element('oferta-prima-neta')?.textContent).toContain('120.000');
+    expect(element('oferta-expedicion')?.textContent).toContain('8.500');
   });
 
   it('accepts by starting the issuance with the quote id (HU-114)', () => {

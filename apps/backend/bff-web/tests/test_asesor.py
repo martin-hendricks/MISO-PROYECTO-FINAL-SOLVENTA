@@ -27,6 +27,7 @@ SUSCRIPCION_ACEPTADA = {
     "decision": "ACEPTADA",
     "motivo": "riesgo_aceptable",
     "evaluada_en": "2026-10-01T00:05:00Z",
+    "regla": "Score de riesgo hasta 0.7000",
 }
 
 SUSCRIPCION_RECHAZADA = {**SUSCRIPCION_ACEPTADA, "decision": "RECHAZADA", "motivo": "score_fuera_de_apetito"}
@@ -65,6 +66,17 @@ POLIZA_SALIDA = {
     "estado": "vigente",
     "coberturas": [{"nombre": "cobertura-base", "suma_asegurada": "89000.00", "deducible": "0"}],
 }
+
+
+FIRMA_SALIDA = {
+    "oferta_id": OFERTA_ID,
+    "resultado": "OK",
+    "motivo": None,
+    "firma_hash": "3f9a0c",
+    "firmada_en": "2026-09-16T15:25:00Z",
+}
+
+FIRMA_FALLIDA = {"codigo": "firma_no_exitosa", "mensaje": "La firma electrónica no fue exitosa: Firma rechazada"}
 
 
 def _auth(client, rol):
@@ -154,6 +166,10 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
         201, json=SUSCRIPCION_ACEPTADA
     )
 
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/proteccion-dispositivo")] = lambda _: httpx.Response(
+        200, json=PRODUCTO_SALIDA
+    )
+
     respuesta = client.post(
         "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID, "clienteId": "CLI-18"}
     )
@@ -162,16 +178,35 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
     cuerpo = respuesta.json()
     assert cuerpo["solicitudId"] == COTIZACION_ID
     assert cuerpo["cliente"] == {"clienteId": "CLI-18", "nombre": "Andrés Gómez"}
-    assert cuerpo["producto"] == COTIZACION_SALIDA["producto"]
+    assert cuerpo["producto"] == PRODUCTO_SALIDA["nombre"]
     assert cuerpo["referencia"] == COTIZACION_ID
     assert [(p["paso"], p["estado"]) for p in cuerpo["pasos"]][2] == ("EMISION", "ACTUAL")
     assert cuerpo["decision"]["resultado"] == "ACEPTADA"
     assert cuerpo["decision"]["detalle"] == "riesgo_aceptable"
-    assert cuerpo["decision"]["regla"] is None
-    assert cuerpo["decision"]["decididoPor"] is None
+    assert cuerpo["decision"]["regla"] == "Score de riesgo hasta 0.7000"
+    assert cuerpo["decision"]["decididoPor"] == "Motor automático"
     assert cuerpo["oferta"]["moneda"] == "COP"
     assert cuerpo["oferta"]["primaTotal"] == "89000.00"
-    assert cuerpo["oferta"]["vigenciaMeses"] is None
+    assert cuerpo["oferta"]["vigenciaMeses"] == 12
+
+
+def test_consultar_emision_sin_catalogo_muestra_el_codigo_del_producto(
+    client, nucleo_cotizacion, nucleo_suscripcion
+):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
+    nucleo_suscripcion.respuestas[("POST", "/v1/suscripciones")] = lambda _: httpx.Response(
+        201, json=SUSCRIPCION_ACEPTADA
+    )
+
+    respuesta = client.post(
+        "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID, "clienteId": "CLI-18"}
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["producto"] == COTIZACION_SALIDA["producto"]
 
 
 def test_consultar_emision_rechazada(client, nucleo_cotizacion, nucleo_suscripcion):
@@ -211,6 +246,9 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     )
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
+    nucleo_polizas.respuestas[("GET", f"/v1/polizas/firmas/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=FIRMA_SALIDA
+    )
 
     respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
 
@@ -222,7 +260,7 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     assert cuerpo["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
     assert cuerpo["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
     assert cuerpo["poliza"]["expedidaEn"] == POLIZA_SALIDA["inicio_vigencia"]
-    assert cuerpo["firma"]["firmadaEn"] == POLIZA_SALIDA["inicio_vigencia"]
+    assert cuerpo["firma"] == {"firmadaEn": FIRMA_SALIDA["firmada_en"], "hash": FIRMA_SALIDA["firma_hash"]}
     assert cuerpo["pasos"][3] == {"paso": "POLIZA", "estado": "COMPLETADO"}
 
 
@@ -240,6 +278,46 @@ def test_firmar_y_emitir_con_decision_rechazada_no_cobra_ni_emite(
     assert respuesta.json() == {"resultado": "RECHAZADA", "motivo": ACEPTACION_RECHAZADA["motivo"]}
     assert nucleo_pagos.peticiones == []
     assert nucleo_polizas.peticiones == []
+
+
+def test_firmar_y_emitir_con_firma_fallida_responde_rechazo_con_motivo(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(422, json=FIRMA_FALLIDA)
+
+    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {
+        "resultado": "RECHAZADA",
+        "motivo": FIRMA_FALLIDA["mensaje"],
+        "pasos": [
+            {"paso": "COTIZAR", "estado": "COMPLETADO"},
+            {"paso": "OFERTA", "estado": "COMPLETADO"},
+            {"paso": "EMISION", "estado": "ERROR"},
+            {"paso": "POLIZA", "estado": "PENDIENTE"},
+        ],
+    }
+
+
+def test_firmar_y_emitir_propaga_otros_rechazos_del_nucleo(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(
+        422, json={"codigo": "sin_cobro_exitoso", "mensaje": "No hay cobro"}
+    )
+
+    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+
+    assert respuesta.status_code == 422
 
 
 def test_asesor_no_abre_otras_pantallas(client):

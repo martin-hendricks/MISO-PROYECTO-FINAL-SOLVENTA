@@ -1,3 +1,6 @@
+<header class="top-nav">
+  <p class="brand" data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
+</header>
 <section data-testid="emision" [attr.data-state]="valid ? vm.status() : 'invalid'">
   @if (!valid) {
     <div class="empty-state" role="alert" data-testid="emision-invalid">

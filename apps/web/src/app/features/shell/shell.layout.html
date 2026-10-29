@@ -1,18 +1,29 @@
-<header>
-  <p data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
+<header class="top-nav">
+  <p class="brand" data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
   <nav>
-    <a routerLink="/inicio" routerLinkActive="active" data-testid="nav-inicio">{{
-      'shell.nav.inicio' | translate
-    }}</a>
-    <a routerLink="/polizas" routerLinkActive="active" data-testid="nav-polizas">{{
-      'shell.nav.polizas' | translate
-    }}</a>
+    <a
+      routerLink="/inicio"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      data-testid="nav-inicio"
+      >{{ 'shell.nav.inicio' | translate }}</a
+    >
+    <a
+      routerLink="/polizas"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      data-testid="nav-polizas"
+      >{{ 'shell.nav.polizas' | translate }}</a
+    >
   </nav>
-  <a class="cta" routerLink="/cotizacion" data-testid="header-new-quote">{{
-    'inicio.newQuote' | translate
-  }}</a>
-  <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
-    {{ 'shell.signOut' | translate }}
-  </button>
+  <div class="session">
+    <a class="cta" routerLink="/cotizacion" data-testid="header-new-quote">{{
+      'inicio.newQuote' | translate
+    }}</a>
+    <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
+      {{ 'shell.signOut' | translate }}
+    </button>
+    <span class="avatar" aria-hidden="true"></span>
+  </div>
 </header>
 <router-outlet />

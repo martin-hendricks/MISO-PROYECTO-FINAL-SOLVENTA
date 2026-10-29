@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_polizas import ClienteMsPolizas
@@ -16,7 +17,7 @@ from ..dependencies import (
     obtener_cliente_suscripcion,
     require_roles,
 )
-from .cliente import ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
+from .cliente import FIRMA_NO_EXITOSA, ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
 
 router = APIRouter(
     prefix="/asesor",
@@ -117,6 +118,13 @@ class ConsultarEmision(BaseModel):
     clienteId: str | None = None
 
 
+# ms-suscripcion decide con una regla de datos, sin intervención humana (HU-13).
+DECIDIDO_POR = "Motor automático"
+
+# ms-polizas emite toda póliza con un año de vigencia (_un_anio_despues).
+VIGENCIA_POLIZA_MESES = 12
+
+
 def _pasos(aceptada: bool) -> list[dict]:
     """Stepper del web: COTIZAR y OFERTA ya ocurrieron; EMISION queda como
     paso actual si la suscripción aceptó, o en error si rechazó."""
@@ -141,18 +149,18 @@ def _decision_salida(suscripcion: dict) -> dict:
     """Traduce SuscripcionSalida de ms-suscripcion al shape de "decision"
     de la propuesta de análisis del equipo de frontend (HU-149).
 
-    TODO: ms-suscripcion no expone "regla" (solo su efecto: decision +
-    motivo, ver app/domain/modelos.py de ms-suscripcion) ni "decididoPor"
-    (la decisión es una evaluación automática contra una regla de datos, no
-    hay un humano que "decide" -- el concepto no existe en ese dominio).
-    Ambos campos quedan None en vez de inventados; "detalle" reusa el mismo
-    texto que "motivo" porque ms-suscripcion no distingue las dos cosas.
+    "regla" es la copia de la regla que ms-suscripcion guardó al decidir;
+    una decisión anterior a esa columna la trae vacía y queda None en vez de
+    inventada. "decididoPor" es el motor automático, porque la decisión
+    es una evaluación contra una regla de datos sin un humano que decida.
+    "detalle" reusa el mismo texto que "motivo" porque ms-suscripcion no
+    distingue las dos cosas.
     """
     return {
         "resultado": suscripcion["decision"],
-        "regla": None,
+        "regla": suscripcion.get("regla") or None,
         "detalle": suscripcion["motivo"],
-        "decididoPor": None,
+        "decididoPor": DECIDIDO_POR,
         "decididoEn": suscripcion["evaluada_en"],
     }
 
@@ -160,19 +168,25 @@ def _decision_salida(suscripcion: dict) -> dict:
 def _oferta_resumen(cotizacion: dict) -> dict:
     """Traduce CotizacionSalida al shape de "oferta" de la propuesta.
 
-    TODO: "vigenciaMeses" no tiene equivalente real -- ms-cotizacion guarda
-    vence_en (una fecha absoluta de expiración de la oferta, no una duración
-    de vigencia de póliza en meses); ambos conceptos son distintos y no hay
-    forma de derivar el segundo del primero sin inventarlo. Se omite en vez
-    de devolver un valor falso.
+    "vigenciaMeses" es la vigencia de la póliza que emitirá ms-polizas, no
+    vence_en de ms-cotizacion (la expiración de la oferta).
     """
     return {
         "moneda": cotizacion["moneda"],
         "primaTotal": cotizacion["prima"],
         "primaNeta": cotizacion["prima_neta"],
         "expedicion": cotizacion["gastos_expedicion"],
-        "vigenciaMeses": None,
+        "vigenciaMeses": VIGENCIA_POLIZA_MESES,
     }
+
+
+async def _nombre_producto(cliente_cotizacion: ClienteMsCotizacion, producto: str) -> str:
+    """Nombre comercial del producto según el catálogo; si el catálogo no lo
+    tiene, se muestra el código tal como lo guarda ms-cotizacion."""
+    try:
+        return (await cliente_cotizacion.obtener_producto(producto))["nombre"]
+    except RecursoNoEncontrado:
+        return producto
 
 
 @router.post("/emisiones")
@@ -209,7 +223,7 @@ async def consultar_emision(
     return {
         "solicitudId": body.cotizacionId,
         "cliente": _cliente_salida(body.clienteId),
-        "producto": cotizacion["producto"],
+        "producto": await _nombre_producto(cliente_cotizacion, cotizacion["producto"]),
         "referencia": body.cotizacionId,
         "pasos": _pasos(decision["resultado"] == "ACEPTADA"),
         "decision": decision,
@@ -235,9 +249,10 @@ async def firmar_y_emitir(
     {resultado: RECHAZADA, motivo} igual que en el canal cliente -- no es
     una falla técnica.
 
-    TODO: la "firma electrónica" de HU-17 es un stub -- no hay integración
-    real con un proveedor de firma, este endpoint asume que firmar y emitir
-    son la misma operación mientras ese adaptador no exista.
+    ms-polizas firma (stub de HU-17) dentro de la emisión. Una firma no
+    exitosa también responde 200 con {resultado: RECHAZADA, motivo, pasos} y
+    el paso Emisión en ERROR; si la firma es exitosa, su fecha y hash salen
+    de la constancia persistida, no de la póliza.
     """
     score_stub = Decimal("0.5000")
     perfil_id = ContextoUsuario(solicitud_id).perfil_id
@@ -273,18 +288,32 @@ async def firmar_y_emitir(
             "deducible": "0",
         }
     ]
-    poliza = await cliente_polizas.emitir(
-        solicitud_id=solicitud_uuid,
-        oferta_id=oferta_id,
-        usuario_id=contexto.usuario_id,
-        token_pago_confirmado=UUID(str(pago["id"])),
-        coberturas=cobertura_minima,
-    )
+    try:
+        poliza = await cliente_polizas.emitir(
+            solicitud_id=solicitud_uuid,
+            oferta_id=oferta_id,
+            usuario_id=contexto.usuario_id,
+            token_pago_confirmado=UUID(str(pago["id"])),
+            coberturas=cobertura_minima,
+        )
+    except RechazoDelNucleo as rechazo:
+        if rechazo.codigo != FIRMA_NO_EXITOSA:
+            raise
+        return {
+            "resultado": "RECHAZADA",
+            "motivo": rechazo.mensaje,
+            "pasos": [
+                {"paso": "COTIZAR", "estado": "COMPLETADO"},
+                {"paso": "OFERTA", "estado": "COMPLETADO"},
+                {"paso": "EMISION", "estado": "ERROR"},
+                {"paso": "POLIZA", "estado": "PENDIENTE"},
+            ],
+        }
 
+    constancia = await cliente_polizas.consultar_firma(oferta_id)
     cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
     ramo = cotizacion.get("producto", "")
 
-    # La firma de HU-17 es un stub: firmar y emitir son el mismo instante.
     inicio = poliza.get("inicio_vigencia", "")
     return {
         "resultado": "EMITIDA",
@@ -294,7 +323,7 @@ async def firmar_y_emitir(
             {"paso": "EMISION", "estado": "COMPLETADO"},
             {"paso": "POLIZA", "estado": "COMPLETADO"},
         ],
-        "firma": {"firmadaEn": inicio, "hash": poliza.get("hash_firma_legal") or ""},
+        "firma": {"firmadaEn": constancia["firmada_en"], "hash": constancia.get("firma_hash") or ""},
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,

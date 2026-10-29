@@ -5,7 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import { Role } from '../../../core/session/session.service';
 import { sessionAs } from '../backoffice.testing';
-import { APROBADA, EMITIDA, RECHAZADA } from './asesor-emision.testing';
+import { APROBADA, EMITIDA, FIRMA_FALLIDA, RECHAZADA } from './asesor-emision.testing';
 import { AsesorEmisionView } from './asesor-emision.view';
 
 describe('AsesorEmisionView', () => {
@@ -132,6 +132,23 @@ describe('AsesorEmisionView', () => {
     expect(element('emitir')).toBeNull();
     expect(element('poliza-emitida')).toBeNull();
     expect(host.textContent).not.toMatch(/emitida/i);
+  });
+
+  it('shows the core refusal with its reason and no issued policy when the signature fails', () => {
+    const { fixture, http, element, steps } = render();
+    http.expectOne(URL).flush(APROBADA);
+    fixture.detectChanges();
+
+    element('emitir')!.click();
+    http.expectOne(ISSUE_URL).flush(FIRMA_FALLIDA);
+    fixture.detectChanges();
+
+    expect(steps()[2]).toBe('EMISION:ERROR');
+    expect(steps()[3]).toBe('POLIZA:PENDIENTE');
+    expect(element('rechazo-motivo')?.textContent).toContain(FIRMA_FALLIDA.motivo);
+    expect(element('poliza-emitida')).toBeNull();
+    expect(element('emitir')).toBeNull();
+    expect(element('cotizar-otro')).not.toBeNull();
   });
 
   it('lets the advisor quote another product for the same customer or go back to the portfolio', () => {

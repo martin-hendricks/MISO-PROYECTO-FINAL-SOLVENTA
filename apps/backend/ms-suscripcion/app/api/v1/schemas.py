@@ -19,6 +19,7 @@ class SuscripcionSalida(BaseModel):
     perfil_id: UUID
     decision: str
     motivo: str
+    regla: str
     evaluada_en: datetime
 
     @classmethod
@@ -29,6 +30,7 @@ class SuscripcionSalida(BaseModel):
             perfil_id=suscripcion.perfil_id,
             decision=suscripcion.decision.value,
             motivo=suscripcion.motivo,
+            regla=suscripcion.regla,
             evaluada_en=suscripcion.evaluada_en,
         )
 

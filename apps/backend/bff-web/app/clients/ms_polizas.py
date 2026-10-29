@@ -32,6 +32,10 @@ class ClienteMsPolizas(ClienteServicio):
             },
         )
 
+    async def consultar_firma(self, oferta_id: UUID) -> dict[str, Any]:
+        """HU-17: constancia persistida de la firma de una oferta."""
+        return await self._pedir("GET", f"/v1/polizas/firmas/{oferta_id}")
+
     async def obtener(self, poliza_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/polizas/{poliza_id}")
 

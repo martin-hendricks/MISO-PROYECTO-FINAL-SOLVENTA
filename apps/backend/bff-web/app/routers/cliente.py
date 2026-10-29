@@ -63,6 +63,9 @@ RAMO_A_PRODUCTO = {
 # Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
 # partir de datos ya disponibles (correo de sesión). No tiene significado de
 # negocio, solo evita colisiones triviales con otros usos de uuid5.
+# Código con el que ms-polizas rechaza una emisión cuya firma no fue exitosa (HU-17).
+FIRMA_NO_EXITOSA = "firma_no_exitosa"
+
 _NAMESPACE_SOLVENTA = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
 
 
@@ -303,13 +306,20 @@ async def emitir(
             "deducible": "0",
         }
     ]
-    poliza = await cliente_polizas.emitir(
-        solicitud_id=solicitud_id,
-        oferta_id=oferta_id,
-        usuario_id=contexto.usuario_id,
-        token_pago_confirmado=UUID(str(pago["id"])),
-        coberturas=cobertura_minima,
-    )
+    try:
+        poliza = await cliente_polizas.emitir(
+            solicitud_id=solicitud_id,
+            oferta_id=oferta_id,
+            usuario_id=contexto.usuario_id,
+            token_pago_confirmado=UUID(str(pago["id"])),
+            coberturas=cobertura_minima,
+        )
+    except RechazoDelNucleo as rechazo:
+        # HU-17: una firma no exitosa es un resultado de negocio, igual que un
+        # rechazo de suscripción; cualquier otro rechazo sigue propagándose.
+        if rechazo.codigo != FIRMA_NO_EXITOSA:
+            raise
+        return {"resultado": "RECHAZADA", "motivo": {"codigo": rechazo.codigo, "mensaje": rechazo.mensaje}}
 
     cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
     ramo = cotizacion.get("producto", "")
