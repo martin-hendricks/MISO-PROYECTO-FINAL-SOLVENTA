@@ -2,10 +2,10 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado
+from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_polizas import ClienteMsPolizas
@@ -17,7 +17,16 @@ from ..dependencies import (
     obtener_cliente_suscripcion,
     require_roles,
 )
-from .cliente import FIRMA_NO_EXITOSA, ContextoUsuario, _catalogo_salida, _cotizacion_salida, _idempotency_key, _producto_de
+from .cliente import (
+    FIRMA_NO_EXITOSA,
+    RAMO_A_PRODUCTO,
+    ContextoUsuario,
+    _catalogo_salida,
+    _cotizacion_salida,
+    _idempotency_key,
+    _producto_de,
+    _uuid_desde,
+)
 
 router = APIRouter(
     prefix="/asesor",
@@ -74,9 +83,17 @@ class Desactivar(BaseModel):
     estado: str
 
 
+def _asesor_id(sesion: dict) -> UUID:
+    """HU-163: id estable del asesor de la sesión (uuid5 del `sub`, mismo
+    estilo que ContextoUsuario). Nunca se toma del body: así un asesor solo
+    puede crear y listar cotizaciones a su propio nombre."""
+    return _uuid_desde("asesor", sesion["sub"])
+
+
 @router.post("/cotizaciones")
 async def venta(
     body: VentaAsistida,
+    sesion: Annotated[dict, Depends(require_roles("asesor"))],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     """Cotización asistida: el asesor cotiza en nombre del cliente que
@@ -98,8 +115,71 @@ async def venta(
         producto=producto,
         canal="asesor",
         datos_riesgo=body.datosRiesgo,
+        asesor_id=_asesor_id(sesion),
+        cliente_ref=body.clienteId,
     )
     return _cotizacion_salida(datos, body.ramo)
+
+
+POLIZAS_NO_DISPONIBLE = "polizas_no_disponible"
+
+_PRODUCTO_A_RAMO = {producto: ramo for ramo, producto in RAMO_A_PRODUCTO.items()}
+
+
+def _pendiente_salida(item: dict) -> dict:
+    return {
+        "cotizacionId": item["cotizacion_id"],
+        "ofertaId": item["oferta_id"],
+        "ramo": _PRODUCTO_A_RAMO.get(item["producto"], item["producto"]),
+        "estado": item["estado"],
+        "prima": item["prima"],
+        "moneda": item["moneda"],
+        "creadaEn": item["creada_en"],
+        "venceEn": item["vence_en"],
+        "vencida": item["vencida"],
+        "clienteRef": item.get("cliente_ref"),
+    }
+
+
+@router.get("/cotizaciones")
+async def pendientes(
+    sesion: Annotated[dict, Depends(require_roles("asesor"))],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    incluirVencidas: bool = False,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamano: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> dict:
+    """Cotizaciones pendientes de emisión del asesor de la sesión (HU-163).
+
+    ms-cotizacion ya filtra por asesor, estado y vencimiento. Una `aceptada`
+    puede tener la póliza emitida (ms-cotizacion no lo sabe), así que se
+    cruza con ms-polizas en una sola llamada. Si ms-polizas falla no se
+    puede saber cuáles siguen pendientes: se descartan todas las aceptadas
+    y se avisa, en vez de ofrecer continuar una emisión ya hecha.
+    """
+    listado = await cliente_cotizacion.listar_por_asesor(
+        _asesor_id(sesion), incluirVencidas, pagina, tamano
+    )
+    items = listado["items"]
+    avisos: list[str] = []
+
+    aceptadas = [UUID(i["oferta_id"]) for i in items if i["estado"] == "aceptada"]
+    if aceptadas:
+        try:
+            emitidas = await cliente_polizas.ofertas_con_poliza(aceptadas)
+            items = [i for i in items if i["estado"] != "aceptada" or i["oferta_id"] not in emitidas]
+        except (ServicioNoDisponible, RechazoDelNucleo, RecursoNoEncontrado):
+            items = [i for i in items if i["estado"] != "aceptada"]
+            avisos.append(POLIZAS_NO_DISPONIBLE)
+
+    return {
+        "items": [_pendiente_salida(i) for i in items],
+        "pagina": listado["pagina"],
+        "tamano": listado["tamano"],
+        "hayMas": listado["hay_mas"],
+        "avisos": avisos,
+    }
 
 
 @router.get("/catalogo/{ramo}")
