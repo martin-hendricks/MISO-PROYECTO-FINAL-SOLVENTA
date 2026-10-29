@@ -95,6 +95,15 @@ describe('EmisionView', () => {
     expect(element('poliza-emitida')).not.toBeNull();
   });
 
+  it('keeps the portal top bar without destinations while the core issues', () => {
+    const { http, host, element } = render();
+
+    expect(element('portal-title')).not.toBeNull();
+    expect(host.querySelector('nav')).toBeNull();
+    expect(element('sign-out')).toBeNull();
+    http.expectOne(URL).flush(EMITIDA);
+  });
+
   it('does not call the BFF without an offer to accept', () => {
     const { http, element } = render({});
 

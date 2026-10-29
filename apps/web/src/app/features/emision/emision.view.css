@@ -1,3 +1,40 @@
+/* Outside the shell (no destinations while the core issues), but with the
+   same top bar as the shell so the portal keeps one look. */
+:host {
+  padding: 0;
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background: var(--sv-surface-container-low);
+}
+
+.brand {
+  margin: 0;
+  color: var(--sv-primary);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+section {
+  display: block;
+  padding: 40px 48px;
+}
+
+@media (max-width: 600px) {
+  .top-nav {
+    padding: 0 16px;
+  }
+
+  section {
+    padding: 24px 16px;
+  }
+}
+
 .subtitle {
   margin-bottom: 24px;
 }

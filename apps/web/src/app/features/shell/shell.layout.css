@@ -1,41 +1,108 @@
+/* Same top bar as the back-office TopNavAdmin, so both portals read as one product. */
 :host {
   display: block;
 }
 
-header {
+.top-nav {
   display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  padding: 1rem 1.5rem;
+  align-items: stretch;
+  gap: 8px;
+  height: 64px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background: var(--sv-surface-container-low);
+}
+
+.brand {
+  align-self: center;
+  margin: 0;
+  color: var(--sv-primary);
+  font-size: 24px;
+  font-weight: 600;
 }
 
 nav {
   display: flex;
-  gap: 1rem;
+  margin-left: 24px;
+  gap: 8px;
 }
 
-.cta {
-  margin-left: auto;
-  color: var(--sv-primary);
-  font-weight: 500;
+nav a {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--sv-on-surface-variant);
+  font-size: 16px;
+  text-decoration: none;
 }
 
 nav a.active {
+  border-bottom-color: var(--sv-primary);
   color: var(--sv-primary);
+  font-weight: 600;
+}
+
+nav a:focus-visible,
+.cta:focus-visible,
+.sign-out:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: -2px;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.cta {
+  padding: 8px 16px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  color: var(--sv-primary);
+  font-size: 14px;
   font-weight: 500;
+  text-decoration: none;
 }
 
 .sign-out {
-  padding: 0;
+  padding: 8px 0;
   border: 0;
   color: var(--sv-primary);
   background: transparent;
   font: inherit;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 
-.sign-out:focus-visible {
-  outline: 2px solid var(--sv-primary);
-  outline-offset: 2px;
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: var(--sv-secondary-container);
+}
+
+@media (max-width: 600px) {
+  .top-nav {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 16px;
+  }
+
+  nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  nav a {
+    min-height: 48px;
+  }
+
+  .avatar {
+    display: none;
+  }
 }
