@@ -9,6 +9,8 @@ const CLIENTES = '**/web/asesor/clientes';
 const INICIO = '**/web/cliente/inicio';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
+const ASESOR_EMISION = '**/web/asesor/emisiones';
+const ASESOR_POLIZA = '**/web/asesor/emisiones/*/poliza';
 
 export interface ConsentMark {
   habeasData: boolean;
@@ -34,6 +36,7 @@ export class BffDoubles {
   private quoteRequests = 0;
   private quoteBodies: Record<string, unknown>[] = [];
   private offerReads = 0;
+  private issueRequests = 0;
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
 
@@ -133,6 +136,22 @@ export class BffDoubles {
       this.offerReads += 1;
       return route.fulfill({ json: offer });
     });
+  }
+
+  /** Answers the advisor issuance (HU-149): the core decision, then the sign-and-issue result. */
+  async serveAdvisorIssuance(
+    decision: Record<string, unknown>,
+    emision: Record<string, unknown>,
+  ): Promise<void> {
+    await this.page.route(ASESOR_EMISION, (route) => route.fulfill({ json: decision }));
+    await this.page.route(ASESOR_POLIZA, (route) => {
+      this.issueRequests += 1;
+      return route.fulfill({ json: emision });
+    });
+  }
+
+  issuesRequested(): number {
+    return this.issueRequests;
   }
 
   quoteBody(): Record<string, unknown> | undefined {
