@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
@@ -27,13 +29,15 @@ fun SolventaTopBar(
     showBack: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    titleStyle: TextStyle? = null,
+    minHeight: Dp = SolventaSpacing.minTouch,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-            .heightIn(min = SolventaSpacing.minTouch)
+            .heightIn(min = minHeight)
             .padding(horizontal = SolventaSpacing.s8)
             .testTag(if (showBack) "top_bar_back" else "top_bar_root"),
         verticalAlignment = Alignment.CenterVertically,
@@ -46,6 +50,6 @@ fun SolventaTopBar(
                 testTag = "action_volver",
             )
         }
-        Text(text = title, style = MaterialTheme.typography.titleMedium)
+        Text(text = title, style = titleStyle ?: MaterialTheme.typography.titleMedium)
     }
 }

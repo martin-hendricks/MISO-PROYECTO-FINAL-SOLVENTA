@@ -12,14 +12,11 @@ class DeviceBiometricPrompt(
     private val title: String,
     private val negativeButtonText: String,
 ) {
+    fun available(): Boolean = host() != null
+
     fun authenticate(onResult: (DeviceUnlock) -> Unit) {
-        val fragmentActivity = activity as? FragmentActivity
-        if (fragmentActivity == null || runningUnderInstrumentation()) {
-            onResult(DeviceUnlock.Unavailable)
-            return
-        }
-        val biometricManager = BiometricManager.from(fragmentActivity)
-        if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_SUCCESS) {
+        val fragmentActivity = host()
+        if (fragmentActivity == null) {
             onResult(DeviceUnlock.Unavailable)
             return
         }
@@ -36,6 +33,17 @@ class DeviceBiometricPrompt(
                 .setNegativeButtonText(negativeButtonText)
                 .build(),
         )
+    }
+
+    private fun host(): FragmentActivity? {
+        val fragmentActivity = activity as? FragmentActivity ?: return null
+        if (runningUnderInstrumentation()) return null
+        val biometricManager = BiometricManager.from(fragmentActivity)
+        val canAuthenticate = biometricManager.canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_WEAK,
+        )
+        if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) return null
+        return fragmentActivity
     }
 }
 

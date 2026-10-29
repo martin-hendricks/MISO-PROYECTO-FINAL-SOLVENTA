@@ -30,6 +30,8 @@ class MainActivity : FragmentActivity() {
         val enterSignedInShell = intent.getBooleanExtra(EXTRA_ENTER_SIGNED_IN_SHELL, false)
         val openHome = intent.getBooleanExtra(EXTRA_OPEN_HOME, false)
         val openOnboarding = intent.getBooleanExtra(EXTRA_OPEN_ONBOARDING, false)
+        val onboardingShowsStep = intent.getBooleanExtra(EXTRA_ONBOARDING_STEP, true)
+        val openLiveness = intent.getBooleanExtra(EXTRA_OPEN_LIVENESS, false)
         val openConsent = intent.getBooleanExtra(EXTRA_OPEN_CONSENT, false)
         val resumeProfile = intent.getBooleanExtra(EXTRA_RESUME_PROFILE, false)
         val signedOut = intent.getBooleanExtra(EXTRA_SIGNED_OUT, false)
@@ -38,6 +40,10 @@ class MainActivity : FragmentActivity() {
         }
         if (openOnboarding) {
             intent.removeExtra(EXTRA_OPEN_ONBOARDING)
+            intent.removeExtra(EXTRA_ONBOARDING_STEP)
+        }
+        if (openLiveness) {
+            intent.removeExtra(EXTRA_OPEN_LIVENESS)
         }
         if (openConsent) {
             intent.removeExtra(EXTRA_OPEN_CONSENT)
@@ -52,6 +58,8 @@ class MainActivity : FragmentActivity() {
                     splashHoldMillis = splashHoldMillis,
                     enterSignedInShell = enterSignedInShell || openHome,
                     openOnboarding = openOnboarding,
+                    onboardingShowsStep = onboardingShowsStep,
+                    openLiveness = openLiveness,
                     openConsent = openConsent,
                     resumeProfile = resumeProfile,
                     signedOut = signedOut,
@@ -66,6 +74,8 @@ class MainActivity : FragmentActivity() {
         const val EXTRA_ENTER_SIGNED_IN_SHELL = "com.grupo8_uniandes.solventa.ENTER_SIGNED_IN_SHELL"
         const val EXTRA_OPEN_HOME = "com.grupo8_uniandes.solventa.OPEN_HOME"
         const val EXTRA_OPEN_ONBOARDING = "com.grupo8_uniandes.solventa.OPEN_ONBOARDING"
+        const val EXTRA_ONBOARDING_STEP = "com.grupo8_uniandes.solventa.ONBOARDING_STEP"
+        const val EXTRA_OPEN_LIVENESS = "com.grupo8_uniandes.solventa.OPEN_LIVENESS"
         const val EXTRA_OPEN_CONSENT = "com.grupo8_uniandes.solventa.OPEN_CONSENT"
         const val EXTRA_RESUME_PROFILE = "com.grupo8_uniandes.solventa.RESUME_PROFILE"
         const val EXTRA_SIGNED_OUT = "com.grupo8_uniandes.solventa.SIGNED_OUT"

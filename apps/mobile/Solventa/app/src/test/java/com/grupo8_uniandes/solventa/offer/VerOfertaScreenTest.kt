@@ -39,13 +39,16 @@ class VerOfertaScreenTest {
                 acceptEnabled = true,
                 expired = false,
                 cotizacionId = "COT-1042",
+                ramo = "Protección de dispositivo",
             ),
         )
 
         rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
-        rule.onNodeWithText(premium).assertIsDisplayed()
-        rule.onNodeWithText(date).assertIsDisplayed()
+        rule.onNodeWithText("Prima $premium").assertIsDisplayed()
+        rule.onNodeWithText("Vence $date · sigue: emitir y pagar").assertIsDisplayed()
+        rule.onNodeWithText("Protección de dispositivo · cotización lista. Si aceptas, se emite la póliza y se cobra la prima.").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").assertIsEnabled()
+        rule.onNodeWithTag("action_not_now").assertIsDisplayed()
         rule.onAllNodesWithTag("offer_expired").assertCountEquals(0)
         rule.onAllNodesWithText("Usamos un valor de respaldo").assertCountEquals(0)
     }
@@ -67,7 +70,8 @@ class VerOfertaScreenTest {
         rule.onNodeWithText("La oferta está vencida").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").assertIsNotEnabled()
         rule.onNodeWithTag("action_quote_again").assertIsDisplayed()
-        rule.onNodeWithText("$89.000 COP").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_not_now").assertCountEquals(0)
+        rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
     }
 
     @Test
@@ -75,6 +79,20 @@ class VerOfertaScreenTest {
         show(OfferUiState(phase = OfferPhase.Pending))
         rule.onNodeWithTag("offer_pending").assertIsDisplayed()
         rule.onAllNodesWithTag("offer_premium").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenADisabledAccept_whenShown_thenTheButtonStays() {
+        show(
+            OfferUiState(
+                phase = OfferPhase.Ready,
+                premiumText = "COP 1",
+                endDateText = "1 ene 2027",
+                acceptEnabled = false,
+                expired = false,
+            ),
+        )
+        rule.onNodeWithTag("action_accept_offer").assertIsNotEnabled()
     }
 
     @Test
@@ -87,7 +105,13 @@ class VerOfertaScreenTest {
     private fun show(state: OfferUiState) {
         rule.setContent {
             SolventaTheme {
-                VerOfertaScreen(state = state, onAccept = {}, onQuoteAgain = {})
+                VerOfertaScreen(
+                    state = state,
+                    onAccept = {},
+                    onQuoteAgain = {},
+                    onDecline = {},
+                    modifier = androidx.compose.ui.Modifier,
+                )
             }
         }
     }

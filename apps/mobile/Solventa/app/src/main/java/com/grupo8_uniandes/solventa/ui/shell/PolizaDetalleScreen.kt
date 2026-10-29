@@ -7,30 +7,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.policy.PolicyDetailUiState
+import com.grupo8_uniandes.solventa.policy.PolicyPhase
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaCard
-import com.grupo8_uniandes.solventa.ui.components.SolventaFieldState
-import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 
 @Composable
 fun PolizaDetalleScreen(
-    policyId: String,
+    state: PolicyDetailUiState,
     onSecondary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var note by rememberSaveable { mutableStateOf("") }
-    val fieldValue = stringResource(R.string.field_value)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -43,24 +37,31 @@ fun PolizaDetalleScreen(
             style = MaterialTheme.typography.headlineMedium,
         )
         SolventaCard {
-            Text(text = policyId, style = SolventaTypography.amount)
+            Text(
+                text = state.numero,
+                style = SolventaTypography.amount,
+                modifier = Modifier.testTag("policy_numero"),
+            )
+            if (state.phase == PolicyPhase.Failed) {
+                Text(
+                    text = stringResource(R.string.load_failed),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag("load_failed"),
+                )
+            }
+            if (state.phase == PolicyPhase.Ready) {
+                Text(text = state.ramo, style = MaterialTheme.typography.bodyLarge)
+                Text(text = state.resumen, style = MaterialTheme.typography.bodyMedium)
+                Text(text = state.estado, style = MaterialTheme.typography.bodyMedium)
+                Text(text = state.venceEn, style = MaterialTheme.typography.bodyMedium)
+                Text(text = state.queHacer, style = MaterialTheme.typography.bodyMedium)
+            }
         }
-        SolventaTextField(
-            value = note.ifEmpty { fieldValue },
-            onValueChange = { note = it },
-            label = stringResource(R.string.field_label),
-            helper = stringResource(R.string.field_helper_error),
-            state = SolventaFieldState.Error,
-        )
-        SolventaButton(
-            text = stringResource(R.string.action_view_policy),
-            style = SolventaButtonStyle.Filled,
-            onClick = {},
-        )
         SolventaButton(
             text = stringResource(R.string.action_secondary),
             style = SolventaButtonStyle.Outlined,
             onClick = onSecondary,
+            testTag = "action_cancel_policy",
         )
     }
 }

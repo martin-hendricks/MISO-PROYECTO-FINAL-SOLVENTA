@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -33,7 +34,8 @@ class InicioTest {
         show(HomeUiState(panel = HomePanel(policyId = "POL-9")))
         rule.onNodeWithTag("home_policy").performScrollTo().performClick()
         rule.waitForTag("screen_poliza_detalle")
-        rule.onNodeWithText("POL-9").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
+        rule.onNodeWithTag("policy_numero").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
         rule.onNodeWithTag("action_volver").performClick()
         rule.waitForTag("screen_polizas")
@@ -59,8 +61,8 @@ class InicioTest {
         show(HomeUiState(panel = HomePanel(offerId = "Q-42")))
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
         rule.waitForTag("screen_emision")
-        rule.onNodeWithTag("emision_offer_id").assertIsDisplayed()
-        rule.onNodeWithText("Q-42").assertIsDisplayed()
+        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.onAllNodesWithText("Q-42").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
     }

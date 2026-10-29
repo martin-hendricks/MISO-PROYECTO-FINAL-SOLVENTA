@@ -15,14 +15,14 @@ import java.time.Instant
 
 /**
  * The published home sample, as the situation Inicio already knows how to select.
- * A failed or pending stand-in answer is an empty home.
+ * A failed or pending stand-in answer is unavailable, not an empty home.
  */
 class StandInHomeRepository(
     private val home: HomeBffRepository = MockHomeBffRepository(),
     private val becameCurrentAt: Instant = SAMPLE_AT,
 ) : HomeRepository {
-    override fun load(): HomeSituation {
-        val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return HomeSituation()
+    override fun load(): HomeSituation? {
+        val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return null
         val sample = ready.value
         return HomeSituation(
             quotes = listOf(

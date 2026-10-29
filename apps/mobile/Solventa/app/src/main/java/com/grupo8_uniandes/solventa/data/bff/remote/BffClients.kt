@@ -25,6 +25,7 @@ class BffClients(
         fun open(address: String, tokens: TokenStore, readTimeoutSeconds: Long = 5): BffClients {
             val refreshApi = retrofit(address, refreshClient(readTimeoutSeconds)).create(MobileBffApi::class.java)
             val authed = refreshClient(readTimeoutSeconds).newBuilder()
+                .addInterceptor(UnauthorizedInterceptor(tokens))
                 .addInterceptor(AccessInterceptor(tokens))
                 .authenticator(RefreshAuthenticator(tokens, refreshApi))
                 .build()
@@ -59,6 +60,24 @@ private class CorrelationInterceptor : Interceptor {
             .header("X-Correlation-Id", UUID.randomUUID().toString())
             .build()
         return chain.proceed(request)
+    }
+}
+
+internal object SessionUnauthorized {
+    var onUnauthorized: (() -> Unit)? = null
+}
+
+private class UnauthorizedInterceptor(
+    private val tokens: TokenStore,
+) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val response = chain.proceed(chain.request())
+        val path = response.request.url.encodedPath
+        if (response.code == 401 && !path.isOpenSession()) {
+            tokens.clear()
+            SessionUnauthorized.onUnauthorized?.invoke()
+        }
+        return response
     }
 }
 

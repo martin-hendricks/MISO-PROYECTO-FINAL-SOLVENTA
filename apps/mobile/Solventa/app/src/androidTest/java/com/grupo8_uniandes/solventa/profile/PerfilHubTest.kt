@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -60,5 +61,21 @@ class PerfilHubTest {
         }
         rule.onNodeWithTag("screen_login").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenSignedOut_whenCrearCuenta_thenAccountOpensWithoutBack() {
+        rule.onNodeWithTag("action_sign_out").performClick()
+        rule.onNodeWithTag("action_sign_out_confirm").performClick()
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithTag("screen_login").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("top_bar_root").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_volver").assertCountEquals(0)
+        rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithTag("screen_onboarding").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("screen_onboarding").assertIsDisplayed()
     }
 }

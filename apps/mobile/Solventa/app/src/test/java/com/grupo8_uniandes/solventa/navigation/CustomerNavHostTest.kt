@@ -3,11 +3,11 @@ package com.grupo8_uniandes.solventa.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
@@ -86,11 +86,15 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("solventa_text_field").performTextInput("nota")
         rule.onNodeWithText("Cancelar").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
-        rule.onNodeWithTag("action_open_policy").performClick()
+        rule.onNodeWithTag("action_new_quote").performClick()
+        rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
+        rule.onNodeWithTag("action_cancel_quote").performClick()
+        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
 
         nav.openDestination(Destination.Polizas)
         rule.waitForIdle()
@@ -101,6 +105,15 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Perfil)
         rule.waitForIdle()
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenRejection_whenHome_thenInicioOpens() {
+        show(start = SuscripcionRechazadaRoute)
+        rule.onNodeWithTag("screen_rejection").assertIsDisplayed()
+        rule.onNodeWithText("No pudimos emitir Protección de dispositivo").assertIsDisplayed()
+        rule.onNodeWithTag("action_rejection_home").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
     }
 
     private fun show(

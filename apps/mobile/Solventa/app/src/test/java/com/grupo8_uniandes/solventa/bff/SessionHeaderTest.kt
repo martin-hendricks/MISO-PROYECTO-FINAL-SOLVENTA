@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.remote.BffCache
 import com.grupo8_uniandes.solventa.data.bff.remote.BffClients
+import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.data.bff.remote.BffGate
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteOfferRepository
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteSessionRepository
@@ -48,8 +49,10 @@ class SessionHeaderTest {
         enqueue(PublishedSamples.SESSION_OUT)
         session.signIn("camila@correo.com", "********")
         val signIn = server.takeRequest()
+        assertTrue(signIn.path.orEmpty().contains("sesion/ingreso"))
         assertNull(signIn.getHeader("Authorization"))
         assertFalse(signIn.body.readUtf8().contains("rol"))
+        assertEquals(0, server.requestCount - 1)
 
         enqueue(PublishedSamples.SESSION_OUT)
         session.refresh("jwt")
@@ -97,6 +100,34 @@ class SessionHeaderTest {
     }
 
     @Test
+    fun givenACustomer401_whenTheCallReturns_thenLogoutIsNotified() = runBlocking {
+        var notified = 0
+        SessionUnauthorized.onUnauthorized = { notified += 1 }
+        try {
+            server.enqueue(MockResponse().setResponseCode(401))
+            val answer = RemoteOfferRepository(api(), gate()).requote("COT-1042")
+            assertTrue(answer is StandInAnswer.Failed)
+            assertEquals(1, notified)
+            assertNull(tokens.read())
+        } finally {
+            SessionUnauthorized.onUnauthorized = null
+        }
+    }
+
+    @Test
+    fun givenSignInIsUnauthorized_whenTheCallReturns_thenLogoutIsNotNotified() = runBlocking {
+        var notified = 0
+        SessionUnauthorized.onUnauthorized = { notified += 1 }
+        try {
+            server.enqueue(MockResponse().setResponseCode(401))
+            assertTrue(session().signIn("camila@correo.com", "secret") is StandInAnswer.Failed)
+            assertEquals(0, notified)
+        } finally {
+            SessionUnauthorized.onUnauthorized = null
+        }
+    }
+
+    @Test
     fun givenNoToken_whenAProtectedCallIsRejected_thenNothingIsStored() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(401))
         val answer = RemoteOfferRepository(api(), gate()).requote("COT-1042")
@@ -140,6 +171,17 @@ class SessionHeaderTest {
         val deadApi = BffClients.open("http://127.0.0.1:1", tokens, readTimeoutSeconds = 1).api
         val dead = RemoteSessionRepository(deadApi, tokens, BffGate(deadApi, BffCache(context)))
         assertTrue(dead.signOut() is StandInAnswer.Failed)
+        assertNull(tokens.read())
+    }
+
+    @Test
+    fun givenABlankToken_whenRead_thenTheSessionIsAbsent() {
+        val prefs = context.getSharedPreferences("solventa.tokens", Context.MODE_PRIVATE)
+        prefs.edit().putString("accessToken", " ").putString("refreshToken", "refresh").commit()
+        assertNull(tokens.read())
+        prefs.edit().putString("accessToken", "access").putString("refreshToken", "").commit()
+        assertNull(tokens.read())
+        prefs.edit().remove("accessToken").putString("refreshToken", "refresh").commit()
         assertNull(tokens.read())
     }
 

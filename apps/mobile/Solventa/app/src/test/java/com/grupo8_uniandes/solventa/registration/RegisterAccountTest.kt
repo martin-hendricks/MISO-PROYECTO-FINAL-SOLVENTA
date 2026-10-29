@@ -25,7 +25,7 @@ class RegisterAccountTest {
                 email = " camila@correo.com ",
                 documentType = " CC ",
                 documentNumber = "1023456789",
-                password = "secret",
+                password = "secret12",
                 documentPhoto = photo,
             ),
             Region.Colombia,
@@ -38,7 +38,7 @@ class RegisterAccountTest {
         assertEquals("camila@correo.com", stored?.email)
         assertEquals("CC", stored?.documentType)
         assertEquals("1023456789", stored?.documentNumber)
-        assertEquals("secret", stored?.password)
+        assertEquals("secret12", stored?.password)
         assertTrue(photo.contentEquals(stored?.documentPhoto))
         assertFalse(stored?.email?.contains(photo.decodeToString()) == true)
     }
@@ -70,13 +70,43 @@ class RegisterAccountTest {
         assertEquals("INE", repository.saved?.documentType)
     }
 
+    @Test
+    fun givenTheDefaultHelpers_whenTheChoiceChanges_thenThePromptFollowsIt() {
+        val repository = ChoiceRegistration()
+        assertFalse(repository.biometricUnlockEnabled())
+        assertFalse(repository.prefsChoiceExists())
+        assertTrue(repository.biometricPromptOffered())
+        assertFalse(repository.livenessCompleted())
+        assertNull(repository.biometricLogin())
+        repository.setBiometricUnlock(false)
+        repository.enableBiometricUnlock()
+        repository.completeLiveness()
+        repository.rememberBiometricLogin("camila@correo.com", "secret")
+        repository.update(
+            Registration(
+                givenName = "Camila",
+                surnames = "Restrepo",
+                email = "camila@correo.com",
+                documentType = "CC",
+                documentNumber = "1023456789",
+                password = "secret",
+                documentPhoto = byteArrayOf(1),
+            ),
+        )
+
+        repository.choice = false
+        assertFalse(repository.biometricPromptOffered())
+        repository.choice = true
+        assertTrue(repository.biometricPromptOffered())
+    }
+
     private fun draft(
         givenName: String = "Camila",
         surnames: String = "Restrepo",
         email: String = "camila@correo.com",
         documentType: String = "CC",
         documentNumber: String = "1023456789",
-        password: String = "secret",
+        password: String = "secret12",
         documentPhoto: ByteArray? = byteArrayOf(1),
     ) = AccountDraft(
         givenName = givenName,
@@ -87,6 +117,18 @@ class RegisterAccountTest {
         password = password,
         documentPhoto = documentPhoto,
     )
+}
+
+private class ChoiceRegistration : RegistrationRepository {
+    var choice: Boolean? = null
+
+    override fun read(): Registration? = null
+
+    override fun save(registration: Registration) = Unit
+
+    override fun prefsChoiceExists(): Boolean = choice != null
+
+    override fun biometricUnlockEnabled(): Boolean = choice == true
 }
 
 private class FakeRegistrationRepository : RegistrationRepository {

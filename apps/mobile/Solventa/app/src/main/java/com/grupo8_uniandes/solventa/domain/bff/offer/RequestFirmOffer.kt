@@ -36,14 +36,13 @@ class RequestFirmOffer(
         }
         QuoteLine.Climate -> {
             val event = text(answers.event, QuoteInput.Event) ?: return null
-            val reference = text(answers.reference, QuoteInput.Reference) ?: return null
             val threshold = positive(answers.threshold, QuoteInput.Threshold) ?: return null
-            ClimateRisk(event, reference, threshold)
+            ClimateRisk(event, answers.reference.trim(), threshold)
         }
         QuoteLine.Mortgage -> {
             val value = positive(answers.creditValue, QuoteInput.CreditValue) ?: return null
-            val term = positive(answers.creditTerm, QuoteInput.CreditTerm) ?: return null
-            MortgageRisk(value, term)
+            val years = positive(answers.creditTerm, QuoteInput.CreditTerm) ?: return null
+            MortgageRisk(value, years * 12)
         }
         QuoteLine.Payments -> {
             val installment = positive(answers.installment, QuoteInput.Installment) ?: return null

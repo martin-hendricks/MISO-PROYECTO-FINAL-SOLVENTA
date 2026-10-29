@@ -56,6 +56,8 @@ class ShellModeTest {
         assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute, signedIn = true))
         assertNull(selectedDestination(EmisionEnCursoRoute()))
         assertNull(selectedDestination(PolizaEmitidaRoute))
+        assertEquals(ShellMode.Nested, shellMode(SuscripcionRechazadaRoute, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(SuscripcionRechazadaRoute))
     }
 
     @Test

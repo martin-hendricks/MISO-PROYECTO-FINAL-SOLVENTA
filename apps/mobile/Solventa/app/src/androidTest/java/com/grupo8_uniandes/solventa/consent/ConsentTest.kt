@@ -19,10 +19,13 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -69,7 +72,10 @@ class ConsentTest {
         fillAccount()
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().performClick()
+        rule.waitUntilEnabled("action_continuar")
+        rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -97,7 +103,10 @@ class ConsentTest {
         fillAccount()
         OnboardingPhotoInjector.next = byteArrayOf(4)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().performClick()
+        rule.waitUntilEnabled("action_continuar")
+        rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onNodeWithTag("solventa_switch").performClick()
         rule.onNodeWithTag("action_volver").performClick()
@@ -133,13 +142,14 @@ class ConsentTest {
     }
 
     private fun fillAccount() {
-        rule.onNodeWithTag("field_nombre").performTextInput("Camila")
-        rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
-        rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithText("Tipo: ").performScrollTo().performClick()
-        rule.onNodeWithText("CC").performClick()
-        rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret")
+        rule.onNodeWithTag("field_nombre").performScrollTo().performTextReplacement("Camila")
+        rule.onNodeWithTag("field_apellidos").performScrollTo().performTextReplacement("Restrepo")
+        rule.onNodeWithTag("field_correo").performScrollTo().performTextReplacement("camila@correo.com")
+        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
+        rule.onNodeWithTag("option_CC").performScrollTo().performClick()
+        rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
+        rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
     }
 }
 
@@ -278,6 +288,7 @@ private fun saveRegistration() {
             documentPhoto = byteArrayOf(1),
         ),
     )
+    SharedPrefsRegistrationRepository(appContext()).completeLiveness()
 }
 
 private fun consentRecords(): String? {
@@ -305,5 +316,13 @@ private fun pressSystemBack() {
 private fun ComposeTestRule.waitForTag(tag: String) {
     waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
+private fun ComposeTestRule.waitUntilEnabled(tag: String) {
+    waitUntil(timeoutMillis = 5_000) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().any {
+            it.config.getOrNull(SemanticsProperties.Disabled) == null
+        }
     }
 }

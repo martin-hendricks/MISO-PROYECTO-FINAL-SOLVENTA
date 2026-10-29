@@ -7,5 +7,5 @@ import com.grupo8_uniandes.solventa.domain.home.HomeSituation
  * A real launch has no quotes, policies, or claims, and no origination.
  */
 class EmptyHomeRepository : HomeRepository {
-    override fun load(): HomeSituation = HomeSituation()
+    override fun load(): HomeSituation? = HomeSituation()
 }

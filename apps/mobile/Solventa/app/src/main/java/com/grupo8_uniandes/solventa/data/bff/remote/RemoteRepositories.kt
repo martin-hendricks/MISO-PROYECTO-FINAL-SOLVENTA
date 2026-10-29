@@ -109,7 +109,16 @@ class RemoteSessionRepository(
     private val gate: BffGate,
 ) : MobileSessionRepository {
     override suspend fun signIn(correo: String, contrasena: String): StandInAnswer<SessionTokens> {
-        val answer = gate.call { api.signIn(SessionInDto(correo, contrasena)).toTokens() }
+        tokens.clear()
+        val answer = try {
+            StandInAnswer.Ready(api.signIn(SessionInDto(correo, contrasena)).toTokens())
+        } catch (_: IOException) {
+            StandInAnswer.Failed
+        } catch (_: HttpException) {
+            StandInAnswer.Failed
+        } catch (_: SerializationException) {
+            StandInAnswer.Failed
+        }
         if (answer is StandInAnswer.Ready) tokens.save(answer.value)
         return answer
     }
@@ -185,7 +194,7 @@ class RemoteIssuanceRepository(
             cache.writeWallet(entries)
             StandInAnswer.Ready(entries)
         } catch (_: IOException) {
-            StandInAnswer.Ready(cache.readWallet().orEmpty())
+            StandInAnswer.Failed
         } catch (_: HttpException) {
             StandInAnswer.Failed
         } catch (_: SerializationException) {

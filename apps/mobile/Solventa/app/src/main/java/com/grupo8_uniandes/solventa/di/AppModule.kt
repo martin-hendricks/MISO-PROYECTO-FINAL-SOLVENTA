@@ -21,6 +21,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import com.grupo8_uniandes.solventa.domain.consent.ConsentRepository
@@ -34,10 +35,19 @@ import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
+import com.grupo8_uniandes.solventa.claim.ClaimsPhase
+import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
+import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
+import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
+import com.grupo8_uniandes.solventa.ui.login.BiometricGate
+import com.grupo8_uniandes.solventa.ui.login.EnableBiometric
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
+import com.grupo8_uniandes.solventa.ui.login.RememberBiometricLogin
+import com.grupo8_uniandes.solventa.ui.login.RemoteSessionOpener
+import com.grupo8_uniandes.solventa.ui.login.StoredBiometricLogin
 import com.grupo8_uniandes.solventa.ui.shell.ProfileViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
@@ -47,7 +57,7 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
-    val address = baseUrl.trim()
+    val address = baseUrl.trim().trimEnd('/').removeSuffix("/movil")
     single {
         if (address.isBlank()) BffRuntime.standIn() else BffRuntime.remote(androidContext(), address)
     }
@@ -78,7 +88,20 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }
     single<DevicePermissionReader> { AndroidDevicePermissionReader(androidContext()) }
     viewModel { HomeViewModel(get()) }
-    viewModel { LoginViewModel(get()) }
+    viewModel {
+        val registration = get<RegistrationRepository>()
+        val session = get<MobileSessionRepository>()
+        LoginViewModel(
+            signIn = get(),
+            biometricEnabled = BiometricGate(registration::biometricUnlockEnabled),
+            enableBiometric = EnableBiometric(registration::enableBiometricUnlock),
+            openRemoteSession = RemoteSessionOpener { email, password ->
+                session.signIn(email, password) is StandInAnswer.Ready
+            },
+            storedBiometricLogin = StoredBiometricLogin(registration::biometricLogin),
+            rememberBiometricLogin = RememberBiometricLogin(registration::rememberBiometricLogin),
+        )
+    }
     factory { (originationActive: Boolean) ->
         ProfileViewModel(get { parametersOf(originationActive) }, get())
     }
@@ -86,6 +109,9 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     viewModel { (cotizacionId: String, region: Region) ->
         OfferViewModel(get(), cotizacionId, region)
     }
+    viewModel { PolizasViewModel(get()) }
+    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero) }
+    viewModel { SiniestrosViewModel(get()) }
 }
 
 fun startSolventaKoin(context: Context) {

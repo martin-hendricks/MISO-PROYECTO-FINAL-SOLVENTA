@@ -150,6 +150,38 @@ class QuoteViewModelTest {
     )
 
     @Test
+    fun givenEachAnswer_whenTyped_thenThatFieldKeepsTheText() {
+        val viewModel = filled(scripted(StandInAnswer.Failed))
+        viewModel.onMenu(true)
+        assertTrue(viewModel.state.value.menuOpen)
+        viewModel.onMenu(false)
+        val beforeAge = viewModel.state.value.value
+        viewModel.onText(QuoteInput.Age, "ignored")
+        assertEquals(beforeAge, viewModel.state.value.value)
+
+        val typed = listOf(
+            QuoteInput.SumInsured to { state: QuoteUiState -> state.sumInsured },
+            QuoteInput.AgeYears to { state: QuoteUiState -> state.ageYears },
+            QuoteInput.Event to { state: QuoteUiState -> state.event },
+            QuoteInput.Reference to { state: QuoteUiState -> state.reference },
+            QuoteInput.Threshold to { state: QuoteUiState -> state.threshold },
+            QuoteInput.CreditValue to { state: QuoteUiState -> state.creditValue },
+            QuoteInput.CreditTerm to { state: QuoteUiState -> state.creditTerm },
+            QuoteInput.Installment to { state: QuoteUiState -> state.installment },
+            QuoteInput.Term to { state: QuoteUiState -> state.term },
+            QuoteInput.Destination to { state: QuoteUiState -> state.destination },
+            QuoteInput.Duration to { state: QuoteUiState -> state.duration },
+            QuoteInput.Value to { state: QuoteUiState -> state.value },
+            QuoteInput.Brand to { state: QuoteUiState -> state.brand },
+        )
+        typed.forEach { (input, read) ->
+            viewModel.onText(input, input.name)
+            assertEquals(input.name, read(viewModel.state.value))
+            assertNull(viewModel.state.value.gap)
+        }
+    }
+
+    @Test
     fun givenASuspendingAsk_whenCotizar_thenWaitingComesBeforeTheResult() {
         val success = CompletableDeferred<StandInAnswer<FirmOffer>>()
         val viewModel = filled(gated(success))

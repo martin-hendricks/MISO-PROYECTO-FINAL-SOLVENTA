@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -11,7 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 enum class SolventaStatus {
@@ -40,4 +43,23 @@ fun SolventaStatusIcon(
         Icon(painter = icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
         Text(word, color = tint)
     }
+}
+
+@Composable
+fun SolventaStatusMark(
+    status: SolventaStatus,
+    modifier: Modifier = Modifier,
+) {
+    val art = when (status) {
+        SolventaStatus.Success -> R.drawable.status_success
+        SolventaStatus.Error -> R.drawable.status_error
+        SolventaStatus.Processing -> R.drawable.status_processing
+    }
+    Image(
+        painter = painterResource(art),
+        contentDescription = null,
+        modifier = modifier
+            .size(96.dp)
+            .testTag("solventa_status_mark_${status.name.lowercase()}"),
+    )
 }
