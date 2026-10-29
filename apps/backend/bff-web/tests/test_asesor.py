@@ -165,6 +165,10 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
         201, json=SUSCRIPCION_ACEPTADA
     )
 
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/proteccion-dispositivo")] = lambda _: httpx.Response(
+        200, json=PRODUCTO_SALIDA
+    )
+
     respuesta = client.post(
         "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID, "clienteId": "CLI-18"}
     )
@@ -173,16 +177,35 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
     cuerpo = respuesta.json()
     assert cuerpo["solicitudId"] == COTIZACION_ID
     assert cuerpo["cliente"] == {"clienteId": "CLI-18", "nombre": "Andrés Gómez"}
-    assert cuerpo["producto"] == COTIZACION_SALIDA["producto"]
+    assert cuerpo["producto"] == PRODUCTO_SALIDA["nombre"]
     assert cuerpo["referencia"] == COTIZACION_ID
     assert [(p["paso"], p["estado"]) for p in cuerpo["pasos"]][2] == ("EMISION", "ACTUAL")
     assert cuerpo["decision"]["resultado"] == "ACEPTADA"
     assert cuerpo["decision"]["detalle"] == "riesgo_aceptable"
     assert cuerpo["decision"]["regla"] is None
-    assert cuerpo["decision"]["decididoPor"] is None
+    assert cuerpo["decision"]["decididoPor"] == "Motor automático"
     assert cuerpo["oferta"]["moneda"] == "COP"
     assert cuerpo["oferta"]["primaTotal"] == "89000.00"
-    assert cuerpo["oferta"]["vigenciaMeses"] is None
+    assert cuerpo["oferta"]["vigenciaMeses"] == 12
+
+
+def test_consultar_emision_sin_catalogo_muestra_el_codigo_del_producto(
+    client, nucleo_cotizacion, nucleo_suscripcion
+):
+    headers = _auth(client, "asesor")
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
+    nucleo_suscripcion.respuestas[("POST", "/v1/suscripciones")] = lambda _: httpx.Response(
+        201, json=SUSCRIPCION_ACEPTADA
+    )
+
+    respuesta = client.post(
+        "/v1/asesor/emisiones", headers=headers, json={"cotizacionId": COTIZACION_ID, "clienteId": "CLI-18"}
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["producto"] == COTIZACION_SALIDA["producto"]
 
 
 def test_consultar_emision_rechazada(client, nucleo_cotizacion, nucleo_suscripcion):
