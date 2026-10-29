@@ -81,6 +81,9 @@ class _Polizas:
     async def obtener_por_numero(self, numero):
         return next((deepcopy(p) for p in self._vista().values() if p.numero == numero), None)
 
+    async def ofertas_con_poliza(self, oferta_ids):
+        return {p.oferta_id for p in self._vista().values() if p.oferta_id in oferta_ids}
+
     async def listar_por_usuario(self, usuario_id, limite):
         polizas = sorted(
             (p for p in self._vista().values() if p.usuario_id == usuario_id),

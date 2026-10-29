@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.exceptions import RequestValidationError
 
 from app.application import casos_uso
 from app.dependencies import (
@@ -21,6 +22,7 @@ from .schemas import (
     EmitirPolizaEntrada,
     ErrorSalida,
     ModificarCoberturasEntrada,
+    OfertasConPolizaSalida,
     PolizaSalida,
     RenovarPolizaEntrada,
 )
@@ -35,6 +37,7 @@ Cobros = Annotated[VerificadorCobro, Depends(obtener_cobros)]
 Firma = Annotated[FirmaElectronica, Depends(obtener_firma)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}, 503: {"model": ErrorSalida}}
 ERRORES_CICLO_VIDA = {**ERRORES, 409: {"model": ErrorSalida}}
+MAX_OFERTAS_POR_CONSULTA = 100
 
 
 @router.post("", response_model=PolizaSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
@@ -81,6 +84,21 @@ async def consultar_por_numero(numero: str, uow: UowLectura):
 @router.get("/firmas/{oferta_id}", response_model=ConstanciaFirmaSalida, responses=ERRORES)
 async def consultar_firma(oferta_id: UUID, uow: Uow):
     return ConstanciaFirmaSalida.desde(await casos_uso.consultar_firma(uow, oferta_id))
+
+
+# HU-163: bff-web cruza las cotizaciones aceptadas del asesor con las pólizas ya
+# emitidas. Prefijo literal antes de "/{poliza_id}", igual que "/numero/".
+@router.get("/por-ofertas", response_model=OfertasConPolizaSalida, responses=ERRORES)
+async def ofertas_con_poliza(uow: UowLectura, oferta_ids: Annotated[str, Query(min_length=1)]):
+    try:
+        ids = [UUID(valor.strip()) for valor in oferta_ids.split(",")]
+    except ValueError as exc:
+        raise RequestValidationError([{"loc": ("query", "oferta_ids"), "msg": "UUID inválido", "type": "uuid_parsing"}]) from exc
+    if len(ids) > MAX_OFERTAS_POR_CONSULTA:
+        raise RequestValidationError(
+            [{"loc": ("query", "oferta_ids"), "msg": f"Máximo {MAX_OFERTAS_POR_CONSULTA} ids", "type": "too_long"}]
+        )
+    return OfertasConPolizaSalida(oferta_ids_con_poliza=await casos_uso.ofertas_con_poliza(uow, ids))
 
 
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)

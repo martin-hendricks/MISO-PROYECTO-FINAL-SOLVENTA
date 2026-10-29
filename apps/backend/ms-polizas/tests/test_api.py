@@ -122,6 +122,37 @@ def test_listar_por_usuario_respeta_el_limite_maximo(client):
     assert respuesta.status_code == 422
 
 
+def test_por_ofertas_devuelve_solo_las_ofertas_que_tienen_poliza(client):
+    emitida = client.post("/v1/polizas", json=_cuerpo()).json()
+    sin_poliza = str(uuid4())
+
+    respuesta = client.get("/v1/polizas/por-ofertas", params={"oferta_ids": f"{emitida['oferta_id']},{sin_poliza}"})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"oferta_ids_con_poliza": [emitida["oferta_id"]]}
+
+
+def test_por_ofertas_sin_coincidencias_devuelve_lista_vacia(client):
+    respuesta = client.get("/v1/polizas/por-ofertas", params={"oferta_ids": str(uuid4())})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"oferta_ids_con_poliza": []}
+
+
+def test_por_ofertas_requiere_oferta_ids(client):
+    assert client.get("/v1/polizas/por-ofertas").status_code == 422
+
+
+def test_por_ofertas_rechaza_ids_invalidos(client):
+    assert client.get("/v1/polizas/por-ofertas", params={"oferta_ids": "no-es-uuid"}).status_code == 422
+
+
+def test_por_ofertas_rechaza_mas_de_100_ids(client):
+    ids = ",".join(str(uuid4()) for _ in range(101))
+
+    assert client.get("/v1/polizas/por-ofertas", params={"oferta_ids": ids}).status_code == 422
+
+
 def test_renovar_extiende_la_vigencia_y_responde_200(client):
     poliza = _emitir(client)
 

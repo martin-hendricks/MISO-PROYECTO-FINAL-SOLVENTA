@@ -30,6 +30,10 @@ class CoberturaSalida(BaseModel):
     deducible: Decimal
 
 
+class OfertasConPolizaSalida(BaseModel):
+    oferta_ids_con_poliza: list[UUID]
+
+
 class PolizaSalida(BaseModel):
     id: UUID
     numero: str
