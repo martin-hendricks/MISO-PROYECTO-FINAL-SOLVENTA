@@ -151,4 +151,16 @@
     <string name="consent_state_granted">otorgado</string>
     <string name="consent_state_revoked">revocado</string>
     <string name="action_close">Cerrar</string>
+    <string name="claim_chip_todos">Todos</string>
+    <string name="claim_chip_en_evaluacion">En evaluación</string>
+    <string name="claim_chip_pagado">Pagado</string>
+    <string name="assistance_title">Pedir asistencia en sitio</string>
+    <string name="assistance_registered">Registramos el pedido con tu ubicación. Operaciones lo ve; no hay despacho real a un taller.</string>
+    <string name="assistance_policy_label">Póliza vigente</string>
+    <string name="assistance_policy_help">Los campos siguen el ramo de la póliza que elijas</string>
+    <string name="assistance_date_label">Fecha del hecho</string>
+    <string name="assistance_description_label">Descripción corta</string>
+    <string name="assistance_place_label">Lugar (opcional)</string>
+    <string name="assistance_place_help">Pide permiso de ubicacion del dispositivo para geoetiquetar</string>
+    <string name="assistance_continue">Continuar a evidencia</string>
 </resources>

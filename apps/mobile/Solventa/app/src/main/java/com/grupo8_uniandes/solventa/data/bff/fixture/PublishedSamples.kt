@@ -66,7 +66,7 @@ object PublishedSamples {
     """
 
     const val CLAIMS = """
-        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"Pantalla rota","estado":"en_evaluacion"}]}
+        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"pantalla rota","estado":"en_evaluacion"},{"siniestroId":"SIN-220","ramo":"Protección de dispositivo","resumen":"hurto","estado":"pagado"},{"siniestroId":"SIN-P01","ramo":"Clima y vuelos","resumen":"retraso de vuelo","estado":"pagado","estadoTexto":"Pago automático · pagado"}]}
     """
 
     const val PAYMENT = """

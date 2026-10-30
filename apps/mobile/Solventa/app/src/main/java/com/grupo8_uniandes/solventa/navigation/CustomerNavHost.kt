@@ -1,6 +1,11 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +44,11 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
+import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
+import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
+import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
@@ -141,12 +151,50 @@ fun CustomerNavHost(
         composable<SiniestrosRoute> {
             val viewModel: SiniestrosViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
+            val context = LocalContext.current
+            val locationPermission = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { granted ->
+                if (granted) navController.navigate(MapaPrestadoresRoute)
+            }
             LaunchedEffect(Unit) { viewModel.refresh() }
             SiniestrosScreen(
                 claims = state.claims,
                 failed = state.phase == ClaimsPhase.Failed,
-                onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
+                onOpenClaim = viewModel::openClaim,
+                onOpenCatalog = {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        navController.navigate(MapaPrestadoresRoute)
+                    } else {
+                        locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
             )
+        }
+        composable<MapaPrestadoresRoute> {
+            val catalog = OpenProviderCatalog().open(locationAllowed = true) as ProviderCatalog.Open
+            MapaPrestadoresScreen(
+                rows = catalog.rows,
+                onOpenAssistance = { navController.navigate(AsistenciaSitioRoute) },
+            )
+        }
+        composable<AsistenciaSitioRoute> {
+            val request = remember { OpenAssistanceRequest() }
+            val form = remember { request.open(locationAllowed = true) }
+            if (form != null) {
+                AsistenciaSitioScreen(
+                    form = form,
+                    onContinue = {},
+                    onCancel = {
+                        request.cancel()
+                        navController.popBackStack()
+                    },
+                )
+            }
         }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
@@ -193,6 +241,8 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
+        destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
+        destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<PerfilRoute>() -> PerfilRoute
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
