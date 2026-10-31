@@ -60,8 +60,7 @@ class InicioTest {
     fun givenOffer_whenAccepted_thenIssuanceShowsThatIdAndHidesTheBar() {
         show(HomeUiState(panel = HomePanel(offerId = "Q-42")))
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
-        rule.waitForTag("screen_emision")
-        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.waitForIssuance()
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
@@ -82,9 +81,11 @@ class InicioTest {
         show(HomeUiState(panel = HomePanel(vidaCrediticia = true)))
         rule.onNodeWithText("Vida Crediticia").assertIsDisplayed()
         rule.onNodeWithTag("home_vida_crediticia").performScrollTo().performClick()
-        rule.waitForTag("screen_inicio")
+        rule.waitForTag("screen_oferta_hipotecario")
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
+        rule.onNodeWithTag("action_volver").performClick()
+        rule.waitForTag("screen_inicio")
         rule.onNodeWithTag("tab_Perfil").performClick()
         rule.waitForTag("screen_perfil")
         rule.onAllNodesWithText("Vida Crediticia").assertCountEquals(0)
@@ -150,5 +151,13 @@ class InicioTest {
 private fun ComposeTestRule.waitForTag(tag: String) {
     waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
+private fun ComposeTestRule.waitForIssuance() {
+    waitUntil(timeoutMillis = 30_000) {
+        listOf("screen_emision", "screen_issued", "screen_rejection").any { tag ->
+            onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

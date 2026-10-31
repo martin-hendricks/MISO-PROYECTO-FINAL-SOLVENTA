@@ -91,6 +91,11 @@
     <string name="home_section_policies">Tus pólizas</string>
     <string name="home_section_claims">Tus siniestros</string>
     <string name="home_section_mortgage">Vida hipotecario</string>
+    <string name="mortgage_offer_title">Vida hipotecario · paso 2 de 3</string>
+    <string name="mortgage_offer_heading">Vida hipotecario · oferta en firme</string>
+    <string name="mortgage_offer_coverage">Protección de pagos · prima según tu perfil</string>
+    <string name="mortgage_offer_premium">%1$s / mes</string>
+    <string name="action_review_later">Revisar despues</string>
     <string name="home_section_quote">Cotizar otro seguro</string>
     <string name="action_report_claim">Reportar siniestro</string>
     <string name="claims_placeholder">Avisos de siniestro</string>

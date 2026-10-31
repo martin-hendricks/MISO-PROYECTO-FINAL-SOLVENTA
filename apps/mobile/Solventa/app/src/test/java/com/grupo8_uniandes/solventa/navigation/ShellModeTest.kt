@@ -39,6 +39,8 @@ class ShellModeTest {
         val offer = VerOfertaRoute(cotizacionId = "COT-1042")
         assertEquals(ShellMode.Nested, shellMode(offer, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(offer))
+        assertEquals(ShellMode.Nested, shellMode(OfertaHipotecarioRoute, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(OfertaHipotecarioRoute))
         val detail = PolizaDetalleRoute(policyId = "SOL-0001")
         assertEquals(ShellMode.Nested, shellMode(detail, signedIn = true))
         assertEquals(Destination.Polizas, selectedDestination(detail))

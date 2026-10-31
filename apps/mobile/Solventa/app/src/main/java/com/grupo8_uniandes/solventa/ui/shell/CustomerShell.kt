@@ -45,6 +45,7 @@ import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.OfertaHipotecarioRoute
 import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -338,6 +339,7 @@ internal fun SignedInShell(
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
+                    showIdentityMark = route is OfertaHipotecarioRoute,
                     onBack = {
                         if (route == SuscripcionRechazadaRoute) {
                             navController.leaveIssuance(InicioRoute)
@@ -384,6 +386,7 @@ internal fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     is CotizacionRoute -> stringResource(R.string.quote_step_title)
     is VerOfertaRoute -> stringResource(R.string.offer_title)
+    OfertaHipotecarioRoute -> stringResource(R.string.mortgage_offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)

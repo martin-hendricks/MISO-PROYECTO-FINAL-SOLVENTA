@@ -34,7 +34,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ShowMortgageOffer
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
+import com.grupo8_uniandes.solventa.ui.shell.OfertaHipotecarioScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
 import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
@@ -81,6 +83,19 @@ fun CustomerNavHost(
                 onOpenClaim = { claimId ->
                     navController.openParentThen(SiniestrosRoute, SiniestroDetalleRoute(claimId))
                 },
+                onOpenMortgage = { navController.navigate(OfertaHipotecarioRoute) },
+            )
+        }
+        composable<OfertaHipotecarioRoute> {
+            val context = LocalContext.current
+            val region = remember(context) {
+                SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
+            }
+            val offer = remember(region) { ShowMortgageOffer(region).show() }
+            OfertaHipotecarioScreen(
+                offer = offer,
+                onAccept = { navController.navigate(EmisionEnCursoRoute()) },
+                onReviewLater = { navController.popBackStack() },
             )
         }
         composable<VerOfertaRoute> { entry ->
@@ -258,6 +273,7 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
         destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
         destination.hasRoute<SuscripcionRechazadaRoute>() -> SuscripcionRechazadaRoute
+        destination.hasRoute<OfertaHipotecarioRoute>() -> OfertaHipotecarioRoute
         else -> InicioRoute
     }
 }
