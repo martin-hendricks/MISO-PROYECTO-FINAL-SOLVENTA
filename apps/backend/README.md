@@ -25,6 +25,22 @@ apps/backend/scripts/nuevo-servicio.sh bff bff-web
 
 Copia el arquetipo, lo renombra y conserva el `README.md` que ya tenga la carpeta. Si la carpeta ya tiene código, aborta.
 
+## Ambiente de integración con dobles (HU-88)
+
+`docker compose up -d --build` levanta el backend completo sin ningún tercero real: Open Finance, Open Data, perfil de riesgo, KYC y pasarela son dobles detrás de sus adaptadores, y el núcleo solo conoce el puerto. Por defecto responden de inmediato. Su demora y su caída se fuerzan desde el entorno:
+
+| Variable | Servicio | Efecto |
+| --- | --- | --- |
+| `DOBLE_OPEN_FINANCE_LATENCIA_MS` / `_FALLAR` | `ms-perfilamiento` | Atributos degradados con valor de respaldo (HU-56) |
+| `DOBLE_OPEN_DATA_LATENCIA_MS` / `_FALLAR` | `ms-perfilamiento` | Ídem |
+| `DOBLE_PERFIL_RIESGO_LATENCIA_MS` / `_FALLAR` | `ms-cotizacion` | Factor de riesgo de respaldo (HU-5) |
+| `DOBLE_KYC_LATENCIA_MS` / `_FALLAR` | `ms-identidad` | Alta en 503; el documento `0000000000` siempre se rechaza (422) |
+| `DOBLE_PASARELA_LATENCIA_MS` / `_FALLAR` | `ms-pagos` | Cobro en 503; el token `tok_rechazo` siempre se rechaza |
+
+```bash
+DOBLE_OPEN_FINANCE_LATENCIA_MS=1000 DOBLE_KYC_FALLAR=true docker compose up -d
+```
+
 ## Pruebas y CI
 
 Cada proyecto: `pip install -e ".[test]" && pytest -m "not integration and not contract" --allow-hosts=127.0.0.1,::1 --cov`.

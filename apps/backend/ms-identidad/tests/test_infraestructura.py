@@ -7,8 +7,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app import main
 from app.config import Settings
-from app.dependencies import obtener_uow
+from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.domain.modelos import EstadoUsuario, Usuario
+from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import (
     UnidadDeTrabajoSQL,
     UsuarioFila,
@@ -152,13 +153,31 @@ def test_al_arrancar_la_app_crea_la_fabrica_y_libera_el_motor(monkeypatch):
     app = main.crear_app()
     with TestClient(app) as cliente:
         assert app.state.fabrica_uow is not None
+        assert isinstance(app.state.verificador_kyc, VerificadorKYCStub)
         assert cliente.get("/health/live").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
 
 
+def test_al_arrancar_la_app_configura_el_doble_de_kyc_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace()
+
+    async def liberar():
+        pass
+
+    motor.dispose = liberar
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_KYC_LATENCIA_MS", "500")
+    monkeypatch.setenv("DOBLE_KYC_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert (app.state.verificador_kyc._latencia_ms, app.state.verificador_kyc._fallar) == (500, True)
+
+
 def test_dependencias_leen_el_estado_de_la_app():
-    estado = SimpleNamespace(fabrica_uow=object())
+    estado = SimpleNamespace(fabrica_uow=object(), verificador_kyc=object())
     request = SimpleNamespace(app=SimpleNamespace(state=estado))
 
     assert obtener_uow(request) is estado.fabrica_uow
+    assert obtener_verificador_kyc(request) is estado.verificador_kyc

@@ -1,3 +1,6 @@
+from app.dependencies import obtener_verificador_kyc
+from app.infrastructure.kyc import DOCUMENTO_RECHAZO, VerificadorKYCStub
+
 BODY_ALTA = {
     "tipo_documento": "CC",
     "numero_documento": "1012345678",
@@ -38,6 +41,22 @@ def test_alta_con_documento_duplicado_es_409(client):
 
     assert respuesta.status_code == 409
     assert respuesta.json()["codigo"] == "cuenta_duplicada"
+
+
+def test_alta_con_documento_rechazado_por_kyc_es_422(client):
+    respuesta = _crear(client, numero_documento=DOCUMENTO_RECHAZO)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "identidad_no_verificada"
+
+
+def test_alta_con_kyc_caido_es_503(client):
+    client.app.dependency_overrides[obtener_verificador_kyc] = lambda: VerificadorKYCStub(fallar=True)
+
+    respuesta = _crear(client)
+
+    assert respuesta.status_code == 503
+    assert respuesta.json()["codigo"] == "dependencia_no_disponible"
 
 
 def test_alta_con_password_corto_es_422(client):

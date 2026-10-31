@@ -6,11 +6,23 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1 import rutas
 from app.config import Settings
-from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, ErrorDominio
+from app.domain.errores import (
+    CredencialesInvalidas,
+    CuentaDuplicada,
+    DependenciaNoDisponible,
+    ErrorDominio,
+    IdentidadNoVerificada,
+)
+from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
-ESTADO_HTTP = {CuentaDuplicada: 409, CredencialesInvalidas: 401}
+ESTADO_HTTP = {
+    CuentaDuplicada: 409,
+    CredencialesInvalidas: 401,
+    IdentidadNoVerificada: 422,
+    DependenciaNoDisponible: 503,
+}
 
 
 def crear_app(config: Settings | None = None) -> FastAPI:
@@ -22,6 +34,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         motor = crear_motor(config)
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
+        app.state.verificador_kyc = VerificadorKYCStub(config.doble_kyc_latencia_ms, config.doble_kyc_fallar)
         yield
         await motor.dispose()
 

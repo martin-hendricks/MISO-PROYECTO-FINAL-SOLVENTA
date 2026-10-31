@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     timeout_open_finance_ms: int = 400
     timeout_open_data_ms: int = 400
 
+    # Dobles (HU-88): demora y fallo forzables por entorno en el ambiente de integración
+    # (DOBLE_OPEN_FINANCE_LATENCIA_MS, DOBLE_OPEN_DATA_FALLAR, ...). En 0/False el doble
+    # responde de inmediato, como hasta ahora.
+    doble_open_finance_latencia_ms: int = 0
+    doble_open_finance_fallar: bool = False
+    doble_open_data_latencia_ms: int = 0
+    doble_open_data_fallar: bool = False
+
     # Valores de respaldo (HU-56): constantes razonables e inventadas para fines
     # académicos, una por atributo stub. Se usan cuando el adaptador excede su timeout
     # o lanza una excepción.

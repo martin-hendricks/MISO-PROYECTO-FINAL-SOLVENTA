@@ -26,3 +26,19 @@ class CredencialesInvalidas(ErrorDominio):
 
     def __init__(self, mensaje: str = "Correo o contraseña incorrectos") -> None:
         super().__init__(mensaje)
+
+
+class IdentidadNoVerificada(ErrorDominio):
+    """El proveedor KYC rechazó el documento (HU-88): la cuenta no se crea."""
+
+    codigo = "identidad_no_verificada"
+
+    def __init__(self, mensaje: str = "No fue posible verificar la identidad") -> None:
+        super().__init__(mensaje)
+
+
+class DependenciaNoDisponible(ErrorDominio):
+    codigo = "dependencia_no_disponible"
+
+    def __init__(self, servicio: str) -> None:
+        super().__init__(f"No fue posible consultar {servicio}")
