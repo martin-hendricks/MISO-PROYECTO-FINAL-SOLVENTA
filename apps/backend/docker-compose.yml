@@ -29,6 +29,7 @@
 #   DOBLE_OPEN_FINANCE_LATENCIA_MS=1000 docker compose up -d   (degrada HU-56)
 #   DOBLE_PERFIL_RIESGO_FALLAR=true docker compose up -d       (degrada HU-5)
 #   DOBLE_KYC_FALLAR=true / DOBLE_PASARELA_FALLAR=true         (alta / cobro en 503)
+#   DOBLE_KYC_DOCUMENTOS_RECHAZADOS=0000000000,123             (alta en 422)
 
 services:
   db-cotizacion:
@@ -231,6 +232,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-identidad:5432/solventa
       DOBLE_KYC_LATENCIA_MS: ${DOBLE_KYC_LATENCIA_MS:-0}
       DOBLE_KYC_FALLAR: ${DOBLE_KYC_FALLAR:-false}
+      DOBLE_KYC_DOCUMENTOS_RECHAZADOS: ${DOBLE_KYC_DOCUMENTOS_RECHAZADOS:-}
     ports:
       - "8010:8080"
     depends_on:

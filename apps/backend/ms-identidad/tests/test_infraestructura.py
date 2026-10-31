@@ -169,10 +169,19 @@ def test_al_arrancar_la_app_configura_el_doble_de_kyc_desde_el_entorno(monkeypat
     monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
     monkeypatch.setenv("DOBLE_KYC_LATENCIA_MS", "500")
     monkeypatch.setenv("DOBLE_KYC_FALLAR", "true")
+    monkeypatch.setenv("DOBLE_KYC_DOCUMENTOS_RECHAZADOS", "0000000000, 123 ,")
 
     app = main.crear_app()
     with TestClient(app):
-        assert (app.state.verificador_kyc._latencia_ms, app.state.verificador_kyc._fallar) == (500, True)
+        doble = app.state.verificador_kyc
+        assert (doble._latencia_ms, doble._fallar) == (500, True)
+        assert doble._documentos_rechazados == {"0000000000", "123"}
+
+
+def test_sin_configurar_el_doble_de_kyc_no_rechaza_ningun_documento(monkeypatch):
+    monkeypatch.delenv("DOBLE_KYC_DOCUMENTOS_RECHAZADOS", raising=False)
+
+    assert Settings().documentos_rechazados_kyc() == []
 
 
 def test_dependencias_leen_el_estado_de_la_app():

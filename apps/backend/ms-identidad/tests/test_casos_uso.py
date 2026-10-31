@@ -2,7 +2,7 @@ import pytest
 
 from app.application import casos_uso
 from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, DependenciaNoDisponible, IdentidadNoVerificada
-from app.infrastructure.kyc import DOCUMENTO_RECHAZO, VerificadorKYCStub
+from app.infrastructure.kyc import VerificadorKYCStub
 
 
 async def _crear(
@@ -56,10 +56,28 @@ async def test_carrera_entre_dos_altas_se_traduce_a_cuenta_duplicada(uow, almace
 
 
 async def test_documento_rechazado_por_kyc_no_crea_la_cuenta(uow, almacen):
+    kyc = VerificadorKYCStub(documentos_rechazados=["0000000000"])
+
     with pytest.raises(IdentidadNoVerificada):
-        await _crear(uow, documento=DOCUMENTO_RECHAZO)
+        await _crear(uow, documento="0000000000", kyc=kyc)
 
     assert almacen.usuarios == {}
+
+
+async def test_el_doble_de_kyc_sin_configurar_aprueba_cualquier_documento(uow, almacen):
+    await _crear(uow, documento="0000000000")
+
+    assert len(almacen.usuarios) == 1
+
+
+async def test_el_doble_de_kyc_solo_rechaza_los_documentos_configurados(uow, almacen):
+    kyc = VerificadorKYCStub(documentos_rechazados=["111", "222"])
+
+    await _crear(uow, email="ok@correo.com", documento="333", kyc=kyc)
+    with pytest.raises(IdentidadNoVerificada):
+        await _crear(uow, email="no@correo.com", documento="222", kyc=kyc)
+
+    assert [u.numero_documento for u in almacen.usuarios.values()] == ["333"]
 
 
 async def test_kyc_caido_no_crea_la_cuenta(uow, almacen):

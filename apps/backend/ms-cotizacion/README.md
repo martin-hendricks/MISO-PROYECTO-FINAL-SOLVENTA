@@ -63,7 +63,7 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 pytest -m "not integration and not contract" --cov           # unitarias: sin BD ni red
 ```
 
-Contrato Pact (HU-2): verifica que el núcleo cumple el pacto que publica `api-socios` en `api-socios/pacts/`:
+Contratos Pact (HU-2, HU-88): verifica que el núcleo cumple los pactos de sus consumidores, `api-socios/pacts/`, `bff-web/pacts/` y `bff-movil/pacts/`, contra la app real con almacenamiento en memoria. Los estados del pacto (`existe una cotización vigente`, `... que la suscripción rechaza`, `existe una oferta emitida`) se siembran con el caso de uso real de cotizar en `tests/contract/test_verificar_pactos.py`:
 
 ```bash
 pip install -e ".[test,contract]"

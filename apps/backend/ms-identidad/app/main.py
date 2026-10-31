@@ -34,7 +34,9 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         motor = crear_motor(config)
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
-        app.state.verificador_kyc = VerificadorKYCStub(config.doble_kyc_latencia_ms, config.doble_kyc_fallar)
+        app.state.verificador_kyc = VerificadorKYCStub(
+            config.doble_kyc_latencia_ms, config.doble_kyc_fallar, config.documentos_rechazados_kyc()
+        )
         yield
         await motor.dispose()
 
