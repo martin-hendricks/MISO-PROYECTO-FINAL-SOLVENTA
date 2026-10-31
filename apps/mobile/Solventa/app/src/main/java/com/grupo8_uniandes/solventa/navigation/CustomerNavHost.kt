@@ -22,6 +22,7 @@ import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.IssuanceUi
 import com.grupo8_uniandes.solventa.policy.IssuanceViewModel
+import com.grupo8_uniandes.solventa.policy.AvisoVigenciaViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
@@ -57,11 +58,14 @@ import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.ui.region.findActivity
 import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionAvisoScreen
 import com.grupo8_uniandes.solventa.ui.shell.EvidenciaAvisoScreen
+import com.grupo8_uniandes.solventa.ui.shell.AvisoVigenciaScreen
 import com.grupo8_uniandes.solventa.ui.shell.ParametricoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
@@ -80,7 +84,15 @@ fun CustomerNavHost(
     startSolventaKoin(LocalContext.current)
     LaunchedEffect(paymentPush) {
         val push = paymentPush ?: return@LaunchedEffect
-        if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
+        when (push.destino) {
+            PushDestination.PARAMETRICO ->
+                if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
+            PushDestination.AVISO_VENCIMIENTO ->
+                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoVencimientoRoute)
+            PushDestination.AVISO_RENOVACION ->
+                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoRenovacionRoute)
+            PushDestination.DETALLE_SINIESTRO -> Unit
+        }
     }
     NavHost(
         navController = navController,
@@ -175,8 +187,28 @@ fun CustomerNavHost(
             val route = entry.toRoute<PolizaDetalleRoute>()
             val viewModel: PolizaDetalleViewModel = koinViewModel { parametersOf(route.policyId) }
             val state by viewModel.state.collectAsState()
+            val avisos: AvisoVigenciaViewModel = koinViewModel()
             PolizaDetalleScreen(
                 state = state,
+                onExpiryNotices = {
+                    avisos.requestExpiry(route.policyId) { reading ->
+                        if (reading != null) navController.navigate(AvisoVencimientoRoute)
+                    }
+                },
+            )
+        }
+        composable<AvisoVencimientoRoute> {
+            ValidityNoticeRoute(
+                navController = navController,
+                load = AvisoVigenciaViewModel::loadExpiry,
+                onLeave = { navController.popBackStack() },
+            )
+        }
+        composable<AvisoRenovacionRoute> {
+            ValidityNoticeRoute(
+                navController = navController,
+                load = AvisoVigenciaViewModel::loadRenewal,
+                onLeave = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
         }
         composable<SiniestrosRoute> {
@@ -363,6 +395,25 @@ fun CustomerNavHost(
 }
 
 @Composable
+private fun ValidityNoticeRoute(
+    navController: NavHostController,
+    load: AvisoVigenciaViewModel.() -> Unit,
+    onLeave: () -> Unit,
+) {
+    val viewModel: AvisoVigenciaViewModel = koinViewModel()
+    val reading by viewModel.reading.collectAsState()
+    LaunchedEffect(Unit) { viewModel.load() }
+    val notice = reading
+    if (notice != null) {
+        AvisoVigenciaScreen(
+            reading = notice,
+            onViewPolicy = { navController.navigate(PolizaDetalleRoute(notice.poliza)) },
+            onLeave = onLeave,
+        )
+    }
+}
+
+@Composable
 private fun avisoViewModel(): AvisoSiniestroViewModel {
     val activity = LocalContext.current.findActivity() as? ComponentActivity
     return if (activity != null) {
@@ -383,6 +434,8 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
         destination.hasRoute<AvisoSiniestroRoute>() -> AvisoSiniestroRoute
         destination.hasRoute<ParametricoRoute>() -> ParametricoRoute
+        destination.hasRoute<AvisoVencimientoRoute>() -> AvisoVencimientoRoute
+        destination.hasRoute<AvisoRenovacionRoute>() -> AvisoRenovacionRoute
         destination.hasRoute<EvidenciaAvisoRoute>() -> EvidenciaAvisoRoute
         destination.hasRoute<ConfirmacionAvisoRoute>() -> toRoute<ConfirmacionAvisoRoute>()
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute

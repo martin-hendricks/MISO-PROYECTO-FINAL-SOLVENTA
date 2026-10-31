@@ -15,7 +15,7 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
         is CotizacionRoute, is VerOfertaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
         AsistenciaSitioRoute, SuscripcionRechazadaRoute, OfertaHipotecarioRoute,
         AvisoSiniestroRoute, EvidenciaAvisoRoute, is ConfirmacionAvisoRoute,
-        ParametricoRoute,
+        ParametricoRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
         -> ShellMode.Nested
         else -> ShellMode.Root
     }
@@ -25,7 +25,8 @@ fun selectedDestination(route: Any): Destination? = when (route) {
     InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute,
     OfertaHipotecarioRoute,
     -> Destination.Inicio
-    PolizasRoute, is PolizaDetalleRoute -> Destination.Polizas
+    PolizasRoute, is PolizaDetalleRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
+    -> Destination.Polizas
     SiniestrosRoute, MapaPrestadoresRoute, AsistenciaSitioRoute, AvisoSiniestroRoute,
     EvidenciaAvisoRoute, is ConfirmacionAvisoRoute, is SiniestroDetalleRoute,
     ParametricoRoute,

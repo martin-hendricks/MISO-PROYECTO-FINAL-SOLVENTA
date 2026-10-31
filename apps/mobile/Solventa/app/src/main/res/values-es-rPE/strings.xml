@@ -167,6 +167,9 @@
     <string name="parametric_explanation">No tienes que reportar nada: al confirmarse el retraso con el dato oficial, Solventa deposita el monto pactado. Antes lo llamábamos pago paramétrico.</string>
     <string name="parametric_back_claims">Volver a siniestros</string>
     <string name="parametric_download">Descargar comprobante</string>
+    <string name="validity_title">Avisos</string>
+    <string name="validity_expiry_banner">Paso del ciclo: tu póliza de Protección de dispositivo vence en 7 días. La renovación la confirma un operador.</string>
+    <string name="validity_renewal_banner">Renovación confirmada · Protección de dispositivo vigente hasta 12 mar 2028. La ejecuta un operador; aquí solo la consultas.</string>
     <string name="claims_placeholder">Avisos de siniestro</string>
     <string name="idioma_title">Idioma y región</string>
     <string name="idioma_heading">Paso 1 de 4 · Elige país e idioma</string>
