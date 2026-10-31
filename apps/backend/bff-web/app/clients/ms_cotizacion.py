@@ -19,19 +19,45 @@ class ClienteMsCotizacion(ClienteServicio):
         producto: str,
         canal: str,
         datos_riesgo: dict[str, Any],
+        asesor_id: UUID | None = None,
+        cliente_ref: str | None = None,
     ) -> dict[str, Any]:
+        cuerpo = {
+            "usuario_id": str(usuario_id),
+            "socio_id": str(socio_id),
+            "consentimiento_id": str(consentimiento_id),
+            "producto": producto,
+            "canal": canal,
+            "datos_riesgo": datos_riesgo,
+        }
+        # HU-163: solo la venta asistida los envía; el canal cliente sigue
+        # mandando el mismo cuerpo de antes.
+        if asesor_id is not None:
+            cuerpo["asesor_id"] = str(asesor_id)
+        if cliente_ref is not None:
+            cuerpo["cliente_ref"] = cliente_ref
         return await self._pedir(
             "POST",
             "/v1/cotizaciones",
-            json={
-                "usuario_id": str(usuario_id),
-                "socio_id": str(socio_id),
-                "consentimiento_id": str(consentimiento_id),
-                "producto": producto,
-                "canal": canal,
-                "datos_riesgo": datos_riesgo,
-            },
+            json=cuerpo,
             cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    async def listar_por_asesor(
+        self, asesor_id: UUID, incluir_vencidas: bool, pagina: int, tamano: int
+    ) -> dict[str, Any]:
+        """HU-163: cotizaciones pendientes (cotizada/aceptada) creadas por un
+        asesor, paginadas y ordenadas por creada_en DESC en ms-cotizacion."""
+        return await self._pedir(
+            "GET",
+            "/v1/cotizaciones",
+            params={
+                "asesor_id": str(asesor_id),
+                "estados": "cotizada,aceptada",
+                "incluir_vencidas": "true" if incluir_vencidas else "false",
+                "pagina": pagina,
+                "tamano": tamano,
+            },
         )
 
     async def reconsultar(self, cotizacion_id: str) -> dict[str, Any]:

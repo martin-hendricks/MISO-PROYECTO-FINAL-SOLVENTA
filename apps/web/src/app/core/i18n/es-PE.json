@@ -316,7 +316,37 @@
       }
     },
     "cotizaciones": {
-      "title": "Cotizaciones"
+      "title": "Cotizaciones",
+      "mostrarVencidas": "Mostrar vencidas",
+      "column": {
+        "cliente": "Cliente",
+        "ramo": "Ramo",
+        "prima": "Prima",
+        "estado": "Estado",
+        "creadaEn": "Creada",
+        "venceEn": "Vence",
+        "acciones": "Acciones"
+      },
+      "estado": {
+        "cotizada": "Cotizada",
+        "aceptada": "Aceptada"
+      },
+      "vencida": "Vencida",
+      "continuar": "Continuar emisión",
+      "anterior": "Anterior",
+      "siguiente": "Siguiente",
+      "aviso": {
+        "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
+      },
+      "loading": "Cargando cotizaciones…",
+      "empty": {
+        "title": "No tienes cotizaciones pendientes",
+        "body": "Las cotizaciones que crees y aún no emitas aparecerán aquí."
+      },
+      "error": {
+        "body": "No pudimos cargar las cotizaciones.",
+        "retry": "Reintentar"
+      }
     },
     "polizas": {
       "title": "Pólizas"

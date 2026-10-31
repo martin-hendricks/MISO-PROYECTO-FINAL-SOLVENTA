@@ -6,6 +6,7 @@ export type Role = 'cliente' | 'asesor' | 'operador';
 const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
 const CLIENTES = '**/web/asesor/clientes';
+const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
@@ -93,6 +94,17 @@ export class BffDoubles {
 
   async serveClients(clientes: Client[]): Promise<void> {
     await this.replaceClients((route) => route.fulfill({ json: { clientes } }));
+    await this.servePendingQuotes();
+  }
+
+  /** Answers the advisor's pending quotes (HU-163) with an empty first page. */
+  async servePendingQuotes(): Promise<void> {
+    await this.page.unroute(ASESOR_COTIZACIONES);
+    await this.page.route(ASESOR_COTIZACIONES, (route) =>
+      route.fulfill({
+        json: { items: [], pagina: 1, tamano: 20, hayMas: false, avisos: [] },
+      }),
+    );
   }
 
   async failClients(): Promise<void> {

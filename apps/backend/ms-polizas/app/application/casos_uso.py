@@ -127,6 +127,13 @@ async def listar_polizas_de_usuario(uow: FabricaUnidadDeTrabajo, usuario_id: UUI
         return await tx.polizas.listar_por_usuario(usuario_id, limite)
 
 
+async def ofertas_con_poliza(uow: FabricaUnidadDeTrabajo, oferta_ids: list[UUID]) -> list[UUID]:
+    async with uow() as tx:
+        encontradas = await tx.polizas.ofertas_con_poliza(oferta_ids)
+    # Conserva el orden de la consulta para que la respuesta sea determinista.
+    return [oferta_id for oferta_id in oferta_ids if oferta_id in encontradas]
+
+
 async def _obtener_o_fallar(tx, poliza_id: UUID) -> Poliza:
     poliza = await tx.polizas.obtener(poliza_id)
     if poliza is None:

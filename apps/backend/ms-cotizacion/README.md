@@ -17,6 +17,7 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 | HU-6 · Devolver oferta en firme | [SOLV-99](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-99) | La misma llamada de HU-3 devuelve la oferta completa (`prima`, `moneda`, `venceEn`, desglose, origen del factor). |
 | HU-7 · Reconsultar oferta por id | [SOLV-100](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-100) | `GET /v1/cotizaciones/{cotizacionId}`: lectura pura, sin recálculo; marca ofertas vencidas con su precio original. |
 | HU-12 · Aceptar oferta vigente | [SOLV-105](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-105) | `POST /v1/cotizaciones/{cotizacionId}/aceptacion`: acepta una oferta vigente y no usada, congela su precio y encadena la decisión de suscripción de HU-13. |
+| HU-163 · Cotizaciones pendientes del asesor | [SOLV-262](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-262) | `GET /v1/cotizaciones?asesor_id=...`: lista paginada de las cotizaciones que creó el asesor (`cotizada`/`aceptada`), ocultando las vencidas salvo `incluir_vencidas=true`. |
 
 ### Catálogo de productos (HU-1)
 
@@ -38,6 +39,13 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 - **Oferta vencida:** responde `oferta_vencida` (422) con su precio original; nunca se recalcula.
 - **Encadena HU-13 de forma síncrona** (`POST /v1/suscripciones` en `ms-suscripcion`) con el `perfil_id` y el `score` que envía el BFF. La aceptación se confirma antes de llamar: si `ms-suscripcion` falla (503), el reintento con la misma clave retoma la decisión sin volver a aceptar.
 - Publica `OfertaAceptada` por outbox con el precio congelado. Extiende el DDL con `db/06_ms_cotizacion_aceptacion.sql`.
+
+### Cotizaciones pendientes del asesor (HU-163)
+
+- `POST /v1/cotizaciones` acepta `asesor_id` (UUID) y `cliente_ref` (máx. 100) opcionales; los envía `bff-web` desde el back-office. Sin ellos el flujo es el de siempre.
+- `GET /v1/cotizaciones?asesor_id=<uuid>&estados=cotizada,aceptada&incluir_vencidas=false&pagina=1&tamano=20`: `asesor_id` es obligatorio (422 si falta); `pagina` ≥ 1; `tamano` entre 1 y 100; un estado desconocido responde `estado_invalido` (422).
+- Responde `{"items": [...], "pagina", "tamano", "hay_mas"}` ordenado por `creada_en` descendente. Cada ítem es la cotización de HU-7 más `oferta_id` y `cliente_ref`; `vencida` es `vence_en < ahora`. Por defecto las vencidas se excluyen en la consulta.
+- Las cotizaciones sin `asesor_id` (canal socio o anteriores a HU-163) nunca se listan. Extiende el DDL con `db/09_ms_cotizacion_asesor.sql`.
 
 ## Desarrollo
 

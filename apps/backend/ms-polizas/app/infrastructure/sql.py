@@ -135,6 +135,9 @@ class RepositorioPolizasSQL:
         )
         return [await self._con_coberturas(fila) for fila in filas]
 
+    async def ofertas_con_poliza(self, oferta_ids: list[UUID]) -> set[UUID]:
+        return set(await self._s.scalars(select(PolizaFila.oferta_id).where(PolizaFila.oferta_id.in_(oferta_ids))))
+
     async def siguiente_secuencia(self) -> int:
         return int(await self._s.scalar(SECUENCIA_NUMERO.next_value()))
 
