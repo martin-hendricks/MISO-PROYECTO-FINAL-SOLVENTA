@@ -60,6 +60,9 @@ import com.grupo8_uniandes.solventa.navigation.ShellMode
 import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
 import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.ConfirmacionAvisoRoute
+import com.grupo8_uniandes.solventa.navigation.EvidenciaAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.leaveIssuance
 import com.grupo8_uniandes.solventa.navigation.openDestination
@@ -313,7 +316,8 @@ internal fun SignedInShell(
     val route = entry?.toSolventaRoute() ?: start
     val mode = shellMode(route, signedIn)
     val selected = selectedDestination(route)
-    val showBottomBar = mode == ShellMode.Root || mode == ShellMode.Nested
+    val showBottomBar = (mode == ShellMode.Root || mode == ShellMode.Nested) &&
+        !(route is EvidenciaAvisoRoute && AvisoChrome.coverTabs)
 
     val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val consumeBack = remember {
@@ -394,6 +398,9 @@ private fun routeTitle(route: Any): String = when (route) {
     SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
+    AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
+    EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
+    is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
     AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)

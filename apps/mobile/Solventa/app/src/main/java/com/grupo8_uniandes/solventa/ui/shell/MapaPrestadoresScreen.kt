@@ -29,6 +29,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 fun MapaPrestadoresScreen(
     rows: List<ProviderStub>,
     onOpenAssistance: () -> Unit,
+    onReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -80,7 +81,7 @@ fun MapaPrestadoresScreen(
         SolventaFloatingAction(
             label = stringResource(R.string.action_report_claim),
             icon = painterResource(R.drawable.add),
-            onClick = {},
+            onClick = onReport,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(SolventaSpacing.gutter),

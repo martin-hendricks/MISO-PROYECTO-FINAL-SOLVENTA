@@ -51,6 +51,13 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
 import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
+import androidx.activity.ComponentActivity
+import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
+import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
+import com.grupo8_uniandes.solventa.ui.region.findActivity
+import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
+import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionAvisoScreen
+import com.grupo8_uniandes.solventa.ui.shell.EvidenciaAvisoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
 @Composable
@@ -176,6 +183,7 @@ fun CustomerNavHost(
                 claims = state.claims,
                 failed = state.phase == ClaimsPhase.Failed,
                 onOpenClaim = viewModel::openClaim,
+                onReport = { navController.navigate(AvisoSiniestroRoute) },
                 onOpenCatalog = {
                     val granted = ContextCompat.checkSelfPermission(
                         context,
@@ -194,6 +202,7 @@ fun CustomerNavHost(
             MapaPrestadoresScreen(
                 rows = catalog.rows,
                 onOpenAssistance = { navController.navigate(AsistenciaSitioRoute) },
+                onReport = { navController.navigate(AvisoSiniestroRoute) },
             )
         }
         composable<AsistenciaSitioRoute> {
@@ -209,6 +218,62 @@ fun CustomerNavHost(
                     },
                 )
             }
+        }
+        composable<AvisoSiniestroRoute> {
+            val viewModel = avisoViewModel()
+            LaunchedEffect(Unit) { viewModel.reopen() }
+            AvisoSiniestroScreen(
+                onContinue = {
+                    viewModel.continueToCamera()
+                    navController.navigate(EvidenciaAvisoRoute)
+                },
+                onCancel = {
+                    viewModel.cancel()
+                    navController.popBackStack()
+                },
+            )
+        }
+        composable<EvidenciaAvisoRoute> {
+            val viewModel = avisoViewModel()
+            val state by viewModel.state.collectAsState()
+            LaunchedEffect(state.phase) {
+                if (state.phase == NoticePhase.Evidence) {
+                    viewModel.attachVideo()
+                    viewModel.attachReceipt()
+                }
+                if (state.phase == NoticePhase.Confirmation) {
+                    navController.navigate(ConfirmacionAvisoRoute(state.receiptId))
+                }
+            }
+            EvidenciaAvisoScreen(
+                phase = state.phase,
+                draft = state.draft,
+                onAllowCamera = viewModel::allowCamera,
+                onDenyCamera = viewModel::denyCamera,
+                onDismissCamera = viewModel::dismissCamera,
+                onAllowPhotos = viewModel::allowPhotos,
+                onDenyPhotos = viewModel::denyPhotos,
+                onAllowLocation = viewModel::allowLocation,
+                onDenyLocation = viewModel::denyLocation,
+                onDismissLocation = viewModel::dismissLocation,
+                onOpenLocation = viewModel::openLocation,
+                onChoosePhotos = viewModel::choosePhotos,
+                onSend = viewModel::send,
+                onQueue = viewModel::queue,
+                onAttach = viewModel::attachSupport,
+            )
+        }
+        composable<ConfirmacionAvisoRoute> { entry ->
+            val route = entry.toRoute<ConfirmacionAvisoRoute>()
+            ConfirmacionAvisoScreen(
+                siniestroId = route.siniestroId,
+                onMyClaims = {
+                    navController.popBackStack(SiniestrosRoute, inclusive = false)
+                },
+                onHome = {
+                    navController.popBackStack(InicioRoute, inclusive = false)
+                },
+            )
         }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
@@ -257,6 +322,16 @@ fun CustomerNavHost(
     }
 }
 
+@Composable
+private fun avisoViewModel(): AvisoSiniestroViewModel {
+    val activity = LocalContext.current.findActivity() as? ComponentActivity
+    return if (activity != null) {
+        koinViewModel(viewModelStoreOwner = activity)
+    } else {
+        koinViewModel()
+    }
+}
+
 fun NavBackStackEntry.toSolventaRoute(): Any {
     val destination = destination
     return when {
@@ -266,6 +341,9 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
+        destination.hasRoute<AvisoSiniestroRoute>() -> AvisoSiniestroRoute
+        destination.hasRoute<EvidenciaAvisoRoute>() -> EvidenciaAvisoRoute
+        destination.hasRoute<ConfirmacionAvisoRoute>() -> toRoute<ConfirmacionAvisoRoute>()
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
         destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()

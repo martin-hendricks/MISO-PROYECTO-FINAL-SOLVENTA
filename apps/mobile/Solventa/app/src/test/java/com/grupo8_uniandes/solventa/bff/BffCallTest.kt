@@ -168,12 +168,12 @@ class BffCallTest {
                 Attachment(AttachmentKind.SOPORTE, "acta.jpg"),
             ),
         )
-        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice) is StandInAnswer.Failed)
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice, null) is StandInAnswer.Failed)
         val key = cache.readClaim()!!.key
 
         enqueue(PublishedSamples.CLAIM_RECEIPT)
         enqueue(PublishedSamples.CLAIM_RECEIPT)
-        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-13")) as StandInAnswer.Ready
+        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-13"), null) as StandInAnswer.Ready
         assertEquals("SIN-441", sent.value.siniestroId)
         val replay = server.takeRequest()
         val fresh = server.takeRequest()
@@ -215,16 +215,16 @@ class BffCallTest {
         val claims = RemoteClaimRepository(api(), gate, cache)
         val notice = ClaimNotice("POL-88219-CO", "2026-03-12", null, emptyList())
         server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
-        assertTrue(claims.notify(notice) is StandInAnswer.Failed)
+        assertTrue(claims.notify(notice, null) is StandInAnswer.Failed)
         assertNull(cache.readClaim())
         server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
-        assertTrue(claims.notify(notice) is StandInAnswer.Failed)
+        assertTrue(claims.notify(notice, null) is StandInAnswer.Failed)
 
         val dead = deadClients()
-        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice) is StandInAnswer.Failed)
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice, null) is StandInAnswer.Failed)
         server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
         enqueue(PublishedSamples.CLAIM_RECEIPT)
-        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-14"))
+        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-14"), null)
         assertTrue(sent is StandInAnswer.Ready)
         assertNull(cache.readClaim())
     }

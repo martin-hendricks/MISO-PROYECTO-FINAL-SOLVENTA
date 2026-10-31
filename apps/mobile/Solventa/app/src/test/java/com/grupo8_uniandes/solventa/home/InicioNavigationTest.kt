@@ -111,7 +111,7 @@ class InicioNavigationTest {
         rule.onNodeWithTag("solventa_floating_action").performClick()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onNodeWithTag("solventa_floating_action").performClick()
-        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_siniestro_detalle").assertCountEquals(0)
     }
 

@@ -59,7 +59,7 @@ data class ClaimSummary(
 }
 
 interface ClaimRepository {
-    suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt>
+    suspend fun notify(notice: ClaimNotice, idempotencyKey: String? = null): StandInAnswer<ClaimReceipt>
 
     suspend fun list(): StandInAnswer<List<ClaimSummary>>
 }

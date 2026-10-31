@@ -133,6 +133,46 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenSiniestros_whenANoticeIsSent_thenTheConfirmationShowsSin441() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = InicioRoute)
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
+        assertEquals(AvisoSiniestroRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText(
+            "SIN-441 · Protección de dispositivo · en evaluación. Te avisamos el avance en esta lista.",
+        ).assertIsDisplayed()
+        val sent = holder[0]!!.currentBackStackEntry!!.toSolventaRoute()
+        assertEquals(ConfirmacionAvisoRoute("SIN-441"), sent)
+        rule.onNodeWithText("Ver mis avisos").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithText("Cancelar").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
     fun givenRejection_whenHome_thenInicioOpens() {
         show(start = SuscripcionRechazadaRoute)
         rule.onNodeWithTag("screen_rejection").assertIsDisplayed()

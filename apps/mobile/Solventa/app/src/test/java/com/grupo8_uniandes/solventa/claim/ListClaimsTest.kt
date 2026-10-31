@@ -82,7 +82,10 @@ class ListClaimsTest {
     )
 
     private fun repo(rows: List<ClaimSummary>) = object : ClaimRepository {
-        override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+        override suspend fun notify(
+            notice: ClaimNotice,
+            idempotencyKey: String?,
+        ): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
         override suspend fun list(): StandInAnswer<List<ClaimSummary>> = StandInAnswer.Ready(rows)
     }
