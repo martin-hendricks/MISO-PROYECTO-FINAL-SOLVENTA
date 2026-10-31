@@ -1,12 +1,16 @@
 import pytest
 
 from app.application import casos_uso
-from app.domain.errores import CredencialesInvalidas, CuentaDuplicada
+from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, DependenciaNoDisponible, IdentidadNoVerificada
+from app.infrastructure.kyc import VerificadorKYCStub
 
 
-async def _crear(uow, email="camila@correo.com", documento="1012345678", password="clave-secreta-123"):
+async def _crear(
+    uow, email="camila@correo.com", documento="1012345678", password="clave-secreta-123", kyc=VerificadorKYCStub()
+):
     return await casos_uso.crear_usuario(
         uow,
+        kyc,
         tipo_documento="CC",
         numero_documento=documento,
         email=email,
@@ -49,6 +53,53 @@ async def test_carrera_entre_dos_altas_se_traduce_a_cuenta_duplicada(uow, almace
 
     with pytest.raises(CuentaDuplicada):
         await _crear(uow)
+
+
+async def test_documento_rechazado_por_kyc_no_crea_la_cuenta(uow, almacen):
+    kyc = VerificadorKYCStub(documentos_rechazados=["0000000000"])
+
+    with pytest.raises(IdentidadNoVerificada):
+        await _crear(uow, documento="0000000000", kyc=kyc)
+
+    assert almacen.usuarios == {}
+
+
+async def test_el_doble_de_kyc_sin_configurar_aprueba_cualquier_documento(uow, almacen):
+    await _crear(uow, documento="0000000000")
+
+    assert len(almacen.usuarios) == 1
+
+
+async def test_el_doble_de_kyc_solo_rechaza_los_documentos_configurados(uow, almacen):
+    kyc = VerificadorKYCStub(documentos_rechazados=["111", "222"])
+
+    await _crear(uow, email="ok@correo.com", documento="333", kyc=kyc)
+    with pytest.raises(IdentidadNoVerificada):
+        await _crear(uow, email="no@correo.com", documento="222", kyc=kyc)
+
+    assert [u.numero_documento for u in almacen.usuarios.values()] == ["333"]
+
+
+async def test_kyc_caido_no_crea_la_cuenta(uow, almacen):
+    with pytest.raises(DependenciaNoDisponible):
+        await _crear(uow, kyc=VerificadorKYCStub(fallar=True))
+
+    assert almacen.usuarios == {}
+
+
+async def test_el_kyc_recibe_el_documento_normalizado(uow):
+    class KycEspia:
+        recibido = None
+
+        async def verificar(self, tipo_documento, numero_documento):
+            KycEspia.recibido = (tipo_documento, numero_documento)
+            return True
+
+    await casos_uso.crear_usuario(
+        uow, KycEspia(), tipo_documento=" cc ", numero_documento=" 123 ", email="a@b.co", password_plano="clave-secreta-123"
+    )
+
+    assert KycEspia.recibido == ("CC", "123")
 
 
 async def test_autenticar_con_credenciales_correctas_devuelve_el_usuario(uow):

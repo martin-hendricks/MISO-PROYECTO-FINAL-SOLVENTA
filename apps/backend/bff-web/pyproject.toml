@@ -19,6 +19,10 @@ test = [
   "pytest-socket>=0.7",
 ]
 
+contract = [
+  "pact-python>=2.2,<3",
+]
+
 [tool.fastapi]
 entrypoint = "app.main:app"
 
@@ -26,7 +30,7 @@ entrypoint = "app.main:app"
 pythonpath = ["."]
 markers = [
   "integration: excluded from the unit workflow",
-  "contract: excluded from the unit workflow",
+  "contract: Pact consumer tests (HU-88); excluded from the unit workflow",
 ]
 
 [build-system]

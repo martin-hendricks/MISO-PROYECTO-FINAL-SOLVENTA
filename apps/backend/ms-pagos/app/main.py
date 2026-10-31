@@ -31,7 +31,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.suscripciones = SuscripcionesHTTP(http)
-        app.state.pasarela = PasarelaStub()
+        app.state.pasarela = PasarelaStub(config.doble_pasarela_latencia_ms, config.doble_pasarela_fallar)
         yield
         await http.aclose()
         await motor.dispose()

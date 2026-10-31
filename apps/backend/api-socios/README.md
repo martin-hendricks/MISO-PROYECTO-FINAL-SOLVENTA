@@ -53,7 +53,7 @@ pip install -e ".[test,contract]"
 pytest -m contract
 ```
 
-Después, `pytest -m contract` en `ms-cotizacion` verifica que el núcleo cumple ese pacto. El paso de CI que corre ambos es de HU-88.
+Después, `pytest -m contract` en `ms-cotizacion` verifica que el núcleo cumple ese pacto. En CI ambos corren en ese orden en el workflow `backend-contract-tests.yml` (HU-88).
 
 En la imagen (contexto `apps/backend`):
 

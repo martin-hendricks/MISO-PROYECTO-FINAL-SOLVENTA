@@ -1,0 +1,841 @@
+{
+  "consumer": {
+    "name": "bff-web"
+  },
+  "interactions": [
+    {
+      "description": "la aceptación de una oferta que la suscripción acepta",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una cotización vigente que la suscripción acepta",
+          "params": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "perfil_id": "3e9c6f4b-5a7d-5e0f-9a2b-3c4d5e6f7a8b",
+            "score": "0.5000"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "clave-aceptacion-0001"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.perfil_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            }
+          },
+          "header": {}
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones/6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f/aceptacion"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "decision": "ACEPTADA",
+            "moneda": "COP",
+            "oferta_id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+            "prima": "140500.00"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.oferta_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "la aceptación de una oferta que la suscripción rechaza",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una cotización vigente que la suscripción rechaza",
+          "params": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "perfil_id": "3e9c6f4b-5a7d-5e0f-9a2b-3c4d5e6f7a8b",
+            "score": "0.5000"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "clave-aceptacion-0002"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.perfil_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.score": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            }
+          },
+          "header": {}
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones/6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f/aceptacion"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "decision": "RECHAZADA",
+            "motivo": "regla de suscripción"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.motivo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "la consulta de la cotización de una oferta emitida",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una oferta emitida",
+          "params": {
+            "oferta_id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/cotizaciones/por-oferta/9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "moneda": "COP",
+            "prima": "140500.00",
+            "producto": "soat-motocicleta"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "la reconsulta de una cotización vigente",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una cotización vigente",
+          "params": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/cotizaciones/6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "estado": "cotizada",
+            "gastos_expedicion": "8500",
+            "moneda": "COP",
+            "prima": "140500.00",
+            "prima_neta": "132000.00",
+            "producto": "soat-motocicleta",
+            "vence_en": "2026-10-30T13:00:00Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.gastos_expedicion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prima_neta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.vence_en": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una consulta del catálogo de soat-motocicleta",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/productos/soat-motocicleta"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "coberturas": [
+              {
+                "codigo": "gastos_medicos",
+                "limite": "800",
+                "nombre": "Gastos médicos",
+                "unidad_limite": "SMLDV"
+              }
+            ],
+            "datos_riesgo": [
+              {
+                "maximo": "1800",
+                "minimo": "50",
+                "nombre": "cilindraje_cc",
+                "tipo": "rango"
+              },
+              {
+                "nombre": "ciudad_circulacion",
+                "tipo": "valores",
+                "valores": [
+                  "bogota"
+                ]
+              }
+            ],
+            "moneda": "COP",
+            "nombre": "SOAT motocicleta"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.coberturas": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].codigo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.coberturas[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.coberturas[*].unidad_limite": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(SMLDV|MONEDA)$"
+                }
+              ]
+            },
+            "$.datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "arrayContains",
+                  "variants": [
+                    {
+                      "index": 0,
+                      "rules": {
+                        "$.maximo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.minimo": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "regex",
+                              "regex": "^-?\\d+(\\.\\d+)?$"
+                            }
+                          ]
+                        },
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "index": 1,
+                      "rules": {
+                        "$.nombre": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        },
+                        "$.valores": {
+                          "combine": "AND",
+                          "matchers": [
+                            {
+                              "match": "type"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una consulta del catálogo de un ramo sin producto",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/productos/no-existe"
+      },
+      "response": {
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una solicitud de cotización con un dato de riesgo fuera de rango",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "canal": "web",
+            "consentimiento_id": "2d8b5e3a-4f6c-5d9e-8f1a-2b3c4d5e6f7a",
+            "datos_riesgo": {
+              "cilindraje_cc": 5000,
+              "ciudad_circulacion": "bogota",
+              "modelo_anio": 2022
+            },
+            "producto": "soat-motocicleta",
+            "socio_id": "1c7a4d2f-3e5b-5c8d-9e0f-1a2b3c4d5e6f",
+            "usuario_id": "0b6f3c1e-2d4a-5b7c-8d9e-0f1a2b3c4d5e"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "clave-cotizacion-0002"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.consentimiento_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.socio_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.usuario_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          },
+          "header": {}
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "codigo": "dato_riesgo_fuera_de_rango",
+            "mensaje": "Fuera de rango"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.codigo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.mensaje": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una solicitud de cotización de soat-motocicleta",
+      "pending": false,
+      "request": {
+        "body": {
+          "content": {
+            "canal": "web",
+            "consentimiento_id": "2d8b5e3a-4f6c-5d9e-8f1a-2b3c4d5e6f7a",
+            "datos_riesgo": {
+              "cilindraje_cc": 150,
+              "ciudad_circulacion": "bogota",
+              "modelo_anio": 2022
+            },
+            "producto": "soat-motocicleta",
+            "socio_id": "1c7a4d2f-3e5b-5c8d-9e0f-1a2b3c4d5e6f",
+            "usuario_id": "0b6f3c1e-2d4a-5b7c-8d9e-0f1a2b3c4d5e"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "clave-cotizacion-0001"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.consentimiento_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.socio_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.usuario_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          },
+          "header": {}
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "estado": "cotizada",
+            "gastos_expedicion": "8500",
+            "moneda": "COP",
+            "prima": "140500.00",
+            "prima_neta": "132000.00",
+            "vence_en": "2026-10-30T13:00:00Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.gastos_expedicion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prima_neta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.vence_en": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "ms-cotizacion"
+  }
+}

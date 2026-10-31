@@ -21,6 +21,15 @@
 #
 # 8008 queda libre. bff-movil y bff-web son pares: ambos llaman al núcleo
 # y ninguno llama al otro.
+#
+# Ambiente de integración con dobles (HU-88): ningún servicio llama a un
+# tercero real. Open Finance, Open Data, perfil de riesgo, KYC y pasarela
+# son dobles detrás de sus adaptadores. Su demora (ms) y su caída se fuerzan
+# desde el entorno al levantar, sin tocar este archivo:
+#   DOBLE_OPEN_FINANCE_LATENCIA_MS=1000 docker compose up -d   (degrada HU-56)
+#   DOBLE_PERFIL_RIESGO_FALLAR=true docker compose up -d       (degrada HU-5)
+#   DOBLE_KYC_FALLAR=true / DOBLE_PASARELA_FALLAR=true         (alta / cobro en 503)
+#   DOBLE_KYC_DOCUMENTOS_RECHAZADOS=0000000000,123             (alta en 422)
 
 services:
   db-cotizacion:
@@ -131,6 +140,8 @@ services:
       # Default roto en app/config.py (http://ms-suscripcion:8000, pero
       # ms-suscripcion escucha en :8080) -- se sobreescribe aquí explícito.
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+      DOBLE_PERFIL_RIESGO_LATENCIA_MS: ${DOBLE_PERFIL_RIESGO_LATENCIA_MS:-0}
+      DOBLE_PERFIL_RIESGO_FALLAR: ${DOBLE_PERFIL_RIESGO_FALLAR:-false}
     ports:
       - "8009:8000"
     depends_on:
@@ -158,6 +169,8 @@ services:
       SERVICE_NAME: ms-pagos
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-pagos:5432/solventa
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+      DOBLE_PASARELA_LATENCIA_MS: ${DOBLE_PASARELA_LATENCIA_MS:-0}
+      DOBLE_PASARELA_FALLAR: ${DOBLE_PASARELA_FALLAR:-false}
     ports:
       - "8002:8080"
     depends_on:
@@ -187,6 +200,10 @@ services:
     environment:
       SERVICE_NAME: ms-perfilamiento
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-perfilamiento:5432/solventa
+      DOBLE_OPEN_FINANCE_LATENCIA_MS: ${DOBLE_OPEN_FINANCE_LATENCIA_MS:-0}
+      DOBLE_OPEN_FINANCE_FALLAR: ${DOBLE_OPEN_FINANCE_FALLAR:-false}
+      DOBLE_OPEN_DATA_LATENCIA_MS: ${DOBLE_OPEN_DATA_LATENCIA_MS:-0}
+      DOBLE_OPEN_DATA_FALLAR: ${DOBLE_OPEN_DATA_FALLAR:-false}
     ports:
       - "8004:8080"
     depends_on:
@@ -213,6 +230,9 @@ services:
     environment:
       SERVICE_NAME: ms-identidad
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-identidad:5432/solventa
+      DOBLE_KYC_LATENCIA_MS: ${DOBLE_KYC_LATENCIA_MS:-0}
+      DOBLE_KYC_FALLAR: ${DOBLE_KYC_FALLAR:-false}
+      DOBLE_KYC_DOCUMENTOS_RECHAZADOS: ${DOBLE_KYC_DOCUMENTOS_RECHAZADOS:-}
     ports:
       - "8010:8080"
     depends_on:

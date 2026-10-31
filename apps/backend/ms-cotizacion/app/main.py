@@ -42,7 +42,9 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.catalogo = await CatalogoSQL.cargar(motor)
-        app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoStub()
+        app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoStub(
+            latencia_ms=config.doble_perfil_riesgo_latencia_ms, fallar=config.doble_perfil_riesgo_fallar
+        )
         app.state.suscripciones = SuscripcionesHTTP(http)
         app.state.config = config
         yield

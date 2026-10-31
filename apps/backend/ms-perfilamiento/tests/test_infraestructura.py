@@ -10,6 +10,7 @@ from app.config import Settings
 from app.dependencies import obtener_adaptador_open_data, obtener_adaptador_open_finance, obtener_config, obtener_uow
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import EventoDominio
+from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
 from app.infrastructure.sql import OutboxFila, UnidadDeTrabajoSQL, crear_motor, fabrica_unidad_de_trabajo
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
@@ -95,6 +96,34 @@ def test_al_arrancar_la_app_crea_los_adaptadores_y_libera_el_motor(monkeypatch):
         assert app.state.adaptador_open_finance is not None
         assert app.state.adaptador_open_data is not None
     assert motor.liberado
+
+
+@pytest.mark.parametrize("doble", [AdaptadorOpenFinanceStub, AdaptadorOpenDataStub])
+async def test_doble_con_fallo_forzado_lanza(doble):
+    with pytest.raises(RuntimeError, match="fallo simulado"):
+        await doble(fallar=True).obtener_atributos("cliente-1")
+
+
+@pytest.mark.parametrize("doble", [AdaptadorOpenFinanceStub, AdaptadorOpenDataStub])
+async def test_doble_sin_configurar_responde_de_inmediato(doble):
+    assert len(await doble().obtener_atributos("cliente-1")) == 2
+
+
+def test_al_arrancar_la_app_configura_los_dobles_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_OPEN_FINANCE_LATENCIA_MS", "250")
+    monkeypatch.setenv("DOBLE_OPEN_DATA_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert app.state.adaptador_open_finance._latencia_ms == 250
+        assert app.state.adaptador_open_finance._fallar is False
+        assert app.state.adaptador_open_data._fallar is True
+
+
+async def _nada() -> None:
+    pass
 
 
 @pytest.mark.parametrize(
