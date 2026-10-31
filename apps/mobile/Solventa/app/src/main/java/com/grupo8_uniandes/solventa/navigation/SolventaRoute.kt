@@ -24,6 +24,9 @@ data object SiniestrosRoute
 data object AvisoSiniestroRoute
 
 @Serializable
+data object ParametricoRoute
+
+@Serializable
 data object EvidenciaAvisoRoute
 
 @Serializable

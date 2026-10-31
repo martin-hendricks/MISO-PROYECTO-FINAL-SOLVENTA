@@ -49,6 +49,8 @@ class ShellModeTest {
         assertEquals(Destination.Siniestros, selectedDestination(claim))
         assertEquals(ShellMode.Nested, shellMode(AvisoSiniestroRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(AvisoSiniestroRoute))
+        assertEquals(ShellMode.Nested, shellMode(ParametricoRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(ParametricoRoute))
         assertEquals(ShellMode.Nested, shellMode(EvidenciaAvisoRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(EvidenciaAvisoRoute))
         val sent = ConfirmacionAvisoRoute(siniestroId = "SIN-441")

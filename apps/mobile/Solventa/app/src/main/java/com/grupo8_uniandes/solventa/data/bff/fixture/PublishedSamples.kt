@@ -113,6 +113,10 @@ object PublishedSamples {
         {"tipo":"vencimiento","titulo":"Tu póliza vence","cuerpo":"En 7 días","destino":"aviso-vencimiento","poliza":"POL-88219-CO"}
     """
 
+    const val PARAMETRIC_PUSH = """
+        {"tipo":"pago_automatico","titulo":"Pago automático realizado","cuerpo":"Retraso > 90 min · dato oficial del vuelo","destino":"parametrico","poliza":"POL-88219-CO"}
+    """
+
     const val PROVIDERS = """
         {"prestadores":[{"id":"PR-1","nombre":"Taller Norte","distanciaKm":1.2,"zona":"Chapinero"},{"id":"PR-2","nombre":"Taller Sur","distanciaKm":3.4,"zona":"Kennedy"}]}
     """

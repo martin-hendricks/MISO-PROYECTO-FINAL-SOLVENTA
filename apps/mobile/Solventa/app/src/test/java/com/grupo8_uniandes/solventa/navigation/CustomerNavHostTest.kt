@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -173,6 +175,31 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenTheStoredPayment_whenOpened_thenTheSummaryShows() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-P01").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Pago automático realizado").assertIsDisplayed()
+        assertEquals(ParametricoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Descargar comprobante").performClick()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Volver a siniestros").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAParametricPush_whenItArrives_thenTheSameSummaryOpens() {
+        show(paymentPush = OpenParametricPayment.reviewPush())
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("$180.000 COP depositados").assertIsDisplayed()
+    }
+
+    @Test
     fun givenRejection_whenHome_thenInicioOpens() {
         show(start = SuscripcionRechazadaRoute)
         rule.onNodeWithTag("screen_rejection").assertIsDisplayed()
@@ -185,6 +212,7 @@ class CustomerNavHostTest {
         holder: Array<NavHostController?> = arrayOfNulls(1),
         homeState: HomeUiState = HomeUiState(),
         start: Any = InicioRoute,
+        paymentPush: PushNotice? = null,
     ) {
         rule.setContent {
             SolventaTheme {
@@ -195,6 +223,7 @@ class CustomerNavHostTest {
                     homeState = homeState,
                     contentPadding = PaddingValues(0.dp),
                     startDestination = start,
+                    paymentPush = paymentPush,
                 )
             }
         }

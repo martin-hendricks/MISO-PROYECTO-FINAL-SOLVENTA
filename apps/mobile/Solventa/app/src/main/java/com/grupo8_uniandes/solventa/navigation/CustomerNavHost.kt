@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.navigation
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,11 +54,15 @@ import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
+import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.ui.region.findActivity
 import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionAvisoScreen
 import com.grupo8_uniandes.solventa.ui.shell.EvidenciaAvisoScreen
+import com.grupo8_uniandes.solventa.ui.shell.ParametricoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
 @Composable
@@ -70,8 +75,13 @@ fun CustomerNavHost(
     originationActive: Boolean = false,
     onSignedOut: () -> Unit = {},
     onInicioVisible: () -> Unit = {},
+    paymentPush: PushNotice? = null,
 ) {
     startSolventaKoin(LocalContext.current)
+    LaunchedEffect(paymentPush) {
+        val push = paymentPush ?: return@LaunchedEffect
+        if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
+    }
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -179,6 +189,13 @@ fun CustomerNavHost(
                 if (granted) navController.navigate(MapaPrestadoresRoute)
             }
             LaunchedEffect(Unit) { viewModel.refresh() }
+            LaunchedEffect(state.openedClaimId) {
+                val id = state.openedClaimId ?: return@LaunchedEffect
+                if (id == OpenParametricPayment.STORED_ID) {
+                    navController.navigate(ParametricoRoute)
+                    viewModel.consumeOpenedClaim()
+                }
+            }
             SiniestrosScreen(
                 claims = state.claims,
                 failed = state.phase == ClaimsPhase.Failed,
@@ -275,6 +292,29 @@ fun CustomerNavHost(
                 },
             )
         }
+        composable<ParametricoRoute> {
+            val viewModel: ParametricoViewModel = koinViewModel()
+            val state by viewModel.state.collectAsState()
+            val context = LocalContext.current
+            LaunchedEffect(Unit) { viewModel.load() }
+            val notice = state.notice
+            if (notice != null) {
+                ParametricoScreen(
+                    notice = notice,
+                    onBack = { navController.popBackStack() },
+                    onDownload = {
+                        val receipt = viewModel.offerReceipt() ?: return@ParametricoScreen
+                        val text = listOf(receipt.asunto, receipt.disparo, receipt.lineaDepositada)
+                            .joinToString("\n")
+                        val share = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        runCatching { context.startActivity(Intent.createChooser(share, null)) }
+                    },
+                )
+            }
+        }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
             SiniestroDetalleScreen(
@@ -342,6 +382,7 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
         destination.hasRoute<AvisoSiniestroRoute>() -> AvisoSiniestroRoute
+        destination.hasRoute<ParametricoRoute>() -> ParametricoRoute
         destination.hasRoute<EvidenciaAvisoRoute>() -> EvidenciaAvisoRoute
         destination.hasRoute<ConfirmacionAvisoRoute>() -> toRoute<ConfirmacionAvisoRoute>()
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute

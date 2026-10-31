@@ -61,6 +61,7 @@ import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
 import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.AvisoSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.ParametricoRoute
 import com.grupo8_uniandes.solventa.navigation.ConfirmacionAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.EvidenciaAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
@@ -399,6 +400,7 @@ private fun routeTitle(route: Any): String = when (route) {
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
     AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
+    ParametricoRoute -> stringResource(R.string.parametric_title)
     EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
     is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
     AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
