@@ -11,10 +11,25 @@
 #
 # Reparto: Grupo A corre solo ms-cotizacion + ms-perfilamiento, ambos ya
 # bajados a replicas:1/400Mi -- con 1 nodo sobra holgado; 2 de techo da
-# margen para un rollout sin agotar la cuota. Grupo B corre los otros 7
-# servicios -- 5 de techo (10 vCPU) deja 1 nodo de colchón bajo las 16 vCPU
-# totales (14 vCPU en el peor caso A+B), porque CloudWatch puede seguir
-# contando una instancia en terminación un rato (visto: 18 vCPU reportadas
-# con 9 nodos corriendo, cuando en teoría eran 16).
+# margen para un rollout sin agotar la cuota.
+#
+# Grupo B corre los otros 8 servicios (bff-web, api-socios, bff-movil,
+# ms-pagos, ms-polizas, ms-suscripcion, ms-identidad, ms-siniestros). Con
+# 5 nodos (visto en el cluster real, 2026-10-30, 17 réplicas deseadas en
+# reposo en ese momento) dejaba ~76% de memoria reservada en promedio,
+# pero el bin-packing real del scheduler no distribuye parejo -- se vieron
+# nodos al 91% junto a uno al 63%, suficiente para dejar pods en Pending
+# indefinido (FailedScheduling "Insufficient memory") aun con el sizing de
+# cada pod ya correcto.
+#
+# Dos ajustes juntos: bff-web bajado de 3 a 1 réplica (ver
+# infra/k8s/values/bff-web.yaml -- era el de mayor footprint individual,
+# 384Mi, entre los que seguían en 3) Y node_group_b_max_size subido a 6
+# (12 vCPU), para dar margen real de bin-packing además de bajar la
+# demanda total. Total máximo entre ambos grupos: 2 + 6 = 8 nodos = 16
+# vCPU, exactamente en el límite de cuota, sin colchón adicional -- si
+# vuelve a quedarse corto, la palanca es bajar replicas/minReplicas de
+# algún otro servicio del Grupo B antes que seguir subiendo
+# node_group_b_max_size (ya en el límite de cuota real).
 node_group_a_max_size = 2
-node_group_b_max_size = 5
+node_group_b_max_size = 6

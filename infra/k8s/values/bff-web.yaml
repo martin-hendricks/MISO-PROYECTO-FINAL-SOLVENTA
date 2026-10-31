@@ -12,7 +12,15 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 3
+# Diseño original: 3. 1 para el ambiente mínimo/demo: el Grupo B llegó a su
+# límite real de memoria (17 réplicas deseadas entre los 8 servicios,
+# bin-packing imperfecto del scheduler con solo 5-6 nodos t3.small --
+# confirmado con pods en Pending indefinido aun con el sizing de cada pod
+# ya correcto). bff-web es el de mayor footprint individual (384Mi) entre
+# los que seguían en 3 réplicas; bajarlo da el margen real que faltaba sin
+# tocar el sizing por pod. Ver también hpa.minReplicas y
+# podDisruptionBudget más abajo.
+replicas: 1
 grupoEscalado: "b"
 
 # apps/backend/bff-web/Dockerfile expone y arranca uvicorn en 8000 (mismo
@@ -45,7 +53,9 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 3
+  # Diseño original: 3. 1 para el ambiente mínimo/demo, acorde a replicas:
+  # 1 más arriba.
+  minReplicas: 1
   maxReplicas: 15
   targetCPU: 65
   targetMemory: 75
@@ -79,8 +89,14 @@ serviceAccount:
   nombre: bff-web
   roleArn: ""
 
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado (rollout, actualización de nodo), porque
+# nunca se podría satisfacer con una sola réplica total -- y no hay
+# redundancia real que proteger de todas formas. Diseño original:
+# habilitado con minAvailable: 2, acorde a replicas: 3; reactivar junto
+# con eso.
 podDisruptionBudget:
-  habilitado: true
+  habilitado: false
   minAvailable: 2
 
 topologySpread:
