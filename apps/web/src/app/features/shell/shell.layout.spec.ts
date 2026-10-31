@@ -18,6 +18,10 @@ describe('ShellLayout', () => {
     expect(host.querySelector('[data-testid="nav-polizas"]')?.getAttribute('href')).toBe(
       '/polizas',
     );
+    expect(host.querySelector('[data-testid="nav-siniestros"]')?.getAttribute('href')).toBe(
+      '/siniestros',
+    );
+    expect(host.querySelector('[data-testid="nav-perfil"]')?.getAttribute('href')).toBe('/perfil');
     expect(host.querySelector('[data-testid="header-new-quote"]')?.getAttribute('href')).toBe(
       '/cotizacion',
     );
@@ -44,5 +48,56 @@ describe('ShellLayout', () => {
 
     expect(signOut).toHaveBeenCalledTimes(1);
     expect(TestBed.inject(Router).url).toBe('/login');
+  });
+
+  it('opens the hamburger overlay with the same four destinations', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ShellLayout],
+      providers: [provideRouter([]), ...provideSolventaI18n()],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ShellLayout);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('[data-testid="nav-menu-overlay"]')).toBeNull();
+
+    host.querySelector<HTMLButtonElement>('[data-testid="nav-menu-toggle"]')!.click();
+    fixture.detectChanges();
+
+    const overlay = host.querySelector('[data-testid="nav-menu-overlay"]');
+    expect(overlay).not.toBeNull();
+    expect(overlay!.querySelector('[data-testid="nav-menu-inicio"]')?.getAttribute('href')).toBe(
+      '/inicio',
+    );
+    expect(overlay!.querySelector('[data-testid="nav-menu-polizas"]')?.getAttribute('href')).toBe(
+      '/polizas',
+    );
+    expect(
+      overlay!.querySelector('[data-testid="nav-menu-siniestros"]')?.getAttribute('href'),
+    ).toBe('/siniestros');
+    expect(overlay!.querySelector('[data-testid="nav-menu-perfil"]')?.getAttribute('href')).toBe(
+      '/perfil',
+    );
+  });
+
+  it('closing the overlay does not navigate away from the current page', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ShellLayout],
+      providers: [provideRouter([]), ...provideSolventaI18n()],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ShellLayout);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const router = TestBed.inject(Router);
+    const urlBeforeClose = router.url;
+
+    host.querySelector<HTMLButtonElement>('[data-testid="nav-menu-toggle"]')!.click();
+    fixture.detectChanges();
+    host.querySelector<HTMLButtonElement>('[data-testid="nav-menu-close"]')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(host.querySelector('[data-testid="nav-menu-overlay"]')).toBeNull();
+    expect(router.url).toBe(urlBeforeClose);
   });
 });

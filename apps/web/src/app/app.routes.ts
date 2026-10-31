@@ -135,6 +135,8 @@ export const routes: Routes = [
       },
       destino('emision/:id', 'emision'),
       destino('siniestros/:id', 'siniestro'),
+      destino('siniestros', 'siniestros'),
+      destino('perfil', 'perfil'),
       destino('vida-crediticia', 'vidaCrediticia'),
     ],
   },

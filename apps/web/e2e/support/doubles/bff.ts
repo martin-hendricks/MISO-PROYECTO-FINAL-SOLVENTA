@@ -1,5 +1,5 @@
 import { Page } from 'playwright';
-import { Catalog, Client, Home, Offer } from '../data/generators';
+import { Catalog, Client, Home, Offer, PolicyDetail } from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
@@ -8,6 +8,8 @@ const SALIDA = '**/web/sesion/salida';
 const CLIENTES = '**/web/asesor/clientes';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
+const POLIZAS_LISTA = '**/web/cliente/polizas';
+const POLIZA_DETALLE = '**/web/cliente/polizas/*';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
 const ASESOR_EMISION = '**/web/asesor/emisiones';
@@ -116,6 +118,16 @@ export class BffDoubles {
   async serveHome(home: Home): Promise<void> {
     await this.page.unroute(INICIO);
     await this.page.route(INICIO, (route) => route.fulfill({ json: home }));
+  }
+
+  async servePolicyDetail(detail: PolicyDetail): Promise<void> {
+    await this.page.unroute(POLIZA_DETALLE);
+    await this.page.route(POLIZA_DETALLE, (route) => route.fulfill({ json: detail }));
+  }
+
+  async servePolicyList(policies: PolicyDetail[]): Promise<void> {
+    await this.page.unroute(POLIZAS_LISTA);
+    await this.page.route(POLIZAS_LISTA, (route) => route.fulfill({ json: { polizas: policies } }));
   }
 
   /** Counts every call to the quote endpoints. Accepting an offer must not make one. */
