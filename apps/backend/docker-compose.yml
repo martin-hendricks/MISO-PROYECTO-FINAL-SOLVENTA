@@ -5,7 +5,11 @@
 # Kubernetes en el cluster real.
 #
 # Uso:
-#   cd apps/backend && docker compose up -d --build
+#   cd apps/backend && ./levantar-local.sh
+#   (equivalente a `docker compose up -d --build` + aplicar las migraciones
+#   de cada servicio que falten -- ver el propio script para el por qué.
+#   Un `docker compose up -d --build` manual también funciona para un
+#   volumen nuevo, pero no reaplica migraciones en un volumen ya existente.)
 #   docker compose down -v   (-v: también borra los volúmenes de datos)
 #
 # Puertos expuestos al host (para pegarle desde curl/Postman):
