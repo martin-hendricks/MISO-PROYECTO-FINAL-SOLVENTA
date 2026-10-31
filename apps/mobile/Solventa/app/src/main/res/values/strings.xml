@@ -2,7 +2,7 @@
     <string name="app_name">Solventa</string>
     <string name="splash_tagline">Aseguradora digital</string>
     <string name="destination_inicio">Inicio</string>
-    <string name="destination_polizas">Pólizas</string>
+    <string name="destination_polizas">Polizas</string>
     <string name="destination_siniestros">Siniestros</string>
     <string name="destination_perfil">Perfil</string>
     <string name="action_back">Volver</string>
@@ -92,6 +92,15 @@
     <string name="load_failed">No se pudo cargar la información.</string>
     <string name="field_required">Completa este dato</string>
     <string name="policy_detail_title">Detalle de póliza</string>
+    <string name="policy_operator_note">Cada póliza indica qué hacer en un siniestro según su ramo. La renovación la confirma un operador.</string>
+    <string name="policy_empty">¿Aún no tienes pólizas? Puedes pedir tu primera cotización aquí mismo.</string>
+    <string name="action_request_quote">Solicitar cotización</string>
+    <string name="action_expiry_notices">Avisos de vencimiento</string>
+    <string name="policy_sync_notice">La consulta se actualizó.</string>
+    <string name="policy_valid_on">Vigente · vence %1$s</string>
+    <string name="policy_valid_through">Vigente hasta %1$s · sigue renovación</string>
+    <string name="policy_expiring">Por vencer · en 7 días</string>
+    <string name="policy_device_guidance">Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.</string>
     <string name="home_vida_crediticia">Vida Crediticia</string>
     <string name="home_section_offer">Cotización por aceptar</string>
     <string name="home_section_policies">Tus pólizas</string>

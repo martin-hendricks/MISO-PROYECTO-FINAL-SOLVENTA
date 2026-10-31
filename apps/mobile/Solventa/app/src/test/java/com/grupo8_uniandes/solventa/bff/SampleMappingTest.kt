@@ -117,19 +117,27 @@ class SampleMappingTest {
         assertEquals("2027-03-12", issued.venceEn)
         val wallet = bff.issuance.wallet().ready()
         assertEquals(wallet, bff.issuance.wallet().ready())
-        val entry = wallet.single()
+        assertEquals(2, wallet.size)
+        val entry = wallet.first()
         assertEquals("POL-88219-CO", entry.numero)
         assertEquals("Protección de dispositivo", entry.ramo)
         assertEquals("Robo, Pantalla, Hurto", entry.resumen)
         assertEquals("vigente", entry.estado)
         assertEquals("2027-03-12", entry.venceEn)
+        assertEquals("POL-11002-CO", wallet[1].numero)
+        assertEquals("Microseguro de vida", wallet[1].ramo)
+        assertEquals("amparo de vida", wallet[1].resumen)
+        assertEquals("por_vencer", wallet[1].estado)
         val detail = bff.issuance.detail("POL-88219-CO").ready()
         assertEquals("POL-88219-CO", detail.numero)
         assertEquals("Protección de dispositivo", detail.ramo)
         assertEquals("Robo y Pantalla", detail.resumen)
         assertEquals("vigente", detail.estado)
         assertEquals("2027-03-12", detail.venceEn)
-        assertEquals("Toma la foto del daño y anota fecha y lugar.", detail.queHacer)
+        assertEquals(
+            "Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.",
+            detail.queHacer,
+        )
 
         val notice = MockClaimRepository().readNotice()!!
         assertEquals("POL-88219-CO", notice.poliza)
@@ -230,7 +238,7 @@ class SampleMappingTest {
     fun givenPublishedVariants_whenRead_thenTheyStaySuccessful() = runBlocking {
         val rejection = bff.issuance.rejected().ready()
         assertEquals("rechazada", rejection.estado)
-        assertEquals("Valor del equipo fuera de rango", rejection.motivo)
+        assertEquals("La suscripción automática rechazó el riesgo del dispositivo cotizado.", rejection.motivo)
 
         val withoutGeo = MockClaimRepository().readNotice(PublishedSamples.CLAIM_NOTICE_NO_GEO)!!
         assertNull(withoutGeo.geo)

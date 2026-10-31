@@ -42,15 +42,15 @@ object PublishedSamples {
     """
 
     const val REJECTION = """
-        {"estado":"rechazada","motivo":"Valor del equipo fuera de rango"}
+        {"estado":"rechazada","motivo":"La suscripción automática rechazó el riesgo del dispositivo cotizado."}
     """
 
     const val WALLET = """
-        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12"}]}
+        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12"},{"numero":"POL-11002-CO","ramo":"Microseguro de vida","resumen":"amparo de vida","estado":"por_vencer","venceEn":"2026-11-06"}]}
     """
 
     const val DETAIL = """
-        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","queHacer":"Toma la foto del daño y anota fecha y lugar."}
+        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","queHacer":"Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta."}
     """
 
     const val CLAIM_NOTICE = """
