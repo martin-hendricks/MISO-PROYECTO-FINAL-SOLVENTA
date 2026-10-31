@@ -3,6 +3,21 @@
   @if (id) {
     <p class="subtitle">{{ id }}</p>
   }
+
+  @if (destino === 'perfil') {
+    <button
+      type="button"
+      class="outlined"
+      data-testid="perfil-idioma-region-open"
+      (click)="idiomaRegionOpen.set(true)"
+    >
+      {{ 'idiomaRegion.title' | translate }}
+    </button>
+    @if (idiomaRegionOpen()) {
+      <sv-idioma-region [embedded]="true" (done)="idiomaRegionOpen.set(false)" />
+    }
+  }
+
   <div class="empty-state" data-testid="destino-pending">
     <h2>{{ 'destino.pending.title' | translate }}</h2>
     <p>{{ 'destino.pending.body' | translate }}</p>

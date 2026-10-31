@@ -51,7 +51,12 @@ Then(
 Given(
   'the customer comes from language and region or from "Crear cuenta" on login',
   async function (this: PortalWorld) {
+    // This step covers both HU-108 entry points at once in the original
+    // Gherkin wording, but the dedicated idioma-region.feature now owns
+    // that picker's own scenarios -- here "Crear cuenta" on login is what
+    // is actually exercised, with the choice already made beforehand.
     await this.registro.watchCamera();
+    await this.registro.assumeLocaleAlreadyChosen();
     await this.login.open('customer');
     await this.registro.openFromLogin();
   },
