@@ -90,6 +90,39 @@ export function emptyHome(): Home {
   return { ofertaVigente: null, poliza: null, siniestroEnCurso: null, hipotecario: null };
 }
 
+export interface PolicyDetail {
+  numero: string;
+  ramo: string;
+  producto: string;
+  resumen: string;
+  estado: string;
+  venceEn: string;
+  inicioVigencia: string;
+  finVigencia: string;
+  moneda: string;
+  primaTotal: number;
+  coberturas: { nombre: string; sumaAsegurada: number; deducible: number }[];
+  queHacer: string;
+}
+
+/** Shape of GET /cliente/polizas/{numero} (bff-web routers/cliente.py, _poliza_billetera + coberturas). */
+export function policyDetail(numero: string): PolicyDetail {
+  return {
+    numero,
+    ramo: 'SOAT motocicleta',
+    producto: 'SOAT motocicleta',
+    resumen: 'Gastos médicos',
+    estado: 'VIGENTE',
+    venceEn: '2027-10-01T00:00:00Z',
+    inicioVigencia: '2026-10-01T00:00:00Z',
+    finVigencia: '2027-10-01T00:00:00Z',
+    moneda: 'COP',
+    primaTotal: 140500,
+    coberturas: [{ nombre: 'Gastos médicos', sumaAsegurada: 800, deducible: 0 }],
+    queHacer: 'Comunícate con soporte para iniciar el proceso de reclamación.',
+  };
+}
+
 export interface Catalog {
   ramo: string;
   nombre: string;

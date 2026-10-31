@@ -2,7 +2,14 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
-export type Destino = 'cotizacion' | 'emision' | 'poliza' | 'siniestro' | 'vidaCrediticia';
+export type Destino =
+  | 'cotizacion'
+  | 'emision'
+  | 'poliza'
+  | 'siniestro'
+  | 'siniestros'
+  | 'perfil'
+  | 'vidaCrediticia';
 
 /** Customer destination Inicio links to whose content belongs to a later story. */
 @Component({

@@ -4,7 +4,12 @@
     "market": "Colombia",
     "nav": {
       "inicio": "Inicio",
-      "polizas": "Pólizas"
+      "polizas": "Pólizas",
+      "siniestros": "Siniestros",
+      "perfil": "Perfil",
+      "label": "Navegación principal",
+      "open": "Abrir menú",
+      "close": "Cerrar menú"
     },
     "signOut": "Cerrar sesión"
   },
@@ -50,6 +55,8 @@
     "emision": "Emisión de la póliza",
     "poliza": "Detalle de póliza",
     "siniestro": "Detalle de siniestro",
+    "siniestros": "Siniestros",
+    "perfil": "Perfil",
     "vidaCrediticia": "Vida Crediticia",
     "pending": {
       "title": "Sección en preparación",

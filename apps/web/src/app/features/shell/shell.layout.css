@@ -21,7 +21,20 @@
   font-weight: 600;
 }
 
-nav {
+.menu-toggle {
+  display: none;
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--sv-on-surface-variant);
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.top-nav-links {
   display: flex;
   margin-left: 24px;
   gap: 8px;
@@ -45,7 +58,9 @@ nav a.active {
 
 nav a:focus-visible,
 .cta:focus-visible,
-.sign-out:focus-visible {
+.sign-out:focus-visible,
+.menu-toggle:focus-visible,
+.menu-close:focus-visible {
   outline: 2px solid var(--sv-primary);
   outline-offset: -2px;
 }
@@ -85,24 +100,70 @@ nav a:focus-visible,
   background: var(--sv-secondary-container);
 }
 
+/* nav-menu / 390 (HU-107): bajo 600px el TopNav de texto se reemplaza por un
+ * botón hamburger que abre un overlay de pantalla completa con los mismos
+ * cuatro destinos -- no un wrap del mismo nav, que no cumple "el mismo menú"
+ * del criterio de aceptación. */
 @media (max-width: 600px) {
-  .top-nav {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 8px 16px;
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
   }
 
-  nav {
-    order: 3;
-    width: 100%;
-    margin-left: 0;
-  }
-
-  nav a {
-    min-height: 48px;
+  .top-nav-links {
+    display: none;
   }
 
   .avatar {
     display: none;
   }
+}
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--sv-surface-container-low);
+}
+
+.nav-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.menu-close {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--sv-on-surface-variant);
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.nav-overlay-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-overlay-links a {
+  padding: 16px 8px;
+  border-bottom: 1px solid var(--sv-outline);
+  color: var(--sv-on-surface-variant);
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.nav-overlay-links a.active {
+  color: var(--sv-primary);
+  font-weight: 600;
 }
