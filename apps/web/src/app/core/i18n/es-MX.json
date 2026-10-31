@@ -13,6 +13,18 @@
     },
     "signOut": "Cerrar sesión"
   },
+  "idiomaRegion": {
+    "title": "Idioma y región",
+    "hint": "Elige tu región para ver moneda y fecha en el formato correcto.",
+    "continue": "Continuar",
+    "done": "Listo",
+    "locale": {
+      "es-CO": "Español · Colombia",
+      "es-MX": "Español · México",
+      "es-CL": "Español · Chile",
+      "es-PE": "Español · Perú"
+    }
+  },
   "inicio": {
     "title": "Hola",
     "subtitle": "Resumen de tu cuenta",

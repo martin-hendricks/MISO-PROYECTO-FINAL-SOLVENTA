@@ -23,7 +23,20 @@ export class RegistroPage {
     }, CAMERA_CALLS);
   }
 
+  /** Scenarios that are not about HU-108 skip its picker, as if the visitor
+   * had already chosen a locale on an earlier visit -- otherwise
+   * requireLocaleChosen would send every one of them to idioma-region first.
+   * addInitScript runs on every future document navigation in this context
+   * (not a one-shot), so one call here covers open() and openFromLogin()
+   * alike -- openFromLogin() reaches /registro via Angular's own routing
+   * (no document reload), so an init script registered only inside it would
+   * never actually run. */
+  async assumeLocaleAlreadyChosen(): Promise<void> {
+    await this.page.addInitScript(() => localStorage.setItem('solventa.locale', 'es-CO'));
+  }
+
   async open(): Promise<void> {
+    await this.assumeLocaleAlreadyChosen();
     await this.page.goto('/registro');
     await this.form().waitFor({ state: 'visible' });
   }
