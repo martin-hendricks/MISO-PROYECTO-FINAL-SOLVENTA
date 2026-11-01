@@ -5,6 +5,7 @@ import { CotizacionPage } from '../pages/cotizacion.page';
 import { ConsentimientoPage } from '../pages/consentimiento.page';
 import { LoginPage } from '../pages/login.page';
 import { InicioPage } from '../pages/inicio.page';
+import { PolizaBackofficePage } from '../pages/poliza-backoffice.page';
 import { PolizaDetallePage } from '../pages/poliza-detalle.page';
 import { RegistroPage } from '../pages/registro.page';
 import { ShellPage } from '../pages/shell.page';
@@ -23,6 +24,7 @@ export class PortalWorld extends World {
   inicio!: InicioPage;
   cotizacion!: CotizacionPage;
   polizaDetalle!: PolizaDetallePage;
+  polizaBackoffice!: PolizaBackofficePage;
   account!: Credentials;
   alta!: SignUp;
   clientes: Client[] = [];
@@ -48,6 +50,7 @@ export class PortalWorld extends World {
     this.inicio = new InicioPage(this.page);
     this.cotizacion = new CotizacionPage(this.page);
     this.polizaDetalle = new PolizaDetallePage(this.page);
+    this.polizaBackoffice = new PolizaBackofficePage(this.page);
     this.account = credentials();
   }
 
