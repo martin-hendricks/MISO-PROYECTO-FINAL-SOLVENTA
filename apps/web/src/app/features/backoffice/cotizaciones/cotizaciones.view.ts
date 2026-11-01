@@ -14,7 +14,7 @@ import { CotizacionesViewModel } from './cotizaciones.viewmodel';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, NoPermission, RouterLink, MoneyPipe, DatePipe],
   templateUrl: './cotizaciones.view.html',
-  styleUrls: ['../backoffice.page.css', './cotizaciones.view.css'],
+  styleUrls: ['../backoffice.page.css', '../backoffice.table.css', './cotizaciones.view.css'],
 })
 export class CotizacionesView {
   private readonly session = inject(SessionService);
