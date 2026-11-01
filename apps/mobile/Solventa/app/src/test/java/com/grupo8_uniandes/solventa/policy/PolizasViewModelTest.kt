@@ -13,6 +13,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import kotlinx.coroutines.CompletableDeferred
@@ -73,7 +74,7 @@ class PolizasViewModelTest {
             SolventaTheme {
                 PolizasScreen(
                     policies = viewModel.state.value.policies,
-                    failed = viewModel.state.value.phase == WalletPhase.Failed,
+                    phase = viewModel.state.value.phase,
                     onOpenPolicy = {},
                     onNewQuote = {},
                 )
@@ -81,7 +82,67 @@ class PolizasViewModelTest {
         }
         rule.onAllNodesWithText("SOL-0001").assertCountEquals(0)
         rule.onAllNodesWithText("POL-88219-CO").assertCountEquals(0)
-        rule.onNodeWithText("No se pudo cargar la información.").assertIsDisplayed()
+        rule.onNodeWithText("¿Aún no tienes pólizas? Puedes pedir tu primera cotización aquí mismo.").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnEmptyList_whenThePromptIsUsed_thenTheQuoteOpensAndAPendingListStaysBlank() {
+        var quotes = 0
+        rule.setContent {
+            SolventaTheme {
+                PolizasScreen(
+                    policies = emptyList(),
+                    onOpenPolicy = {},
+                    onNewQuote = { quotes += 1 },
+                    notice = true,
+                )
+            }
+        }
+        rule.onNodeWithTag("action_request_quote").performClick()
+        rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
+        assertEquals(1, quotes)
+    }
+
+    @Test
+    fun givenAPendingList_whenShown_thenTheEmptyPromptStaysHidden() {
+        rule.setContent {
+            SolventaTheme {
+                PolizasScreen(
+                    policies = emptyList(),
+                    phase = WalletPhase.Pending,
+                    onOpenPolicy = {},
+                    onNewQuote = {},
+                )
+            }
+        }
+        rule.onAllNodesWithText("Solicitar cotización").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenAReadyDetail_whenShown_thenGuidanceAndTheNoticeStayOnThisScreen() {
+        assertEquals("", PolicyDetailUiState().queHacer)
+        var notices = 0
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        numero = "POL-88219-CO",
+                        ramo = "Protección de dispositivo",
+                        resumen = "Robo y Pantalla",
+                        estado = "vigente",
+                        venceEn = "2027-03-12",
+                        queHacer = "Toma la foto del daño y anota fecha y lugar.",
+                        notice = true,
+                    ),
+                    onExpiryNotices = { notices += 1 },
+                )
+            }
+        }
+        rule.onNodeWithTag("policy_guidance").assertIsDisplayed()
+        rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
+        rule.onNodeWithTag("action_expiry_notices").performClick()
+        assertEquals(1, notices)
     }
 
     @Test
@@ -103,7 +164,7 @@ class PolizasViewModelTest {
 
         viewModel.refresh()
 
-        assertEquals(WalletPhase.Failed, viewModel.state.value.phase)
+        assertEquals(WalletPhase.Ready, viewModel.state.value.phase)
         assertEquals("POL-88219-CO", viewModel.state.value.policies.single().numero)
     }
 

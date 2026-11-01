@@ -117,19 +117,27 @@ class SampleMappingTest {
         assertEquals("2027-03-12", issued.venceEn)
         val wallet = bff.issuance.wallet().ready()
         assertEquals(wallet, bff.issuance.wallet().ready())
-        val entry = wallet.single()
+        assertEquals(2, wallet.size)
+        val entry = wallet.first()
         assertEquals("POL-88219-CO", entry.numero)
         assertEquals("Protección de dispositivo", entry.ramo)
         assertEquals("Robo, Pantalla, Hurto", entry.resumen)
         assertEquals("vigente", entry.estado)
         assertEquals("2027-03-12", entry.venceEn)
+        assertEquals("POL-11002-CO", wallet[1].numero)
+        assertEquals("Microseguro de vida", wallet[1].ramo)
+        assertEquals("amparo de vida", wallet[1].resumen)
+        assertEquals("por_vencer", wallet[1].estado)
         val detail = bff.issuance.detail("POL-88219-CO").ready()
         assertEquals("POL-88219-CO", detail.numero)
         assertEquals("Protección de dispositivo", detail.ramo)
         assertEquals("Robo y Pantalla", detail.resumen)
         assertEquals("vigente", detail.estado)
         assertEquals("2027-03-12", detail.venceEn)
-        assertEquals("Toma la foto del daño y anota fecha y lugar.", detail.queHacer)
+        assertEquals(
+            "Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.",
+            detail.queHacer,
+        )
 
         val notice = MockClaimRepository().readNotice()!!
         assertEquals("POL-88219-CO", notice.poliza)
@@ -146,11 +154,16 @@ class SampleMappingTest {
         val receipt = bff.claim.notify(notice).ready()
         assertEquals("SIN-441", receipt.siniestroId)
         assertEquals(ClaimStatus.RECIBIDO, receipt.estado)
-        val claim = bff.claim.list().ready().single()
-        assertEquals("SIN-441", claim.siniestroId)
-        assertEquals("Protección de dispositivo", claim.ramo)
-        assertEquals(ClaimStatus.EN_EVALUACION, claim.estado)
-        assertEquals("Pantalla rota", claim.resumen)
+        val claims = bff.claim.list().ready()
+        assertEquals("SIN-441", claims[0].siniestroId)
+        assertEquals("Protección de dispositivo", claims[0].ramo)
+        assertEquals(ClaimStatus.EN_EVALUACION, claims[0].estado)
+        assertEquals("pantalla rota", claims[0].resumen)
+        assertEquals("En evaluación", claims[0].statusWords())
+        assertEquals("SIN-220", claims[1].siniestroId)
+        assertEquals("Pagado", claims[1].statusWords())
+        assertEquals("SIN-P01", claims[2].siniestroId)
+        assertEquals("Pago automático · pagado", claims[2].statusWords())
 
         val payment = bff.payment.read().ready()
         assertEquals("SIN-220", payment.siniestroId)
@@ -225,7 +238,7 @@ class SampleMappingTest {
     fun givenPublishedVariants_whenRead_thenTheyStaySuccessful() = runBlocking {
         val rejection = bff.issuance.rejected().ready()
         assertEquals("rechazada", rejection.estado)
-        assertEquals("Valor del equipo fuera de rango", rejection.motivo)
+        assertEquals("La suscripción automática rechazó el riesgo del dispositivo cotizado.", rejection.motivo)
 
         val withoutGeo = MockClaimRepository().readNotice(PublishedSamples.CLAIM_NOTICE_NO_GEO)!!
         assertNull(withoutGeo.geo)

@@ -1,6 +1,11 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,16 +14,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
+import com.grupo8_uniandes.solventa.policy.IssuanceUi
+import com.grupo8_uniandes.solventa.policy.IssuanceViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
-import com.grupo8_uniandes.solventa.policy.WalletPhase
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -39,6 +43,11 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
+import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
+import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
+import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 
@@ -124,7 +133,8 @@ fun CustomerNavHost(
             LaunchedEffect(Unit) { viewModel.refresh() }
             PolizasScreen(
                 policies = state.policies,
-                failed = state.phase == WalletPhase.Failed,
+                phase = state.phase,
+                notice = state.notice,
                 onOpenPolicy = { numero -> navController.navigate(PolizaDetalleRoute(numero)) },
                 onNewQuote = { navController.navigate(CotizacionRoute()) },
             )
@@ -135,18 +145,55 @@ fun CustomerNavHost(
             val state by viewModel.state.collectAsState()
             PolizaDetalleScreen(
                 state = state,
-                onSecondary = { navController.popBackStack() },
             )
         }
         composable<SiniestrosRoute> {
             val viewModel: SiniestrosViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
+            val context = LocalContext.current
+            val locationPermission = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { granted ->
+                if (granted) navController.navigate(MapaPrestadoresRoute)
+            }
             LaunchedEffect(Unit) { viewModel.refresh() }
             SiniestrosScreen(
                 claims = state.claims,
                 failed = state.phase == ClaimsPhase.Failed,
-                onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
+                onOpenClaim = viewModel::openClaim,
+                onOpenCatalog = {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        navController.navigate(MapaPrestadoresRoute)
+                    } else {
+                        locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                },
             )
+        }
+        composable<MapaPrestadoresRoute> {
+            val catalog = OpenProviderCatalog().open(locationAllowed = true) as ProviderCatalog.Open
+            MapaPrestadoresScreen(
+                rows = catalog.rows,
+                onOpenAssistance = { navController.navigate(AsistenciaSitioRoute) },
+            )
+        }
+        composable<AsistenciaSitioRoute> {
+            val request = remember { OpenAssistanceRequest() }
+            val form = remember { request.open(locationAllowed = true) }
+            if (form != null) {
+                AsistenciaSitioScreen(
+                    form = form,
+                    onContinue = {},
+                    onCancel = {
+                        request.cancel()
+                        navController.popBackStack()
+                    },
+                )
+            }
         }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
@@ -163,22 +210,33 @@ fun CustomerNavHost(
         }
         composable<EmisionEnCursoRoute> { entry ->
             val route = entry.toRoute<EmisionEnCursoRoute>()
-            EmisionEnCursoScreen(
-                offerId = route.offerId,
-                onFinished = { navController.navigate(PolizaEmitidaRoute) },
-            )
+            val viewModel: IssuanceViewModel = koinViewModel { parametersOf(route.offerId) }
+            val issuance by viewModel.state.collectAsState()
+            LaunchedEffect(issuance) {
+                when (val step = issuance) {
+                    is IssuanceUi.Issued -> navController.navigate(PolizaEmitidaRoute(step.numero)) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
+                    is IssuanceUi.Refused -> navController.navigate(SuscripcionRechazadaRoute) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
+                    IssuanceUi.Waiting -> Unit
+                }
+            }
+            EmisionEnCursoScreen()
         }
         composable<SuscripcionRechazadaRoute> {
             SuscripcionRechazadaScreen(
                 onHome = { navController.leaveIssuance(InicioRoute) },
-                onUnderstood = { navController.popBackStack() },
+                onUnderstood = { navController.leaveIssuance(InicioRoute) },
             )
         }
-        composable<PolizaEmitidaRoute> {
+        composable<PolizaEmitidaRoute> { entry ->
+            val route = entry.toRoute<PolizaEmitidaRoute>()
             PolizaEmitidaScreen(
-                policyId = stringResource(R.string.sample_policy_id),
+                policyId = route.numero,
                 onGoHome = { navController.leaveIssuance(InicioRoute) },
-                onGoPolicy = { navController.leaveIssuanceToPolicy() },
+                onGoPolicy = { navController.leaveIssuanceToPolicy(route.numero) },
             )
         }
     }
@@ -193,10 +251,12 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute
+        destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
+        destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<PerfilRoute>() -> PerfilRoute
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
-        destination.hasRoute<PolizaEmitidaRoute>() -> PolizaEmitidaRoute
+        destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
         destination.hasRoute<SuscripcionRechazadaRoute>() -> SuscripcionRechazadaRoute
         else -> InicioRoute
     }
@@ -220,7 +280,7 @@ fun NavHostController.openDestination(destination: Destination) {
     }
 }
 
-private fun NavHostController.leaveIssuance(route: Any) {
+fun NavHostController.leaveIssuance(route: Any) {
     navigate(route) {
         popUpTo(graph.findStartDestination().id) {
             inclusive = false
@@ -240,7 +300,7 @@ private fun NavHostController.openParentThen(parent: Any, child: Any) {
     navigate(child)
 }
 
-private fun NavHostController.leaveIssuanceToPolicy() {
+private fun NavHostController.leaveIssuanceToPolicy(numero: String) {
     navigate(PolizasRoute) {
         popUpTo(graph.findStartDestination().id) {
             saveState = true
@@ -248,5 +308,5 @@ private fun NavHostController.leaveIssuanceToPolicy() {
         launchSingleTop = true
         restoreState = true
     }
-    navigate(PolizaDetalleRoute())
+    navigate(PolizaDetalleRoute(numero))
 }

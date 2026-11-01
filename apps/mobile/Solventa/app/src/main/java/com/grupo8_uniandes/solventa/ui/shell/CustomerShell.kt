@@ -56,8 +56,11 @@ import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
 import com.grupo8_uniandes.solventa.navigation.SuscripcionRechazadaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
+import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
+import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
+import com.grupo8_uniandes.solventa.navigation.leaveIssuance
 import com.grupo8_uniandes.solventa.navigation.openDestination
 import com.grupo8_uniandes.solventa.navigation.selectedDestination
 import com.grupo8_uniandes.solventa.navigation.shellMode
@@ -331,11 +334,17 @@ internal fun SignedInShell(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            if (signedIn && mode != ShellMode.PreLogin && route != PolizaEmitidaRoute) {
+            if (signedIn && mode != ShellMode.PreLogin && route !is PolizaEmitidaRoute && route !is EmisionEnCursoRoute) {
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
-                    onBack = { navController.popBackStack() },
+                    onBack = {
+                        if (route == SuscripcionRechazadaRoute) {
+                            navController.leaveIssuance(InicioRoute)
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
                 )
             }
         },
@@ -378,10 +387,11 @@ private fun routeTitle(route: Any): String = when (route) {
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
-    PolizaEmitidaRoute -> stringResource(R.string.issued_title)
+    is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
-    SiniestrosRoute -> stringResource(R.string.destination_siniestros)
+    SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
+    AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
 }
