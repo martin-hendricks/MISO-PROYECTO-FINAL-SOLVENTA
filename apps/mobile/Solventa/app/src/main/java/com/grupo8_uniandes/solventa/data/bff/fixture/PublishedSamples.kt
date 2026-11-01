@@ -42,15 +42,15 @@ object PublishedSamples {
     """
 
     const val REJECTION = """
-        {"estado":"rechazada","motivo":"Valor del equipo fuera de rango"}
+        {"estado":"rechazada","motivo":"La suscripción automática rechazó el riesgo del dispositivo cotizado."}
     """
 
     const val WALLET = """
-        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12"}]}
+        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12"},{"numero":"POL-11002-CO","ramo":"Microseguro de vida","resumen":"amparo de vida","estado":"por_vencer","venceEn":"2026-11-06"}]}
     """
 
     const val DETAIL = """
-        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","queHacer":"Toma la foto del daño y anota fecha y lugar."}
+        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","queHacer":"Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta."}
     """
 
     const val CLAIM_NOTICE = """
@@ -66,7 +66,7 @@ object PublishedSamples {
     """
 
     const val CLAIMS = """
-        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"Pantalla rota","estado":"en_evaluacion"}]}
+        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"pantalla rota","estado":"en_evaluacion"},{"siniestroId":"SIN-220","ramo":"Protección de dispositivo","resumen":"hurto","estado":"pagado"},{"siniestroId":"SIN-P01","ramo":"Clima y vuelos","resumen":"retraso de vuelo","estado":"pagado","estadoTexto":"Pago automático · pagado"}]}
     """
 
     const val PAYMENT = """
@@ -111,6 +111,10 @@ object PublishedSamples {
 
     const val PUSH_NOTICE = """
         {"tipo":"vencimiento","titulo":"Tu póliza vence","cuerpo":"En 7 días","destino":"aviso-vencimiento","poliza":"POL-88219-CO"}
+    """
+
+    const val PARAMETRIC_PUSH = """
+        {"tipo":"pago_automatico","titulo":"Pago automático realizado","cuerpo":"Retraso > 90 min · dato oficial del vuelo","destino":"parametrico","poliza":"POL-88219-CO"}
     """
 
     const val PROVIDERS = """

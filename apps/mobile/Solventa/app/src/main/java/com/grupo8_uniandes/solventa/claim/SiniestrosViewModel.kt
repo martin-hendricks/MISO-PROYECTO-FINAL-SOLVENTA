@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.claim.ListClaims
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,11 +19,13 @@ enum class ClaimsPhase { Pending, Failed, Ready }
 data class ClaimsUiState(
     val phase: ClaimsPhase = ClaimsPhase.Pending,
     val claims: List<ClaimSummary> = emptyList(),
+    val openedClaimId: String? = null,
 )
 
 class SiniestrosViewModel(
-    private val claims: ClaimRepository,
+    claims: ClaimRepository,
 ) : ViewModel() {
+    private val listClaims = ListClaims(claims)
     private val _state = MutableStateFlow(ClaimsUiState())
     val state: StateFlow<ClaimsUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
@@ -34,7 +37,7 @@ class SiniestrosViewModel(
     fun refresh() {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            val answer = claims.list()
+            val answer = listClaims()
             coroutineContext.ensureActive()
             _state.value = when (answer) {
                 StandInAnswer.Pending -> _state.value.copy(phase = ClaimsPhase.Pending)
@@ -42,5 +45,13 @@ class SiniestrosViewModel(
                 is StandInAnswer.Ready -> ClaimsUiState(phase = ClaimsPhase.Ready, claims = answer.value)
             }
         }
+    }
+
+    fun openClaim(id: String) {
+        _state.value = _state.value.copy(openedClaimId = id)
+    }
+
+    fun consumeOpenedClaim() {
+        _state.value = _state.value.copy(openedClaimId = null)
     }
 }

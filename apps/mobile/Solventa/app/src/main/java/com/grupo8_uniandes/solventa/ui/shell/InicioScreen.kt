@@ -35,6 +35,7 @@ fun InicioScreen(
     onAcceptOffer: (String) -> Unit = {},
     onOpenPolicy: (String) -> Unit = {},
     onOpenClaim: (String) -> Unit = {},
+    onOpenMortgage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val panel = state.panel
@@ -99,7 +100,7 @@ fun InicioScreen(
             HomeSection {
                 HomeSectionLabel(R.string.home_section_mortgage)
                 SolventaCard(
-                    onClick = {},
+                    onClick = onOpenMortgage,
                     testTag = "home_vida_crediticia",
                 ) {
                     Text(

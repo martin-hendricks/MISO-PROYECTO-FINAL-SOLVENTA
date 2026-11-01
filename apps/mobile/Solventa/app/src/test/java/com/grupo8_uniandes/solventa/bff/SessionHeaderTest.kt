@@ -33,6 +33,7 @@ class SessionHeaderTest {
 
     @Before
     fun setUp() {
+        AndroidKeyStoreProvider.install()
         server.start()
         tokens = TokenStore(context).also { it.clear() }
     }
@@ -104,6 +105,8 @@ class SessionHeaderTest {
         var notified = 0
         SessionUnauthorized.onUnauthorized = { notified += 1 }
         try {
+            tokens.save(SessionTokens("expired", "refresh-me", 1))
+            server.enqueue(MockResponse().setResponseCode(401))
             server.enqueue(MockResponse().setResponseCode(401))
             val answer = RemoteOfferRepository(api(), gate()).requote("COT-1042")
             assertTrue(answer is StandInAnswer.Failed)
@@ -129,10 +132,27 @@ class SessionHeaderTest {
 
     @Test
     fun givenNoToken_whenAProtectedCallIsRejected_thenNothingIsStored() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(401))
+        val before = server.requestCount
         val answer = RemoteOfferRepository(api(), gate()).requote("COT-1042")
         assertTrue(answer is StandInAnswer.Failed)
+        assertEquals(before, server.requestCount)
         assertNull(tokens.read())
+    }
+
+    @Test
+    fun givenAForbiddenCredential_whenAProtectedCallIsRefused_thenTheBodyIsAbsentAndTheCredentialRemains() = runBlocking {
+        tokens.save(SessionTokens("jwt-access", "jwt-refresh", 900))
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(403)
+                .setBody(PublishedSamples.OFFER_OUT.trim()),
+        )
+        val answer = RemoteOfferRepository(api(), gate()).requote("COT-1042")
+        assertTrue(answer is StandInAnswer.Failed)
+        assertFalse(answer is StandInAnswer.Ready<*>)
+        assertEquals("jwt-access", tokens.read()?.accessToken)
+        assertEquals("jwt-refresh", tokens.read()?.refreshToken)
+        assertEquals(900, tokens.read()?.expiraEn)
     }
 
     @Test
@@ -176,13 +196,27 @@ class SessionHeaderTest {
 
     @Test
     fun givenABlankToken_whenRead_thenTheSessionIsAbsent() {
-        val prefs = context.getSharedPreferences("solventa.tokens", Context.MODE_PRIVATE)
-        prefs.edit().putString("accessToken", " ").putString("refreshToken", "refresh").commit()
+        tokens.save(SessionTokens(" ", "refresh", 1))
         assertNull(tokens.read())
-        prefs.edit().putString("accessToken", "access").putString("refreshToken", "").commit()
+        tokens.save(SessionTokens("access", "", 1))
         assertNull(tokens.read())
-        prefs.edit().remove("accessToken").putString("refreshToken", "refresh").commit()
+        tokens.save(SessionTokens("access", " ", 1))
         assertNull(tokens.read())
+        tokens.clear()
+        assertNull(tokens.read())
+    }
+
+    @Test
+    fun givenASavedCredential_whenReadAsPlainPreferences_thenTheAccessTokenIsNotVisible() {
+        tokens.save(SessionTokens("jwt-access", "jwt-refresh", 900))
+        val plain = context.getSharedPreferences("solventa.tokens", Context.MODE_PRIVATE)
+        val visible = plain.all.entries.joinToString { "${it.key}=${it.value}" }
+        assertFalse(visible.contains("jwt-access"))
+        assertFalse(visible.contains("jwt-refresh"))
+        val stored = tokens.read()
+        assertEquals("jwt-access", stored?.accessToken)
+        assertEquals("jwt-refresh", stored?.refreshToken)
+        assertEquals(900, stored?.expiraEn)
     }
 
     private fun api() = BffClients.open(server.url("/").toString(), tokens).api
