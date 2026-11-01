@@ -161,7 +161,10 @@ class MockClaimRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
     private val noticeJson: String = PublishedSamples.CLAIM_NOTICE,
 ) : ClaimRepository {
-    override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> =
+    override suspend fun notify(
+        notice: ClaimNotice,
+        idempotencyKey: String?,
+    ): StandInAnswer<ClaimReceipt> =
         control.ready { decode<ClaimReceiptDto>(PublishedSamples.CLAIM_RECEIPT).let(::required).toReceipt() }
 
     override suspend fun list(): StandInAnswer<List<ClaimSummary>> =

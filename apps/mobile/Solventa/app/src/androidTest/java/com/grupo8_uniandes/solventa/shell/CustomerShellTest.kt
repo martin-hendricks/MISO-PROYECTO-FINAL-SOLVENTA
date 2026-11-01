@@ -47,7 +47,7 @@ class CustomerShellTest {
 
     @Test
     fun givenSignedIn_whenShellOpens_thenExactlyFourDestinations() {
-        listOf("Inicio", "Pólizas", "Siniestros", "Perfil").forEach { label ->
+        listOf("Inicio", "Polizas", "Siniestros", "Perfil").forEach { label ->
             assertTrue(rule.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty())
         }
         listOf("Inicio", "Polizas", "Siniestros", "Perfil").forEach { name ->
@@ -74,14 +74,14 @@ class CustomerShellTest {
 
     @Test
     fun givenInicio_whenPolizasTapped_thenPolizasIsSelected() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
     }
 
     @Test
     fun givenPolicyDetail_whenVolver_thenReturnsToPolizasNotInicio() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -92,16 +92,16 @@ class CustomerShellTest {
 
     @Test
     fun givenSelectedDestination_whenTappedAgain_thenStaysOnRoot() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_poliza_detalle").assertCountEquals(0)
     }
 
     @Test
     fun givenRoot_whenSystemBack_thenDestinationDoesNotChange() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.runOnIdle {
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         }
@@ -120,10 +120,8 @@ class CustomerShellTest {
     @Test
     fun givenOfferAccepted_whenIssuingAndIssued_thenBarIsHiddenUntilLeaving() {
         rule.onNodeWithText("Aceptar oferta").performClick()
-        rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
-        rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
@@ -133,7 +131,6 @@ class CustomerShellTest {
     @Test
     fun givenIssuedPolicy_whenContinueToDetail_thenPolizasIsSelected() {
         rule.onNodeWithText("Aceptar oferta").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -154,10 +151,10 @@ class CustomerShellTest {
         rule.onNodeWithTag("field_device_value").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
-        rule.onNodeWithTag("action_cancel_policy").assertIsDisplayed()
+        rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
         rule.onNodeWithTag("solventa_card").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onAllNodesWithText("SOL-0001").assertCountEquals(0)

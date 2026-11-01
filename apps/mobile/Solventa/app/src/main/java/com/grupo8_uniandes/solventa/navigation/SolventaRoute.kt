@@ -21,6 +21,30 @@ data class PolizaDetalleRoute(val policyId: String = "SOL-0001")
 data object SiniestrosRoute
 
 @Serializable
+data object AvisoSiniestroRoute
+
+@Serializable
+data object ParametricoRoute
+
+@Serializable
+data object AvisoVencimientoRoute
+
+@Serializable
+data object AvisoRenovacionRoute
+
+@Serializable
+data object EvidenciaAvisoRoute
+
+@Serializable
+data class ConfirmacionAvisoRoute(val siniestroId: String)
+
+@Serializable
+data object MapaPrestadoresRoute
+
+@Serializable
+data object AsistenciaSitioRoute
+
+@Serializable
 data object PerfilRoute
 
 @Serializable
@@ -30,7 +54,10 @@ data class SiniestroDetalleRoute(val claimId: String)
 data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
-data object PolizaEmitidaRoute
+data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")
 
 @Serializable
 data object SuscripcionRechazadaRoute
+
+@Serializable
+data object OfertaHipotecarioRoute

@@ -104,6 +104,7 @@ class InicioScreenTest {
         var accepted: String? = null
         var policy: String? = null
         var claim: String? = null
+        var mortgage = 0
         show(
             HomePanel(
                 offerId = "Q-1",
@@ -115,6 +116,7 @@ class InicioScreenTest {
             onAcceptOffer = { accepted = it },
             onOpenPolicy = { policy = it },
             onOpenClaim = { claim = it },
+            onOpenMortgage = { mortgage += 1 },
         )
         rule.onNodeWithText("VIDA HIPOTECARIO").assertIsDisplayed()
         rule.onNodeWithTag("home_vida_crediticia").assertIsDisplayed()
@@ -124,6 +126,7 @@ class InicioScreenTest {
         assertNull(accepted)
         assertNull(policy)
         assertNull(claim)
+        assertEquals(1, mortgage)
     }
 
     @Test
@@ -168,6 +171,7 @@ class InicioScreenTest {
         onAcceptOffer: (String) -> Unit = {},
         onOpenPolicy: (String) -> Unit = {},
         onOpenClaim: (String) -> Unit = {},
+        onOpenMortgage: () -> Unit = {},
     ) {
         rule.setContent {
             SolventaTheme {
@@ -177,6 +181,7 @@ class InicioScreenTest {
                     onAcceptOffer = onAcceptOffer,
                     onOpenPolicy = onOpenPolicy,
                     onOpenClaim = onOpenClaim,
+                    onOpenMortgage = onOpenMortgage,
                 )
             }
         }

@@ -241,11 +241,16 @@ class RemoteClaimRepository(
     private val gate: BffGate,
     private val cache: BffCache,
 ) : ClaimRepository {
-    override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> {
-        if (!gate.flush()) return StandInAnswer.Failed
-        val key = newIdempotencyKey()
+    override suspend fun notify(
+        notice: ClaimNotice,
+        idempotencyKey: String?,
+    ): StandInAnswer<ClaimReceipt> {
+        if (idempotencyKey == null && !gate.flush()) return StandInAnswer.Failed
+        val key = idempotencyKey ?: newIdempotencyKey()
         return try {
-            StandInAnswer.Ready(api.notify(key, notice.toDto()).toReceipt())
+            val receipt = api.notify(key, notice.toDto()).toReceipt()
+            if (cache.readClaim()?.key == key) cache.clearClaim()
+            StandInAnswer.Ready(receipt)
         } catch (_: IOException) {
             cache.writeClaim(PendingClaim(key, notice))
             StandInAnswer.Failed
