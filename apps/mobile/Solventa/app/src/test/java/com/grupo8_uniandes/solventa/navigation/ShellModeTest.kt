@@ -28,6 +28,8 @@ class ShellModeTest {
         assertEquals(Destination.Polizas, selectedDestination(PolizasRoute))
         assertEquals(ShellMode.Root, shellMode(SiniestrosRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(SiniestrosRoute))
+        assertEquals(ShellMode.Root, shellMode(MapaPrestadoresRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(MapaPrestadoresRoute))
         assertEquals(ShellMode.Root, shellMode(PerfilRoute, signedIn = true))
         assertEquals(Destination.Perfil, selectedDestination(PerfilRoute))
     }
@@ -47,6 +49,8 @@ class ShellModeTest {
         val claim = SiniestroDetalleRoute(claimId = "CLM-1")
         assertEquals(ShellMode.Nested, shellMode(claim, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(claim))
+        assertEquals(ShellMode.Nested, shellMode(AsistenciaSitioRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(AsistenciaSitioRoute))
         assertEquals(ShellMode.Nested, shellMode(AvisoSiniestroRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(AvisoSiniestroRoute))
         assertEquals(ShellMode.Nested, shellMode(EvidenciaAvisoRoute, signedIn = true))

@@ -157,6 +157,20 @@ class InicioScreenTest {
     }
 
     @Test
+    fun givenOrigination_whenVidaUsesTheDefaultCallback_thenInicioStays() {
+        rule.setContent {
+            SolventaTheme {
+                InicioScreen(
+                    state = HomeUiState(panel = HomePanel(vidaCrediticia = true)),
+                    onNewQuote = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
     fun givenNoOrigination_whenInicioShows_thenVidaIsAbsent() {
         show(HomePanel(vidaCrediticia = false))
         rule.onAllNodesWithTag("home_vida_crediticia").assertCountEquals(0)
