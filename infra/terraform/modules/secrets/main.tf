@@ -186,3 +186,34 @@ resource "aws_secretsmanager_secret_version" "bff_web_token" {
     ignore_changes = [secret_string]
   }
 }
+
+# --- bff-movil token secret ---
+#
+# Mismo rol que bff_web_token_secret (firma los JWT de sesión, esta vez de
+# apps/backend/bff-movil/app/dependencies.py), pero independiente: cada BFF
+# solo firma y valida sus propios tokens (confirmado en el código, ninguno
+# valida tokens emitidos por el otro), así que no hay necesidad de
+# compartir el secreto -- y mantenerlos separados limita el blast radius si
+# uno se compromete.
+resource "random_password" "bff_movil_token_secret" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "bff_movil_token" {
+  name                    = "${var.project_name}-${var.environment}-bff-movil-token"
+  description             = "Secreto usado por bff-movil para firmar/validar los JWT de sesion (SOLVENTA_TOKEN_SECRET)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-bff-movil-token" })
+}
+
+resource "aws_secretsmanager_secret_version" "bff_movil_token" {
+  secret_id     = aws_secretsmanager_secret.bff_movil_token.id
+  secret_string = jsonencode({ SOLVENTA_TOKEN_SECRET = random_password.bff_movil_token_secret.result })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
