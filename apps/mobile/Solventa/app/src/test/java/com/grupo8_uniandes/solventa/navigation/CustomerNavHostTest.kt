@@ -59,6 +59,7 @@ class CustomerNavHostTest {
                     contentPadding = PaddingValues(8.dp),
                     modifier = Modifier,
                     startDestination = PerfilRoute,
+                    originationActive = true,
                 )
             }
         }
@@ -197,6 +198,22 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
         rule.onNodeWithText("$180.000 COP depositados").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAPushThatIsNotThePayment_whenItArrives_thenInicioStays() {
+        show(paymentPush = OpenParametricPayment.reviewPush().copy(titulo = "Otro aviso"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnotherClaim_whenOpened_thenTheListStays() {
+        show(start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
     }
 
     @Test
