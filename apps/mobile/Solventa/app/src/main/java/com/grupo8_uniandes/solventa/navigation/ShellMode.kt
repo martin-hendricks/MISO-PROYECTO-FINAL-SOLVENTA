@@ -11,18 +11,20 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
     if (!signedIn) return ShellMode.PreLogin
     if (route is EmisionEnCursoRoute || route is PolizaEmitidaRoute) return ShellMode.Issuance
     return when (route) {
-        InicioRoute, PolizasRoute, SiniestrosRoute, PerfilRoute -> ShellMode.Root
+        InicioRoute, PolizasRoute, SiniestrosRoute, MapaPrestadoresRoute, PerfilRoute -> ShellMode.Root
         is CotizacionRoute, is VerOfertaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
-        SuscripcionRechazadaRoute,
+        AsistenciaSitioRoute, SuscripcionRechazadaRoute, OfertaHipotecarioRoute,
         -> ShellMode.Nested
         else -> ShellMode.Root
     }
 }
 
 fun selectedDestination(route: Any): Destination? = when (route) {
-    InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute -> Destination.Inicio
+    InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute,
+    OfertaHipotecarioRoute,
+    -> Destination.Inicio
     PolizasRoute, is PolizaDetalleRoute -> Destination.Polizas
-    SiniestrosRoute, is SiniestroDetalleRoute -> Destination.Siniestros
+    SiniestrosRoute, MapaPrestadoresRoute, AsistenciaSitioRoute, is SiniestroDetalleRoute -> Destination.Siniestros
     PerfilRoute -> Destination.Perfil
     else -> null
 }
