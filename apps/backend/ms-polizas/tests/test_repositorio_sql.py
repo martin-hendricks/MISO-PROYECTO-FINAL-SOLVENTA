@@ -92,6 +92,7 @@ async def test_listar_polizas_de_usuario_devuelve_las_del_usuario_mas_recientes_
 async def test_ciclo_de_vida_renovar_modificar_y_cancelar_persisten_contra_bd_real(uow):
     emitida = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), solicitud())
     poliza_id = emitida.poliza.id
+    assert emitida.poliza.prima.valor == sum(c.suma_asegurada for c in emitida.poliza.coberturas)
 
     nueva_fecha = date(emitida.poliza.fin_vigencia.year + 1, 1, 1)
     renovada = await casos_uso.renovar_poliza(uow, poliza_id, nueva_fecha)
@@ -102,13 +103,18 @@ async def test_ciclo_de_vida_renovar_modificar_y_cancelar_persisten_contra_bd_re
     )
     assert [c.nombre for c in modificada.coberturas] == ["Robo"]
 
-    cancelada = await casos_uso.cancelar_poliza(uow, poliza_id, "El cliente lo pidió")
+    cancelada = await casos_uso.cancelar_poliza(uow, poliza_id, "El cliente lo pidió", "op-1")
     assert cancelada.estado.value == "CANCELADA"
     assert cancelada.motivo_cancelacion == "El cliente lo pidió"
+    assert cancelada.cancelada_por == "op-1"
+    assert cancelada.devolucion_estimada is not None
 
     consultada = await casos_uso.consultar_poliza(uow, poliza_id)
     assert consultada.estado.value == "CANCELADA"
+    assert consultada.cancelada_por == "op-1"
     assert [c.nombre for c in consultada.coberturas] == ["Robo"]
+    # La prima no se toca en renovar/modificar/cancelar, sigue la de emisión.
+    assert consultada.prima.valor == emitida.poliza.prima.valor
 
     async with uow() as tx:
         eventos = await tx._sesion.scalar(

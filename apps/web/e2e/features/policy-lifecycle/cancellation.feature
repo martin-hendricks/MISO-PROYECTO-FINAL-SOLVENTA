@@ -1,4 +1,4 @@
-@policy-lifecycle @pendiente @HU-61 @SOLV-154
+@policy-lifecycle @HU-61 @SOLV-154
 Feature: Policy cancellation
 
   Scenario: Coverage withdrawal

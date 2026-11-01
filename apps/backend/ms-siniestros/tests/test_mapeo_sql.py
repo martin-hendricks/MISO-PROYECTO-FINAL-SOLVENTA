@@ -31,3 +31,9 @@ def test_claves_de_idempotencia_son_unicas():
     assert tablas["evento_parametrico"].c.evento_id.primary_key
     assert tablas["evaluacion_umbral"].c.evento_id.unique
     assert tablas["pago_parametrico"].c.evento_id.unique
+
+
+def test_siniestro_tiene_poliza_id_opcional():
+    tablas = {t.name: t for t in Base.metadata.tables.values()}
+    columna = tablas["siniestro"].c.poliza_id
+    assert columna.nullable

@@ -51,9 +51,13 @@ class Siniestro:
     estado: EstadoSiniestro
     historial: list[TransicionEstado]
     creado_en: datetime
+    # HU-61 (back-office): permite a ms-polizas/bff-web consultar si una
+    # póliza tiene siniestros abiertos antes de cancelar. Opcional porque el
+    # origen del evento paramétrico no siempre lo conoce (stub de ingesta).
+    poliza_id: UUID | None = None
 
     @classmethod
-    def recibir(cls, evento_id: str, origen: str) -> Siniestro:
+    def recibir(cls, evento_id: str, origen: str, poliza_id: UUID | None = None) -> Siniestro:
         ahora = datetime.now(UTC)
         return cls(
             id=uuid4(),
@@ -61,6 +65,7 @@ class Siniestro:
             estado=EstadoSiniestro.RECIBIDO,
             historial=[TransicionEstado(EstadoSiniestro.RECIBIDO, ahora, origen)],
             creado_en=ahora,
+            poliza_id=poliza_id,
         )
 
     def cambiar_estado(self, nuevo_estado: EstadoSiniestro, origen: str) -> None:
