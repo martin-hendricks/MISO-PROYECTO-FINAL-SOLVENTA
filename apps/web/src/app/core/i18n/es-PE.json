@@ -199,6 +199,40 @@
       "operador": "Operador"
     },
     "signOut": "Cerrar sesión",
+    "confirmDialog": {
+      "motivo": "Motivo",
+      "cancelar": "Cancelar",
+      "confirmar": "Confirmar"
+    },
+    "polizas": {
+      "title": "Pólizas",
+      "buscar": { "label": "Número de póliza", "action": "Buscar" },
+      "loading": "Consultando la póliza…",
+      "notFound": {
+        "title": "No encontramos esa póliza",
+        "body": "Verifica el número e intenta de nuevo."
+      },
+      "error": { "body": "No pudimos consultar la póliza.", "retry": "Reintentar" },
+      "estado": { "vigente": "Vigente", "cancelada": "Cancelada" },
+      "venceEn": "Vence en",
+      "prima": "Prima",
+      "siniestrosAbiertos": "Siniestros abiertos",
+      "renovar": "Renovar",
+      "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
+      "cancelar": "Cancelar póliza",
+      "confirmCancelar": {
+        "title": "Cancelar póliza",
+        "advertencia": "Esta acción es irreversible y no se puede repetir.",
+        "confirmar": "Cancelar póliza"
+      },
+      "cancelacionPrevia": {
+        "title": "Registro de cancelación",
+        "fecha": "Fecha",
+        "motivo": "Motivo",
+        "operador": "Operador",
+        "devolucion": "Devolución estimada"
+      }
+    },
     "emision": {
       "title": "Suscripción y emisión",
       "back": "Cotización {{cotizacion}}",
@@ -354,9 +388,6 @@
         "body": "No pudimos cargar las cotizaciones.",
         "retry": "Reintentar"
       }
-    },
-    "polizas": {
-      "title": "Pólizas"
     },
     "avisos": {
       "title": "Avisos de siniestro"

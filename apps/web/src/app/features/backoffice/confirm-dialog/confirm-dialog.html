@@ -1,0 +1,33 @@
+<div class="scrim" data-testid="confirm-dialog">
+  <div class="dialog" role="alertdialog" aria-modal="true">
+    <h2>{{ titulo() }}</h2>
+    <p class="advertencia">{{ advertencia() }}</p>
+
+    @if (requiereMotivo()) {
+      <label class="motivo-label" for="confirm-dialog-motivo-input">
+        {{ 'backoffice.confirmDialog.motivo' | translate }}
+      </label>
+      <textarea
+        id="confirm-dialog-motivo-input"
+        data-testid="confirm-dialog-motivo"
+        [value]="motivo()"
+        (input)="motivo.set($any($event.target).value)"
+      ></textarea>
+    }
+
+    <div class="acciones">
+      <button type="button" class="outlined" data-testid="confirm-dialog-cancelar" (click)="cancelar.emit()">
+        {{ 'backoffice.confirmDialog.cancelar' | translate }}
+      </button>
+      <button
+        type="button"
+        class="filled"
+        data-testid="confirm-dialog-confirmar"
+        [disabled]="!puedeConfirmar()"
+        (click)="onConfirmar()"
+      >
+        {{ confirmarTexto() | translate }}
+      </button>
+    </div>
+  </div>
+</div>
