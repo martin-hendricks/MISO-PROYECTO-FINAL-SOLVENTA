@@ -68,8 +68,21 @@ hpa:
           value: 1
           periodSeconds: 60
 
+# SOLVENTA_TOKEN_SECRET firma los JWT de sesión que bff-movil emite
+# (app/dependencies.py) -- sin esto, cualquier ruta de sesión responde 500
+# "SOLVENTA_TOKEN_SECRET no configurado" (confirmado en producción: POST
+# /bff-movil/v1/sesion/ingreso). Secreto propio, independiente del de
+# bff-web (infra/terraform/modules/secrets/main.tf,
+# aws_secretsmanager_secret.bff_movil_token) -- cada BFF solo firma y
+# valida sus propios tokens, nunca los del otro.
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-movil-token
+      nombreLocal: bff-movil-token
+      # Sin `claves`: se usa dataFrom.extract (ver mismo comentario en
+      # infra/k8s/values/bff-web.yaml).
 
 serviceAccount:
   crear: true
