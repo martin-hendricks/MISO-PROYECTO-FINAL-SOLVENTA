@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.domain.modelos import Cobertura, ConstanciaFirma, Poliza
+from app.domain.modelos import Cobertura, ConstanciaFirma, Poliza, Prima
 
 
 class CoberturaEntrada(BaseModel):
@@ -30,6 +30,15 @@ class CoberturaSalida(BaseModel):
     deducible: Decimal
 
 
+class PrimaSalida(BaseModel):
+    valor: Decimal
+    periodicidad: str
+
+    @classmethod
+    def desde(cls, prima: Prima) -> "PrimaSalida":
+        return cls(valor=prima.valor, periodicidad=prima.periodicidad)
+
+
 class OfertasConPolizaSalida(BaseModel):
     oferta_ids_con_poliza: list[UUID]
 
@@ -43,8 +52,11 @@ class PolizaSalida(BaseModel):
     fin_vigencia: date
     estado: str
     coberturas: list[CoberturaSalida]
+    prima: PrimaSalida
     motivo_cancelacion: str | None = None
     cancelada_en: date | None = None
+    cancelada_por: str | None = None
+    devolucion_estimada: Decimal | None = None
     hash_firma_legal: str | None = None
 
     @classmethod
@@ -61,8 +73,11 @@ class PolizaSalida(BaseModel):
                 CoberturaSalida(nombre=c.nombre, suma_asegurada=c.suma_asegurada, deducible=c.deducible)
                 for c in poliza.coberturas
             ],
+            prima=PrimaSalida.desde(poliza.prima),
             motivo_cancelacion=poliza.motivo_cancelacion,
             cancelada_en=poliza.cancelada_en,
+            cancelada_por=poliza.cancelada_por,
+            devolucion_estimada=poliza.devolucion_estimada,
             hash_firma_legal=poliza.firma_hash,
         )
 
@@ -95,6 +110,7 @@ class ModificarCoberturasEntrada(BaseModel):
 
 class CancelarPolizaEntrada(BaseModel):
     motivo: str = Field(min_length=1)
+    operador: str = Field(min_length=1)
 
 
 class ErrorSalida(BaseModel):

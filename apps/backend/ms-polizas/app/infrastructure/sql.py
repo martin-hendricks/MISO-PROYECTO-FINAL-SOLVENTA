@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
-from app.domain.modelos import Cobertura, ConstanciaFirma, EstadoPoliza, EventoDominio, Poliza
+from app.domain.modelos import Cobertura, ConstanciaFirma, EstadoPoliza, EventoDominio, Poliza, Prima
 from app.ports.persistencia import PolizaYaEmitida
 
 ESQUEMA = "ms_polizas"
@@ -53,6 +53,8 @@ class PolizaFila(Base):
     firma_hash: Mapped[str | None] = mapped_column(String)
     motivo_cancelacion: Mapped[str | None] = mapped_column(String)
     cancelada_en: Mapped[date | None]
+    cancelada_por: Mapped[str | None] = mapped_column(String)
+    devolucion_estimada: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
 
 
 class CoberturaFila(Base):
@@ -63,6 +65,16 @@ class CoberturaFila(Base):
     nombre: Mapped[str]
     suma_asegurada: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     deducible: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+
+class PrimaFila(Base):
+    __tablename__ = "prima"
+
+    prima_id: Mapped[UUID] = mapped_column(primary_key=True)
+    poliza_id: Mapped[UUID] = mapped_column(ForeignKey(PolizaFila.poliza_id), unique=True)
+    valor: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    periodicidad: Mapped[str]
+    proximo_cobro: Mapped[date | None]
 
 
 class ConstanciaFirmaFila(Base):
@@ -87,7 +99,7 @@ class OutboxFila(Base):
     publicado_en: Mapped[datetime | None]
 
 
-def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila]) -> Poliza:
+def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila], prima: PrimaFila) -> Poliza:
     return Poliza(
         id=fila.poliza_id,
         oferta_id=fila.oferta_id,
@@ -99,8 +111,11 @@ def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila]) -> Poliza:
         coberturas=tuple(
             Cobertura(nombre=c.nombre, suma_asegurada=c.suma_asegurada, deducible=c.deducible) for c in coberturas
         ),
+        prima=Prima(valor=prima.valor, periodicidad=prima.periodicidad),
         motivo_cancelacion=fila.motivo_cancelacion,
         cancelada_en=fila.cancelada_en,
+        cancelada_por=fila.cancelada_por,
+        devolucion_estimada=fila.devolucion_estimada,
         firma_hash=fila.firma_hash,
     )
 
@@ -115,7 +130,10 @@ class RepositorioPolizasSQL:
         coberturas = await self._s.scalars(
             select(CoberturaFila).where(CoberturaFila.poliza_id == fila.poliza_id).order_by(CoberturaFila.nombre)
         )
-        return _a_dominio(fila, list(coberturas))
+        prima = await self._s.scalar(select(PrimaFila).where(PrimaFila.poliza_id == fila.poliza_id))
+        if prima is None:
+            raise ValueError(f"No existe la fila de prima de la póliza {fila.poliza_id}")
+        return _a_dominio(fila, list(coberturas), prima)
 
     async def obtener(self, poliza_id: UUID) -> Poliza | None:
         return await self._con_coberturas(await self._s.scalar(select(PolizaFila).where(PolizaFila.poliza_id == poliza_id)))
@@ -155,14 +173,22 @@ class RepositorioPolizasSQL:
             )
         )
         # Flush explícito: sin relationship() ORM declarado entre PolizaFila
-        # y CoberturaFila (solo FK a nivel de columna), el autoflush de
-        # SQLAlchemy no garantiza que el INSERT de "poliza" preceda al de
-        # "cobertura" dentro del mismo flush -- confirmado en pruebas
+        # y CoberturaFila/PrimaFila (solo FK a nivel de columna), el autoflush
+        # de SQLAlchemy no garantiza que el INSERT de "poliza" preceda al de
+        # "cobertura"/"prima" dentro del mismo flush -- confirmado en pruebas
         # funcionales end-to-end reales: violaba cobertura_poliza_id_fkey
         # porque el batch de coberturas se enviaba antes de que la póliza
         # existiera en la base. El flush aquí fuerza el orden correcto.
         await self._s.flush()
         self._agregar_coberturas(poliza)
+        self._s.add(
+            PrimaFila(
+                prima_id=uuid4(),
+                poliza_id=poliza.id,
+                valor=poliza.prima.valor,
+                periodicidad=poliza.prima.periodicidad,
+            )
+        )
 
     def _agregar_coberturas(self, poliza: Poliza) -> None:
         for cobertura in poliza.coberturas:
@@ -180,7 +206,9 @@ class RepositorioPolizasSQL:
         """Persiste el estado mutable de la póliza (ciclo de vida: renovar,
         modificar coberturas, cancelar). Las coberturas se reemplazan por
         completo -- no hay diffing parcial porque modificar_coberturas()
-        siempre sustituye el conjunto entero en el dominio."""
+        siempre sustituye el conjunto entero en el dominio. La prima no
+        cambia en ningún caso de uso actual (renovar/cancelar no la tocan),
+        así que no se actualiza aquí."""
         fila = await self._s.get(PolizaFila, poliza.id)
         if fila is None:
             raise ValueError(f"No existe la fila de la póliza {poliza.id} para actualizar")
@@ -188,6 +216,8 @@ class RepositorioPolizasSQL:
         fila.estado = poliza.estado.value
         fila.motivo_cancelacion = poliza.motivo_cancelacion
         fila.cancelada_en = poliza.cancelada_en
+        fila.cancelada_por = poliza.cancelada_por
+        fila.devolucion_estimada = poliza.devolucion_estimada
 
         existentes = list(
             await self._s.scalars(select(CoberturaFila).where(CoberturaFila.poliza_id == poliza.id))

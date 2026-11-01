@@ -190,7 +190,7 @@ async def test_renovar_poliza_inexistente_lanza_no_encontrado(uow):
 
 async def test_renovar_poliza_cancelada_lanza_transicion_invalida(uow, suscripciones, cobros):
     poliza = await _emitida(uow, suscripciones, cobros)
-    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió")
+    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió", "op-1")
 
     with pytest.raises(TransicionInvalida):
         await casos_uso.renovar_poliza(uow, poliza.id, date(2030, 1, 1))
@@ -218,7 +218,7 @@ async def test_modificar_poliza_inexistente_lanza_no_encontrado(uow):
 
 async def test_modificar_poliza_cancelada_lanza_transicion_invalida(uow, suscripciones, cobros):
     poliza = await _emitida(uow, suscripciones, cobros)
-    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió")
+    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió", "op-1")
 
     with pytest.raises(TransicionInvalida):
         await casos_uso.modificar_poliza(uow, poliza.id, coberturas())
@@ -239,10 +239,11 @@ async def test_modificar_poliza_con_coberturas_invalidas_lanza_regla_de_negocio(
 async def test_cancelar_poliza_cambia_estado_y_publica_evento(uow, almacen, suscripciones, cobros):
     poliza = await _emitida(uow, suscripciones, cobros)
 
-    cancelada = await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió")
+    cancelada = await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió", "op-1")
 
     assert cancelada.estado is EstadoPoliza.CANCELADA
     assert cancelada.motivo_cancelacion == "El cliente lo pidió"
+    assert cancelada.cancelada_por == "op-1"
     assert [e.tipo for e in almacen.eventos][-1] == "PolizaCancelada"
     consultada = await casos_uso.consultar_poliza(uow, poliza.id)
     assert consultada.estado is EstadoPoliza.CANCELADA
@@ -250,15 +251,15 @@ async def test_cancelar_poliza_cambia_estado_y_publica_evento(uow, almacen, susc
 
 async def test_cancelar_poliza_inexistente_lanza_no_encontrado(uow):
     with pytest.raises(NoEncontrado):
-        await casos_uso.cancelar_poliza(uow, uuid4(), "motivo")
+        await casos_uso.cancelar_poliza(uow, uuid4(), "motivo", "op-1")
 
 
 async def test_cancelar_poliza_dos_veces_lanza_transicion_invalida(uow, suscripciones, cobros):
     poliza = await _emitida(uow, suscripciones, cobros)
-    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió")
+    await casos_uso.cancelar_poliza(uow, poliza.id, "El cliente lo pidió", "op-1")
 
     with pytest.raises(TransicionInvalida):
-        await casos_uso.cancelar_poliza(uow, poliza.id, "Otro motivo")
+        await casos_uso.cancelar_poliza(uow, poliza.id, "Otro motivo", "op-2")
 
 
 async def test_firma_exitosa_persiste_constancia_y_emite_la_poliza(uow, almacen, suscripciones, cobros, firma):
