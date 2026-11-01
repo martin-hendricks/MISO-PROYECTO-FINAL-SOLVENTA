@@ -1,6 +1,10 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import android.Manifest
+import android.app.Application
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.test.core.app.ApplicationProvider
+import org.robolectric.Shadows.shadowOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -15,6 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -105,6 +110,30 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Perfil)
         rule.waitForIdle()
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenLocationAllowed_whenTheCatalogOpens_thenAssistanceReturnsToTheCatalog() {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+
+        rule.onNodeWithTag("action_open_catalog").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        rule.onNodeWithText("Taller Norte").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_open_provider_0").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
+        rule.onNodeWithTag("action_continuar_evidencia").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        assertEquals(AsistenciaSitioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_cancelar_asistencia").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
     }
 
     @Test
