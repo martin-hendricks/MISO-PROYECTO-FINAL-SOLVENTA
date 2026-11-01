@@ -134,3 +134,50 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
     assert respuesta.status_code == 503
     assert respuesta.json() == {"status": "unavailable"}
+
+
+# --- HU-61 (back-office): siniestros abiertos de una póliza ------------------------
+
+
+def test_ingerir_con_poliza_id_lo_devuelve_en_el_siniestro(client):
+    poliza_id = str(uuid4())
+
+    respuesta = _ingerir(client, evento_id="evt-con-poliza", poliza_id=poliza_id)
+
+    assert respuesta.json()["siniestro"]["poliza_id"] == poliza_id
+
+
+def test_ingerir_sin_poliza_id_lo_devuelve_null(client):
+    respuesta = _ingerir(client, evento_id="evt-sin-poliza")
+
+    assert respuesta.json()["siniestro"]["poliza_id"] is None
+
+
+def test_siniestros_abiertos_excluye_pagados_e_incluye_solo_la_poliza_pedida(client):
+    poliza_id = str(uuid4())
+    # umbral cumplido -> PAGADO (no cuenta como abierto)
+    _ingerir(client, evento_id="evt-abiertos-pagado", valor="100", poliza_id=poliza_id)
+    # umbral no cumplido -> DECIDIDO (cuenta como abierto)
+    _ingerir(client, evento_id="evt-abiertos-decidido", valor="10", poliza_id=poliza_id)
+    # otra póliza, no debe aparecer
+    _ingerir(client, evento_id="evt-abiertos-otra", valor="10", poliza_id=str(uuid4()))
+
+    respuesta = client.get("/v1/siniestros/abiertos", params={"poliza_id": poliza_id})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["abiertos"] == 1
+    assert [s["evento_id"] for s in cuerpo["siniestros"]] == ["evt-abiertos-decidido"]
+
+
+def test_siniestros_abiertos_sin_siniestros_devuelve_cero(client):
+    respuesta = client.get("/v1/siniestros/abiertos", params={"poliza_id": str(uuid4())})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"abiertos": 0, "siniestros": []}
+
+
+def test_siniestros_abiertos_requiere_poliza_id(client):
+    respuesta = client.get("/v1/siniestros/abiertos")
+
+    assert respuesta.status_code == 422

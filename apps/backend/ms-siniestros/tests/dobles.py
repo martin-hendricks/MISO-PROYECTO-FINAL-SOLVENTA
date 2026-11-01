@@ -2,6 +2,7 @@ from copy import deepcopy
 from uuid import UUID
 
 from app.domain.modelos import (
+    EstadoSiniestro,
     EvaluacionUmbral,
     EventoDominio,
     EventoParametrico,
@@ -38,6 +39,13 @@ class _RepoSiniestros:
 
     async def listar(self, limite):
         return sorted(self._vista().values(), key=lambda s: s.creado_en, reverse=True)[:limite]
+
+    async def listar_abiertos_por_poliza(self, poliza_id):
+        return [
+            deepcopy(s)
+            for s in self._vista().values()
+            if s.poliza_id == poliza_id and s.estado is not EstadoSiniestro.PAGADO
+        ]
 
     async def agregar(self, siniestro):
         self._uow.siniestros_pendientes[siniestro.id] = deepcopy(siniestro)

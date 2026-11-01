@@ -13,8 +13,17 @@ CREATE TABLE ms_siniestros.siniestro (
     evento_id   TEXT        NOT NULL,
     estado      TEXT        NOT NULL,
     creado_en   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- HU-61 (back-office): liga el siniestro a la póliza cuando el origen del
+    -- evento la conoce, para que ms-polizas/bff-web puedan consultar
+    -- siniestros abiertos antes de cancelar (GET /v1/siniestros/abiertos).
+    -- NULL para eventos cuyo origen no la conoce (stub de ingesta).
+    poliza_id   UUID,
     CONSTRAINT uq_siniestro_evento_id UNIQUE (evento_id)
 );
+
+COMMENT ON COLUMN ms_siniestros.siniestro.poliza_id IS 'ref lógica -> ms_polizas.poliza.poliza_id; NULL si el origen del evento no la conoce';
+
+CREATE INDEX ix_siniestro_poliza ON ms_siniestros.siniestro (poliza_id) WHERE poliza_id IS NOT NULL;
 
 -- Modelo único de estados (HU-30): recibido, en_evaluacion, decidido, enrutado, pagado.
 -- Todos los canales (cola del operador, decisión, pago, lista del cliente) leen de aquí.

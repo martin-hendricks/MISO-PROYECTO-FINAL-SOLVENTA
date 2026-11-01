@@ -13,6 +13,7 @@ from .schemas import (
     ErrorSalida,
     EventoParametricoEntrada,
     ResultadoIngestaSalida,
+    SiniestrosAbiertosSalida,
     SiniestroSalida,
 )
 
@@ -41,6 +42,7 @@ async def ingerir_evento_parametrico(
         entrada.umbral,
         entrada.poliza_vigente,
         entrada.monto_pago,
+        entrada.poliza_id,
     )
     if not resultado.procesado:
         response.status_code = status.HTTP_200_OK
@@ -50,6 +52,17 @@ async def ingerir_evento_parametrico(
 @router.get("/siniestros", response_model=list[SiniestroSalida])
 async def listar_siniestros(uow: Uow, limite: Annotated[int, Query(ge=1, le=100)] = 20):
     return [SiniestroSalida.desde(s) for s in await casos_uso.listar_siniestros(uow, limite)]
+
+
+# Prefijo literal antes de "/siniestros/{siniestro_id}": mismo motivo que
+# ms-polizas documenta en /numero/{numero} (FastAPI resuelve rutas en orden
+# de registro; "abiertos" no debe intentarse parsear como UUID).
+@router.get("/siniestros/abiertos", response_model=SiniestrosAbiertosSalida)
+async def listar_siniestros_abiertos(uow: Uow, poliza_id: UUID):
+    """HU-61 (back-office): usado por ms-polizas/bff-web antes de cancelar
+    una póliza, solo como dato informativo -- no bloquea la cancelación."""
+    siniestros = await casos_uso.listar_siniestros_abiertos_de_poliza(uow, poliza_id)
+    return SiniestrosAbiertosSalida(abiertos=len(siniestros), siniestros=[SiniestroSalida.desde(s) for s in siniestros])
 
 
 @router.get("/siniestros/{siniestro_id}", response_model=SiniestroSalida, responses=ERRORES)

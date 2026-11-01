@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 
@@ -21,6 +22,16 @@ def test_siniestro_recibido_queda_con_historial_y_origen():
     assert siniestro.estado is EstadoSiniestro.RECIBIDO
     assert len(siniestro.historial) == 1
     assert siniestro.historial[0].origen == "api"
+
+
+def test_siniestro_recibido_sin_poliza_id_queda_none():
+    assert Siniestro.recibir("evt-1", origen="api").poliza_id is None
+
+
+def test_siniestro_recibido_con_poliza_id_la_conserva():
+    poliza_id = uuid4()
+
+    assert Siniestro.recibir("evt-1", origen="api", poliza_id=poliza_id).poliza_id == poliza_id
 
 
 def test_transicion_valida_deja_traza_con_marca_de_tiempo_y_origen():

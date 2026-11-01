@@ -65,3 +65,17 @@ async def test_cambiar_estado_persiste_historial(uow, adaptador_desembolso):
     releido = await casos_uso.consultar_siniestro(uow, resultado.siniestro.id)
     assert releido.estado is EstadoSiniestro.ENRUTADO
     assert any(t.origen == "operador-it" for t in releido.historial)
+
+
+async def test_siniestros_abiertos_de_poliza_persisten_y_excluyen_pagados(uow, adaptador_desembolso):
+    poliza_id = uuid4()
+    abierto = await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, f"it-abierto-{uuid4()}", Decimal("10"), Decimal("80"), True, Decimal("1"), poliza_id
+    )  # decidido (umbral no cumplido) -> abierto
+    await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, f"it-pagado-{uuid4()}", Decimal("100"), Decimal("80"), True, Decimal("1"), poliza_id
+    )  # pagado -> no cuenta como abierto
+
+    abiertos = await casos_uso.listar_siniestros_abiertos_de_poliza(uow, poliza_id)
+
+    assert [s.id for s in abiertos] == [abierto.siniestro.id]
