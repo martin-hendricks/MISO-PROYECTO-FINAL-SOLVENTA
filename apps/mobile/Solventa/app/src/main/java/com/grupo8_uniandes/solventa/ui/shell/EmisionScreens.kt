@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,8 +28,6 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 @Composable
 fun EmisionEnCursoScreen(
-    onFinished: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") offerId: String = "",
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -41,19 +40,22 @@ fun EmisionEnCursoScreen(
     ) {
         SolventaStatusMark(status = SolventaStatus.Processing)
         Text(
+            text = stringResource(R.string.issuing_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
             text = stringResource(R.string.issuing_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("emision_body"),
-        )
-        SolventaButton(
-            text = stringResource(R.string.action_continue_issued),
-            style = SolventaButtonStyle.Filled,
-            onClick = onFinished,
-            modifier = Modifier.fillMaxWidth(),
-            testTag = "action_finish_issuing",
         )
     }
 }
@@ -123,6 +125,7 @@ fun SuscripcionRechazadaScreen(
     onUnderstood: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    BackHandler(onBack = onHome)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -132,6 +135,16 @@ fun SuscripcionRechazadaScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         SolventaStatusMark(status = SolventaStatus.Error)
+        Text(
+            text = stringResource(R.string.rejection_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Text(
             text = stringResource(R.string.rejection_heading),
             fontFamily = HankenGrotesk,

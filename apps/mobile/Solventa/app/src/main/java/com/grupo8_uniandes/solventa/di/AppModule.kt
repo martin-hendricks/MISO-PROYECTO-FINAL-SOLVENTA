@@ -10,9 +10,14 @@ import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
+import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -40,6 +45,7 @@ import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
+import com.grupo8_uniandes.solventa.policy.IssuanceViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
 import com.grupo8_uniandes.solventa.ui.login.BiometricGate
@@ -65,7 +71,11 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<SignupRepository> { get<BffRuntime>().signup }
     single<OfferRepository> { get<BffRuntime>().offer }
     single<IssuanceRepository> { get<BffRuntime>().issuance }
+    single<PolicyMemory> { get<BffRuntime>().memory }
+    single { AcceptOffer(get()) }
     single<ClaimRepository> { get<BffRuntime>().claim }
+    single<ClaimHold> { get<BffRuntime>().claimHold }
+    single { OpenClaimNotice(get(), get()) }
     single<PaymentRepository> { get<BffRuntime>().payment }
     single<MortgageRepository> { get<BffRuntime>().mortgage }
     single<NoticeRepository> { get<BffRuntime>().notices }
@@ -109,9 +119,11 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     viewModel { (cotizacionId: String, region: Region) ->
         OfferViewModel(get(), cotizacionId, region)
     }
-    viewModel { PolizasViewModel(get()) }
-    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero) }
+    viewModel { PolizasViewModel(get(), get()) }
+    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get()) }
+    viewModel { (offerId: String) -> IssuanceViewModel(get(), offerId) }
     viewModel { SiniestrosViewModel(get()) }
+    viewModel { AvisoSiniestroViewModel(get()) }
 }
 
 fun startSolventaKoin(context: Context) {

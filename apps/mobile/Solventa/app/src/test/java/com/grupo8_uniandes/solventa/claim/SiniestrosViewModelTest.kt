@@ -55,6 +55,7 @@ class SiniestrosViewModelTest {
                 SiniestrosScreen(
                     claims = listOf(publishedRow()),
                     onOpenClaim = { opened += it },
+                    onOpenCatalog = {},
                 )
             }
         }
@@ -82,6 +83,7 @@ class SiniestrosViewModelTest {
                     claims = viewModel.state.value.claims,
                     failed = viewModel.state.value.phase == ClaimsPhase.Failed,
                     onOpenClaim = {},
+                    onOpenCatalog = {},
                 )
             }
         }
@@ -94,7 +96,7 @@ class SiniestrosViewModelTest {
         var answer: StandInAnswer<List<ClaimSummary>> = StandInAnswer.Ready(listOf(publishedRow()))
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
             },
@@ -114,7 +116,7 @@ class SiniestrosViewModelTest {
         var calls = 0
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> {
                     calls += 1
@@ -132,6 +134,31 @@ class SiniestrosViewModelTest {
         assertEquals("SIN-441", viewModel.state.value.claims.single().siniestroId)
     }
 
+    @Test
+    fun givenTheReviewSet_whenLoaded_thenEachClaimKeepsItsStatusWords() {
+        val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Ready(reviewRows())))
+
+        assertEquals(ClaimsPhase.Ready, viewModel.state.value.phase)
+        assertEquals(listOf("SIN-441", "SIN-220", "SIN-P01"), viewModel.state.value.claims.map { it.siniestroId })
+        assertEquals("En evaluación", viewModel.state.value.claims[0].statusWords())
+        assertEquals("Pagado", viewModel.state.value.claims[1].statusWords())
+        assertEquals("Pago automático · pagado", viewModel.state.value.claims[2].statusWords())
+        viewModel.openClaim("SIN-441")
+        assertEquals("SIN-441", viewModel.state.value.openedClaimId)
+    }
+
+    private fun reviewRows() = listOf(
+        ClaimSummary("SIN-441", "Protección de dispositivo", "pantalla rota", ClaimStatus.EN_EVALUACION),
+        ClaimSummary("SIN-220", "Protección de dispositivo", "hurto", ClaimStatus.PAGADO),
+        ClaimSummary(
+            "SIN-P01",
+            "Clima y vuelos",
+            "retraso de vuelo",
+            ClaimStatus.PAGADO,
+            estadoTexto = "Pago automático · pagado",
+        ),
+    )
+
     private fun publishedRow() = ClaimSummary(
         siniestroId = "SIN-441",
         ramo = "Protección de dispositivo",
@@ -140,7 +167,7 @@ class SiniestrosViewModelTest {
     )
 
     private fun scripted(answer: StandInAnswer<List<ClaimSummary>>) = object : ClaimRepository {
-        override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+        override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
         override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
     }

@@ -1,12 +1,14 @@
 package com.grupo8_uniandes.solventa.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -171,6 +173,28 @@ class ShellComponentTest {
         assertEquals(32.dp, SolventaSpacing.s32)
         assertEquals(40.dp, SolventaSpacing.s40)
         assertEquals(64.dp, SolventaSpacing.s64)
+    }
+
+    @Test
+    fun givenTheIdentityMark_whenTopBarShows_thenTheMarkStaysAndBackStillWorks() {
+        var backs = 0
+        rule.setContent {
+            SolventaTheme {
+                SolventaTopBar(
+                    title = "Oferta",
+                    showBack = true,
+                    onBack = { backs += 1 },
+                    modifier = Modifier,
+                    titleStyle = MaterialTheme.typography.titleMedium,
+                    minHeight = 48.dp,
+                    showIdentityMark = true,
+                )
+            }
+        }
+        rule.onNodeWithTag("mortgage_identity_mark").assertIsDisplayed()
+        rule.onNodeWithTag("mortgage_identity_mark").assertHasNoClickAction()
+        rule.onNodeWithTag("action_volver").performClick()
+        assertEquals(1, backs)
     }
 
     @Test
