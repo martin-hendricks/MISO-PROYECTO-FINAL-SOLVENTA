@@ -20,6 +20,7 @@ import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,18 @@ class CustomerNavHostTest {
         }
 
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenOrigination_whenTheOfferIsAccepted_thenTheExistingIssuanceRouteIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
+        assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
     }
 
     @Test
