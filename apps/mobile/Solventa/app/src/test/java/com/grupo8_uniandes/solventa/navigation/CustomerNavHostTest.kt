@@ -66,6 +66,7 @@ class CustomerNavHostTest {
                     contentPadding = PaddingValues(8.dp),
                     modifier = Modifier,
                     startDestination = PerfilRoute,
+                    originationActive = true,
                 )
             }
         }
@@ -233,6 +234,13 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenAPushThatIsNotThePayment_whenItArrives_thenInicioStays() {
+        show(paymentPush = OpenParametricPayment.reviewPush().copy(titulo = "Otro aviso"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
     fun givenAnExpiryPush_whenItArrives_thenTheExpiryNoticeOpens() {
         val holder = arrayOfNulls<NavHostController>(1)
         val published = decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE)!!.toNotice()
@@ -256,6 +264,15 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         assertEquals(AvisoRenovacionRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
         rule.onNodeWithTag("screen_aviso_renovacion").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnotherClaim_whenOpened_thenTheListStays() {
+        show(start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
     }
 
     @Test
