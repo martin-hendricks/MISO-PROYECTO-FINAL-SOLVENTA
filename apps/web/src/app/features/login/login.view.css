@@ -157,6 +157,19 @@ button:disabled {
   background: transparent;
 }
 
+a.text {
+  padding: 14px 24px;
+  border-radius: 9999px;
+  font-weight: 500;
+  line-height: 21px;
+  text-decoration: none;
+}
+
+a.text:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: 2px;
+}
+
 footer {
   display: flex;
   align-items: center;

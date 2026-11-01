@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from app.config import Settings
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
-from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
-from app.domain.oferta import ConsultaOferta, Oferta, oferta_emitida
+from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
+from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
-from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
+from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
+from app.ports.suscripcion import DecisionSuscripcion, MotorSuscripcion
 
 
 @dataclass(frozen=True)
@@ -118,6 +120,8 @@ async def cotizar(
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
+    asesor_id: UUID | None = None,
+    cliente_ref: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
     flujo de recibir_solicitud, sin exigir una segunda llamada."""
@@ -128,7 +132,16 @@ async def cotizar(
             return RegistroOferta(existente, oferta_existente, creada=False)
 
     solicitud = SolicitudCotizacion.crear(
-        idempotency_key, usuario_id, socio_id, consentimiento_id, producto, canal, datos_riesgo, catalogo
+        idempotency_key,
+        usuario_id,
+        socio_id,
+        consentimiento_id,
+        producto,
+        canal,
+        datos_riesgo,
+        catalogo,
+        asesor_id=asesor_id,
+        cliente_ref=cliente_ref,
     )
     # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
     # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
@@ -178,3 +191,109 @@ async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -
     if solicitud is None or oferta is None:
         raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
+
+
+async def reconsultar_oferta_por_id(uow: FabricaUnidadDeTrabajo, oferta_id: UUID) -> ReconsultaOferta:
+    """Igual que reconsultar_oferta, pero busca por el id de la Oferta en vez
+    de por el id de la SolicitudCotizacion ("cotizacion_id"). ms-polizas solo
+    guarda oferta_id (no cotizacion_id) en la póliza emitida -- este camino
+    es lo que permite al BFF resolver el producto real de una póliza ya
+    emitida a partir de ese único dato (ver GET /v1/cotizaciones/por-oferta/
+    {oferta_id})."""
+    async with uow() as tx:
+        oferta = await tx.ofertas.obtener(oferta_id)
+        solicitud = await tx.solicitudes.obtener(oferta.solicitud_id) if oferta is not None else None
+    if oferta is None or solicitud is None:
+        raise NoEncontrado(f"Oferta {oferta_id} no existe")
+    return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
+
+
+@dataclass(frozen=True)
+class PendienteAsesor:
+    solicitud: SolicitudCotizacion
+    consulta: ConsultaOferta
+
+
+@dataclass(frozen=True)
+class PaginaPendientes:
+    items: list[PendienteAsesor]
+    pagina: int
+    tamano: int
+    hay_mas: bool
+
+
+async def listar_cotizaciones_asesor(
+    uow: FabricaUnidadDeTrabajo,
+    asesor_id: UUID,
+    estados: frozenset[EstadoSolicitud],
+    incluir_vencidas: bool,
+    pagina: int,
+    tamano: int,
+) -> PaginaPendientes:
+    """HU-163: lectura pura de las cotizaciones que creó el asesor. Las vencidas se
+    excluyen en la consulta salvo que se pidan; cuando se incluyen, ConsultaOferta las
+    marca con el mismo criterio de HU-7. Se pide una fila de más para saber si hay
+    otra página sin un COUNT."""
+    ahora = datetime.now(UTC)
+    async with uow() as tx:
+        filas = await tx.solicitudes.listar_por_asesor(
+            asesor_id,
+            estados,
+            None if incluir_vencidas else ahora,
+            (pagina - 1) * tamano,
+            tamano + 1,
+        )
+    items = [PendienteAsesor(s, ConsultaOferta.desde(o, ahora)) for s, o in filas[:tamano]]
+    return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
+
+
+@dataclass(frozen=True)
+class Aceptacion:
+    solicitud: SolicitudCotizacion
+    oferta: Oferta
+    suscripcion: DecisionSuscripcion
+    creada: bool
+
+
+async def _registrar_aceptacion(
+    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, aceptacion_key: str
+) -> tuple[SolicitudCotizacion, Oferta, bool]:
+    async with uow() as tx:
+        solicitud = await tx.solicitudes.obtener(cotizacion_id)
+        oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
+        if solicitud is None or oferta is None:
+            raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+        if solicitud.aceptacion_key == aceptacion_key:
+            return solicitud, oferta, False
+
+        solicitud.aceptar(oferta, aceptacion_key)
+        try:
+            await tx.solicitudes.registrar_aceptacion(solicitud)
+            await tx.outbox.agregar(oferta_aceptada(solicitud, oferta))
+            await tx.confirmar()
+            return solicitud, oferta, True
+        except AceptacionConcurrente:
+            pass
+
+    async with uow() as tx:
+        ganadora = await tx.solicitudes.obtener(cotizacion_id)
+    if ganadora.aceptacion_key != aceptacion_key:
+        raise ReglaDeNegocioViolada("oferta_ya_usada", f"La cotización {cotizacion_id} ya fue aceptada")
+    return ganadora, oferta, False
+
+
+async def aceptar_oferta(
+    uow: FabricaUnidadDeTrabajo,
+    suscripciones: MotorSuscripcion,
+    cotizacion_id: UUID,
+    aceptacion_key: str,
+    perfil_id: UUID,
+    score: Decimal,
+) -> Aceptacion:
+    """HU-12: idempotente por cotizacionId + Idempotency-Key. La misma clave devuelve la
+    aceptación original; otra clave sobre una cotización aceptada es oferta_ya_usada.
+    La aceptación se confirma antes de encadenar HU-13: si ms-suscripcion falla, el
+    reintento con la misma clave retoma la decisión sin volver a aceptar."""
+    solicitud, oferta, creada = await _registrar_aceptacion(uow, cotizacion_id, aceptacion_key)
+    decision = await suscripciones.evaluar(solicitud.id, perfil_id, score)
+    return Aceptacion(solicitud, oferta, decision, creada)

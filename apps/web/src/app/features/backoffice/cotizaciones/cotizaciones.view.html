@@ -1,0 +1,140 @@
+<section
+  data-testid="section-cotizaciones"
+  [attr.data-state]="allowed ? vm.status() : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.cotizaciones.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <div class="page-head">
+      <div>
+        <h1>{{ 'backoffice.cotizaciones.title' | translate }}</h1>
+        <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
+      </div>
+      <a class="filled" routerLink="/cms/cotizaciones/nueva" data-testid="nueva-cotizacion">{{
+        'backoffice.cotizacion.nueva' | translate
+      }}</a>
+    </div>
+
+    <div class="toolbar">
+      <label>
+        <input
+          type="checkbox"
+          data-testid="cotizaciones-vencidas"
+          [checked]="vm.incluirVencidas()"
+          (change)="vm.toggleVencidas()"
+        />
+        {{ 'backoffice.cotizaciones.mostrarVencidas' | translate }}
+      </label>
+    </div>
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="cotizaciones-loading">
+          {{ 'backoffice.cotizaciones.loading' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="cotizaciones-error">
+          <p>{{ 'backoffice.cotizaciones.error.body' | translate }}</p>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="cotizaciones-retry"
+            (click)="vm.load()"
+          >
+            {{ 'backoffice.cotizaciones.error.retry' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <div class="empty-state" data-testid="cotizaciones-empty">
+          <h2>{{ 'backoffice.cotizaciones.empty.title' | translate }}</h2>
+          <p>{{ 'backoffice.cotizaciones.empty.body' | translate }}</p>
+          <a
+            class="filled"
+            routerLink="/cms/cotizaciones/nueva"
+            data-testid="cotizaciones-empty-cta"
+            >{{ 'backoffice.cotizacion.nueva' | translate }}</a
+          >
+        </div>
+      }
+      @default {
+        @if (vm.polizasNoVerificadas()) {
+          <p class="aviso" role="status" data-testid="cotizaciones-aviso">
+            {{ 'backoffice.cotizaciones.aviso.polizasNoDisponible' | translate }}
+          </p>
+        }
+        <table data-testid="cotizaciones-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.cliente' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.ramo' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.prima' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.estado' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.creadaEn' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.venceEn' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.acciones' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cotizacion of vm.items(); track cotizacion.cotizacionId) {
+              <tr
+                [attr.data-testid]="'cotizacion-' + cotizacion.cotizacionId"
+                [attr.data-vencida]="cotizacion.vencida"
+              >
+                <th scope="row" class="mono">{{ cotizacion.clienteRef }}</th>
+                <td>{{ cotizacion.ramo }}</td>
+                <td class="mono">{{ cotizacion.prima | svMoney: cotizacion.moneda }}</td>
+                <td>
+                  <span class="badge" [attr.data-estado]="cotizacion.estado">{{
+                    'backoffice.cotizaciones.estado.' + cotizacion.estado | translate
+                  }}</span>
+                  @if (cotizacion.vencida) {
+                    <span class="badge" data-estado="vencida">{{
+                      'backoffice.cotizaciones.vencida' | translate
+                    }}</span>
+                  }
+                </td>
+                <td class="mono">{{ cotizacion.creadaEn | svDate }}</td>
+                <td class="mono">{{ cotizacion.venceEn | svDate }}</td>
+                <td>
+                  @if (!cotizacion.vencida) {
+                    <a
+                      class="text"
+                      [routerLink]="['/cms/cotizaciones', cotizacion.cotizacionId, 'emision']"
+                      [attr.data-testid]="'continuar-' + cotizacion.cotizacionId"
+                      >{{ 'backoffice.cotizaciones.continuar' | translate }}</a
+                    >
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <nav class="pager">
+          <button
+            type="button"
+            class="outlined"
+            data-testid="cotizaciones-prev"
+            [disabled]="vm.pagina() === 1"
+            (click)="vm.previous()"
+          >
+            {{ 'backoffice.cotizaciones.anterior' | translate }}
+          </button>
+          <span class="mono">{{ vm.pagina() }}</span>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="cotizaciones-next"
+            [disabled]="!vm.hayMas()"
+            (click)="vm.next()"
+          >
+            {{ 'backoffice.cotizaciones.siguiente' | translate }}
+          </button>
+        </nav>
+      }
+    }
+  }
+</section>

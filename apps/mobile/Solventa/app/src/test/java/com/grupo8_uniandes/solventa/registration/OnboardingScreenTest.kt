@@ -3,6 +3,9 @@ package com.grupo8_uniandes.solventa.registration
 import android.Manifest
 import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.media.ExifInterface
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
@@ -15,11 +18,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -31,10 +39,12 @@ import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingUiState
 import com.grupo8_uniandes.solventa.ui.registration.captureUri
+import com.grupo8_uniandes.solventa.ui.registration.decodeDocumentPhoto
 import com.grupo8_uniandes.solventa.ui.registration.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -42,6 +52,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -61,13 +72,27 @@ class OnboardingScreenTest {
         show(OnboardingUiState())
 
         rule.onNodeWithText("Solventa").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.").assertIsDisplayed()
         rule.onNodeWithText("Como aparece en tu documento").assertIsDisplayed()
         rule.onNodeWithText("El mismo que usarás para ingresar").assertIsDisplayed()
+        rule.onNodeWithText("Mínimo 8 caracteres").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Misma que usarás para ingresar").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("action_continuar").assertIsNotEnabled()
-        rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("action_ya_tengo_cuenta").assertIsDisplayed()
+        rule.onNodeWithTag("preview_documento", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun givenAReturnVisit_whenShown_thenTheStepLineIsHidden() {
+        show(OnboardingUiState(), showStep = false)
+
+        rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertDoesNotExist()
     }
 
     @Test
@@ -78,6 +103,7 @@ class OnboardingScreenTest {
         var type by mutableStateOf("")
         var number by mutableStateOf("")
         var password by mutableStateOf("")
+        var passwordConfirm by mutableStateOf("")
         rule.setContent {
             SolventaTheme {
                 OnboardingScreen(
@@ -88,6 +114,7 @@ class OnboardingScreenTest {
                         documentType = type,
                         documentNumber = number,
                         password = password,
+                        passwordConfirm = passwordConfirm,
                     ),
                     onGivenName = { name = it },
                     onSurnames = { surnames = it },
@@ -95,6 +122,7 @@ class OnboardingScreenTest {
                     onDocumentType = { type = it },
                     onDocumentNumber = { number = it },
                     onPassword = { password = it },
+                    onPasswordConfirm = { passwordConfirm = it },
                     onPhotoAttached = {},
                     onPhotoDeclined = {},
                     onContinue = {},
@@ -106,16 +134,71 @@ class OnboardingScreenTest {
         rule.onNodeWithTag("field_nombre").performTextInput("Camila")
         rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithTag("field_tipo").performTextInput("CC")
+        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
+        rule.onNodeWithText("CC").performClick()
         rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret")
+        rule.onNodeWithTag("field_contrasena").performTextInput("secret12")
+        rule.onNodeWithTag("field_confirmar").performTextInput("secret12")
 
         assertEquals("Camila", name)
         assertEquals("Restrepo", surnames)
         assertEquals("camila@correo.com", email)
         assertEquals("CC", type)
         assertEquals("1023456789", number)
-        assertEquals("secret", password)
+        assertEquals("secret12", password)
+        assertEquals("secret12", passwordConfirm)
+        rule.onNode(
+            hasTestTag("field_contrasena") and
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.Password),
+        ).assertExists()
+        assertEquals("••••••••", rule.onNodeWithTag("field_contrasena").shownText())
+        rule.onNodeWithTag("solventa_select_closed").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenInjectedJpeg_whenUpdated_thenLabelAndThumbnailReplace() {
+        var hasPhoto by mutableStateOf(false)
+        var attached: ByteArray? = null
+        val first = jpeg(Color.RED)
+        val second = jpeg(Color.BLUE)
+        rule.setContent {
+            SolventaTheme {
+                OnboardingScreen(
+                    state = OnboardingUiState(hasPhoto = hasPhoto),
+                    onGivenName = {},
+                    onSurnames = {},
+                    onEmail = {},
+                    onDocumentType = {},
+                    onDocumentNumber = {},
+                    onPassword = {},
+                    onPasswordConfirm = {},
+                    onPhotoAttached = {
+                        attached = it
+                        hasPhoto = true
+                    },
+                    onPhotoDeclined = { hasPhoto = false },
+                    onContinue = {},
+                    onExistingAccount = {},
+                )
+            }
+        }
+
+        OnboardingPhotoInjector.next = first
+        rule.onNodeWithTag("action_foto").performScrollTo().performClick()
+        rule.waitForIdle()
+        assertTrue(first.contentEquals(attached))
+        rule.onNodeWithTag("preview_documento", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        rule.onNodeWithContentDescription("Foto del documento").assertIsDisplayed()
+        rule.onAllNodesWithText("Una sola cara, sin flash").assertCountEquals(0)
+
+        OnboardingPhotoInjector.next = second
+        rule.onNodeWithTag("action_foto").performClick()
+        rule.waitForIdle()
+        assertFalse(first.contentEquals(attached))
+        assertTrue(second.contentEquals(attached))
+        rule.onNodeWithTag("preview_documento", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -129,9 +212,9 @@ class OnboardingScreenTest {
         )
 
         rule.onNodeWithText("El correo no es válido.").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("action_continuar").performScrollTo().assertIsEnabled()
+        rule.onNodeWithTag("action_continuar").assertIsEnabled()
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+        rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
         assertEquals(1, continued)
         assertEquals(1, existing)
     }
@@ -263,6 +346,33 @@ class OnboardingScreenTest {
         }
     }
 
+    private fun jpeg(color: Int): ByteArray {
+        val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(color)
+        val stream = ByteArrayOutputStream()
+        check(bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream))
+        return stream.toByteArray()
+    }
+
+    @Test
+    fun givenRotatedJpeg_whenDecoded_thenSidesSwap() {
+        val wide = Bitmap.createBitmap(8, 4, Bitmap.Config.ARGB_8888)
+        wide.eraseColor(Color.BLUE)
+        val file = File(rule.activity.cacheDir, "oriented.jpg")
+        file.outputStream().use { wide.compress(Bitmap.CompressFormat.JPEG, 100, it) }
+        val exif = ExifInterface(file.absolutePath)
+        exif.setAttribute(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_ROTATE_90.toString(),
+        )
+        exif.saveAttributes()
+
+        val decoded = decodeDocumentPhoto(file.readBytes())
+
+        assertEquals(4, decoded?.width)
+        assertEquals(8, decoded?.height)
+    }
+
     private fun seedCapture(bytes: ByteArray) {
         val file = File(rule.activity.cacheDir, "registration/capture.jpg")
         file.parentFile?.mkdirs()
@@ -277,10 +387,12 @@ class OnboardingScreenTest {
         onDocumentType: (String) -> Unit = {},
         onDocumentNumber: (String) -> Unit = {},
         onPassword: (String) -> Unit = {},
+        onPasswordConfirm: (String) -> Unit = {},
         onPhotoAttached: (ByteArray) -> Unit = {},
         onPhotoDeclined: () -> Unit = {},
         onContinue: () -> Unit = {},
         onExistingAccount: () -> Unit = {},
+        showStep: Boolean = true,
         registry: ActivityResultRegistry? = null,
     ) {
         rule.setContent {
@@ -294,10 +406,12 @@ class OnboardingScreenTest {
                         onDocumentType = onDocumentType,
                         onDocumentNumber = onDocumentNumber,
                         onPassword = onPassword,
+                        onPasswordConfirm = onPasswordConfirm,
                         onPhotoAttached = onPhotoAttached,
                         onPhotoDeclined = onPhotoDeclined,
                         onContinue = onContinue,
                         onExistingAccount = onExistingAccount,
+                        showStep = showStep,
                         modifier = Modifier,
                     )
                 }
@@ -311,7 +425,8 @@ class OnboardingScreenTest {
         email = email,
         documentType = "CC",
         documentNumber = "1023456789",
-        password = "secret",
+        password = "secret12",
+        passwordConfirm = "secret12",
         hasPhoto = true,
         emailError = emailError,
         continuarEnabled = true,
@@ -334,6 +449,9 @@ private fun RegistryHost(
         )
     }
 }
+
+private fun androidx.compose.ui.test.SemanticsNodeInteraction.shownText(): String =
+    fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
 private class ImmediateRegistry(
     private val permissionGranted: Boolean,

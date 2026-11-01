@@ -19,6 +19,8 @@ class Revocacion(BaseModel):
 
 @router.post("")
 def alta(body: Alta) -> dict:
+    # ms-identidad exige contrasena. El alta móvil trae pruebaDeVida y no
+    # trae contraseña, así que no se inventa una ni se llama al núcleo.
     if body.pruebaDeVida not in {"ok", "no"}:
         raise HTTPException(status_code=400, detail="Prueba de vida no permitida")
     return body.model_dump()

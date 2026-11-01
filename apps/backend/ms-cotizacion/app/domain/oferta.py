@@ -79,3 +79,18 @@ def oferta_emitida(oferta: Oferta) -> EventoDominio:
             "factor_riesgo_origen": oferta.factor_riesgo_origen.value,
         },
     )
+
+
+def oferta_aceptada(solicitud: SolicitudCotizacion, oferta: Oferta) -> EventoDominio:
+    return EventoDominio(
+        tipo="OfertaAceptada",
+        agregado_id=oferta.id,
+        payload={
+            "oferta_id": str(oferta.id),
+            "solicitud_id": str(solicitud.id),
+            "usuario_id": str(solicitud.usuario_id),
+            "prima": str(oferta.prima),
+            "moneda": oferta.moneda,
+            "aceptada_en": solicitud.aceptada_en.isoformat(),
+        },
+    )

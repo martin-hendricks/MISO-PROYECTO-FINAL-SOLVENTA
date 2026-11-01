@@ -5,7 +5,9 @@
 # p99 <= 800 ms. Comparte Node Group A (c6i.xlarge, taint dedicado) con
 # ms-cotizacion pero con curva de carga independiente, por eso su HPA es algo
 # menos agresivo que el de cotización. Consume los secretos de open_finance y
-# open_data.
+# open_data, y DATABASE_URL de DBCompartida (no tiene instancia RDS propia,
+# igual que ms-cotizacion -- ver module.rds_compartida en el environment
+# "minimo").
 
 nombre: ms-perfilamiento
 
@@ -14,19 +16,31 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 3
+# Diseño original: 3. 1 para el ambiente mínimo/demo, donde el Node Group A
+# corre en t3.small (2 vCPU/2GB, free-tier-eligible) -- no cabrían 3 réplicas
+# de 2Gi cada una en un solo nodo así de chico. Ver también hpa.minReplicas
+# y recursos.requests más abajo, y node_group_a_instance_types en
+# infra/terraform/environments/minimo/variables.tf.
+replicas: 1
 grupoEscalado: "a"
 
 puerto: 8080
 puertoMetricas: 9090
 
+# Diseño original: 1000m/2Gi requests, 2000m/3Gi limits (c6i.xlarge, 4
+# vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES
+# por nodo, con overhead de kubelet/CNI/sistema -- un pod de 2Gi no cabría
+# (confirmado en el cluster: FailedScheduling por "Insufficient memory" y
+# "max node group size reached" simultáneos). Bajado a algo que deje margen
+# real en un nodo de 2GB, igual que ms-cotizacion; subir junto con
+# node_group_a_instance_types si hace falta representar carga real.
 recursos:
   requests:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "250m"
+    memory: "400Mi"
   limits:
-    cpu: "2000m"
-    memory: "3Gi"
+    cpu: "500m"
+    memory: "700Mi"
 
 probes:
   liveness:
@@ -46,7 +60,9 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 3
+  # Diseño original: 3, acorde al fan-out de EC-LAT-03/04. 1 para el
+  # ambiente mínimo/demo, acorde a replicas: 1 más arriba.
+  minReplicas: 1
   maxReplicas: 12
   targetCPU: 60
   targetMemory: 70
@@ -78,14 +94,23 @@ externalSecrets:
       claves:
         - clientId
         - clientSecret
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-perfilamiento-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
   nombre: ms-perfilamiento
   roleArn: ""  # No requiere IRSA: consume Redis (CacheOD) y secretos vía External Secrets
 
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado (rollout, actualización de nodo), porque
+# nunca se podría satisfacer con una sola réplica total -- y no hay
+# redundancia real que proteger de todas formas. Diseño original: habilitado
+# con minAvailable: 2, acorde a replicas: 3; reactivar junto con eso.
 podDisruptionBudget:
-  habilitado: true
+  habilitado: false
   minAvailable: 2
 
 topologySpread:
@@ -101,3 +126,8 @@ variablesEntorno:
     valor: "a"
   - nombre: FANOUT_TIMEOUT_MS
     valor: "300"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-perfilamiento-db
+    claveSecreto: database_url

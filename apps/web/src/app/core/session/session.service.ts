@@ -12,7 +12,7 @@ export interface Credentials {
   role?: Role;
 }
 
-interface TokenPair {
+export interface TokenPair {
   accessToken: string;
   refreshToken: string;
   expiraEn: number;
@@ -87,15 +87,18 @@ export class SessionService {
       contrasena: credentials.password,
       ...(credentials.role ? { rol: credentials.role } : {}),
     };
-    return this.http.post<TokenPair>(`${this.baseUrl}/sesion/ingreso`, body).pipe(
-      map((pair) => {
-        if (!readClaims(pair.accessToken)) {
-          throw new Error('Token ilegible');
-        }
-        this.pair.set(pair);
-        persist(pair);
-      }),
-    );
+    return this.http
+      .post<TokenPair>(`${this.baseUrl}/sesion/ingreso`, body)
+      .pipe(map((pair) => this.start(pair)));
+  }
+
+  /** Opens the session with a pair the BFF already issued, as the sign-up does. */
+  start(pair: TokenPair): void {
+    if (!readClaims(pair.accessToken)) {
+      throw new Error('Token ilegible');
+    }
+    this.pair.set(pair);
+    persist(pair);
   }
 
   signOut(): void {

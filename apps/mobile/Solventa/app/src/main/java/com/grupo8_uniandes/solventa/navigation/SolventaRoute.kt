@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 data object InicioRoute
 
 @Serializable
-data object CotizacionRoute
+data class CotizacionRoute(val cotizacionId: String = "")
+
+@Serializable
+data class VerOfertaRoute(val cotizacionId: String)
 
 @Serializable
 data object PolizasRoute
@@ -21,7 +24,13 @@ data object SiniestrosRoute
 data object PerfilRoute
 
 @Serializable
-data object EmisionEnCursoRoute
+data class SiniestroDetalleRoute(val claimId: String)
+
+@Serializable
+data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
 data object PolizaEmitidaRoute
+
+@Serializable
+data object SuscripcionRechazadaRoute

@@ -54,7 +54,7 @@ infra/terraform/
 | EKS Node Group AZ-a + réplica AZ-b | `eks` | **Grupo A**: `ms-cotizacion` (MotorRating) + `ms-perfilamiento` (MotorRiesgo), curvas de carga independientes, escalamiento vertical, capacidad ≤ 60 s (EC-ESC-02). **Grupo B**: resto de microservicios, BFFs y adaptadores |
 | `DBPolizas` — RDS PostgreSQL | `rds_polizas` | Redundancia **ACTIVA**: réplica de lectura sirve tráfico, RPO ≤ 30 s (EC-LAT-10). Esquema `ms_polizas` |
 | `DBSiniestros` — RDS PostgreSQL | `rds_siniestros` | Redundancia **PASIVA**: standby Multi-AZ que no sirve tráfico (EC-DISP-06 / EC-DISP-07). Esquema `ms_siniestros` |
-| *(no está en el diagrama)* — RDS PostgreSQL | `rds_compartida` | **Sin redundancia** (solo backups): aloja los 9 esquemas sin instancia propia — `ms_cotizacion`, `ms_identidad`, `ms_consentimiento`, `ms_pagos`, `ms_parametrico`, `ms_perfilamiento`, `ms_socios`, `analitica`, `notificaciones`. Ver nota de instancia única más abajo |
+| *(no está en el diagrama)* — RDS PostgreSQL | `rds_compartida` | **Sin redundancia** (solo backups): aloja los 10 esquemas sin instancia propia — `ms_cotizacion`, `ms_identidad`, `ms_consentimiento`, `ms_pagos`, `ms_parametrico`, `ms_perfilamiento`, `ms_socios`, `analitica`, `notificaciones`, `ms_suscripcion` (este último se agregó el 2026-10-24: el microservicio no existía todavía el 2026-10-01, cuando se fijó la lista original). Ver nota de instancia única más abajo |
 | ElastiCache Redis | `elasticache` | `CacheOF` y `CacheOD`, TTL por fuente |
 | MSK (Kafka) | `msk` | `BusEventos`, `ColaPagos`, `TopicoTelemetria`; contrapresión, retención duradera, grupos de consumidores (EC-ESC-03) |
 | API Gateway, AWS WAF, CloudFront, S3 hosting SPA Angular | `edge` | Borde fuera de la VPC |

@@ -55,5 +55,6 @@ describe('SectionView', () => {
 
     expect(host.querySelector('h1')?.textContent).toContain('Pólizas');
     expect(element('section-pending')).not.toBeNull();
+    expect(element('nueva-cotizacion')).toBeNull();
   });
 });

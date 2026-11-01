@@ -1,0 +1,62 @@
+<header class="top-nav">
+  <p class="brand" data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
+</header>
+<section data-testid="emision" [attr.data-state]="valid ? vm.status() : 'invalid'">
+  @if (!valid) {
+    <div class="empty-state" role="alert" data-testid="emision-invalid">
+      <h2>{{ 'emision.invalid.title' | translate }}</h2>
+      <p>{{ 'emision.invalid.body' | translate }}</p>
+      <a class="outlined" routerLink="/">{{ 'emision.irInicio' | translate }}</a>
+    </div>
+  } @else {
+    @switch (vm.status()) {
+      @case ('issued') {
+        @let poliza = vm.poliza()!;
+        <div data-testid="poliza-emitida">
+          <h1>{{ 'emision.emitida.title' | translate }}</h1>
+          <p class="subtitle">
+            {{ 'emision.emitida.subtitle' | translate: { producto: poliza.producto } }}
+          </p>
+          <article class="card">
+            <p class="mono numero">{{ poliza.numero }}</p>
+            <p class="mono premium">{{ poliza.primaTotal | svMoney: poliza.moneda }}</p>
+            <p class="vigencia">
+              {{ 'polizas.column.vigencia' | translate }}
+              {{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}
+            </p>
+          </article>
+          <div class="actions">
+            <a class="filled" data-testid="ver-poliza" [routerLink]="['/polizas', poliza.numero]">{{
+              'emision.emitida.verPoliza' | translate
+            }}</a>
+            <a class="outlined" data-testid="ir-inicio" routerLink="/">{{
+              'emision.irInicio' | translate
+            }}</a>
+          </div>
+        </div>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="emision-error">
+          <p>{{ 'emision.error.body' | translate }}</p>
+          <button type="button" class="outlined" data-testid="emision-retry" (click)="vm.issue()">
+            {{ 'emision.error.retry' | translate }}
+          </button>
+        </div>
+      }
+      @default {
+        <div data-testid="emision-progreso">
+          <h1>{{ 'emision.progreso.title' | translate }}</h1>
+          <p class="subtitle">{{ 'emision.progreso.subtitle' | translate }}</p>
+          <div
+            class="bar"
+            role="progressbar"
+            [attr.aria-label]="'emision.progreso.title' | translate"
+          >
+            <span></span>
+          </div>
+          <p class="steps" role="status">{{ 'emision.progreso.steps' | translate }}</p>
+        </div>
+      }
+    }
+  }
+</section>

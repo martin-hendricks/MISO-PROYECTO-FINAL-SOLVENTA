@@ -1,11 +1,17 @@
-# ms-identidad — IDP / emisión y validación de JWT (Grupo B)
+# ms-identidad — alta de cuenta y validación de credenciales (SOLV-215)
 #
-# Dependencia transversal: TODOS los demás componentes lo consultan para
-# validar tokens en cada request. Un fallo aquí tira el sistema completo, así
-# que lleva el minReplicas más alto de los servicios "normales" (fuera de
-# cotización/perfilamiento) y un PodDisruptionBudget estricto para que nunca
-# queden menos de 2 réplicas disponibles durante un rollout o un drenado de
-# nodo.
+# No emite ni valida JWT: bff-web sigue siendo el único emisor/validador de
+# tokens de sesión (app/dependencies.py, issue_pair/_decode) -- ver PR #107.
+# ms-identidad solo confirma identidad (hash de contraseña + lookup por
+# email/documento) en dos momentos puntuales: registro y login. Por eso no
+# está en la ruta caliente de cada request del canal web (a diferencia de lo
+# que el placeholder original de este archivo asumía, con JWT_ISSUER propio y
+# el sizing de un IDP crítico) y su sizing es comparable al resto de servicios
+# de Grupo B, no al de un componente transversal.
+#
+# No tiene instancia RDS propia: su esquema (ms_identidad) vive en
+# DBCompartida desde el plan original (infra/terraform/PLAN.md, lista de los
+# 10 esquemas fijada 2026-10-01) -- igual que ms-cotizacion/ms-suscripcion.
 
 nombre: ms-identidad
 
@@ -14,45 +20,52 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 4
+replicas: 2
 grupoEscalado: "b"
 
 puerto: 8080
 puertoMetricas: 9090
 
 recursos:
+  # Bajado de 512Mi/1Gi: con la cuota real de vCPU de la cuenta (16, ver
+  # terraform.tfvars del ambiente minimo), el Node Group B solo puede sostener
+  # 5 nodos t3.small -- los 7 servicios de este grupo en reposo con 512Mi
+  # cada uno dejaban ~95% de memoria reservada sin margen para un rolling
+  # update (confirmado: FailedScheduling "Insufficient memory" en todos los
+  # nodos durante un deploy). 300Mi deja margen real; subir junto con
+  # node_group_b_instance_types si hace falta representar carga real.
   requests:
-    cpu: "400m"
-    memory: "512Mi"
+    cpu: "300m"
+    memory: "300Mi"
   limits:
-    cpu: "1000m"
-    memory: "1Gi"
+    cpu: "800m"
+    memory: "600Mi"
 
 probes:
   liveness:
     path: /health/live
-    initialDelaySeconds: 10
+    initialDelaySeconds: 15
     periodSeconds: 10
   readiness:
     path: /health/ready
-    initialDelaySeconds: 5
+    initialDelaySeconds: 10
     periodSeconds: 5
   startup:
     habilitado: false
 
 hpa:
   habilitado: true
-  minReplicas: 4
-  maxReplicas: 12
-  targetCPU: 60
-  targetMemory: 70
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 65
+  targetMemory: 75
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 15
+      stabilizationWindowSeconds: 60
       policies:
         - type: Percent
-          value: 100
-          periodSeconds: 30
+          value: 50
+          periodSeconds: 60
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
@@ -61,7 +74,13 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-identidad-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -70,14 +89,13 @@ serviceAccount:
 
 podDisruptionBudget:
   habilitado: true
-  minAvailable: 2
+  minAvailable: 1
 
 topologySpread:
   habilitado: true
   maxSkew: 1
 
-variablesEntorno:
-  - nombre: JWT_ISSUER
-    valor: "https://identidad.solventa.internal"
-  - nombre: JWT_ACCESS_TOKEN_TTL_SECONDS
-    valor: "900"
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-identidad-db
+    claveSecreto: database_url

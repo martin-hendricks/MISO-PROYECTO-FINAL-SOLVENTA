@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Generales
+# Generales -- 
 # ---------------------------------------------------------------------------
 
 variable "aws_region" {
@@ -257,8 +257,8 @@ variable "msk_ebs_volume_size" {
 
 variable "kubernetes_version" {
   type        = string
-  description = "Versión de Kubernetes del clúster EKS. 1.31 pasó a extended support el 2025-11-26, lo que agrega un cargo extra por hora de clúster (USE1-AmazonEKS-Hours:extendedSupport, ~$8 en 16h de uso); 1.34 es la más antigua en standard support disponible hoy. Revisar periódicamente: EKS solo mantiene unas pocas versiones recientes en standard support."
-  default     = "1.34"
+  description = "Versión de Kubernetes del clúster EKS. 1.34 pasa a extended support el 2026-12-02 (aviso de AWS Health recibido); 1.35 es la siguiente en standard support, hasta 2027-03-27. Ningún manifiesto de infra/k8s/ usa una apiVersion deprecada entre 1.34 y 1.35 (apps/v1, autoscaling/v2, batch/v1, networking.k8s.io/v1, policy/v1 -- todas estables). Revisar periódicamente: EKS solo mantiene unas pocas versiones recientes en standard support, y quedarse en extended support agrega un cargo extra por hora de clúster (USE1-AmazonEKS-Hours:extendedSupport, ~$8 en 16h de uso en la corrida con 1.31)."
+  default     = "1.35"
 }
 
 variable "eks_endpoint_public_access" {
@@ -375,16 +375,32 @@ variable "alb_routes" {
     priority          = number
   }))
   description = "Target groups + listener rules del ALB interno, uno por servicio. Ver infra/terraform/modules/alb/variables.tf (var.routes) para el detalle completo."
+  #
+  # ms-cotizacion NO está en este mapa a propósito: el canal web solo debe
+  # entrar por bff-web, que habla con ms-cotizacion por red interna del
+  # cluster (Service de Kubernetes, ver MS_COTIZACION_URL en
+  # infra/k8s/values/bff-web.yaml), nunca otra vez a través del ALB/API
+  # Gateway. Exponerlo aquí permitía que cualquiera saltara el BFF y le
+  # pegara directo al núcleo. api-socios sí sigue expuesto porque atiende a
+  # socios externos -- no es parte del canal web.
   default = {
     api-socios = {
       port     = 8080
       paths    = ["/v1/catalogo"]
       priority = 10
     }
-    ms-cotizacion = {
-      port     = 8000
-      paths    = ["/v1/productos", "/v1/cotizaciones"]
-      priority = 20
+    bff-web = {
+      port = 8000
+      # bff-web versiona todas sus rutas bajo /v1 (apps/backend/bff-web/app/main.py,
+      # app.include_router(..., prefix="/v1")).
+      paths = [
+        "/v1/sesion",
+        "/v1/registro",
+        "/v1/cliente",
+        "/v1/asesor",
+        "/v1/operador",
+      ]
+      priority = 30
     }
   }
 }

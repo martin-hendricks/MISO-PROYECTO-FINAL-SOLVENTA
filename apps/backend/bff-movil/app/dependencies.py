@@ -45,20 +45,17 @@ def _decode(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token invalido") from exc
 
 
-def require_customer():
-    async def checker(
-        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-    ) -> dict:
-        if credentials is None:
-            raise HTTPException(status_code=401, detail="Token requerido")
-        payload = _decode(credentials.credentials)
-        if payload.get("typ") != "access":
-            raise HTTPException(status_code=401, detail="Token invalido")
-        if payload.get("rol") != CUSTOMER:
-            raise HTTPException(status_code=403, detail="Rol no autorizado")
-        return payload
-
-    return checker
+async def require_customer(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> dict:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Token requerido")
+    payload = _decode(credentials.credentials)
+    if payload.get("typ") != "access":
+        raise HTTPException(status_code=401, detail="Token invalido")
+    if payload.get("rol") != CUSTOMER:
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+    return payload
 
 
 def refresh_session(refresh_token: str) -> dict:

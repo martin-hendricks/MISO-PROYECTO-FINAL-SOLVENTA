@@ -300,12 +300,17 @@ jobs:
         run: |
           command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
 
+          # ms-cotizacion ya no tiene target group en el ALB (ver
+          # infra/terraform/environments/minimo/variables.tf, alb_routes):
+          # el canal web solo entra por bff-web, que le habla por DNS
+          # interno del cluster. No se resuelve su ARN aquí porque
+          # infra/k8s/platform/target-group-bindings.yaml ya no lo referencia.
           API_SOCIOS_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
             --names solventa-minimo-api-socios-tg \
             --query 'TargetGroups[0].TargetGroupArn' --output text)
-          MS_COTIZACION_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
-            --names solventa-minimo-ms-cotizacion-tg \
+          BFF_WEB_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-bff-web-tg \
             --query 'TargetGroups[0].TargetGroupArn' --output text)
 
-          export API_SOCIOS_TARGET_GROUP_ARN MS_COTIZACION_TARGET_GROUP_ARN
+          export API_SOCIOS_TARGET_GROUP_ARN BFF_WEB_TARGET_GROUP_ARN
           envsubst < infra/k8s/platform/target-group-bindings.yaml | kubectl apply -f -

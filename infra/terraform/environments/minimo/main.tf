@@ -314,6 +314,7 @@ module "github_actions_cd" {
   ecr_repository_arns = values(module.ecr.repository_arns)
   eks_cluster_arn     = module.eks.cluster_arn
   eks_cluster_name    = module.eks.cluster_name
+  spa_kms_key_arn     = module.kms.s3_key_arn
   tags                = var.extra_tags
 }
 

@@ -12,10 +12,21 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 3
+# Diseño original: 3. 1 para el ambiente mínimo/demo: el Grupo B llegó a su
+# límite real de memoria (17 réplicas deseadas entre los 8 servicios,
+# bin-packing imperfecto del scheduler con solo 5-6 nodos t3.small --
+# confirmado con pods en Pending indefinido aun con el sizing de cada pod
+# ya correcto). bff-web es el de mayor footprint individual (384Mi) entre
+# los que seguían en 3 réplicas; bajarlo da el margen real que faltaba sin
+# tocar el sizing por pod. Ver también hpa.minReplicas y
+# podDisruptionBudget más abajo.
+replicas: 1
 grupoEscalado: "b"
 
-puerto: 8080
+# apps/backend/bff-web/Dockerfile expone y arranca uvicorn en 8000 (mismo
+# patrón que ms-cotizacion, no 8080 -- ver el comentario de puerto en
+# infra/k8s/values/ms-cotizacion.yaml para el bug ya encontrado ahí).
+puerto: 8000
 puertoMetricas: 9090
 
 recursos:
@@ -27,12 +38,14 @@ recursos:
     memory: "768Mi"
 
 probes:
+  # bff-web expone un único endpoint /health (apps/backend/bff-web/app/main.py),
+  # sin distinguir liveness de readiness -- mismo patrón que ms-cotizacion.
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:
@@ -40,7 +53,9 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 3
+  # Diseño original: 3. 1 para el ambiente mínimo/demo, acorde a replicas:
+  # 1 más arriba.
+  minReplicas: 1
   maxReplicas: 15
   targetCPU: 65
   targetMemory: 75
@@ -59,25 +74,55 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: bff-web-token
+      # Sin `claves`: se usa dataFrom.extract, que proyecta el JSON del
+      # secreto remoto tal cual -- su única clave ya se llama
+      # SOLVENTA_TOKEN_SECRET (infra/terraform/modules/secrets/main.tf), así
+      # que no hace falta mapear nombres.
 
 serviceAccount:
   crear: true
   nombre: bff-web
   roleArn: ""
 
+# Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
+# CUALQUIER operación de drenado (rollout, actualización de nodo), porque
+# nunca se podría satisfacer con una sola réplica total -- y no hay
+# redundancia real que proteger de todas formas. Diseño original:
+# habilitado con minAvailable: 2, acorde a replicas: 3; reactivar junto
+# con eso.
 podDisruptionBudget:
-  habilitado: true
+  habilitado: false
   minAvailable: 2
 
 topologySpread:
   habilitado: true
   maxSkew: 1
 
+# apps/backend/bff-web/app/ todavía no lee ninguna de estas tres (login y
+# asesor están mockeados en memoria, sin llamar a otros servicios) -- se
+# dejan declaradas como documentación de la integración futura, igual que
+# api-socios ya hace con MS_IDENTIDAD_URL. MS_POLIZAS_URL y MS_IDENTIDAD_URL
+# apuntan a servicios que tampoco están desplegados todavía (no hay
+# Dockerfile ni entrada en alb_routes); no afecta al arranque del pod porque
+# nadie las resuelve aún.
 variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local"
   - nombre: MS_COTIZACION_URL
-    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+    # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
+    # no en el 80 por defecto de HTTP -- ver el mismo fix ya aplicado en
+    # infra/k8s/values/api-socios.yaml.
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: MS_POLIZAS_URL
     valor: "http://ms-polizas.solventa.svc.cluster.local"
+  # TODO: MS_PAGOS_URL, MS_PERFILAMIENTO_URL y MS_SINIESTROS_URL también
+  # faltan aquí (sus clientes ya están conectados en app/clients/ desde PRs
+  # anteriores, pero este values.yaml nunca se actualizó) -- fuera del
+  # alcance de este cambio, que solo agrega la variable que necesita.
+  - nombre: MS_SUSCRIPCION_URL
+    valor: "http://ms-suscripcion.solventa.svc.cluster.local"

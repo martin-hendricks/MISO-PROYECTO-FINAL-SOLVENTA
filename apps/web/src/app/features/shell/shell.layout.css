@@ -1,15 +1,169 @@
+/* Same top bar as the back-office TopNavAdmin, so both portals read as one product. */
 :host {
   display: block;
 }
 
-header {
+.top-nav {
   display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  padding: 1rem 1.5rem;
+  align-items: stretch;
+  gap: 8px;
+  height: 64px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  background: var(--sv-surface-container-low);
 }
 
-nav {
+.brand {
+  align-self: center;
+  margin: 0;
+  color: var(--sv-primary);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.menu-toggle {
+  display: none;
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--sv-on-surface-variant);
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.top-nav-links {
   display: flex;
-  gap: 1rem;
+  margin-left: 24px;
+  gap: 8px;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--sv-on-surface-variant);
+  font-size: 16px;
+  text-decoration: none;
+}
+
+nav a.active {
+  border-bottom-color: var(--sv-primary);
+  color: var(--sv-primary);
+  font-weight: 600;
+}
+
+nav a:focus-visible,
+.cta:focus-visible,
+.sign-out:focus-visible,
+.menu-toggle:focus-visible,
+.menu-close:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: -2px;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.cta {
+  padding: 8px 16px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  color: var(--sv-primary);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.sign-out {
+  padding: 8px 0;
+  border: 0;
+  color: var(--sv-primary);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: var(--sv-secondary-container);
+}
+
+/* nav-menu / 390 (HU-107): bajo 600px el TopNav de texto se reemplaza por un
+ * botón hamburger que abre un overlay de pantalla completa con los mismos
+ * cuatro destinos -- no un wrap del mismo nav, que no cumple "el mismo menú"
+ * del criterio de aceptación. */
+@media (max-width: 600px) {
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    order: -1;
+  }
+
+  .top-nav-links {
+    display: none;
+  }
+
+  .avatar {
+    display: none;
+  }
+}
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--sv-surface-container-low);
+}
+
+.nav-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.menu-close {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--sv-on-surface-variant);
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.nav-overlay-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-overlay-links a {
+  padding: 16px 8px;
+  border-bottom: 1px solid var(--sv-outline);
+  color: var(--sv-on-surface-variant);
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.nav-overlay-links a.active {
+  color: var(--sv-primary);
+  font-weight: 600;
 }

@@ -1,0 +1,57 @@
+<div class="split">
+  <section class="brand">
+    <p class="brand-name">{{ 'shell.portal' | translate }}</p>
+    <p class="brand-claim">{{ 'login.customer.claim' | translate }}</p>
+    <p class="brand-body">{{ 'registro.body' | translate }}</p>
+  </section>
+
+  <main class="panel">
+    <form class="card" novalidate data-testid="registro-form" (submit)="submit($event)">
+      <h1>{{ 'registro.title' | translate }}</h1>
+      <p class="hint">{{ 'registro.hint' | translate }}</p>
+
+      @for (field of fields; track field.name) {
+        <div class="field">
+          <label [for]="'registro-' + field.name">{{
+            'registro.field.' + field.name | translate
+          }}</label>
+          <input
+            #input
+            [id]="'registro-' + field.name"
+            [type]="field.type"
+            [attr.autocomplete]="field.autocomplete"
+            [attr.data-testid]="'registro-' + field.name"
+            [value]="vm[field.name]()"
+            [attr.aria-invalid]="vm.issues()[field.name] ? 'true' : null"
+            [attr.aria-describedby]="
+              vm.issues()[field.name] ? 'registro-' + field.name + '-error' : null
+            "
+            (input)="vm[field.name].set(input.value)"
+          />
+          @if (vm.issues()[field.name]; as issue) {
+            <p
+              class="field-error"
+              [id]="'registro-' + field.name + '-error'"
+              [attr.data-testid]="'registro-' + field.name + '-error'"
+              [attr.data-issue]="issue"
+            >
+              {{ 'registro.error.' + issue | translate }}
+            </p>
+          }
+        </div>
+      }
+
+      <button type="submit" class="filled" data-testid="registro-submit">
+        {{ 'registro.submit' | translate }}
+      </button>
+      <a class="text" routerLink="/login" data-testid="registro-login">
+        {{ 'registro.haveAccount' | translate }}
+      </a>
+    </form>
+  </main>
+</div>
+
+<footer>
+  <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+  <p class="footer-legal">{{ 'login.footer' | translate }}</p>
+</footer>

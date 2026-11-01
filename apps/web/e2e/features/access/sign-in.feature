@@ -4,7 +4,7 @@ Feature: Customer sign-in
   Scenario: Valid credentials open the customer home
     Given the customer login page is open
     When the customer signs in with valid credentials
-    Then the user shell is visible
+    Then the customer lands on Inicio
 
   Scenario: Invalid credentials stay on the login view
     Given the customer login page is open

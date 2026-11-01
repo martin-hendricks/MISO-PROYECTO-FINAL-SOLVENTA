@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.registration
 
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.Registration
@@ -22,11 +23,12 @@ class RegisterAccountTest {
                 givenName = " Camila ",
                 surnames = "Restrepo",
                 email = " camila@correo.com ",
-                documentType = "CC",
+                documentType = " CC ",
                 documentNumber = "1023456789",
-                password = "secret",
+                password = "secret12",
                 documentPhoto = photo,
             ),
+            Region.Colombia,
         )
 
         assertTrue(saved)
@@ -36,7 +38,7 @@ class RegisterAccountTest {
         assertEquals("camila@correo.com", stored?.email)
         assertEquals("CC", stored?.documentType)
         assertEquals("1023456789", stored?.documentNumber)
-        assertEquals("secret", stored?.password)
+        assertEquals("secret12", stored?.password)
         assertTrue(photo.contentEquals(stored?.documentPhoto))
         assertFalse(stored?.email?.contains(photo.decodeToString()) == true)
     }
@@ -44,16 +46,58 @@ class RegisterAccountTest {
     @Test
     fun givenMissingOrInvalid_whenSubmit_thenNothingIsWritten() {
         val photo = byteArrayOf(9)
-        assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(email = "camila", documentPhoto = photo)))
-        assertFalse(register.submit(draft(password = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(email = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentNumber = " ", documentPhoto = photo)))
-        assertFalse(register.submit(draft(documentPhoto = null)))
-        assertFalse(register.submit(draft(documentPhoto = byteArrayOf())))
+        assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(email = "camila", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(email = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentNumber = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentPhoto = null), Region.Colombia))
+        assertFalse(register.submit(draft(documentPhoto = byteArrayOf()), Region.Colombia))
         assertNull(repository.saved)
+    }
+
+    @Test
+    fun givenTypeOutsideTheRegion_whenSubmit_thenNothingIsWritten() {
+        val photo = byteArrayOf(9)
+        assertFalse(register.submit(draft(documentType = "TI", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = "RC", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(documentType = "CC", documentPhoto = photo), Region.Mexico))
+        assertNull(repository.saved)
+
+        assertTrue(register.submit(draft(documentType = "INE", documentPhoto = photo), Region.Mexico))
+        assertEquals("INE", repository.saved?.documentType)
+    }
+
+    @Test
+    fun givenTheDefaultHelpers_whenTheChoiceChanges_thenThePromptFollowsIt() {
+        val repository = ChoiceRegistration()
+        assertFalse(repository.biometricUnlockEnabled())
+        assertFalse(repository.prefsChoiceExists())
+        assertTrue(repository.biometricPromptOffered())
+        assertFalse(repository.livenessCompleted())
+        assertNull(repository.biometricLogin())
+        repository.setBiometricUnlock(false)
+        repository.enableBiometricUnlock()
+        repository.completeLiveness()
+        repository.rememberBiometricLogin("camila@correo.com", "secret")
+        repository.update(
+            Registration(
+                givenName = "Camila",
+                surnames = "Restrepo",
+                email = "camila@correo.com",
+                documentType = "CC",
+                documentNumber = "1023456789",
+                password = "secret",
+                documentPhoto = byteArrayOf(1),
+            ),
+        )
+
+        repository.choice = false
+        assertFalse(repository.biometricPromptOffered())
+        repository.choice = true
+        assertTrue(repository.biometricPromptOffered())
     }
 
     private fun draft(
@@ -62,7 +106,7 @@ class RegisterAccountTest {
         email: String = "camila@correo.com",
         documentType: String = "CC",
         documentNumber: String = "1023456789",
-        password: String = "secret",
+        password: String = "secret12",
         documentPhoto: ByteArray? = byteArrayOf(1),
     ) = AccountDraft(
         givenName = givenName,
@@ -73,6 +117,18 @@ class RegisterAccountTest {
         password = password,
         documentPhoto = documentPhoto,
     )
+}
+
+private class ChoiceRegistration : RegistrationRepository {
+    var choice: Boolean? = null
+
+    override fun read(): Registration? = null
+
+    override fun save(registration: Registration) = Unit
+
+    override fun prefsChoiceExists(): Boolean = choice != null
+
+    override fun biometricUnlockEnabled(): Boolean = choice == true
 }
 
 private class FakeRegistrationRepository : RegistrationRepository {

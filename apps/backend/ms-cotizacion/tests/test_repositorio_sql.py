@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
+from app.domain.modelos import EstadoSolicitud
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
@@ -90,3 +91,22 @@ async def test_reconsultar_oferta_contra_postgres_real(uow, catalogo):
 
     assert not reconsultada.consulta.vencida
     assert reconsultada.consulta.oferta.prima == registrada.oferta.prima
+
+
+async def test_listar_cotizaciones_asesor_contra_postgres_real(uow, catalogo):
+    asesor_id = uuid4()
+    adaptador = AdaptadorPerfilRiesgoStub(latencia_ms=1)
+    registrada = await casos_uso.cotizar(
+        uow, catalogo, adaptador, Settings(), f"it-{uuid4()}",
+        uuid4(), uuid4(), uuid4(), "soat-motocicleta", "back-office", DATOS_VALIDOS,
+        asesor_id=asesor_id, cliente_ref="CC-123",
+    )
+
+    pagina = await casos_uso.listar_cotizaciones_asesor(
+        uow, asesor_id, frozenset({EstadoSolicitud.COTIZADA, EstadoSolicitud.ACEPTADA}), False, 1, 20
+    )
+
+    assert [p.solicitud.id for p in pagina.items] == [registrada.solicitud.id]
+    assert pagina.items[0].solicitud.cliente_ref == "CC-123"
+    assert pagina.items[0].consulta.oferta.id == registrada.oferta.id
+    assert not pagina.hay_mas

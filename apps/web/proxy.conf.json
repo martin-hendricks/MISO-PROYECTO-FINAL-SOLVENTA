@@ -1,6 +1,6 @@
 {
   "/web": {
     "target": "http://localhost:8000",
-    "pathRewrite": { "^/web": "" }
+    "pathRewrite": { "^/web": "/v1" }
   }
 }

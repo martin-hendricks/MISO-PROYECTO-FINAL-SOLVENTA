@@ -42,6 +42,10 @@ resource "aws_secretsmanager_secret_version" "polizas_db" {
     host     = try(var.polizas_db_credentials.host, null)
     port     = try(var.polizas_db_credentials.port, null)
     dbname   = try(var.polizas_db_credentials.dbname, null)
+    # URL de conexión ya armada, igual que en siniestros_db_credentials: la
+    # app (apps/backend/ms-polizas/app/config.py) espera una única variable
+    # DATABASE_URL, no username/password/host/port por separado.
+    database_url = "postgresql+asyncpg://${var.polizas_db_credentials.username}:${var.polizas_db_credentials.password}@${try(var.polizas_db_credentials.host, "")}:${try(var.polizas_db_credentials.port, "")}/${try(var.polizas_db_credentials.dbname, "")}"
   })
 }
 
@@ -64,14 +68,18 @@ resource "aws_secretsmanager_secret_version" "siniestros_db" {
     host     = try(var.siniestros_db_credentials.host, null)
     port     = try(var.siniestros_db_credentials.port, null)
     dbname   = try(var.siniestros_db_credentials.dbname, null)
+    # URL de conexión ya armada, igual que en compartida_db_credentials: la
+    # app (apps/backend/ms-siniestros/app/config.py) espera una única
+    # variable DATABASE_URL, no username/password/host/port por separado.
+    database_url = "postgresql+asyncpg://${var.siniestros_db_credentials.username}:${var.siniestros_db_credentials.password}@${try(var.siniestros_db_credentials.host, "")}:${try(var.siniestros_db_credentials.port, "")}/${try(var.siniestros_db_credentials.dbname, "")}"
   })
 }
 
 # DBCompartida aloja los esquemas de los microservicios sin instancia propia
 # (cotización, identidad, consentimiento, pagos, paramétrico, perfilamiento,
-# socios, analítica, notificaciones). Un solo secreto con las credenciales
-# maestras; el aislamiento por esquema/rol de cada microservicio se gestiona
-# fuera de Terraform (ver infra/terraform/README.md).
+# socios, analítica, notificaciones, suscripción). Un solo secreto con las
+# credenciales maestras; el aislamiento por esquema/rol de cada microservicio
+# se gestiona fuera de Terraform (ver infra/terraform/README.md).
 resource "aws_secretsmanager_secret" "compartida_db" {
   name                    = "${var.project_name}-${var.environment}-compartida-db-credentials"
   description             = "Credenciales de conexion a DBCompartida (RDS PostgreSQL)"
@@ -141,6 +149,40 @@ resource "aws_secretsmanager_secret_version" "external_providers" {
     # con el placeholder. Terraform sigue creando esta versión si no existe
     # (ambiente nuevo), pero no vuelve a forzar el placeholder sobre un
     # valor real ya cargado.
+    ignore_changes = [secret_string]
+  }
+}
+
+# --- bff-web token secret ---
+#
+# SOLVENTA_TOKEN_SECRET firma los JWT que bff-web emite para las sesiones
+# web (apps/backend/bff-web/app/dependencies.py) -- no es la credencial de
+# ningún proveedor externo, es puramente interno al cluster, así que no
+# necesita ser una credencial real conocida por nadie: alcanza con que sea
+# estable (el mismo valor sobrevive cada deploy, para no invalidar las
+# sesiones activas) y no quede commiteado.
+resource "random_password" "bff_web_token_secret" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "bff_web_token" {
+  name                    = "${var.project_name}-${var.environment}-bff-web-token"
+  description             = "Secreto usado por bff-web para firmar/validar los JWT de sesion (SOLVENTA_TOKEN_SECRET)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-bff-web-token" })
+}
+
+resource "aws_secretsmanager_secret_version" "bff_web_token" {
+  secret_id = aws_secretsmanager_secret.bff_web_token.id
+  # La clave del JSON es el nombre exacto de la env var (SOLVENTA_TOKEN_SECRET)
+  # para que el ExternalSecret la proyecte vía dataFrom.extract sin necesidad
+  # de listar `claves` en infra/k8s/values/bff-web.yaml.
+  secret_string = jsonencode({ SOLVENTA_TOKEN_SECRET = random_password.bff_web_token_secret.result })
+
+  lifecycle {
     ignore_changes = [secret_string]
   }
 }

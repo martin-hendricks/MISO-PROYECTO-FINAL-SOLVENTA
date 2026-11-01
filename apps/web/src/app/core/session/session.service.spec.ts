@@ -79,6 +79,16 @@ describe('SessionService', () => {
     expect(session.isActive()).toBeFalse();
   });
 
+  it('opens the session with a pair issued elsewhere, such as the sign-up', () => {
+    const { session } = setup();
+    const pair = fakeTokenPair('cliente');
+
+    session.start(pair);
+
+    expect(session.hasRole(['cliente'])).toBeTrue();
+    expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBe(JSON.stringify(pair));
+  });
+
   it('restores the session kept in the tab', () => {
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fakeTokenPair()));
 

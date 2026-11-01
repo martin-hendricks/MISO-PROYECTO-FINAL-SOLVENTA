@@ -1,0 +1,62 @@
+<section data-testid="polizas-lista" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'polizas.lista.title' | translate }}</h1>
+      <p class="subtitle">{{ 'polizas.lista.subtitle' | translate }}</p>
+    </div>
+  </div>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="polizas-loading">
+        {{ 'polizas.lista.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="polizas-error">
+        <p>{{ 'polizas.lista.error.body' | translate }}</p>
+        <button type="button" class="outlined" data-testid="polizas-retry" (click)="vm.load()">
+          {{ 'polizas.lista.error.retry' | translate }}
+        </button>
+      </div>
+    }
+    @case ('empty') {
+      <div class="empty-state" data-testid="polizas-empty">
+        <h2>{{ 'polizas.lista.empty.title' | translate }}</h2>
+        <p>{{ 'polizas.lista.empty.body' | translate }}</p>
+      </div>
+    }
+    @default {
+      <div class="table-scroll">
+        <table data-testid="polizas-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'polizas.column.producto' | translate }}</th>
+              <th scope="col">{{ 'polizas.column.numero' | translate }}</th>
+              <th scope="col">{{ 'polizas.column.vigencia' | translate }}</th>
+              <th scope="col">{{ 'polizas.column.estado' | translate }}</th>
+              <th scope="col">{{ 'polizas.column.prima' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (poliza of vm.polizas(); track poliza.numero) {
+              <tr [attr.data-testid]="'poliza-' + poliza.numero">
+                <th scope="row">{{ poliza.producto }}</th>
+                <td>
+                  <a [routerLink]="['/polizas', poliza.numero]">{{ poliza.numero }}</a>
+                </td>
+                <td>{{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}</td>
+                <td>
+                  <span class="badge" [attr.data-estado]="poliza.estado">{{
+                    'polizas.estado.' + poliza.estado | translate
+                  }}</span>
+                </td>
+                <td class="mono amount">{{ poliza.primaTotal | svMoney: poliza.moneda }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

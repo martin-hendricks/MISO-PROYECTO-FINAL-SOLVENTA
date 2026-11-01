@@ -9,20 +9,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.ui.components.SolventaBanner
 import com.grupo8_uniandes.solventa.ui.components.SolventaBannerStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaFieldState
+import com.grupo8_uniandes.solventa.ui.components.SolventaPasswordToggle
 import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
@@ -36,9 +44,17 @@ fun LoginScreen(
     onPassword: (String) -> Unit,
     onIngresar: () -> Unit,
     onBack: () -> Unit,
+    showBack: Boolean = true,
     onCreateAccount: () -> Unit,
+    onBiometric: () -> Unit,
+    biometricEnabled: Boolean = false,
+    biometricFallback: Boolean = false,
+    confirmBiometric: Boolean = false,
+    onAcceptBiometric: () -> Unit = {},
+    onDeclineBiometric: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    var passwordVisible by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -47,7 +63,7 @@ fun LoginScreen(
     ) {
         SolventaTopBar(
             title = stringResource(R.string.app_name),
-            showBack = true,
+            showBack = showBack,
             onBack = onBack,
         )
         Column(
@@ -57,12 +73,12 @@ fun LoginScreen(
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s16),
         ) {
             Text(
-                text = stringResource(R.string.login_heading),
+                text = stringResource(loginHeading(biometricEnabled, biometricFallback)),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(R.string.login_support),
+                text = stringResource(loginSupport(biometricEnabled, biometricFallback)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -100,13 +116,40 @@ fun LoginScreen(
                 } else {
                     SolventaFieldState.Default
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (passwordVisible) KeyboardType.Text else KeyboardType.Password,
+                ),
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                trailingIcon = {
+                    SolventaPasswordToggle(
+                        visible = passwordVisible,
+                        onToggle = { passwordVisible = !passwordVisible },
+                        testTag = "toggle_login_contrasena",
+                    )
+                },
                 testTag = "field_login_contrasena",
             )
+            val biometricOffered = biometricEnabled && !biometricFallback
+            if (biometricOffered) {
+                SolventaButton(
+                    text = stringResource(R.string.action_usar_biometria),
+                    style = SolventaButtonStyle.Filled,
+                    onClick = onBiometric,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "action_biometric",
+                )
+            }
             SolventaButton(
                 text = stringResource(R.string.action_ingresar),
-                style = SolventaButtonStyle.Filled,
+                style = if (biometricOffered) {
+                    SolventaButtonStyle.Outlined
+                } else {
+                    SolventaButtonStyle.Filled
+                },
                 onClick = onIngresar,
                 modifier = Modifier.fillMaxWidth(),
                 testTag = "action_ingresar",
@@ -119,5 +162,34 @@ fun LoginScreen(
                 testTag = "action_crear_cuenta",
             )
         }
+        if (confirmBiometric) {
+            AlertDialog(
+                onDismissRequest = onDeclineBiometric,
+                title = { Text(stringResource(R.string.login_biometric_title)) },
+                text = { Text(stringResource(R.string.login_biometric_confirm)) },
+                confirmButton = {
+                    TextButton(onClick = onAcceptBiometric) {
+                        Text(stringResource(R.string.action_biometric_accept))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onDeclineBiometric) {
+                        Text(stringResource(R.string.action_biometric_decline))
+                    }
+                },
+            )
+        }
     }
+}
+
+internal fun loginHeading(biometricEnabled: Boolean, biometricFallback: Boolean): Int = when {
+    biometricEnabled && biometricFallback -> R.string.login_biometric_fallback_title
+    biometricEnabled -> R.string.login_biometric_heading
+    else -> R.string.login_heading
+}
+
+internal fun loginSupport(biometricEnabled: Boolean, biometricFallback: Boolean): Int = when {
+    biometricEnabled && biometricFallback -> R.string.login_biometric_fallback_support
+    biometricEnabled -> R.string.login_biometric_support
+    else -> R.string.login_support
 }

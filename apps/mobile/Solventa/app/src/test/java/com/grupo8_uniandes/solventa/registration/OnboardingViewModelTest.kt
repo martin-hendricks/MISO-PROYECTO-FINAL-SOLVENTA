@@ -1,11 +1,16 @@
 package com.grupo8_uniandes.solventa.registration
 
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.Registration
 import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingEffect
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,8 +29,10 @@ class OnboardingViewModelTest {
         assertEquals("", state.surnames)
         assertEquals("", state.email)
         assertEquals("", state.documentType)
+        assertEquals(listOf("CC", "CE", "PA"), state.documentTypeOptions)
         assertEquals("", state.documentNumber)
         assertEquals("", state.password)
+        assertEquals("", state.passwordConfirm)
         assertFalse(state.hasPhoto)
         assertFalse(state.emailError)
         assertFalse(state.continuarEnabled)
@@ -40,9 +47,28 @@ class OnboardingViewModelTest {
         assertTrue(viewModel.state.value.continuarEnabled)
         viewModel.continuar()
 
-        assertEquals(OnboardingEffect.ContinueToConsent, viewModel.state.value.effect)
+        assertEquals(OnboardingEffect.ContinueToLiveness, viewModel.state.value.effect)
         assertEquals(1, register.drafts.size)
+        assertEquals(Region.Colombia, register.regions.single())
         assertTrue(byteArrayOf(7, 8).contentEquals(register.drafts.single().documentPhoto))
+    }
+
+    @Test
+    fun givenMexico_whenOpened_thenAdultDocumentTypes() {
+        val mexico = OnboardingViewModel(register, Region.Mexico)
+
+        assertEquals(listOf("INE", "CURP", "PA"), mexico.state.value.documentTypeOptions)
+    }
+
+    @Test
+    fun givenMinorDocument_whenChosen_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onDocumentType("TI")
+
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertTrue(register.drafts.isEmpty())
     }
 
     @Test
@@ -56,7 +82,7 @@ class OnboardingViewModelTest {
         assertEquals("Restrepo", state.surnames)
         assertEquals("CC", state.documentType)
         assertEquals("1023456789", state.documentNumber)
-        assertEquals("secret", state.password)
+        assertEquals("secret12", state.password)
         assertFalse(state.continuarEnabled)
         viewModel.continuar()
         assertTrue(register.drafts.isEmpty())
@@ -96,6 +122,23 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun givenMatchingPassword_whenConfirmed_thenContinuarEnablesUntilTheyDiffer() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onPassword("secret")
+        viewModel.onPasswordConfirm("secret")
+
+        assertTrue(viewModel.state.value.continuarEnabled)
+
+        viewModel.onPassword("secret12")
+        viewModel.onPasswordConfirm("secret13")
+
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertTrue(register.drafts.isEmpty())
+    }
+
+    @Test
     fun givenEmptyPhoto_whenAttached_thenContinuarStaysDisabled() {
         fillValid()
         viewModel.attachPhoto(byteArrayOf())
@@ -112,7 +155,8 @@ class OnboardingViewModelTest {
         rejected.onEmail("camila@correo.com")
         rejected.onDocumentType("CC")
         rejected.onDocumentNumber("1023456789")
-        rejected.onPassword("secret")
+        rejected.onPassword("secret12")
+        rejected.onPasswordConfirm("secret12")
         rejected.attachPhoto(byteArrayOf(1))
 
         rejected.continuar()
@@ -155,13 +199,77 @@ class OnboardingViewModelTest {
         assertTrue(register.drafts.isEmpty())
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenIngresoSucceeds_thenLivenessContinues() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var asked: Pair<String, String>? = null
+            val remote = OnboardingViewModel(register, openRemoteSession = { email, password ->
+                asked = email to password
+                true
+            })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertEquals("camila@correo.com" to "secret12", asked)
+            assertEquals(OnboardingEffect.ContinueToLiveness, remote.state.value.effect)
+            assertFalse(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenIngresoFails_thenTheUnavailableBannerStays() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val remote = OnboardingViewModel(register, openRemoteSession = { _, _ -> false })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertNull(remote.state.value.effect)
+            assertTrue(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSessionInFlight_whenContinuarAgain_thenItSubmitsOnce() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var calls = 0
+            lateinit var remote: OnboardingViewModel
+            remote = OnboardingViewModel(register, openRemoteSession = { _, _ ->
+                calls += 1
+                remote.continuar()
+                true
+            })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertEquals(1, calls)
+            assertEquals(OnboardingEffect.ContinueToLiveness, remote.state.value.effect)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private fun fillValid() {
-        viewModel.onGivenName("Camila")
-        viewModel.onSurnames("Restrepo")
-        viewModel.onEmail("camila@correo.com")
-        viewModel.onDocumentType("CC")
-        viewModel.onDocumentNumber("1023456789")
-        viewModel.onPassword("secret")
+        fill(viewModel)
+    }
+
+    private fun fill(target: OnboardingViewModel) {
+        target.onGivenName("Camila")
+        target.onSurnames("Restrepo")
+        target.onEmail("camila@correo.com")
+        target.onDocumentType("CC")
+        target.onDocumentNumber("1023456789")
+        target.onPassword("secret12")
+        target.onPasswordConfirm("secret12")
     }
 }
 
@@ -172,7 +280,7 @@ private class RejectingRegister : RegisterAccount(
         override fun save(registration: Registration) = error("a rejected submit does not save")
     },
 ) {
-    override fun submit(draft: AccountDraft): Boolean = false
+    override fun submit(draft: AccountDraft, region: Region): Boolean = false
 }
 
 private class RecordingRegister : RegisterAccount(
@@ -183,9 +291,11 @@ private class RecordingRegister : RegisterAccount(
     },
 ) {
     val drafts = mutableListOf<AccountDraft>()
+    val regions = mutableListOf<Region>()
 
-    override fun submit(draft: AccountDraft): Boolean {
+    override fun submit(draft: AccountDraft, region: Region): Boolean {
         drafts += draft
+        regions += region
         return true
     }
 }

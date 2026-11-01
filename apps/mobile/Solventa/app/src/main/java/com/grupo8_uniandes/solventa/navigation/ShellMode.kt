@@ -12,15 +12,17 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
     if (route is EmisionEnCursoRoute || route is PolizaEmitidaRoute) return ShellMode.Issuance
     return when (route) {
         InicioRoute, PolizasRoute, SiniestrosRoute, PerfilRoute -> ShellMode.Root
-        CotizacionRoute, is PolizaDetalleRoute -> ShellMode.Nested
+        is CotizacionRoute, is VerOfertaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
+        SuscripcionRechazadaRoute,
+        -> ShellMode.Nested
         else -> ShellMode.Root
     }
 }
 
 fun selectedDestination(route: Any): Destination? = when (route) {
-    InicioRoute, CotizacionRoute -> Destination.Inicio
+    InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute -> Destination.Inicio
     PolizasRoute, is PolizaDetalleRoute -> Destination.Polizas
-    SiniestrosRoute -> Destination.Siniestros
+    SiniestrosRoute, is SiniestroDetalleRoute -> Destination.Siniestros
     PerfilRoute -> Destination.Perfil
     else -> null
 }

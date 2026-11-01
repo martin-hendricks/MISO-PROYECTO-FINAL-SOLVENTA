@@ -57,6 +57,7 @@
               <th scope="col">{{ 'backoffice.clientes.column.canal' | translate }}</th>
               <th scope="col">{{ 'backoffice.clientes.column.estado' | translate }}</th>
               <th scope="col">{{ 'backoffice.clientes.column.consentimiento' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.acciones' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +73,21 @@
                 </td>
                 <td class="mono">
                   {{ 'backoffice.clientes.consentimiento.' + cliente.consentimiento | translate }}
+                </td>
+                <td>
+                  @if (cliente.estado === 'activo') {
+                    <a
+                      class="text"
+                      routerLink="/cms/cotizaciones/nueva"
+                      [queryParams]="{
+                        cliente: cliente.clienteId,
+                        nombre: cliente.nombre,
+                        documento: cliente.documento,
+                      }"
+                      [attr.data-testid]="'cotizar-' + cliente.clienteId"
+                      >{{ 'backoffice.clientes.cotizar' | translate }}</a
+                    >
+                  }
                 </td>
               </tr>
             }

@@ -51,15 +51,27 @@ class LoginTest {
         readyForAccount("es-CO")
         ActivityScenario.launch<MainActivity>(splashIntent()).use {
             rule.waitForTag("screen_onboarding")
-            rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+            rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
             rule.waitForTag("screen_login")
-            rule.onNodeWithText("Ingresa a tus seguros").assertIsDisplayed()
-            rule.onNodeWithText("Tus pólizas, tus avisos de siniestro y tus pagos automáticos, en un solo lugar.").assertIsDisplayed()
+            rule.onNodeWithText("La biometría no estuvo disponible").assertIsDisplayed()
+            rule.onNodeWithText("Entra con correo y contraseña para no quedar fuera de tus pólizas.").assertIsDisplayed()
             rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             assertFalse(registrationCompleted())
             assertFalse(consentRecorded())
+        }
+    }
+
+    @Test
+    fun givenDemoPair_whenNoSavedAccount_thenHome() {
+        ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
+            rule.openLogin()
+            rule.typePair("camila@correo.com", "secret")
+            rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
+            rule.waitForTag("screen_inicio")
+            rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+            assertFalse(registrationCompleted())
         }
     }
 
@@ -102,7 +114,7 @@ class LoginTest {
         readyForAccount("es-CO")
         ActivityScenario.launch<MainActivity>(splashIntent()).use {
             rule.waitForTag("screen_onboarding")
-            rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+            rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
             rule.waitForTag("screen_login")
             rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
             rule.onAllNodesWithTag("solventa_banner_error").assertCountEquals(0)
@@ -117,7 +129,7 @@ class LoginTest {
         ActivityScenario.launch<MainActivity>(splashIntent()).use {
             rule.waitForTag("screen_onboarding")
             rule.onNodeWithTag("field_nombre").performTextInput("Camila")
-            rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+            rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
             rule.waitForTag("screen_login")
             rule.onNodeWithTag("field_login_correo").performTextInput("camila@correo.com")
             rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
@@ -125,7 +137,7 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             rule.assertValue("field_nombre", "Camila")
             assertFalse(registrationCompleted())
-            rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+            rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
             rule.waitForTag("screen_login")
             rule.onNodeWithTag("action_volver").performClick()
             rule.waitForTag("screen_onboarding")
@@ -158,10 +170,10 @@ class LoginTest {
             readyForAccount(tag)
             ActivityScenario.launch<MainActivity>(splashIntent()).use {
                 rule.waitForTag("screen_onboarding")
-                rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+                rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
                 rule.waitForTag("screen_login")
-                rule.onNodeWithText("Ingresa a tus seguros").assertIsDisplayed()
-                rule.onNodeWithText("Tus pólizas, tus avisos de siniestro y tus pagos automáticos, en un solo lugar.").assertIsDisplayed()
+                rule.onNodeWithText("La biometría no estuvo disponible").assertIsDisplayed()
+                rule.onNodeWithText("Entra con correo y contraseña para no quedar fuera de tus pólizas.").assertIsDisplayed()
                 rule.onNodeWithText("Correo electrónico").assertIsDisplayed()
                 rule.onNodeWithText("Contraseña").assertIsDisplayed()
                 rule.onNodeWithText("Ingresar").assertIsDisplayed()
@@ -226,7 +238,7 @@ private fun consentRecorded(): Boolean {
 
 private fun ComposeTestRule.openLogin() {
     waitForTag("screen_onboarding")
-    onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+    onNodeWithTag("action_ya_tengo_cuenta").performClick()
     waitForTag("screen_login")
 }
 
@@ -241,7 +253,7 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
     }
 }

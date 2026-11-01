@@ -2,7 +2,9 @@ package com.grupo8_uniandes.solventa.region
 
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.formatPremium
+import com.grupo8_uniandes.solventa.domain.region.formatQuoteAmount
 import com.grupo8_uniandes.solventa.domain.region.halfUp
+import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -73,5 +75,19 @@ class FormatPremiumTest {
         }
 
         assertSame(plain, plain.halfUp())
+    }
+
+    @Test
+    fun givenDigits_whenFormattedForEachRegion_thenSymbolAndGroupingStayWhole() {
+        assertEquals("", formatQuoteAmount("", Region.Colombia))
+        assertEquals("", formatQuoteAmount("9".repeat(20), Region.Colombia))
+        assertEquals("", quoteAmountDigits("S/ "))
+        assertEquals("0", quoteAmountDigits("000"))
+        assertEquals("48", quoteAmountDigits("048"))
+        assertEquals("48900", quoteAmountDigits("$48.900"))
+        assertEquals("$48.900", formatQuoteAmount("48900", Region.Colombia))
+        assertEquals("$48.900", formatQuoteAmount("48900", Region.Chile))
+        assertEquals("$48,900", formatQuoteAmount("48900", Region.Mexico))
+        assertEquals("S/ 48,900", formatQuoteAmount("48900", Region.Peru))
     }
 }

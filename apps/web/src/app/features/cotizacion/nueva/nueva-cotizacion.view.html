@@ -1,0 +1,37 @@
+<section data-testid="nueva-cotizacion" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'cotizacion.nueva.title' | translate }}</h1>
+      <p class="subtitle">{{ 'cotizacion.nueva.subtitle' | translate }}</p>
+    </div>
+  </div>
+
+  <form class="form" novalidate (submit)="submit($event)">
+    <fieldset>
+      <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
+      <sv-riesgo-fields [vm]="vm" prefix="nueva" />
+    </fieldset>
+
+    @switch (vm.status()) {
+      @case ('rejected') {
+        <p class="banner" role="alert" data-testid="cotizacion-rechazo">
+          {{ vm.rechazo()!.mensaje }}
+        </p>
+      }
+      @case ('error') {
+        <p class="banner" role="alert" data-testid="cotizacion-error">
+          {{ 'cotizacion.error.servicio' | translate }}
+        </p>
+      }
+    }
+
+    <div class="actions">
+      <button type="submit" class="filled" data-testid="cotizar" [disabled]="!vm.canQuote()">
+        {{ 'cotizacion.nueva.cotizar' | translate }}
+      </button>
+      <a class="outlined" routerLink="/inicio" data-testid="cancelar">{{
+        'cotizacion.nueva.cancelar' | translate
+      }}</a>
+    </div>
+  </form>
+</section>

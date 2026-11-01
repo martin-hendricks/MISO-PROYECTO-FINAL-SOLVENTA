@@ -15,24 +15,34 @@ imagen:
 replicas: 2
 grupoEscalado: "b"
 
-puerto: 8080
+# apps/backend/bff-movil/Dockerfile expone y arranca uvicorn en 8000.
+puerto: 8000
 puertoMetricas: 9090
 
 recursos:
+  # Bajado de 384Mi/768Mi: con la cuota real de vCPU de la cuenta (16, ver
+  # terraform.tfvars del ambiente minimo), el Node Group B solo puede sostener
+  # 5 nodos t3.small -- bff-movil no se había ajustado a este ambiente igual
+  # que ms-pagos/ms-polizas/ms-suscripcion/ms-identidad/ms-siniestros, y su
+  # footprint (2 réplicas x 384Mi) agotaba el margen que esos 5 ya habían
+  # dejado, volviendo a producir FailedScheduling "Insufficient memory"
+  # durante un rollout. 300Mi deja margen real; subir junto con
+  # node_group_b_instance_types si hace falta representar carga real.
   requests:
     cpu: "250m"
-    memory: "384Mi"
+    memory: "300Mi"
   limits:
     cpu: "600m"
-    memory: "768Mi"
+    memory: "600Mi"
 
 probes:
+  # bff-movil expone un único endpoint /health, igual que bff-web.
   liveness:
-    path: /health/live
+    path: /health
     initialDelaySeconds: 10
     periodSeconds: 10
   readiness:
-    path: /health/ready
+    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:

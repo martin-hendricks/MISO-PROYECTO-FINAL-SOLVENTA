@@ -37,7 +37,9 @@ resource "aws_db_parameter_group" "this" {
 # pasiva para siniestros (continuidad sin staleness del estado de una
 # reclamación). Esta tercera instancia aloja los esquemas de los demás
 # microservicios del monorepo (cotización, identidad, consentimiento, pagos,
-# paramétrico, perfilamiento, socios, analítica, notificaciones), ninguno de
+# paramétrico, perfilamiento, socios, analítica, notificaciones,
+# suscripción -- este último agregado el 2026-10-24, el microservicio no
+# existía todavía el 2026-10-01 cuando se fijó la lista original), ninguno de
 # los cuales tenía instancia propia en el plan original ni corresponde a
 # ninguna de esas dos categorías. Forzarla dentro de "activa" o "pasiva"
 # inventaría una tercera política que la wiki no sostiene, así que se deja

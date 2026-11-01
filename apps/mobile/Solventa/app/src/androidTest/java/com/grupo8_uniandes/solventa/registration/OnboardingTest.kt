@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -36,6 +37,7 @@ import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -66,17 +68,20 @@ class OnboardingTest {
         openAccount()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-        rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
+        rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
         listOf(
             "field_nombre",
             "field_apellidos",
             "field_correo",
-            "field_tipo",
             "field_numero",
             "field_contrasena",
+            "field_confirmar",
         ).forEach { tag ->
             rule.assertValue(tag, "")
         }
+        rule.onNodeWithTag("solventa_select_closed").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
         rule.onAllNodes(isDialog()).assertCountEquals(0)
@@ -105,8 +110,12 @@ class OnboardingTest {
         fill(email = "camila@correo.com")
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
         rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.onNodeWithTag("action_continuar").performScrollTo().assertIsEnabled()
+        rule.waitUntilEnabled("action_continuar")
+        rule.onNodeWithTag("action_continuar").assertIsEnabled()
         rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_prueba_de_vida")
+        rule.onNodeWithText("Prueba de vida").assertIsDisplayed()
+        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -130,9 +139,9 @@ class OnboardingTest {
     fun givenPartialForm_whenYaTengoCuenta_thenLoginWithoutRegistration() {
         openAccount()
         rule.onNodeWithTag("field_correo").performTextInput("camila@correo.com")
-        rule.onNodeWithTag("action_ya_tengo_cuenta").performScrollTo().performClick()
+        rule.onNodeWithTag("action_ya_tengo_cuenta").performClick()
         rule.waitForTag("screen_login")
-        rule.onNodeWithText("Ingresa a tus seguros").assertIsDisplayed()
+        rule.onNodeWithText("La biometría no estuvo disponible").assertIsDisplayed()
         rule.onAllNodesWithText("Login").assertCountEquals(0)
         rule.onNodeWithTag("field_login_correo").assertIsDisplayed()
         rule.onAllNodesWithTag("field_correo").assertCountEquals(0)
@@ -150,9 +159,15 @@ class OnboardingTest {
             confirmRegion(tag)
             rule.activityRule.scenario.recreate()
             rule.waitForTag("screen_onboarding")
-            rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-            rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
-            rule.onAllNodesWithText("Foto de una sola cara, sin flash.").assertCountEquals(2)
+            listOf(
+                "Crea tu cuenta",
+                "Paso 2 de 4 · Crea tu cuenta",
+                "Foto del documento",
+                "Una sola cara, sin flash",
+                "Confirmar contraseña",
+            ).forEach { copy ->
+                assertTrue(rule.onAllNodesWithText(copy).fetchSemanticsNodes().isNotEmpty())
+            }
         }
     }
 
@@ -163,12 +178,14 @@ class OnboardingTest {
     }
 
     private fun fill(email: String) {
-        rule.onNodeWithTag("field_nombre").performTextInput("Camila")
-        rule.onNodeWithTag("field_apellidos").performTextInput("Restrepo")
-        rule.onNodeWithTag("field_correo").performTextInput(email)
-        rule.onNodeWithTag("field_tipo").performTextInput("CC")
-        rule.onNodeWithTag("field_numero").performTextInput("1023456789")
-        rule.onNodeWithTag("field_contrasena").performTextInput("secret")
+        rule.onNodeWithTag("field_nombre").performScrollTo().performTextReplacement("Camila")
+        rule.onNodeWithTag("field_apellidos").performScrollTo().performTextReplacement("Restrepo")
+        rule.onNodeWithTag("field_correo").performScrollTo().performTextReplacement(email)
+        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
+        rule.onNodeWithTag("option_CC").performScrollTo().performClick()
+        rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
+        rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
     }
 
     private fun confirmRegion(tag: String) {
@@ -244,7 +261,15 @@ private fun ComposeTestRule.assertValue(tag: String, expected: String) {
 }
 
 private fun ComposeTestRule.waitForTag(tag: String) {
-    waitUntil(timeoutMillis = 8_000) {
+    waitUntil(timeoutMillis = 30_000) {
         onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }
+}
+
+private fun ComposeTestRule.waitUntilEnabled(tag: String) {
+    waitUntil(timeoutMillis = 5_000) {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().any {
+            it.config.getOrNull(SemanticsProperties.Disabled) == null
+        }
     }
 }

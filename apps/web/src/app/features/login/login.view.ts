@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../core/session/session.service';
 import { LoginVariant } from './login.variant';
@@ -8,7 +8,7 @@ import { LoginViewModel } from './login.viewmodel';
 @Component({
   selector: 'sv-login',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe],
+  imports: [RouterLink, TranslatePipe],
   templateUrl: './login.view.html',
   styleUrl: './login.view.css',
 })

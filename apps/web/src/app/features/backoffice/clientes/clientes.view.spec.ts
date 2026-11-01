@@ -50,6 +50,17 @@ describe('ClientesView', () => {
     expect((element('clientes-new') as HTMLButtonElement).disabled).toBeTrue();
   });
 
+  it('opens a quote prefilled with an active client and none for an inactive one', () => {
+    const { fixture, http, element } = render('asesor');
+    http.expectOne(URL).flush({ clientes: CLIENTES });
+    fixture.detectChanges();
+
+    expect(element('cotizar-CLI-18')?.getAttribute('href')).toBe(
+      '/cms/cotizaciones/nueva?cliente=CLI-18&nombre=Andr%C3%A9s%20G%C3%B3mez&documento=1020334556',
+    );
+    expect(element('cotizar-CLI-22')).toBeNull();
+  });
+
   it('shows the empty state when the portfolio has no clients', () => {
     const { fixture, http, element } = render('asesor');
 

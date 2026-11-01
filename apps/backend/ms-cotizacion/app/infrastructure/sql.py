@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select
+from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -22,7 +22,7 @@ from app.domain.modelos import EstadoSolicitud, EventoDominio, SolicitudCotizaci
 from app.domain.oferta import Oferta
 from app.domain.rating import ReglaRating
 from app.domain.riesgo import OrigenFactorRiesgo
-from app.ports.persistencia import ClaveIdempotenciaDuplicada
+from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada
 
 ESQUEMA = "ms_cotizacion"
 
@@ -45,6 +45,10 @@ class SolicitudFila(Base):
     datos_riesgo: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     estado: Mapped[str]
     creada_en: Mapped[datetime]
+    aceptacion_key: Mapped[str | None]
+    aceptada_en: Mapped[datetime | None]
+    asesor_id: Mapped[UUID | None]
+    cliente_ref: Mapped[str | None]
 
 
 class ReglaRatingFila(Base):
@@ -143,6 +147,10 @@ def _a_dominio(fila: SolicitudFila) -> SolicitudCotizacion:
         datos_riesgo=fila.datos_riesgo,
         estado=EstadoSolicitud(fila.estado),
         creada_en=fila.creada_en,
+        aceptacion_key=fila.aceptacion_key,
+        aceptada_en=fila.aceptada_en,
+        asesor_id=fila.asesor_id,
+        cliente_ref=fila.cliente_ref,
     )
 
 
@@ -173,6 +181,8 @@ class RepositorioSolicitudesSQL:
                 datos_riesgo=solicitud.datos_riesgo,
                 estado=solicitud.estado.value,
                 creada_en=solicitud.creada_en,
+                asesor_id=solicitud.asesor_id,
+                cliente_ref=solicitud.cliente_ref,
             )
         )
         # Flush inmediato: cotizar() (HU-99) agrega la oferta en la misma transacción y
@@ -185,6 +195,49 @@ class RepositorioSolicitudesSQL:
     async def actualizar(self, solicitud: SolicitudCotizacion) -> None:
         fila = await self._s.get(SolicitudFila, solicitud.id)
         fila.estado = solicitud.estado.value
+
+    async def registrar_aceptacion(self, solicitud: SolicitudCotizacion) -> None:
+        # UPDATE condicional: dos aceptaciones simultáneas se serializan en la fila y la
+        # segunda ya no encuentra la cotización en estado cotizada.
+        resultado = await self._s.execute(
+            update(SolicitudFila)
+            .where(
+                SolicitudFila.solicitud_id == solicitud.id,
+                SolicitudFila.estado == EstadoSolicitud.COTIZADA.value,
+            )
+            .values(
+                estado=solicitud.estado.value,
+                aceptacion_key=solicitud.aceptacion_key,
+                aceptada_en=solicitud.aceptada_en,
+            )
+        )
+        if resultado.rowcount != 1:
+            raise AceptacionConcurrente
+
+    async def listar_por_asesor(
+        self,
+        asesor_id: UUID,
+        estados: frozenset[EstadoSolicitud],
+        vigentes_desde: datetime | None,
+        desplazamiento: int,
+        limite: int,
+    ) -> list[tuple[SolicitudCotizacion, Oferta]]:
+        # Usa ix_solicitud_asesor_creada (db/09); el desempate por id hace estable la paginación.
+        consulta = (
+            select(SolicitudFila, OfertaFila)
+            .join(OfertaFila, OfertaFila.solicitud_id == SolicitudFila.solicitud_id)
+            .where(
+                SolicitudFila.asesor_id == asesor_id,
+                SolicitudFila.estado.in_([e.value for e in estados]),
+            )
+            .order_by(SolicitudFila.creada_en.desc(), SolicitudFila.solicitud_id.desc())
+            .offset(desplazamiento)
+            .limit(limite)
+        )
+        if vigentes_desde is not None:
+            consulta = consulta.where(OfertaFila.vence_en > vigentes_desde)
+        filas = (await self._s.execute(consulta)).all()
+        return [(_a_dominio(s), _oferta_a_dominio(o)) for s, o in filas]
 
 
 class RepositorioReglasRatingSQL:

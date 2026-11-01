@@ -11,10 +11,13 @@ from .errores import ProductoNoEncontrado, ReglaDeNegocioViolada, TransicionInva
 if TYPE_CHECKING:
     from app.ports.catalogo import CatalogoProductos
 
+    from .oferta import Oferta
+
 
 class EstadoSolicitud(StrEnum):
     RECIBIDA = "recibida"
     COTIZADA = "cotizada"
+    ACEPTADA = "aceptada"
     RECHAZADA = "rechazada"
 
 
@@ -30,6 +33,11 @@ class SolicitudCotizacion:
     datos_riesgo: dict[str, Any]
     estado: EstadoSolicitud
     creada_en: datetime
+    aceptacion_key: str | None = None
+    aceptada_en: datetime | None = None
+    # HU-163: solo las cotizaciones creadas por un asesor desde el back-office los llevan.
+    asesor_id: UUID | None = None
+    cliente_ref: str | None = None
 
     @classmethod
     def crear(
@@ -42,6 +50,8 @@ class SolicitudCotizacion:
         canal: str,
         datos_riesgo: dict[str, Any],
         catalogo: "CatalogoProductos",
+        asesor_id: UUID | None = None,
+        cliente_ref: str | None = None,
     ) -> SolicitudCotizacion:
         definicion = catalogo.obtener(producto)
         if definicion is None:
@@ -70,12 +80,28 @@ class SolicitudCotizacion:
             datos_riesgo=datos_riesgo,
             estado=EstadoSolicitud.RECIBIDA,
             creada_en=datetime.now(UTC),
+            asesor_id=asesor_id,
+            cliente_ref=cliente_ref,
         )
 
     def marcar_cotizada(self) -> None:
         if self.estado is not EstadoSolicitud.RECIBIDA:
             raise TransicionInvalida(self.estado, EstadoSolicitud.COTIZADA)
         self.estado = EstadoSolicitud.COTIZADA
+
+    def aceptar(self, oferta: Oferta, aceptacion_key: str, ahora: datetime | None = None) -> None:
+        """HU-12: una cotización se acepta una sola vez. La oferta vencida se rechaza con
+        su precio original; nunca se recalcula para salvar la operación."""
+        if self.estado is EstadoSolicitud.ACEPTADA:
+            raise ReglaDeNegocioViolada("oferta_ya_usada", f"La cotización {self.id} ya fue aceptada")
+        if self.estado is not EstadoSolicitud.COTIZADA:
+            raise TransicionInvalida(self.estado, EstadoSolicitud.ACEPTADA)
+        ahora = ahora or datetime.now(UTC)
+        if not oferta.vigente(ahora):
+            raise ReglaDeNegocioViolada("oferta_vencida", f"La oferta {oferta.id} venció el {oferta.vence_en.isoformat()}")
+        self.estado = EstadoSolicitud.ACEPTADA
+        self.aceptacion_key = aceptacion_key
+        self.aceptada_en = ahora
 
 
 @dataclass(frozen=True)

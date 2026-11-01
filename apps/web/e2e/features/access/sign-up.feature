@@ -1,4 +1,4 @@
-@access @pendiente @HU-102 @SOLV-226
+@access @HU-102 @SOLV-226
 Feature: Customer sign-up
 
   Scenario: Sign-up without camera
