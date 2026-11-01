@@ -133,13 +133,19 @@ class Poliza:
         póliza CANCELADA (cancelar es terminal, ver cancelar())."""
         return self.estado is EstadoPoliza.VIGENTE and hoy > self.fin_vigencia
 
+    def renovable(self, hoy: date) -> bool:
+        """Predicado sin lanzar excepción, usado por la API (PolizaSalida.renovable)
+        para que el canal web deshabilite el CTA sin duplicar esta regla en el
+        frontend. Misma condición que _exigir_renovable()."""
+        if self.estado is not EstadoPoliza.VIGENTE:
+            return False
+        return not (hoy > self.fin_vigencia and (hoy - self.fin_vigencia).days > VENTANA_GRACIA_DIAS)
+
     def _exigir_renovable(self, hoy: date) -> None:
         """HU-59: renovar tolera fin_vigencia vencida dentro de la ventana de
         gracia; fuera de esa ventana (o si la póliza está CANCELADA) es la
         misma transición inválida que exige modificar_coberturas()."""
-        if self.estado is not EstadoPoliza.VIGENTE:
-            raise TransicionInvalida(self.estado.value, EstadoPoliza.VIGENTE.value)
-        if hoy > self.fin_vigencia and (hoy - self.fin_vigencia).days > VENTANA_GRACIA_DIAS:
+        if not self.renovable(hoy):
             raise TransicionInvalida(self.estado.value, EstadoPoliza.VIGENTE.value)
 
     def renovar(self, nueva_fin_vigencia: date, hoy: date) -> None:

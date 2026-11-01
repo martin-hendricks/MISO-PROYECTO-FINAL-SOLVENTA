@@ -258,6 +258,20 @@ def test_emitir_devuelve_la_prima_como_suma_de_sumas_aseguradas(client):
     assert poliza["prima"]["periodicidad"] == "ANUAL"
 
 
+def test_emitir_devuelve_renovable_true(client):
+    assert _emitir(client)["renovable"] is True
+
+
+def test_consultar_poliza_vencida_fuera_de_ventana_de_gracia_devuelve_renovable_false(client, almacen):
+    poliza = _emitir(client)
+    fila = almacen.polizas[UUID(poliza["id"])]
+    fila.fin_vigencia -= timedelta(days=365 + VENTANA_GRACIA_DIAS + 1)
+
+    respuesta = client.get(f"/v1/polizas/{poliza['id']}")
+
+    assert respuesta.json()["renovable"] is False
+
+
 def test_renovar_dentro_de_la_ventana_de_gracia_responde_200(client, almacen):
     poliza = _emitir(client)
     fila = almacen.polizas[UUID(poliza["id"])]

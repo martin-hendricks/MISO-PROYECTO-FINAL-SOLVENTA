@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -53,6 +53,9 @@ class PolizaSalida(BaseModel):
     estado: str
     coberturas: list[CoberturaSalida]
     prima: PrimaSalida
+    # HU-59: calculado server-side (Poliza.renovable) para que el canal web
+    # deshabilite el CTA sin duplicar la regla de ventana de gracia.
+    renovable: bool
     motivo_cancelacion: str | None = None
     cancelada_en: date | None = None
     cancelada_por: str | None = None
@@ -60,7 +63,7 @@ class PolizaSalida(BaseModel):
     hash_firma_legal: str | None = None
 
     @classmethod
-    def desde(cls, poliza: Poliza) -> "PolizaSalida":
+    def desde(cls, poliza: Poliza, hoy: date | None = None) -> "PolizaSalida":
         return cls(
             id=poliza.id,
             numero=poliza.numero,
@@ -74,6 +77,7 @@ class PolizaSalida(BaseModel):
                 for c in poliza.coberturas
             ],
             prima=PrimaSalida.desde(poliza.prima),
+            renovable=poliza.renovable(hoy or datetime.now(UTC).date()),
             motivo_cancelacion=poliza.motivo_cancelacion,
             cancelada_en=poliza.cancelada_en,
             cancelada_por=poliza.cancelada_por,
