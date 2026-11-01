@@ -15,6 +15,8 @@ router = APIRouter(
     dependencies=[Depends(require_roles("operador"))],
 )
 
+Operador = Annotated[dict, Depends(require_roles("operador"))]
+
 # Mapea la decisión del operador (vocabulario del canal web) al estado real
 # del enum EstadoSiniestro de ms-siniestros (ver
 # apps/backend/ms-siniestros/app/domain/modelos.py). El dominio de
@@ -36,16 +38,11 @@ class Decision(BaseModel):
 
 class Ciclo(BaseModel):
     numero: str
-    # TODO: el canal web solo conoce `numero` (número visible de póliza),
-    # pero ms-polizas solo expone los endpoints de ciclo de vida por
-    # poliza_id (UUID interno) -- todavía no existe en esta rama un endpoint
-    # de "buscar póliza por número" en ms-polizas que resuelva numero ->
-    # poliza_id (ese endpoint de lectura es alcance de otro trabajo en
-    # paralelo). Mientras tanto, si el frontend ya conoce el UUID interno de
-    # la póliza (p.ej. porque lo guardó de una consulta previa), puede
-    # mandarlo directamente en `polizaId` para poder probar el flujo
-    # end-to-end; si no lo manda, la ruta responde 501 explícito en vez de
-    # inventar un UUID o fallar silenciosamente.
+    # El canal web solo conoce `numero` (número visible de póliza); ciclo()
+    # lo resuelve a poliza_id vía ClienteMsPolizas.obtener_por_numero() antes
+    # de llamar a renovar/modificar/cancelar. Si el frontend ya conoce el
+    # UUID interno (p.ej. de una consulta previa), puede mandarlo directo en
+    # `polizaId` para ahorrarse esa resolución.
     polizaId: UUID | None = None
     verbo: str
     motivo: str | None = None
@@ -133,25 +130,51 @@ async def decidir(
     }
 
 
-def _poliza_salida(body: Ciclo, poliza: dict) -> dict:
+def _poliza_salida(numero: str, poliza: dict, siniestros_abiertos: int | None = None) -> dict:
     # TODO: `ramo` no existe en la salida de ms-polizas (Poliza no tiene
     # concepto de ramo, ver app/domain/modelos.py de ms-polizas) -- mismo
     # faltante documentado en cliente.py (emitir()/detalle()/billetera()).
-    # Se usa el numero que ya conocía el canal (body.numero) en vez del que
-    # devuelve ms-polizas, porque hoy no hay garantía de que coincidan sin el
-    # endpoint de búsqueda por número (ver TODO en el modelo Ciclo).
+    # Se usa el numero que ya conocía el canal en vez del que devuelve
+    # ms-polizas por si llegaran a divergir alguna vez.
     return {
-        "numero": body.numero,
+        "numero": numero,
         "ramo": "Protección de dispositivo",
         "estado": poliza["estado"].lower(),
         "venceEn": poliza.get("fin_vigencia", ""),
+        "prima": poliza["prima"],
+        "renovable": poliza["renovable"],
+        "devolucionEstimada": poliza.get("devolucion_estimada"),
+        "canceladaEn": poliza.get("cancelada_en"),
+        "canceladaPor": poliza.get("cancelada_por"),
+        "motivoCancelacion": poliza.get("motivo_cancelacion"),
+        "siniestrosAbiertos": siniestros_abiertos,
     }
+
+
+async def _resolver_poliza_id(body: Ciclo, cliente_polizas: ClienteMsPolizas) -> UUID:
+    if body.polizaId is not None:
+        return body.polizaId
+    encontrada = await cliente_polizas.obtener_por_numero(body.numero)
+    return UUID(encontrada["id"])
+
+
+@router.get("/polizas/{numero}")
+async def consultar_poliza(
+    numero: str,
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+) -> dict:
+    """Detalle de una póliza por número visible, para que el operador decida
+    si renovar o cancelar antes de ejecutar el comando (ver ciclo())."""
+    poliza = await cliente_polizas.obtener_por_numero(numero)
+    return _poliza_salida(numero, poliza)
 
 
 @router.post("/polizas/ciclo")
 async def ciclo(
     body: Ciclo,
+    operador: Operador,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
 ) -> dict:
     if body.verbo not in {"renovar", "modificar", "cancelar"}:
         raise HTTPException(status_code=400, detail="Verbo no permitido")
@@ -159,22 +182,22 @@ async def ciclo(
         raise HTTPException(status_code=400, detail="Motivo requerido")
     if body.verbo == "modificar" and not body.coberturas:
         raise HTTPException(status_code=400, detail="Coberturas requeridas")
-    if body.polizaId is None:
-        # Ver TODO en el modelo Ciclo: sin el endpoint de búsqueda por numero
-        # en ms-polizas no hay forma de resolver numero -> poliza_id. Se
-        # responde 501 explícito en vez de fallar silenciosamente o inventar
-        # un UUID -- el contrato de esta ruta cambió y debe ser visible.
-        raise HTTPException(status_code=501, detail="numero->poliza_id no implementado: falta polizaId")
+
+    poliza_id = await _resolver_poliza_id(body, cliente_polizas)
 
     if body.verbo == "renovar":
         nueva_fin_vigencia = body.nuevaFinVigencia or date.today() + timedelta(days=365)
-        poliza = await cliente_polizas.renovar(body.polizaId, nueva_fin_vigencia)
-    elif body.verbo == "modificar":
-        poliza = await cliente_polizas.modificar_coberturas(body.polizaId, body.coberturas or [])
-    else:
-        poliza = await cliente_polizas.cancelar(body.polizaId, body.motivo or "")
+        poliza = await cliente_polizas.renovar(poliza_id, nueva_fin_vigencia)
+        return _poliza_salida(body.numero, poliza)
+    if body.verbo == "modificar":
+        poliza = await cliente_polizas.modificar_coberturas(poliza_id, body.coberturas or [])
+        return _poliza_salida(body.numero, poliza)
 
-    return _poliza_salida(body, poliza)
+    # HU-61: siniestros abiertos es solo informativo -- se consulta pero no
+    # bloquea la cancelación (ver ClienteMsSiniestros.abiertos_por_poliza).
+    siniestros_abiertos = await cliente_siniestros.abiertos_por_poliza(poliza_id)
+    poliza = await cliente_polizas.cancelar(poliza_id, body.motivo or "", operador["sub"])
+    return _poliza_salida(body.numero, poliza, siniestros_abiertos)
 
 
 # TODO: depende de ms-siniestros/ms-parametrico (gestión de asistencias), que
