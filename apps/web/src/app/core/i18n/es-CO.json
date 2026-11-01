@@ -57,7 +57,6 @@
     "siniestro": "Detalle de siniestro",
     "siniestros": "Siniestros",
     "perfil": "Perfil",
-    "vidaCrediticia": "Vida Crediticia",
     "pending": {
       "title": "Sección en preparación",
       "body": "Pronto podrás continuar desde aquí.",
@@ -296,7 +295,8 @@
         "nombre": "Nombre",
         "documento": "Documento",
         "vigencia": "Vigencia",
-        "placa": "Placa"
+        "placa": "Placa",
+        "consentimiento": "El cliente autoriza a Solventa a consultar su información crediticia para personalizar la oferta (consentimiento de perfilamiento)."
       },
       "vigencia": "1 año",
       "error": {
@@ -319,7 +319,9 @@
         "id": "Cotización",
         "calculando": "Calculando la prima…",
         "sinOferta": "Sin oferta",
-        "sinOfertaBody": "Completa los datos y calcula la prima."
+        "sinOfertaBody": "Completa los datos y calcula la prima.",
+        "factores": "Factores del perfil",
+        "degradada": "El perfil no respondió a tiempo: la prima usa valores de respaldo."
       }
     },
     "cotizaciones": {
@@ -372,6 +374,43 @@
       "home": "Volver al inicio"
     }
   },
+  "vidaCrediticia": {
+    "volver": "Volver",
+    "consentimiento": {
+      "title": "Consentimiento Vida Crediticia",
+      "subtitle": "Originación hipotecaria. Este grant no se abre desde Perfil.",
+      "texto": "Autorizas a Solventa a consultar información crediticia para personalizar la oferta de vida asociada a tu crédito hipotecario.",
+      "credito": "Datos del crédito",
+      "autorizar": "Autorizar",
+      "autorizando": "Calculando tu oferta…",
+      "ahoraNo": "Ahora no"
+    },
+    "oferta": {
+      "title": "Oferta Vida Crediticia",
+      "subtitle": "Prima personalizada con factores explicables.",
+      "factores": "Factores",
+      "montoCredito": "Monto del crédito",
+      "plazo": "Plazo",
+      "plazoValor": "{{meses}} meses",
+      "prima": "Prima",
+      "aceptar": "Aceptar y emitir",
+      "degradada": "No pudimos consultar todos tus datos a tiempo: la prima usa valores de respaldo. Puedes aceptarla igual.",
+      "sinFactores": "Sin factores de perfil disponibles."
+    },
+    "factor": {
+      "nivel_ingresos_estimado": "Nivel de ingresos estimado",
+      "score_comportamiento": "Comportamiento de pago",
+      "zona_riesgo": "Zona de riesgo",
+      "antiguedad_documento": "Antigüedad del documento"
+    },
+    "impacto": {
+      "reduce_prima": "Reduce la prima",
+      "aumenta_prima": "Aumenta la prima"
+    },
+    "error": {
+      "servicio": "No pudimos calcular tu oferta. Intenta de nuevo en unos minutos."
+    }
+  },
   "cotizacion": {
     "riesgo": "Datos del riesgo",
     "rango": "Entre {{minimo}} y {{maximo}}",
@@ -391,6 +430,7 @@
       "referencia": "Referencia",
       "umbral": "Umbral",
       "valor": "Valor del crédito",
+      "valorCredito": "Valor del crédito",
       "plazoMeses": "Plazo (meses)",
       "cuota": "Cuota",
       "destino": "Destino",

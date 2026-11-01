@@ -8,11 +8,13 @@ from pydantic import BaseModel, Field
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
+from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
 from ..clients.ms_suscripcion import ClienteMsSuscripcion
 from ..dependencies import (
     obtener_cliente_cotizacion,
     obtener_cliente_pagos,
+    obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
     obtener_cliente_suscripcion,
     require_roles,
@@ -20,12 +22,16 @@ from ..dependencies import (
 from .cliente import (
     FIRMA_NO_EXITOSA,
     RAMO_A_PRODUCTO,
+    RAMO_VIDA_CREDITICIA,
+    SIN_CONSENTIMIENTO,
     ContextoUsuario,
+    Credito,
     _catalogo_salida,
     _cotizacion_salida,
     _idempotency_key,
     _producto_de,
     _uuid_desde,
+    ofertar_vida_crediticia,
 )
 
 router = APIRouter(
@@ -68,6 +74,12 @@ class VentaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     ramo: str
     datosRiesgo: dict
+
+
+class OfertaHipotecariaAsistida(BaseModel):
+    clienteId: str = Field(min_length=1)
+    credito: Credito
+    consentimientoPerfil: bool
 
 
 class ClienteNuevo(BaseModel):
@@ -119,6 +131,32 @@ async def venta(
         cliente_ref=body.clienteId,
     )
     return _cotizacion_salida(datos, body.ramo)
+
+
+@router.post("/oferta-hipotecaria")
+async def oferta_hipotecaria(
+    body: OfertaHipotecariaAsistida,
+    sesion: Annotated[dict, Depends(require_roles("asesor"))],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """Oferta de vida hipotecario en el portal asesor (HU-58): la misma
+    orquestación y el mismo shape que ve el cliente (HU-105), pero a nombre
+    del cliente atendido, igual que venta(). `consentimientoPerfil` lo
+    declara el cliente en la venta asistida; sin él no se perfila. La
+    cotización queda con el asesor, así sigue a emisión por HU-163."""
+    if not body.consentimientoPerfil:
+        return {"ramo": RAMO_VIDA_CREDITICIA, "estado": SIN_CONSENTIMIENTO}
+
+    return await ofertar_vida_crediticia(
+        ContextoUsuario(body.clienteId),
+        body.credito,
+        "asesor",
+        cliente_perfilamiento,
+        cliente_cotizacion,
+        asesor_id=_asesor_id(sesion),
+        cliente_ref=body.clienteId,
+    )
 
 
 POLIZAS_NO_DISPONIBLE = "polizas_no_disponible"

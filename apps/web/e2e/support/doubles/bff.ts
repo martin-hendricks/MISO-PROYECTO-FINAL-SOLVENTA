@@ -1,5 +1,5 @@
 import { Page } from 'playwright';
-import { Catalog, Client, Home, Offer, PolicyDetail } from '../data/generators';
+import { Catalog, Client, Home, MortgageOffer, Offer, PolicyDetail } from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
@@ -42,6 +42,7 @@ export class BffDoubles {
   private issueRequests = 0;
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
+  private mortgageBodies: Record<string, unknown>[] = [];
 
   constructor(private readonly page: Page) {}
 
@@ -172,6 +173,20 @@ export class BffDoubles {
       this.issueRequests += 1;
       return route.fulfill({ json: emision });
     });
+  }
+
+  /** Answers `POST /{canal}/oferta-hipotecaria` (HU-162); a new call replaces the answer. */
+  async serveMortgageOffer(canal: Canal, offer: MortgageOffer): Promise<void> {
+    const url = `**/web/${canal}/oferta-hipotecaria`;
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      this.mortgageBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ json: offer });
+    });
+  }
+
+  mortgageBody(): Record<string, unknown> | undefined {
+    return this.mortgageBodies.at(-1);
   }
 
   issuesRequested(): number {

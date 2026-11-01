@@ -106,6 +106,13 @@ def test_calcular_oferta_incluye_precio_y_factores_explicables():
     factor_zona = next(f for f in oferta.factores if f.factor == ZONA_RIESGO)
     assert factor_zona.impacto == "aumenta_prima"
     assert oferta.snapshot_atributos == perfil.atributos
+    # El multiplicador que lee ms-cotizacion sale de los mismos factores y snapshot.
+    assert oferta.factor_ajuste == Decimal("0.854")
+
+
+def test_factor_ajuste_sin_factores_es_neutro():
+    oferta = Oferta.armar("cliente-1", Decimal("10"), [], Perfil.armar("cliente-1", []))
+    assert oferta.factor_ajuste == Decimal("1")
 
 
 def test_calcular_oferta_marca_degradado_si_el_perfil_esta_degradado():

@@ -131,6 +131,7 @@ services:
       # Default roto en app/config.py (http://ms-suscripcion:8000, pero
       # ms-suscripcion escucha en :8080) -- se sobreescribe aquí explícito.
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
+      MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
     ports:
       - "8009:8000"
     depends_on:

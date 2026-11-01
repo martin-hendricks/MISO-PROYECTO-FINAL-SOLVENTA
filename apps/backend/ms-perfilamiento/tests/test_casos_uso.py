@@ -173,3 +173,39 @@ async def test_oferta_degradada_sigue_siendo_valida_y_no_cancela_originacion(
 
     assert resultado.oferta.precio > 0
     assert resultado.oferta.degradado is True
+
+
+async def test_ultima_oferta_sin_consentimiento_vigente_es_rechazada(uow):
+    with pytest.raises(ConsentimientoNoOtorgado):
+        await casos_uso.consultar_ultima_oferta(uow, "cliente-1")
+
+
+async def test_ultima_oferta_sin_ofertas_es_no_encontrado(uow):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+
+    with pytest.raises(NoEncontrado):
+        await casos_uso.consultar_ultima_oferta(uow, "cliente-1")
+
+
+async def test_ultima_oferta_devuelve_la_mas_reciente_sin_volver_a_perfilar(
+    uow, config, adaptador_open_finance, adaptador_open_data
+):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    await casos_uso.perfilar_y_ofertar(uow, adaptador_open_finance, adaptador_open_data, config, "clave-0001", "cliente-1")
+    segunda = await casos_uso.perfilar_y_ofertar(
+        uow, adaptador_open_finance, adaptador_open_data, config, "clave-0002", "cliente-1"
+    )
+
+    ultima = await casos_uso.consultar_ultima_oferta(uow, "cliente-1")
+
+    assert ultima.id == segunda.oferta.id
+    assert ultima.factor_ajuste == segunda.oferta.factor_ajuste
+
+
+async def test_revocar_corta_la_lectura_de_la_ultima_oferta(uow, config, adaptador_open_finance, adaptador_open_data):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    await casos_uso.perfilar_y_ofertar(uow, adaptador_open_finance, adaptador_open_data, config, "clave-0001", "cliente-1")
+    await casos_uso.revocar_consentimiento(uow, "cliente-1")
+
+    with pytest.raises(ConsentimientoNoOtorgado):
+        await casos_uso.consultar_ultima_oferta(uow, "cliente-1")

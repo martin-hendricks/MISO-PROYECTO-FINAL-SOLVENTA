@@ -67,6 +67,7 @@ class OfertaSalida(BaseModel):
     precio: Decimal
     moneda: str
     degradado: bool
+    factor_ajuste: Decimal
     factores: list[FactorInternoSalida]
     snapshot_atributos: list[AtributoPerfilSalida]
     creado_en: datetime
@@ -79,6 +80,7 @@ class OfertaSalida(BaseModel):
             precio=oferta.precio,
             moneda=oferta.moneda,
             degradado=oferta.degradado,
+            factor_ajuste=oferta.factor_ajuste,
             factores=[FactorInternoSalida.desde(f) for f in oferta.factores],
             snapshot_atributos=[AtributoPerfilSalida.desde(a) for a in oferta.snapshot_atributos],
             creado_en=oferta.creado_en,

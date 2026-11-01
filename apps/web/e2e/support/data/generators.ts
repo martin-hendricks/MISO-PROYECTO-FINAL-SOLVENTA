@@ -134,6 +134,25 @@ export interface Catalog {
   )[];
 }
 
+/** `vida-crediticia` (seed 07): the customer names it Vida crediticia, the advisor Vida hipotecario. */
+const VIDA_CREDITICIA: Catalog = {
+  ramo: 'Vida crediticia',
+  nombre: 'Vida crediticia',
+  moneda: 'COP',
+  coberturas: [
+    {
+      codigo: 'muerte',
+      nombre: 'Muerte por cualquier causa',
+      limite: '500000000',
+      unidadLimite: 'MONEDA',
+    },
+  ],
+  datosRiesgo: [
+    { nombre: 'valorCredito', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+    { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+  ],
+};
+
 /** Catalogs as bff-web serves the ms-cotizacion seeds, keyed by the `ramo` the portal sends. */
 export const CATALOGS: Record<string, Catalog> = {
   'Protección de dispositivo': {
@@ -167,6 +186,8 @@ export const CATALOGS: Record<string, Catalog> = {
       { nombre: 'ciudad_circulacion', tipo: 'valores', valores: ['bogota', 'medellin', 'cali'] },
     ],
   },
+  'Vida crediticia': VIDA_CREDITICIA,
+  'Vida hipotecario': { ...VIDA_CREDITICIA, ramo: 'Vida hipotecario' },
 };
 
 export interface Offer {
@@ -192,5 +213,26 @@ export function offer(ramo = 'Protección de dispositivo'): Offer {
     expedicion: '9000.00',
     moneda: 'COP',
     venceEn: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+  };
+}
+
+export interface MortgageOffer extends Offer {
+  factores: { factor: string; impacto: string }[];
+  degradada: boolean;
+  credito: { valor: number; plazoMeses: number };
+}
+
+/** The mortgage life offer (HU-162): a firm quote priced with Solventa's profile. */
+export function mortgageOffer(degradada = false): MortgageOffer {
+  return {
+    ...offer('Vida crediticia'),
+    factores: degradada
+      ? []
+      : [
+          { factor: 'score_comportamiento', impacto: 'reduce_prima' },
+          { factor: 'zona_riesgo', impacto: 'aumenta_prima' },
+        ],
+    degradada,
+    credito: { valor: 180000000, plazoMeses: 240 },
   };
 }

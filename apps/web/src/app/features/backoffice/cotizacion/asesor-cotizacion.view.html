@@ -55,6 +55,18 @@
         <fieldset>
           <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
           <sv-riesgo-fields [vm]="vm.form" prefix="asesor" />
+          @if (vm.esHipotecario()) {
+            <label class="check consentimiento">
+              <input
+                #consentimiento
+                type="checkbox"
+                data-testid="asesor-consentimiento"
+                [checked]="vm.consentimiento()"
+                (change)="vm.consentir(consentimiento.checked)"
+              />
+              {{ 'backoffice.cotizacion.campo.consentimiento' | translate }}
+            </label>
+          }
           @if (vm.pidePlaca()) {
             @let placaIssue = vm.issue('placa');
             <div class="field">
@@ -113,6 +125,22 @@
             <dt>{{ 'backoffice.cotizacion.oferta.id' | translate }}</dt>
             <dd class="mono" data-testid="oferta-id">{{ oferta.cotizacionId }}</dd>
           </dl>
+          @if (oferta.degradada) {
+            <p class="banner" role="status" data-testid="oferta-degradada">
+              {{ 'backoffice.cotizacion.oferta.degradada' | translate }}
+            </p>
+          }
+          @if (oferta.factores?.length) {
+            <p class="label">{{ 'backoffice.cotizacion.oferta.factores' | translate }}</p>
+            <dl data-testid="oferta-factores">
+              @for (item of oferta.factores; track item.factor) {
+                <dt>{{ factor(item.factor) }}</dt>
+                <dd [attr.data-impacto]="item.impacto">
+                  {{ 'vidaCrediticia.impacto.' + item.impacto | translate }}
+                </dd>
+              }
+            </dl>
+          }
           @if (vm.canContinue()) {
             <a
               class="filled"

@@ -7,7 +7,6 @@ import {
   ProblemaCampo,
   Ramo,
   RAMO_INICIAL,
-  ramoPorId,
   RAMOS,
   Rango,
   validarCampo,
@@ -23,8 +22,6 @@ export type CatalogoStatus = 'loading' | 'ready' | 'error';
  * problem, the CTA stays disabled and whatever was typed is kept.
  */
 export class CotizacionFormViewModel {
-  readonly ramos = RAMOS;
-
   private readonly ramoState = signal<Ramo>(RAMO_INICIAL);
   readonly ramo = this.ramoState.asReadonly();
 
@@ -97,11 +94,13 @@ export class CotizacionFormViewModel {
     private readonly catalogSource: (ramo: string) => Observable<Catalogo>,
     private readonly source: (ramo: string, datos: DatosRiesgo) => Observable<Oferta>,
     private readonly onQuoted: (oferta: Oferta) => void = () => undefined,
+    /** Lines this channel offers; the advisor enables more than the customer. */
+    readonly ramos: readonly Ramo[] = RAMOS,
   ) {}
 
   /** Switches line: its own fields start empty and its catalog is loaded. */
   select(id: string): void {
-    const ramo = ramoPorId(id);
+    const ramo = this.ramos.find((r) => r.id === id);
     if (!ramo?.disponible) {
       return;
     }

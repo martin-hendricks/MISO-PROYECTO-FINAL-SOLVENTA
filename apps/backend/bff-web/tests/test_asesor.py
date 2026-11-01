@@ -507,3 +507,95 @@ def test_pendientes_sin_ms_cotizacion_responde_503(client, nucleo_cotizacion):
 
 def test_operador_no_lista_cotizaciones_pendientes(client):
     assert client.get("/v1/asesor/cotizaciones", headers=_auth(client, "operador")).status_code == 403
+
+
+from app.routers.cliente import ContextoUsuario  # noqa: E402
+
+PERFIL_HIPOTECARIO = {
+    "id": "77777777-7777-7777-7777-777777777777",
+    "cliente_id": "c",
+    "precio": "42700.00",
+    "moneda": "COP",
+    "degradado": False,
+    "factor_ajuste": "0.854",
+    "factores": [{"factor": "zona_riesgo", "impacto": "aumenta_prima", "peso": "0.20"}],
+    "snapshot_atributos": [],
+    "creado_en": "2026-10-01T00:00:00Z",
+}
+
+COTIZACION_VIDA = {**COTIZACION_SALIDA, "producto": "vida-crediticia", "factor_riesgo_origen": "real"}
+
+
+def _oferta_asistida(client, consentimiento: bool = True):
+    return client.post(
+        "/v1/asesor/oferta-hipotecaria",
+        headers=_auth(client, "asesor"),
+        json={
+            "clienteId": "CLI-20",
+            "credito": {"valor": 180000000, "plazoMeses": 240},
+            "consentimientoPerfil": consentimiento,
+        },
+    )
+
+
+def test_oferta_hipotecaria_asistida_es_la_misma_oferta_a_nombre_del_cliente(
+    client, nucleo_perfilamiento, nucleo_cotizacion
+):
+    nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = lambda _: httpx.Response(201, json={})
+    nucleo_perfilamiento.respuestas[("POST", "/v1/ofertas-hipotecario")] = lambda _: httpx.Response(
+        201, json=PERFIL_HIPOTECARIO
+    )
+    nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = lambda _: httpx.Response(201, json=COTIZACION_VIDA)
+
+    respuesta = _oferta_asistida(client)
+
+    assert respuesta.status_code == 200
+    body = respuesta.json()
+    assert body["cotizacionId"] == COTIZACION_ID
+    assert body["factores"] == [{"factor": "zona_riesgo", "impacto": "aumenta_prima"}]
+    assert body["degradada"] is False
+
+    cliente_id = str(ContextoUsuario("CLI-20").usuario_id)
+    assert json.loads(nucleo_perfilamiento.peticiones[0].content)["cliente_id"] == cliente_id
+    enviado = json.loads(nucleo_cotizacion.peticiones[-1].content)
+    assert enviado["usuario_id"] == cliente_id
+    assert enviado["producto"] == "vida-crediticia"
+    assert enviado["canal"] == "asesor"
+    # Queda con el asesor de la sesión para seguir a emisión desde sus pendientes (HU-163).
+    assert enviado["asesor_id"] == _asesor_id()
+    assert enviado["cliente_ref"] == "CLI-20"
+
+
+def test_oferta_hipotecaria_asistida_sin_consentimiento_no_perfila(client, nucleo_perfilamiento, nucleo_cotizacion):
+    respuesta = _oferta_asistida(client, consentimiento=False)
+
+    assert respuesta.json()["estado"] == "sin_consentimiento"
+    assert nucleo_perfilamiento.peticiones == []
+    assert nucleo_cotizacion.peticiones == []
+
+
+def test_oferta_hipotecaria_asistida_solo_para_asesor(client):
+    respuesta = client.post(
+        "/v1/asesor/oferta-hipotecaria",
+        headers=_auth(client, "cliente"),
+        json={"clienteId": "CLI-20", "credito": {"valor": 1, "plazoMeses": 1}, "consentimientoPerfil": True},
+    )
+    assert respuesta.status_code == 403
+
+
+def test_catalogo_de_vida_hipotecario_es_el_producto_vida_crediticia(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/vida-crediticia")] = lambda _: httpx.Response(
+        200,
+        json={
+            "codigo": "vida-crediticia",
+            "nombre": "Vida crediticia",
+            "moneda": "COP",
+            "coberturas": [],
+            "datos_riesgo": [{"nombre": "plazoMeses", "tipo": "rango", "minimo": "6", "maximo": "360"}],
+        },
+    )
+
+    respuesta = client.get("/v1/asesor/catalogo/Vida hipotecario", headers=_auth(client, "asesor"))
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["datosRiesgo"][0]["nombre"] == "plazoMeses"

@@ -1,5 +1,9 @@
+import json
+
 import httpx
 
+from app.dependencies import issue_pair
+from app.routers.cliente import ContextoUsuario
 from tests.conftest import token
 
 COTIZACION_ID = "11111111-1111-1111-1111-111111111111"
@@ -370,74 +374,165 @@ OFERTA_HIPOTECARIA_ID = "77777777-7777-7777-7777-777777777777"
 OFERTA_HIPOTECARIA_SALIDA = {
     "id": OFERTA_HIPOTECARIA_ID,
     "cliente_id": "cualquier-cliente",
-    "precio": "64000.00",
+    "precio": "42700.00",
     "moneda": "COP",
     "degradado": False,
+    "factor_ajuste": "0.854",
     "factores": [
-        {"factor": "plazo", "impacto": "positivo", "peso": "0.4000"},
-        {"factor": "valor del crédito", "impacto": "negativo", "peso": "0.1000"},
+        {"factor": "score_comportamiento", "impacto": "reduce_prima", "peso": "-0.15"},
+        {"factor": "zona_riesgo", "impacto": "aumenta_prima", "peso": "0.20"},
     ],
     "snapshot_atributos": [],
     "creado_en": "2026-10-01T00:00:00Z",
 }
 
+COTIZACION_VIDA_SALIDA = {
+    **COTIZACION_SALIDA,
+    "producto": "vida-crediticia",
+    "prima": "140100.00",
+    "prima_neta": "128100.00",
+    "gastos_expedicion": "12000.00",
+    "factor_riesgo_origen": "real",
+}
 
-def test_hipoteca_con_consentimiento_llama_a_perfilamiento(client, nucleo_perfilamiento):
+CREDITO = {"valor": 180000000, "plazoMeses": 180}
+
+
+def _usuario_id(correo: str = "persona@solventa.com") -> str:
+    return str(ContextoUsuario(correo).usuario_id)
+
+
+def _perfilamiento_responde(nucleo_perfilamiento, oferta: dict = OFERTA_HIPOTECARIA_SALIDA) -> None:
     nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = lambda _: httpx.Response(
-        201, json={"id": "88888888-8888-8888-8888-888888888888", "cliente_id": "c", "otorgado_en": "2026-10-01T00:00:00Z", "revocado_en": None, "vigente": True}
+        201,
+        json={
+            "id": "88888888-8888-8888-8888-888888888888",
+            "cliente_id": "c",
+            "otorgado_en": "2026-10-01T00:00:00Z",
+            "revocado_en": None,
+            "vigente": True,
+        },
     )
-    nucleo_perfilamiento.respuestas[("POST", "/v1/ofertas-hipotecario")] = lambda _: httpx.Response(
-        201, json=OFERTA_HIPOTECARIA_SALIDA
-    )
+    nucleo_perfilamiento.respuestas[("POST", "/v1/ofertas-hipotecario")] = lambda _: httpx.Response(201, json=oferta)
 
-    headers = _auth(client)
-    ready = client.post(
+
+def _cotizacion_vida_responde(nucleo_cotizacion, salida: dict = COTIZACION_VIDA_SALIDA) -> None:
+    nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = lambda _: httpx.Response(201, json=salida)
+
+
+def _caido(request):
+    raise httpx.ConnectError("conexión rechazada", request=request)
+
+
+def _pedir_oferta(client, consentimiento: bool = True, credito: dict = CREDITO, headers: dict | None = None):
+    return client.post(
         "/v1/cliente/oferta-hipotecaria",
-        headers=headers,
-        json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
+        headers=headers or _auth(client),
+        json={"credito": credito, "consentimientoPerfil": consentimiento},
     )
 
-    assert ready.status_code == 200
-    body = ready.json()
-    assert body["prima"] == 64000.0
+
+def test_hipoteca_perfila_y_cotiza_vida_crediticia_con_el_mismo_cliente(
+    client, nucleo_perfilamiento, nucleo_cotizacion
+):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    _cotizacion_vida_responde(nucleo_cotizacion)
+
+    response = _pedir_oferta(client)
+
+    assert response.status_code == 200
+    body = response.json()
+    # La prima es la de la cotización: es la que se cobra al emitir con este id (HU-114).
+    assert body["cotizacionId"] == COTIZACION_ID
+    assert body["prima"] == "140100.00"
+    assert body["ramo"] == "Vida crediticia"
     assert body["degradada"] is False
-    assert body["moneda"] == "COP"
-    assert body["factores"] == ["plazo", "valor del crédito"]
+    assert body["credito"] == CREDITO
+    assert body["factores"] == [
+        {"factor": "score_comportamiento", "impacto": "reduce_prima"},
+        {"factor": "zona_riesgo", "impacto": "aumenta_prima"},
+    ]
 
-    # Se otorga el consentimiento antes de pedir la oferta.
-    assert ("POST", "/v1/consentimientos") == (
-        nucleo_perfilamiento.peticiones[0].method,
-        nucleo_perfilamiento.peticiones[0].url.path,
-    )
+    # Se otorga el consentimiento antes de perfilar, para el cliente de la sesión.
+    consentimiento, perfil = nucleo_perfilamiento.peticiones
+    assert (consentimiento.method, consentimiento.url.path) == ("POST", "/v1/consentimientos")
+    assert json.loads(consentimiento.read())["cliente_id"] == _usuario_id()
+    assert json.loads(perfil.read())["cliente_id"] == _usuario_id()
+
+    # ms-cotizacion recibe el mismo usuario_id: con él lee el perfil (IPerfilRiesgo).
+    cotizacion = json.loads(nucleo_cotizacion.peticiones[-1].read())
+    assert cotizacion["producto"] == "vida-crediticia"
+    assert cotizacion["usuario_id"] == _usuario_id()
+    assert cotizacion["canal"] == "web"
+    assert cotizacion["datos_riesgo"] == {"valorCredito": 180000000, "plazoMeses": 180}
 
 
-def test_hipoteca_sin_consentimiento_no_llama_a_perfilamiento(client, nucleo_perfilamiento):
-    headers = _auth(client)
-    degraded = client.post(
-        "/v1/cliente/oferta-hipotecaria",
-        headers=headers,
-        json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": False},
-    )
+def test_hipoteca_usa_la_identidad_de_cada_sesion(client, nucleo_perfilamiento, nucleo_cotizacion):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    _cotizacion_vida_responde(nucleo_cotizacion)
 
-    assert degraded.status_code == 200
-    body = degraded.json()
-    assert body["prima"] == 50000 and body["degradada"] is True
-    assert body["moneda"] == "COP"
+    for correo in ("ana@correo.com", "beto@correo.com"):
+        acceso = issue_pair(correo, "cliente")["accessToken"]
+        _pedir_oferta(client, headers={"Authorization": f"Bearer {acceso}"})
+
+    consentimientos = nucleo_perfilamiento.peticiones[::2]
+    assert [json.loads(p.read())["cliente_id"] for p in consentimientos] == [
+        _usuario_id("ana@correo.com"),
+        _usuario_id("beto@correo.com"),
+    ]
+
+
+def test_hipoteca_sin_consentimiento_no_llama_a_ningun_servicio(client, nucleo_perfilamiento, nucleo_cotizacion):
+    response = _pedir_oferta(client, consentimiento=False)
+
+    assert response.status_code == 200
+    assert response.json() == {"ramo": "Vida crediticia", "estado": "sin_consentimiento"}
     assert nucleo_perfilamiento.peticiones == []
+    assert nucleo_cotizacion.peticiones == []
 
 
-def test_hipoteca_servicio_no_disponible_es_503(client, nucleo_perfilamiento):
-    def caido(request):
-        raise httpx.ConnectError("conexión rechazada", request=request)
+def test_hipoteca_perfil_degradado_marca_la_oferta(client, nucleo_perfilamiento, nucleo_cotizacion):
+    _perfilamiento_responde(nucleo_perfilamiento, {**OFERTA_HIPOTECARIA_SALIDA, "degradado": True})
+    _cotizacion_vida_responde(nucleo_cotizacion)
 
-    nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = caido
+    body = _pedir_oferta(client).json()
 
-    response = client.post(
-        "/v1/cliente/oferta-hipotecaria",
-        headers=_auth(client),
-        json={"credito": {"valor": 180000000, "plazoMeses": 180}, "consentimientoPerfil": True},
-    )
-    assert response.status_code == 503
+    assert body["degradada"] is True
+    assert body["cotizacionId"] == COTIZACION_ID
+
+
+def test_hipoteca_factor_de_respaldo_en_cotizacion_marca_la_oferta(client, nucleo_perfilamiento, nucleo_cotizacion):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    _cotizacion_vida_responde(nucleo_cotizacion, {**COTIZACION_VIDA_SALIDA, "factor_riesgo_origen": "respaldo"})
+
+    assert _pedir_oferta(client).json()["degradada"] is True
+
+
+def test_hipoteca_perfilamiento_caido_no_cancela_la_originacion(client, nucleo_perfilamiento, nucleo_cotizacion):
+    nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = _caido
+    _cotizacion_vida_responde(nucleo_cotizacion, {**COTIZACION_VIDA_SALIDA, "factor_riesgo_origen": "respaldo"})
+
+    response = _pedir_oferta(client)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["degradada"] is True
+    assert body["factores"] == []
+    assert body["cotizacionId"] == COTIZACION_ID
+
+
+def test_hipoteca_cotizacion_caida_es_503(client, nucleo_perfilamiento, nucleo_cotizacion):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = _caido
+
+    assert _pedir_oferta(client).status_code == 503
+
+
+def test_hipoteca_credito_invalido_es_422(client, nucleo_perfilamiento):
+    response = _pedir_oferta(client, credito={"valor": 0, "plazoMeses": 180})
+
+    assert response.status_code == 422
+    assert nucleo_perfilamiento.peticiones == []
 
 
 PRODUCTO_SALIDA = {
@@ -484,7 +579,7 @@ def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
 
 def test_inicio(client):
     body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
-    assert body["hipotecario"] is None
+    assert body["hipotecario"] == {"estado": "disponible"}
 
 
 def test_sin_token_es_401(client):

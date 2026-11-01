@@ -93,6 +93,16 @@ class FactorInterno:
     peso: Decimal
 
 
+def ajuste_por_factores(factores: tuple[FactorInterno, ...], atributos: tuple[AtributoPerfil, ...]) -> Decimal:
+    """`1 + sum(peso_i * valor_i)`: el multiplicador que el perfil aplica sobre una
+    tarifa base (HU-55). Se recalcula siempre desde los factores y el snapshot
+    persistidos, así que es reconstruible sin guardar un dato aparte."""
+    valores = {a.nombre: a.valor for a in atributos}
+    return Decimal("1") + sum(
+        (f.peso * valores[f.factor] for f in factores if f.factor in valores), Decimal("0")
+    )
+
+
 @dataclass(frozen=True)
 class Oferta:
     """Precio + factores internos explicables, con snapshot completo de insumos para
@@ -128,6 +138,13 @@ class Oferta:
             snapshot_atributos=perfil.atributos,
             creado_en=datetime.now(UTC),
         )
+
+    @property
+    def factor_ajuste(self) -> Decimal:
+        """Multiplicador del perfil sobre la tarifa base. Es lo que consume
+        ms-cotizacion por IPerfilRiesgo para que la prima cotizada use este mismo
+        perfil (una sola fuente de precio para vida crediticia)."""
+        return ajuste_por_factores(self.factores, self.snapshot_atributos)
 
 
 @dataclass(frozen=True)

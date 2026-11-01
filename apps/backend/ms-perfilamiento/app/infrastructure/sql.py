@@ -162,6 +162,15 @@ class RepositorioOfertasSQL:
         fila = await self._s.scalar(select(OfertaFila).where(OfertaFila.idempotency_key == idempotency_key))
         return _oferta_a_dominio(fila) if fila else None
 
+    async def obtener_ultima_por_cliente(self, cliente_id: str) -> Oferta | None:
+        fila = await self._s.scalar(
+            select(OfertaFila)
+            .where(OfertaFila.cliente_id == cliente_id)
+            .order_by(OfertaFila.creado_en.desc())
+            .limit(1)
+        )
+        return _oferta_a_dominio(fila) if fila else None
+
     async def agregar(self, idempotency_key: str, oferta: Oferta) -> None:
         self._s.add(
             OfertaFila(

@@ -7,6 +7,8 @@ import { Role } from '../../../core/session/session.service';
 import {
   CATALOGO_DISPOSITIVO_WIRE,
   CATALOGO_SOAT_WIRE,
+  CATALOGO_VIDA_WIRE,
+  OFERTA_HIPOTECARIA_WIRE,
   FUERA_DE_RANGO,
   OFERTA_DESGLOSE_WIRE,
   OFERTA_WIRE,
@@ -271,5 +273,76 @@ describe('AsesorCotizacionView', () => {
     http.expectNone(URL);
     expect(element('asesor-cotizacion')?.getAttribute('data-state')).toBe('no-permission');
     expect(element('calcular')).toBeNull();
+  });
+
+  describe('mortgage life (HU-58)', () => {
+    const HIPOTECARIO_URL = '/web/asesor/oferta-hipotecaria';
+
+    function hipotecario() {
+      const view = render();
+      view.cliente();
+      view.choose('cotizacion-ramo', 'hipotecario');
+      view.http.expectOne('/web/asesor/catalogo/Vida%20hipotecario').flush(CATALOGO_VIDA_WIRE);
+      view.fixture.detectChanges();
+      view.type('riesgo-valorCredito', '180000000');
+      view.type('riesgo-plazoMeses', '240');
+      const consentir = () => {
+        const check = view.element<HTMLInputElement>('asesor-consentimiento')!;
+        check.checked = true;
+        check.dispatchEvent(new Event('change'));
+        view.fixture.detectChanges();
+      };
+      return { ...view, consentir };
+    }
+
+    it('quotes only once the customer consents to profiling', () => {
+      const { element, consentir } = hipotecario();
+
+      expect(element('asesor-consentimiento')).not.toBeNull();
+      expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
+
+      consentir();
+
+      expect(element<HTMLButtonElement>('calcular')!.disabled).toBeFalse();
+    });
+
+    it('shows the same profiled offer the customer sees and continues to issuance', () => {
+      const { fixture, http, element, consentir, calcular } = hipotecario();
+      consentir();
+
+      calcular();
+      const request = http.expectOne(HIPOTECARIO_URL);
+      expect(request.request.body).toEqual({
+        clienteId: '1020334556',
+        credito: { valor: 180000000, plazoMeses: 240 },
+        consentimientoPerfil: true,
+      });
+      request.flush(OFERTA_HIPOTECARIA_WIRE);
+      fixture.detectChanges();
+
+      expect(element('oferta-prima')?.textContent).toContain('140.100');
+      expect(element('oferta-factores')?.textContent).toContain('Zona de riesgo');
+      expect(element('oferta-factores')?.textContent).toContain('Reduce la prima');
+      expect(element('oferta-degradada')).toBeNull();
+      expect(element('continuar-emision')?.getAttribute('href')).toBe(
+        '/cms/cotizaciones/COT-7001/emision?cliente=1020334556',
+      );
+    });
+
+    it('warns when the profile degraded and names an unknown factor by its code', () => {
+      const { fixture, http, element, consentir, calcular } = hipotecario();
+      consentir();
+
+      calcular();
+      http.expectOne(HIPOTECARIO_URL).flush({
+        ...OFERTA_HIPOTECARIA_WIRE,
+        degradada: true,
+        factores: [{ factor: 'factor_nuevo', impacto: 'reduce_prima' }],
+      });
+      fixture.detectChanges();
+
+      expect(element('oferta-degradada')).not.toBeNull();
+      expect(element('oferta-factores')?.textContent).toContain('factor_nuevo');
+    });
   });
 });

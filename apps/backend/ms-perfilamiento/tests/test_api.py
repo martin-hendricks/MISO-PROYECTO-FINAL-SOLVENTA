@@ -93,3 +93,26 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
     assert respuesta.status_code == 503
     assert respuesta.json() == {"status": "unavailable"}
+
+
+def test_ultima_oferta_devuelve_factor_ajuste_de_la_oferta_solicitada(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+    solicitada = client.post("/v1/ofertas-hipotecario", json={"cliente_id": "cliente-1"}, headers=CLAVE).json()
+
+    respuesta = client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == solicitada["id"]
+    assert cuerpo["factor_ajuste"] == solicitada["factor_ajuste"]
+
+
+def test_ultima_oferta_sin_consentimiento_es_403(client):
+    respuesta = client.get("/v1/ofertas-hipotecario/clientes/cliente-sin-consentimiento/ultima")
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "consentimiento_no_otorgado"
+
+
+def test_ultima_oferta_inexistente_es_404(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+    assert client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima").status_code == 404

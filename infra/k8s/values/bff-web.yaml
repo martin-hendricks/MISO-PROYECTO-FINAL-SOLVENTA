@@ -120,9 +120,12 @@ variablesEntorno:
     valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: MS_POLIZAS_URL
     valor: "http://ms-polizas.solventa.svc.cluster.local"
-  # TODO: MS_PAGOS_URL, MS_PERFILAMIENTO_URL y MS_SINIESTROS_URL también
-  # faltan aquí (sus clientes ya están conectados en app/clients/ desde PRs
-  # anteriores, pero este values.yaml nunca se actualizó) -- fuera del
-  # alcance de este cambio, que solo agrega la variable que necesita.
+  # HU-162: oferta de vida hipotecario (consentimiento y perfil). Mismo puerto
+  # :8080 que publica el Service de ms-perfilamiento.
+  - nombre: MS_PERFILAMIENTO_URL
+    valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
+  # TODO: MS_PAGOS_URL y MS_SINIESTROS_URL también faltan aquí (sus clientes
+  # ya están conectados en app/clients/ desde PRs anteriores, pero este
+  # values.yaml nunca se actualizó) -- fuera del alcance de este cambio.
   - nombre: MS_SUSCRIPCION_URL
     valor: "http://ms-suscripcion.solventa.svc.cluster.local"

@@ -1,0 +1,158 @@
+<section data-testid="vida-crediticia" [attr.data-state]="vm.status()">
+  <a class="back" routerLink="/inicio" data-testid="vida-back">
+    <span aria-hidden="true">←</span>
+    {{ 'vidaCrediticia.volver' | translate }}
+  </a>
+
+  @if (vm.oferta(); as oferta) {
+    <h1>{{ 'vidaCrediticia.oferta.title' | translate }}</h1>
+    <p class="subtitle">{{ 'vidaCrediticia.oferta.subtitle' | translate }}</p>
+
+    @if (oferta.degradada) {
+      <p class="banner degradada" role="status" data-testid="vida-degradada">
+        {{ 'vidaCrediticia.oferta.degradada' | translate }}
+      </p>
+    }
+
+    <div class="columns">
+      <article class="card" data-testid="vida-factores">
+        <h2>{{ 'vidaCrediticia.oferta.factores' | translate }}</h2>
+        <dl>
+          <dt>{{ 'vidaCrediticia.oferta.montoCredito' | translate }}</dt>
+          <dd class="mono" data-testid="vida-monto">
+            {{ oferta.credito.valor | svMoney: oferta.moneda }}
+          </dd>
+          <dt>{{ 'vidaCrediticia.oferta.plazo' | translate }}</dt>
+          <dd class="mono" data-testid="vida-plazo">
+            {{
+              'vidaCrediticia.oferta.plazoValor' | translate: { meses: oferta.credito.plazoMeses }
+            }}
+          </dd>
+          @for (item of oferta.factores; track item.factor) {
+            <dt [attr.data-testid]="'vida-factor-' + item.factor">{{ factor(item.factor) }}</dt>
+            <dd [attr.data-impacto]="item.impacto">
+              {{ 'vidaCrediticia.impacto.' + item.impacto | translate }}
+            </dd>
+          }
+        </dl>
+        @if (!oferta.factores.length) {
+          <p class="hint" data-testid="vida-sin-factores">
+            {{ 'vidaCrediticia.oferta.sinFactores' | translate }}
+          </p>
+        }
+      </article>
+
+      <article class="card" data-testid="vida-oferta">
+        <p class="label">{{ 'vidaCrediticia.oferta.prima' | translate }}</p>
+        <p class="mono premium" data-testid="oferta-prima">
+          {{ oferta.prima | svMoney: oferta.moneda }}
+        </p>
+        <p class="hint" data-testid="vida-vence">
+          {{ 'cotizacion.oferta.venceEn' | translate }}: {{ oferta.venceEn | svDateTime }}
+        </p>
+        <a
+          class="filled"
+          data-testid="oferta-aceptar"
+          routerLink="/emision"
+          [queryParams]="{ cotizacion: oferta.cotizacionId }"
+          >{{ 'vidaCrediticia.oferta.aceptar' | translate }}</a
+        >
+      </article>
+    </div>
+  } @else {
+    <h1>{{ 'vidaCrediticia.consentimiento.title' | translate }}</h1>
+    <p class="subtitle">{{ 'vidaCrediticia.consentimiento.subtitle' | translate }}</p>
+
+    <form class="form" novalidate (submit)="submit($event)">
+      <p class="card grant" data-testid="vida-consentimiento">
+        {{ 'vidaCrediticia.consentimiento.texto' | translate }}
+      </p>
+
+      @if (vm.catalogoStatus() === 'error') {
+        <p class="banner" role="alert" data-testid="vida-catalogo-error">
+          {{ 'cotizacion.error.catalogo' | translate }}
+          <button
+            type="button"
+            class="text"
+            data-testid="vida-catalogo-retry"
+            (click)="vm.loadCatalog()"
+          >
+            {{ 'cotizacion.reintentar' | translate }}
+          </button>
+        </p>
+      }
+
+      <fieldset>
+        <legend>{{ 'vidaCrediticia.consentimiento.credito' | translate }}</legend>
+        @for (campo of campos; track campo.clave) {
+          @let clave = campo.clave;
+          @let issue = vm.issue(clave);
+          @let rango = vm.rangos()[clave];
+          @let fieldId = 'vida-' + clave;
+          <div class="field">
+            <label [for]="fieldId">{{ 'cotizacion.campo.' + clave | translate }}</label>
+            <input
+              #field
+              type="number"
+              inputmode="numeric"
+              [id]="fieldId"
+              [attr.data-testid]="'vida-' + clave"
+              [value]="vm.valor(clave)"
+              [attr.aria-invalid]="issue ? 'true' : null"
+              [attr.aria-describedby]="fieldId + '-hint'"
+              (input)="vm.edit(clave, field.value)"
+              (blur)="vm.touch(clave)"
+            />
+            @if (issue) {
+              <p
+                class="field-error"
+                [id]="fieldId + '-hint'"
+                [attr.data-testid]="'vida-' + clave + '-error'"
+              >
+                {{ 'cotizacion.error.' + issue | translate: rango }}
+              </p>
+            } @else if (campo.tipo === 'moneda' && vm.valor(clave)) {
+              <p class="hint mono" [id]="fieldId + '-hint'">
+                {{ vm.numero(clave) | svMoney: vm.moneda() }}
+              </p>
+            } @else if (rango) {
+              <p class="hint" [id]="fieldId + '-hint'">
+                {{ 'cotizacion.rango' | translate: rango }}
+              </p>
+            }
+          </div>
+        }
+      </fieldset>
+
+      @switch (vm.status()) {
+        @case ('rejected') {
+          <p class="banner" role="alert" data-testid="vida-rechazo">{{ vm.rechazo()!.mensaje }}</p>
+        }
+        @case ('error') {
+          <p class="banner" role="alert" data-testid="vida-error">
+            {{ 'vidaCrediticia.error.servicio' | translate }}
+          </p>
+        }
+      }
+
+      <div class="actions">
+        <button
+          type="submit"
+          class="filled"
+          data-testid="vida-autorizar"
+          [disabled]="!vm.canAuthorize()"
+        >
+          {{
+            (vm.status() === 'requesting'
+              ? 'vidaCrediticia.consentimiento.autorizando'
+              : 'vidaCrediticia.consentimiento.autorizar'
+            ) | translate
+          }}
+        </button>
+        <a class="text" routerLink="/inicio" data-testid="vida-ahora-no">
+          {{ 'vidaCrediticia.consentimiento.ahoraNo' | translate }}
+        </a>
+      </div>
+    </form>
+  }
+</section>

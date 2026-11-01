@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
@@ -25,6 +25,9 @@ router = APIRouter(
     tags=["cliente"],
     dependencies=[Depends(require_roles("cliente"))],
 )
+
+# Payload del JWT del cliente: `sub` es su correo y de él salen sus ids.
+Sesion = Annotated[dict, Depends(require_roles("cliente"))]
 
 OFFER = {
     "cotizacionId": "COT-1042",
@@ -58,7 +61,12 @@ PAYMENT = {
 RAMO_A_PRODUCTO = {
     "Protección de dispositivo": "proteccion-dispositivo",
     "Vida crediticia": "vida-crediticia",
+    # Así nombra el back-office el mismo producto (ramos.ts del portal).
+    "Vida hipotecario": "vida-crediticia",
 }
+
+RAMO_VIDA_CREDITICIA = "Vida crediticia"
+PRODUCTO_VIDA_CREDITICIA = RAMO_A_PRODUCTO[RAMO_VIDA_CREDITICIA]
 
 # Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
 # partir de datos ya disponibles (correo de sesión). No tiene significado de
@@ -112,8 +120,8 @@ class Aceptar(BaseModel):
 
 
 class Credito(BaseModel):
-    valor: int
-    plazoMeses: int
+    valor: int = Field(gt=0)
+    plazoMeses: int = Field(gt=0)
 
 
 class Hipoteca(BaseModel):
@@ -194,19 +202,13 @@ async def catalogo(
 @router.post("/cotizaciones")
 async def cotizar(
     body: Cotizacion,
+    sesion: Sesion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     if body.clienteId:
         raise HTTPException(status_code=400, detail="La venta asistida no es de este canal")
 
-    # TODO: reemplazar con el correo real de la sesión (request.state /
-    # payload del JWT) una vez que esta función reciba el contexto de
-    # autenticación; por ahora usa un valor fijo de desarrollo porque la ruta
-    # no tiene acceso al payload decodificado (require_roles solo se usa como
-    # dependencia del router, no se inyecta en la función). No bloquea la
-    # integración real con ms-cotizacion: el usuario_id derivado es estable
-    # dentro de este proceso.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = ContextoUsuario(sesion["sub"])
     producto = _producto_de(body.ramo)
 
     datos = await cliente_cotizacion.cotizar(
@@ -236,6 +238,7 @@ async def reconsultar(
 @router.post("/polizas")
 async def emitir(
     body: Aceptar,
+    sesion: Sesion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
@@ -262,9 +265,7 @@ async def emitir(
     propaga sin capturar y los exception handlers de main.py la traducen a
     503/404/409/422. Si el paso de pago falla, la emisión nunca se ejecuta.
     """
-    # TODO: mismo placeholder de identidad que en cotizar() -- no hay
-    # ms-identidad real para resolver el correo de la sesión a un contexto.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = ContextoUsuario(sesion["sub"])
 
     # TODO: `score` es un stub fijo documentado: no hay ms-perfilamiento
     # conectado aún que calcule un score real de riesgo/crédito para el
@@ -374,13 +375,11 @@ def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
 
 @router.get("/polizas")
 async def billetera(
+    sesion: Sesion,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
-    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no
-    # hay ms-identidad real para resolver el correo de la sesión a un
-    # usuario_id. El usuario_id derivado es estable dentro de este proceso.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = ContextoUsuario(sesion["sub"])
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
     cotizaciones = await asyncio.gather(*(_cotizacion_de_poliza(cliente_cotizacion, p) for p in polizas))
@@ -425,75 +424,88 @@ def pagos() -> dict:
     return dict(PAYMENT)
 
 
-def _oferta_hipotecaria_salida(oferta: dict) -> dict:
-    """Traduce OfertaSalida de ms-perfilamiento al shape que el canal web ya
-    espera. precio->prima, degradado->degradada; factores se simplifica a la
-    lista de nombres de factor (el canal web solo muestra cuáles factores
-    influyeron, no el detalle de impacto/peso que ms-perfilamiento sí calcula
-    internamente para explicabilidad)."""
+SIN_CONSENTIMIENTO = "sin_consentimiento"
+
+
+async def ofertar_vida_crediticia(
+    contexto: ContextoUsuario,
+    credito: Credito,
+    canal: str,
+    cliente_perfilamiento: ClienteMsPerfilamiento,
+    cliente_cotizacion: ClienteMsCotizacion,
+    asesor_id: UUID | None = None,
+    cliente_ref: str | None = None,
+) -> dict:
+    """Oferta de vida hipotecario (HU-162) para el cliente y el asesor.
+
+    1. Otorga el consentimiento de perfilamiento (HU-53) y pide a
+       ms-perfilamiento el perfil y sus factores explicables (HU-54/55).
+    2. Cotiza `vida-crediticia` en ms-cotizacion con el valor y el plazo del
+       crédito. ms-cotizacion toma el factor de ese mismo perfil
+       (IPerfilRiesgo), así que la prima mostrada es la que se cobra al
+       emitir con el `cotizacionId` (HU-114).
+
+    Si ms-perfilamiento no responde, la originación no se cancela (HU-56):
+    se cotiza igual, ms-cotizacion aplica su valor de respaldo y la oferta
+    sale marcada como degradada, sin factores.
+    """
+    cliente_id = str(contexto.usuario_id)
+    factores: list[dict] = []
+    perfil_degradado = True
+    try:
+        await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
+        perfil = await cliente_perfilamiento.solicitar_oferta_hipotecario(
+            idempotency_key=_idempotency_key(),
+            cliente_id=cliente_id,
+        )
+        factores = [{"factor": f["factor"], "impacto": f["impacto"]} for f in perfil["factores"]]
+        perfil_degradado = perfil["degradado"]
+    except ServicioNoDisponible:
+        pass
+
+    datos = await cliente_cotizacion.cotizar(
+        idempotency_key=_idempotency_key(),
+        usuario_id=contexto.usuario_id,
+        socio_id=contexto.socio_id,
+        consentimiento_id=contexto.consentimiento_id,
+        producto=PRODUCTO_VIDA_CREDITICIA,
+        canal=canal,
+        datos_riesgo={"valorCredito": credito.valor, "plazoMeses": credito.plazoMeses},
+        asesor_id=asesor_id,
+        cliente_ref=cliente_ref,
+    )
     return {
-        "ramo": "Vida crediticia",
-        "estado": "oferta_vigente",
-        "prima": float(oferta["precio"]),
-        "moneda": oferta["moneda"],
-        "factores": [f["factor"] for f in oferta["factores"]],
-        "degradada": oferta["degradado"],
+        **_cotizacion_salida(datos, RAMO_VIDA_CREDITICIA),
+        "factores": factores,
+        "degradada": perfil_degradado or datos.get("factor_riesgo_origen") == "respaldo",
+        "credito": {"valor": credito.valor, "plazoMeses": credito.plazoMeses},
     }
 
 
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,
+    sesion: Sesion,
     cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
-    """Integración real con ms-perfilamiento (HU-53 a HU-56).
+    """Oferta de vida hipotecario del cliente (HU-105).
 
-    `consentimientoPerfil=True` es la acción explícita del cliente para
-    autorizar el perfilamiento (HU-53: nunca se asume consentimiento
-    implícito). Solo en ese caso se otorga el consentimiento (idempotente del
-    lado de ms-perfilamiento) y se solicita la oferta real.
-
-    `consentimientoPerfil=False` NO debe disparar ninguna llamada a
-    ms-perfilamiento -- ese es el comportamiento de negocio correcto, no una
-    limitación técnica: sin consentimiento no se invoca el adaptador de
-    perfilamiento. Se devuelve el mismo shape "degradado" que ya esperaba el
-    canal web, documentado ahora como "sin consulta" en vez de un valor de
-    oferta inventado.
+    `consentimientoPerfil=False` no llama a ningún servicio (HU-53: nunca se
+    asume consentimiento) y no inventa una prima: el canal vuelve a Inicio.
     """
-    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no hay
-    # ms-identidad real que resuelva el correo de la sesión a un cliente_id.
-    # ms-perfilamiento espera un cliente_id como str (no un UUID tipado como
-    # usuario_id); se reutiliza el mismo usuario_id derivado (uuid5 estable a
-    # partir del correo de sesión) convertido a texto, para que el mismo
-    # usuario siempre resuelva al mismo cliente_id frente a ms-perfilamiento,
-    # consistente con cómo ya se usa usuario_id frente a ms-cotizacion/
-    # ms-pagos/ms-polizas. No se agrega un atributo nuevo a ContextoUsuario
-    # porque usuario_id ya cumple ese rol de identificador estable por sesión.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
-    cliente_id = str(contexto.usuario_id)
-
     if not body.consentimientoPerfil:
-        return {
-            "ramo": "Vida crediticia",
-            "estado": "oferta_vigente",
-            "prima": 50000,
-            "moneda": "COP",
-            "factores": ["plazo", "valor del crédito"],
-            "degradada": True,
-        }
+        return {"ramo": RAMO_VIDA_CREDITICIA, "estado": SIN_CONSENTIMIENTO}
 
-    await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
-    oferta = await cliente_perfilamiento.solicitar_oferta_hipotecario(
-        idempotency_key=_idempotency_key(),
-        cliente_id=cliente_id,
+    return await ofertar_vida_crediticia(
+        ContextoUsuario(sesion["sub"]), body.credito, "web", cliente_perfilamiento, cliente_cotizacion
     )
-    return _oferta_hipotecaria_salida(oferta)
 
 
 # TODO: este resumen agrega datos de varios microservicios (cotización
-# vigente, póliza, siniestro en curso, hipotecario) que hoy no tienen todos
-# equivalente real conectado (ms-siniestros y la oferta hipotecaria no están
-# integrados) -- requiere componer varias llamadas reales, no solo una.
+# vigente, póliza, siniestro en curso) que hoy no tienen todos equivalente
+# real conectado (ms-siniestros no está integrado) -- requiere componer varias
+# llamadas reales, no solo una.
 @router.get("/inicio")
 def inicio() -> dict:
     return {
@@ -508,5 +520,8 @@ def inicio() -> dict:
             "estado": "vigente",
         },
         "siniestroEnCurso": {"siniestroId": "SIN-441", "estado": "en_evaluacion"},
-        "hipotecario": None,
+        # HU-105: la card Vida Crediticia siempre se ofrece. No hay todavía una
+        # fuente de "originación activa" (crédito del banco aliado); el flujo
+        # pide el consentimiento y los datos del crédito al entrar.
+        "hipotecario": {"estado": "disponible"},
     }

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     factor_riesgo_timeout_maximo_ms: int = 700
     factor_riesgo_valor_respaldo: Decimal = Decimal("1.0")
 
+    # IPerfilRiesgo real (HU-162): estos productos toman el factor del perfil que arma
+    # ms-perfilamiento; los demás siguen con el adaptador stub.
+    ms_perfilamiento_url: str = "http://ms-perfilamiento:8080"
+    productos_perfil_perfilamiento: list[str] = ["vida-crediticia"]
+
     # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
     # default razonable a confirmar con negocio.
     oferta_vigencia_minutos: int = 60

@@ -87,3 +87,36 @@ export const FUERA_DE_RANGO = {
 };
 
 export const fueraDeRango = () => new HttpErrorResponse({ status: 422, error: FUERA_DE_RANGO });
+
+/** `/v1/{cliente,asesor}/catalogo/...` for the `vida-crediticia` product (seed 07). */
+export const CATALOGO_VIDA_WIRE = {
+  ramo: 'Vida crediticia',
+  nombre: 'Vida crediticia',
+  moneda: 'COP',
+  coberturas: [
+    { codigo: 'muerte', nombre: 'Muerte por cualquier causa', limite: '500000000' },
+    { codigo: 'incapacidad_total', nombre: 'Incapacidad total y permanente', limite: '500000000' },
+  ],
+  datosRiesgo: [
+    { nombre: 'valorCredito', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+    { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+  ],
+};
+
+/** `/v1/{cliente,asesor}/oferta-hipotecaria`: a firm quote priced with the profile (HU-162). */
+export const OFERTA_HIPOTECARIA_WIRE = {
+  cotizacionId: 'COT-7001',
+  ramo: 'Vida crediticia',
+  estado: 'cotizada',
+  prima: '140100.00',
+  primaNeta: '128100.00',
+  expedicion: '12000.00',
+  moneda: 'COP',
+  venceEn: '2999-01-01T00:00:00Z',
+  factores: [
+    { factor: 'score_comportamiento', impacto: 'reduce_prima' },
+    { factor: 'zona_riesgo', impacto: 'aumenta_prima' },
+  ],
+  degradada: false,
+  credito: { valor: 180000000, plazoMeses: 240 },
+};

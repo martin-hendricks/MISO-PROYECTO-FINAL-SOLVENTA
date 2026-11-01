@@ -4,6 +4,12 @@ import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
 import { DatosRiesgo } from './ramos';
 
+/** A Solventa-own profile factor that explains the price (HU-55), never the provider's raw data. */
+export interface FactorOferta {
+  factor: string;
+  impacto: string;
+}
+
 /** Firm offer (HU-6): the core calculates it once and reconsulting returns the same price. */
 export interface Oferta {
   cotizacionId: string;
@@ -15,10 +21,13 @@ export interface Oferta {
   /** Breakdown of the premium (HU-4); optional so an older answer still renders. */
   primaNeta?: number;
   expedicion?: number;
+  /** Only the mortgage life offer (HU-162) is profiled: its factors and whether it degraded. */
+  factores?: FactorOferta[];
+  degradada?: boolean;
 }
 
 /** The core sends amounts as JSON decimals (strings); the channel formats numbers. */
-type OfertaWire = Omit<Oferta, 'prima' | 'primaNeta' | 'expedicion'> & {
+export type OfertaWire = Omit<Oferta, 'prima' | 'primaNeta' | 'expedicion'> & {
   prima: number | string;
   primaNeta?: number | string | null;
   expedicion?: number | string | null;
@@ -83,7 +92,7 @@ export interface RechazoCotizacion {
 const optional = (amount: number | string | null | undefined) =>
   amount === null || amount === undefined ? undefined : Number(amount);
 
-function toOferta(wire: OfertaWire): Oferta {
+export function toOferta(wire: OfertaWire): Oferta {
   return {
     ...wire,
     prima: Number(wire.prima),

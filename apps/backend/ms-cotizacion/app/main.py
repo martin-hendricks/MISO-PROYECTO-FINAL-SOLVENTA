@@ -14,6 +14,10 @@ from app.domain.errores import (
     ReglaDeNegocioViolada,
     TransicionInvalida,
 )
+from app.infrastructure.adaptador_perfil_perfilamiento import (
+    AdaptadorPerfilRiesgoPerfilamiento,
+    AdaptadorPerfilRiesgoPorProducto,
+)
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
@@ -40,12 +44,20 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         motor = crear_motor(config)
         http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
+        http_perfilamiento = httpx.AsyncClient(
+            base_url=config.ms_perfilamiento_url, timeout=config.timeout_dependencias
+        )
+        perfilamiento = AdaptadorPerfilRiesgoPerfilamiento(http_perfilamiento)
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.catalogo = await CatalogoSQL.cargar(motor)
-        app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoStub()
+        app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoPorProducto(
+            {producto: perfilamiento for producto in config.productos_perfil_perfilamiento},
+            por_defecto=AdaptadorPerfilRiesgoStub(),
+        )
         app.state.suscripciones = SuscripcionesHTTP(http)
         app.state.config = config
         yield
+        await http_perfilamiento.aclose()
         await http.aclose()
         await motor.dispose()
 
