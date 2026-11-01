@@ -1,6 +1,10 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import android.Manifest
+import android.app.Application
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.test.core.app.ApplicationProvider
+import org.robolectric.Shadows.shadowOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -12,9 +16,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +59,7 @@ class CustomerNavHostTest {
                     contentPadding = PaddingValues(8.dp),
                     modifier = Modifier,
                     startDestination = PerfilRoute,
+                    originationActive = true,
                 )
             }
         }
@@ -74,7 +82,7 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
@@ -83,14 +91,10 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
-        rule.onNodeWithTag("action_new_quote").performClick()
-        rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
-        rule.onNodeWithTag("action_cancel_quote").performClick()
+        nav.popBackStack()
+        rule.waitForIdle()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
@@ -108,6 +112,111 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenLocationAllowed_whenTheCatalogOpens_thenAssistanceReturnsToTheCatalog() {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+
+        rule.onNodeWithTag("action_open_catalog").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        rule.onNodeWithText("Taller Norte").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_open_provider_0").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
+        rule.onNodeWithTag("action_continuar_evidencia").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        assertEquals(AsistenciaSitioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_cancelar_asistencia").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+    }
+
+    @Test
+    fun givenSiniestros_whenANoticeIsSent_thenTheConfirmationShowsSin441() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = InicioRoute)
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
+        assertEquals(AvisoSiniestroRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText(
+            "SIN-441 · Protección de dispositivo · en evaluación. Te avisamos el avance en esta lista.",
+        ).assertIsDisplayed()
+        val sent = holder[0]!!.currentBackStackEntry!!.toSolventaRoute()
+        assertEquals(ConfirmacionAvisoRoute("SIN-441"), sent)
+        rule.onNodeWithText("Ver mis avisos").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithText("Cancelar").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenTheStoredPayment_whenOpened_thenTheSummaryShows() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-P01").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Pago automático realizado").assertIsDisplayed()
+        assertEquals(ParametricoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Descargar comprobante").performClick()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Volver a siniestros").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAParametricPush_whenItArrives_thenTheSameSummaryOpens() {
+        show(paymentPush = OpenParametricPayment.reviewPush())
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("$180.000 COP depositados").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAPushThatIsNotThePayment_whenItArrives_thenInicioStays() {
+        show(paymentPush = OpenParametricPayment.reviewPush().copy(titulo = "Otro aviso"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnotherClaim_whenOpened_thenTheListStays() {
+        show(start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
     fun givenRejection_whenHome_thenInicioOpens() {
         show(start = SuscripcionRechazadaRoute)
         rule.onNodeWithTag("screen_rejection").assertIsDisplayed()
@@ -120,6 +229,7 @@ class CustomerNavHostTest {
         holder: Array<NavHostController?> = arrayOfNulls(1),
         homeState: HomeUiState = HomeUiState(),
         start: Any = InicioRoute,
+        paymentPush: PushNotice? = null,
     ) {
         rule.setContent {
             SolventaTheme {
@@ -130,6 +240,7 @@ class CustomerNavHostTest {
                     homeState = homeState,
                     contentPadding = PaddingValues(0.dp),
                     startDestination = start,
+                    paymentPush = paymentPush,
                 )
             }
         }
