@@ -84,10 +84,25 @@ topologySpread:
   habilitado: true
   maxSkew: 1
 
+# Mismo bug y mismo fix que infra/k8s/values/bff-web.yaml: httpx asume el
+# puerto 80 por defecto sin uno explícito en la base_url, y ningún Service
+# de este chart lo expone (todos escuchan en :8080, o :8000 para
+# ms-cotizacion/bff-*). app/clients/nucleo.py (SERVICIOS) lee las 7
+# variables; faltaban MS_PAGOS_URL/MS_PERFILAMIENTO_URL/MS_SINIESTROS_URL
+# por completo -- sin ellas, _base() responde 503 "no configurado" para
+# cualquier ruta que las use.
 variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
-    valor: "http://ms-identidad.solventa.svc.cluster.local"
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
   - nombre: MS_COTIZACION_URL
-    valor: "http://ms-cotizacion.solventa.svc.cluster.local"
+    valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: MS_POLIZAS_URL
-    valor: "http://ms-polizas.solventa.svc.cluster.local"
+    valor: "http://ms-polizas.solventa.svc.cluster.local:8080"
+  - nombre: MS_SUSCRIPCION_URL
+    valor: "http://ms-suscripcion.solventa.svc.cluster.local:8080"
+  - nombre: MS_PAGOS_URL
+    valor: "http://ms-pagos.solventa.svc.cluster.local:8080"
+  - nombre: MS_PERFILAMIENTO_URL
+    valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
+  - nombre: MS_SINIESTROS_URL
+    valor: "http://ms-siniestros.solventa.svc.cluster.local:8080"
