@@ -89,7 +89,7 @@ topologySpread:
 
 variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
-    valor: "http://ms-identidad.solventa.svc.cluster.local"
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
   - nombre: MS_COTIZACION_URL
     # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
     # no en el 80 por defecto de HTTP. Sin el puerto explícito, el cliente

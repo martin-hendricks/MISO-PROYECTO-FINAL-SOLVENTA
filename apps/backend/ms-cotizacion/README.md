@@ -62,7 +62,7 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/solventa` | Almacén propio del servicio |
 | `DB_POOL_SIZE` | `10` | Conexiones por réplica |
 | `LOG_LEVEL` | `INFO` | |
-| `MS_SUSCRIPCION_URL` | `http://ms-suscripcion:8000` | Decisión de suscripción que encadena la aceptación (HU-12 → HU-13) |
+| `MS_SUSCRIPCION_URL` | `http://ms-suscripcion:8080` | Decisión de suscripción que encadena la aceptación (HU-12 → HU-13) |
 | `TIMEOUT_DEPENDENCIAS` | `2.0` | Segundos por llamada a otro servicio |
 
 ## Pruebas (HU-85)
