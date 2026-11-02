@@ -43,6 +43,8 @@ jobs:
           filters: |
             coverage:
               - 'apps/backend/**'
+              - '!apps/backend/README.md'
+              - '!apps/backend/docker-compose.yml'
               - '.github/workflows/backend-unit-tests.yml'
               - 'apps/web/**'
               - '.github/workflows/web-pr.yml'

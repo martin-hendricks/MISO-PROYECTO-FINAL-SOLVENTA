@@ -49,6 +49,8 @@ flag_management:
 # Compose screens and MainActivity run on device. Connected tests cover them;
 # the unit-test JaCoCo report excludes the same files.
 ignore:
+  - "apps/backend/README.md"
+  - "apps/backend/docker-compose.yml"
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/MainActivity.kt"
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/CustomerShell.kt"
   - "apps/mobile/Solventa/app/src/main/java/com/grupo8_uniandes/solventa/ui/shell/SplashScreen.kt"
