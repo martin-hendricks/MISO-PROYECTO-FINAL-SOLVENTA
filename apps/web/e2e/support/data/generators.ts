@@ -90,6 +90,70 @@ export function emptyHome(): Home {
   return { ofertaVigente: null, poliza: null, siniestroEnCurso: null, hipotecario: null };
 }
 
+export interface PolicyDetail {
+  numero: string;
+  ramo: string;
+  producto: string;
+  resumen: string;
+  estado: string;
+  venceEn: string;
+  inicioVigencia: string;
+  finVigencia: string;
+  moneda: string;
+  primaTotal: number;
+  coberturas: { nombre: string; sumaAsegurada: number; deducible: number }[];
+  queHacer: string;
+}
+
+/** Shape of GET /cliente/polizas/{numero} (bff-web routers/cliente.py, _poliza_billetera + coberturas). */
+export function policyDetail(numero: string): PolicyDetail {
+  return {
+    numero,
+    ramo: 'SOAT motocicleta',
+    producto: 'SOAT motocicleta',
+    resumen: 'Gastos médicos',
+    estado: 'VIGENTE',
+    venceEn: '2027-10-01T00:00:00Z',
+    inicioVigencia: '2026-10-01T00:00:00Z',
+    finVigencia: '2027-10-01T00:00:00Z',
+    moneda: 'COP',
+    primaTotal: 140500,
+    coberturas: [{ nombre: 'Gastos médicos', sumaAsegurada: 800, deducible: 0 }],
+    queHacer: 'Comunícate con soporte para iniciar el proceso de reclamación.',
+  };
+}
+
+export interface OperatorPolicy {
+  numero: string;
+  ramo: string;
+  estado: 'vigente' | 'cancelada';
+  venceEn: string;
+  prima: { valor: number; periodicidad: string };
+  renovable: boolean;
+  devolucionEstimada: number | null;
+  canceladaEn: string | null;
+  canceladaPor: string | null;
+  motivoCancelacion: string | null;
+  siniestrosAbiertos: number | null;
+}
+
+/** Shape of GET/POST /operador/polizas/* (bff-web routers/operador.py, _poliza_salida). */
+export function operatorPolicy(numero: string): OperatorPolicy {
+  return {
+    numero,
+    ramo: 'Protección de dispositivo',
+    estado: 'vigente',
+    venceEn: '2027-10-01',
+    prima: { valor: 1000, periodicidad: 'ANUAL' },
+    renovable: true,
+    devolucionEstimada: null,
+    canceladaEn: null,
+    canceladaPor: null,
+    motivoCancelacion: null,
+    siniestrosAbiertos: null,
+  };
+}
+
 export interface Catalog {
   ramo: string;
   nombre: string;

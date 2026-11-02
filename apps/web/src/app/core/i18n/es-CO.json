@@ -4,9 +4,26 @@
     "market": "Colombia",
     "nav": {
       "inicio": "Inicio",
-      "polizas": "Pólizas"
+      "polizas": "Pólizas",
+      "siniestros": "Siniestros",
+      "perfil": "Perfil",
+      "label": "Navegación principal",
+      "open": "Abrir menú",
+      "close": "Cerrar menú"
     },
     "signOut": "Cerrar sesión"
+  },
+  "idiomaRegion": {
+    "title": "Idioma y región",
+    "hint": "Elige tu región para ver moneda y fecha en el formato correcto.",
+    "continue": "Continuar",
+    "done": "Listo",
+    "locale": {
+      "es-CO": "Español · Colombia",
+      "es-MX": "Español · México",
+      "es-CL": "Español · Chile",
+      "es-PE": "Español · Perú"
+    }
   },
   "inicio": {
     "title": "Hola",
@@ -50,6 +67,8 @@
     "emision": "Emisión de la póliza",
     "poliza": "Detalle de póliza",
     "siniestro": "Detalle de siniestro",
+    "siniestros": "Siniestros",
+    "perfil": "Perfil",
     "vidaCrediticia": "Vida Crediticia",
     "pending": {
       "title": "Sección en preparación",
@@ -192,6 +211,40 @@
       "operador": "Operador"
     },
     "signOut": "Cerrar sesión",
+    "confirmDialog": {
+      "motivo": "Motivo",
+      "cancelar": "Cancelar",
+      "confirmar": "Confirmar"
+    },
+    "polizas": {
+      "title": "Pólizas",
+      "buscar": { "label": "Número de póliza", "action": "Buscar" },
+      "loading": "Consultando la póliza…",
+      "notFound": {
+        "title": "No encontramos esa póliza",
+        "body": "Verifica el número e intenta de nuevo."
+      },
+      "error": { "body": "No pudimos consultar la póliza.", "retry": "Reintentar" },
+      "estado": { "vigente": "Vigente", "cancelada": "Cancelada" },
+      "venceEn": "Vence en",
+      "prima": "Prima",
+      "siniestrosAbiertos": "Siniestros abiertos",
+      "renovar": "Renovar",
+      "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
+      "cancelar": "Cancelar póliza",
+      "confirmCancelar": {
+        "title": "Cancelar póliza",
+        "advertencia": "Esta acción es irreversible y no se puede repetir.",
+        "confirmar": "Cancelar póliza"
+      },
+      "cancelacionPrevia": {
+        "title": "Registro de cancelación",
+        "fecha": "Fecha",
+        "motivo": "Motivo",
+        "operador": "Operador",
+        "devolucion": "Devolución estimada"
+      }
+    },
     "emision": {
       "title": "Suscripción y emisión",
       "back": "Cotización {{cotizacion}}",
@@ -316,10 +369,37 @@
       }
     },
     "cotizaciones": {
-      "title": "Cotizaciones"
-    },
-    "polizas": {
-      "title": "Pólizas"
+      "title": "Cotizaciones",
+      "mostrarVencidas": "Mostrar vencidas",
+      "column": {
+        "cliente": "Cliente",
+        "ramo": "Ramo",
+        "prima": "Prima",
+        "estado": "Estado",
+        "creadaEn": "Creada",
+        "venceEn": "Vence",
+        "acciones": "Acciones"
+      },
+      "estado": {
+        "cotizada": "Cotizada",
+        "aceptada": "Aceptada"
+      },
+      "vencida": "Vencida",
+      "continuar": "Continuar emisión",
+      "anterior": "Anterior",
+      "siguiente": "Siguiente",
+      "aviso": {
+        "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
+      },
+      "loading": "Cargando cotizaciones…",
+      "empty": {
+        "title": "No tienes cotizaciones pendientes",
+        "body": "Las cotizaciones que crees y aún no emitas aparecerán aquí."
+      },
+      "error": {
+        "body": "No pudimos cargar las cotizaciones.",
+        "retry": "Reintentar"
+      }
     },
     "avisos": {
       "title": "Avisos de siniestro"

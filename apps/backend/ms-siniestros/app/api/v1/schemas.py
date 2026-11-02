@@ -14,6 +14,11 @@ class EventoParametricoEntrada(BaseModel):
     umbral: Decimal = Field(max_digits=18, decimal_places=4)
     poliza_vigente: bool = True
     monto_pago: Decimal = Field(max_digits=14, decimal_places=2, gt=0)
+    # HU-61 (back-office): si el origen del evento conoce la póliza, se liga
+    # aquí para poder consultar luego "siniestros abiertos de esta póliza"
+    # (ver GET /v1/siniestros/abiertos). Opcional: el stub de ingesta no
+    # siempre la conoce.
+    poliza_id: UUID | None = None
 
 
 class TransicionSalida(BaseModel):
@@ -28,6 +33,7 @@ class SiniestroSalida(BaseModel):
     estado: str
     creado_en: datetime
     historial: list[TransicionSalida]
+    poliza_id: UUID | None = None
 
     @classmethod
     def desde(cls, siniestro: Siniestro) -> "SiniestroSalida":
@@ -40,6 +46,7 @@ class SiniestroSalida(BaseModel):
                 TransicionSalida(estado=t.estado.value, ocurrido_en=t.ocurrido_en, origen=t.origen)
                 for t in siniestro.historial
             ],
+            poliza_id=siniestro.poliza_id,
         )
 
 
@@ -96,6 +103,11 @@ class ResultadoIngestaSalida(BaseModel):
 class CambiarEstadoEntrada(BaseModel):
     estado: EstadoSiniestro
     origen: str = Field(min_length=1, max_length=120)
+
+
+class SiniestrosAbiertosSalida(BaseModel):
+    abiertos: int
+    siniestros: list[SiniestroSalida]
 
 
 class ErrorSalida(BaseModel):
