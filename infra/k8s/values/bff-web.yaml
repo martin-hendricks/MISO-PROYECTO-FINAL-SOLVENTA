@@ -103,26 +103,26 @@ topologySpread:
   habilitado: true
   maxSkew: 1
 
-# apps/backend/bff-web/app/ todavía no lee ninguna de estas tres (login y
-# asesor están mockeados en memoria, sin llamar a otros servicios) -- se
-# dejan declaradas como documentación de la integración futura, igual que
-# api-socios ya hace con MS_IDENTIDAD_URL. MS_POLIZAS_URL y MS_IDENTIDAD_URL
-# apuntan a servicios que tampoco están desplegados todavía (no hay
-# Dockerfile ni entrada en alb_routes); no afecta al arranque del pod porque
-# nadie las resuelve aún.
+# Todos los microservicios de este Chart escuchan en :8080 (ver sus
+# Dockerfile/Service, p.ej. kubectl get svc -n solventa), no en el 80 por
+# defecto de HTTP que httpx.AsyncClient asume sin puerto explícito en la
+# base_url -- mismo fix ya aplicado para MS_COTIZACION_URL (que sí escucha
+# en :8000) y para MS_IDENTIDAD_URL en infra/k8s/values/api-socios.yaml.
+# Sin el puerto, bff-web nunca llega al pod real y responde 503
+# "servicio no disponible" aunque el servicio esté Running (confirmado en
+# producción: POST /v1/registro fallaba así contra ms-identidad).
 variablesEntorno:
   - nombre: MS_IDENTIDAD_URL
-    valor: "http://ms-identidad.solventa.svc.cluster.local"
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
   - nombre: MS_COTIZACION_URL
-    # ms-cotizacion escucha en :8000 (apps/backend/ms-cotizacion/Dockerfile),
-    # no en el 80 por defecto de HTTP -- ver el mismo fix ya aplicado en
-    # infra/k8s/values/api-socios.yaml.
     valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: MS_POLIZAS_URL
-    valor: "http://ms-polizas.solventa.svc.cluster.local"
-  # TODO: MS_PAGOS_URL, MS_PERFILAMIENTO_URL y MS_SINIESTROS_URL también
-  # faltan aquí (sus clientes ya están conectados en app/clients/ desde PRs
-  # anteriores, pero este values.yaml nunca se actualizó) -- fuera del
-  # alcance de este cambio, que solo agrega la variable que necesita.
+    valor: "http://ms-polizas.solventa.svc.cluster.local:8080"
   - nombre: MS_SUSCRIPCION_URL
-    valor: "http://ms-suscripcion.solventa.svc.cluster.local"
+    valor: "http://ms-suscripcion.solventa.svc.cluster.local:8080"
+  - nombre: MS_PAGOS_URL
+    valor: "http://ms-pagos.solventa.svc.cluster.local:8080"
+  - nombre: MS_PERFILAMIENTO_URL
+    valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
+  - nombre: MS_SINIESTROS_URL
+    valor: "http://ms-siniestros.solventa.svc.cluster.local:8080"
