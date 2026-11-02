@@ -102,3 +102,40 @@ Desplegar los values corregidos (helm upgrade de ms-cotizacion, ms-pagos,
 ms-polizas, api-socios, ms-suscripcion, ms-consentimiento) y verificar que
 `POST /v1/cotizaciones/{id}/aceptacion` deja de agotar los 2 s contra
 `ms-suscripcion:8000`.
+
+## Despliegue (2026-11-02 01:33–01:36 UTC)
+
+Mismo procedimiento que el CD (`helm upgrade --install <svc>
+infra/k8s/charts/microservicio -n solventa -f values/<svc>.yaml`), fijando la
+imagen ya desplegada (`1d821b0`) porque el cambio es solo de configuración:
+no se reconstruyó ni subió ninguna imagen. No se corrieron migraciones (no hay
+cambio de esquema).
+
+| Release | Revisión | Resultado |
+|---|---|---|
+| ms-cotizacion | 7 | rolled out |
+| ms-pagos | 7 | rolled out |
+| ms-polizas | 7 | rolled out |
+| api-socios | 7 | rolled out |
+| ms-suscripcion | 7 | rolled out |
+
+`ms-consentimiento` no se desplegó: no tiene release en el cluster ni imagen en
+ECR (`apps/backend/ms-consentimiento` solo tiene README), así que el CD lo
+omite. Su values queda corregido para cuando exista.
+
+### Evidencia post-despliegue
+
+- `POST /v1/cotizaciones/{id}/aceptacion` (antes 503 en 2014.6 ms): **201 en 48.8 ms**.
+- `printenv` en los 5 pods: todas las `MS_*_URL` con FQDN y puerto correcto.
+- Hops antes rotos (`api-socios` → ms-identidad, ms-suscripcion → ms-polizas):
+  conectan (404 del path `/health`, ya no ConnectTimeout).
+- API Gateway: los últimos 503 registrados son anteriores al despliegue; sin
+  503 nuevos en la ventana posterior.
+- Sin pods fuera de `Running`/`Completed`.
+
+### Nota de deriva
+
+El cluster quedó con los values de la rama `feature/fix-urls-entre-microservicios`.
+Hasta que el PR #151 se mergee a `develop`, el estado del cluster y el de la
+rama principal difieren: un despliegue posterior desde `develop` reintroduciría
+el 503.
