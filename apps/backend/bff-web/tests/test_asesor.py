@@ -265,8 +265,6 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
 
 
 def test_firmar_y_emitir_reintento_reusa_la_misma_clave_de_aceptacion(client, nucleo_cotizacion):
-    """HU-163/SOLV-262: resuming an already accepted quote must replay the
-    original acceptance instead of failing with oferta_ya_usada."""
     headers = _auth(client, "asesor")
     claves: list[str] = []
 
