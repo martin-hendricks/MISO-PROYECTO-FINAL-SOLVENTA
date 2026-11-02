@@ -1,7 +1,7 @@
 #!/bin/sh
-# Levanta todo el backend local (docker-compose.yml) y deja el esquema de
-# cada microservicio al día, incluyendo migraciones que alguien agregue
-# DESPUÉS de que el volumen de datos ya exista.
+# Levanta todo el backend local (apps/backend/docker-compose.yml) y deja el
+# esquema de cada microservicio al día, incluyendo migraciones que alguien
+# agregue DESPUÉS de que el volumen de datos ya exista.
 #
 # Por qué existe: docker-entrypoint-initdb.d (los volúmenes montados en
 # db-*.volumes de docker-compose.yml) solo corre una vez, cuando Postgres
@@ -26,11 +26,16 @@
 # volumen nuevo (recién creado), initdb.d ya corrió todo, así que todas las
 # migraciones se detectan como "already exists" y quedan registradas de una.
 #
-# Uso:
-#   cd apps/backend && ./levantar-local.sh
-#   ./levantar-local.sh --no-build   (si ya compilaste las imágenes y solo quieres migrar)
+# Uso (desde cualquier directorio del repo):
+#   infra/scripts/levantar-local.sh
+#   infra/scripts/levantar-local.sh --no-build   (si ya compilaste las imágenes y solo quieres migrar)
 set -eu
-cd "$(dirname "$0")"
+
+# apps/backend/docker-compose.yml y las carpetas <servicio>/db/ son
+# relativas al repo, no a este script (vive en infra/scripts/, dos niveles
+# arriba de apps/backend) -- se resuelve la raíz del repo y se entra ahí.
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$REPO_ROOT/apps/backend"
 
 BUILD_FLAG="--build"
 if [ "${1:-}" = "--no-build" ]; then
