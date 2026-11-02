@@ -77,5 +77,7 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
+  # El Service de ms-identidad escucha en 8080; sin el puerto explícito el
+  # cliente HTTP apunta al 80 y nunca conecta.
   - nombre: MS_IDENTIDAD_URL
-    valor: "http://ms-identidad.solventa.svc.cluster.local"
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"

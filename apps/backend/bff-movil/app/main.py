@@ -11,6 +11,17 @@ app.include_router(cliente.router)
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
+# /bff-movil/v1/*: bff-web y bff-movil comparten los mismos paths /v1/* (ver
+# sesion/registro/cliente), y el ALB de infra/terraform/environments/minimo
+# solo distingue por path prefix (nunca por host/header) -- sin un prefijo
+# propio, la regla de bff-web siempre gana y bff-movil queda inalcanzable.
+# El ALB no recorta el prefijo antes de reenviar (acción "forward" simple),
+# así que el pod necesita responder al path completo, con el prefijo
+# incluido. La app Android apunta su base URL a .../bff-movil en vez de
+# cambiar nada más del contrato.
+app.include_router(sesion.router, prefix="/bff-movil/v1")
+app.include_router(registro.router, prefix="/bff-movil/v1")
+app.include_router(cliente.router, prefix="/bff-movil/v1")
 
 
 @app.get("/health", include_in_schema=False)

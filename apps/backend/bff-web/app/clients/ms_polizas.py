@@ -36,6 +36,15 @@ class ClienteMsPolizas(ClienteServicio):
         """HU-17: constancia persistida de la firma de una oferta."""
         return await self._pedir("GET", f"/v1/polizas/firmas/{oferta_id}")
 
+    async def ofertas_con_poliza(self, oferta_ids: list[UUID]) -> set[str]:
+        """HU-163: cuáles de estas ofertas ya tienen póliza emitida."""
+        cuerpo = await self._pedir(
+            "GET",
+            "/v1/polizas/por-ofertas",
+            params={"oferta_ids": ",".join(str(oferta_id) for oferta_id in oferta_ids)},
+        )
+        return {str(oferta_id) for oferta_id in cuerpo["oferta_ids_con_poliza"]}
+
     async def obtener(self, poliza_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/polizas/{poliza_id}")
 
@@ -49,8 +58,8 @@ class ClienteMsPolizas(ClienteServicio):
 
     async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
         """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),
-        no por numero -- ver TODO en app/routers/operador.py sobre el mapeo
-        numero->poliza_id que todavía falta resolver."""
+        no por numero -- operador.py resuelve numero->poliza_id vía
+        obtener_por_numero() antes de llamar aquí."""
         return await self._pedir(
             "POST",
             f"/v1/polizas/{poliza_id}/renovacion",
@@ -65,10 +74,12 @@ class ClienteMsPolizas(ClienteServicio):
             json={"coberturas": coberturas},
         )
 
-    async def cancelar(self, poliza_id: UUID, motivo: str) -> dict[str, Any]:
-        """HU-61. Mismo comentario que renovar() sobre poliza_id vs numero."""
+    async def cancelar(self, poliza_id: UUID, motivo: str, operador: str) -> dict[str, Any]:
+        """HU-61. Mismo comentario que renovar() sobre poliza_id vs numero.
+        `operador` es la identidad (sub del JWT) que ms-polizas audita como
+        cancelada_por."""
         return await self._pedir(
             "POST",
             f"/v1/polizas/{poliza_id}/cancelacion",
-            json={"motivo": motivo},
+            json={"motivo": motivo, "operador": operador},
         )

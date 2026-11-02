@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from app.config import Settings
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
-from app.domain.modelos import SolicitudCotizacion, solicitud_recibida
+from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
@@ -120,6 +120,8 @@ async def cotizar(
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
+    asesor_id: UUID | None = None,
+    cliente_ref: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
     flujo de recibir_solicitud, sin exigir una segunda llamada."""
@@ -130,7 +132,16 @@ async def cotizar(
             return RegistroOferta(existente, oferta_existente, creada=False)
 
     solicitud = SolicitudCotizacion.crear(
-        idempotency_key, usuario_id, socio_id, consentimiento_id, producto, canal, datos_riesgo, catalogo
+        idempotency_key,
+        usuario_id,
+        socio_id,
+        consentimiento_id,
+        producto,
+        canal,
+        datos_riesgo,
+        catalogo,
+        asesor_id=asesor_id,
+        cliente_ref=cliente_ref,
     )
     # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
     # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
@@ -195,6 +206,45 @@ async def reconsultar_oferta_por_id(uow: FabricaUnidadDeTrabajo, oferta_id: UUID
     if oferta is None or solicitud is None:
         raise NoEncontrado(f"Oferta {oferta_id} no existe")
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
+
+
+@dataclass(frozen=True)
+class PendienteAsesor:
+    solicitud: SolicitudCotizacion
+    consulta: ConsultaOferta
+
+
+@dataclass(frozen=True)
+class PaginaPendientes:
+    items: list[PendienteAsesor]
+    pagina: int
+    tamano: int
+    hay_mas: bool
+
+
+async def listar_cotizaciones_asesor(
+    uow: FabricaUnidadDeTrabajo,
+    asesor_id: UUID,
+    estados: frozenset[EstadoSolicitud],
+    incluir_vencidas: bool,
+    pagina: int,
+    tamano: int,
+) -> PaginaPendientes:
+    """HU-163: lectura pura de las cotizaciones que creó el asesor. Las vencidas se
+    excluyen en la consulta salvo que se pidan; cuando se incluyen, ConsultaOferta las
+    marca con el mismo criterio de HU-7. Se pide una fila de más para saber si hay
+    otra página sin un COUNT."""
+    ahora = datetime.now(UTC)
+    async with uow() as tx:
+        filas = await tx.solicitudes.listar_por_asesor(
+            asesor_id,
+            estados,
+            None if incluir_vencidas else ahora,
+            (pagina - 1) * tamano,
+            tamano + 1,
+        )
+    items = [PendienteAsesor(s, ConsultaOferta.desde(o, ahora)) for s, o in filas[:tamano]]
+    return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
 
 
 @dataclass(frozen=True)

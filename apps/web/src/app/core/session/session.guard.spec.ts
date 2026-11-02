@@ -6,7 +6,8 @@ import {
   RouterStateSnapshot,
   UrlTree,
 } from '@angular/router';
-import { redirectSignedIn, requireRole } from './session.guard';
+import { LocaleService } from '../i18n/locale.service';
+import { redirectSignedIn, requireLocaleChosen, requireRole } from './session.guard';
 import { Role, SessionService } from './session.service';
 
 describe('session guards', () => {
@@ -18,12 +19,28 @@ describe('session guards', () => {
         provideRouter([]),
         {
           provide: SessionService,
-          useValue: { hasRole: (roles: readonly Role[]) => role !== null && roles.includes(role) },
+          useValue: {
+            hasRole: (roles: readonly Role[]) => role !== null && roles.includes(role),
+            isActive: () => role !== null,
+          },
         },
       ],
     });
     return TestBed.runInInjectionContext(() =>
       guard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    );
+  }
+
+  function runLocaleChosen(hasChosen: boolean, signedIn: boolean) {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: SessionService, useValue: { isActive: () => signedIn } },
+        { provide: LocaleService, useValue: { hasChosen: () => hasChosen } },
+      ],
+    });
+    return TestBed.runInInjectionContext(() =>
+      requireLocaleChosen({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
     );
   }
 
@@ -51,5 +68,19 @@ describe('session guards', () => {
 
   it('shows login to a session of another area', () => {
     expect(run(redirectSignedIn(['cliente'], '/user'), 'asesor')).toBeTrue();
+  });
+
+  it('sends a first-time visitor to idioma-region', () => {
+    const result = runLocaleChosen(false, false);
+
+    expect(result instanceof UrlTree && result.toString()).toBe('/idioma-region');
+  });
+
+  it('lets a visitor who already chose a locale through', () => {
+    expect(runLocaleChosen(true, false)).toBeTrue();
+  });
+
+  it('lets a returning signed-in customer through even without a stored choice', () => {
+    expect(runLocaleChosen(false, true)).toBeTrue();
   });
 });
