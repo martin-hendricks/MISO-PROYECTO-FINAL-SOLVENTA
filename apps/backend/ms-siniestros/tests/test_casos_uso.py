@@ -169,3 +169,42 @@ async def test_listar_siniestros(uow, almacen, adaptador_desembolso):
     siniestros = await casos_uso.listar_siniestros(uow, 10)
 
     assert len(siniestros) == 2
+
+
+# --- HU-61 (back-office): siniestros abiertos de una póliza ------------------------
+
+
+async def test_listar_siniestros_abiertos_de_poliza_excluye_pagados(uow, almacen, adaptador_desembolso):
+    poliza_id = uuid4()
+    # umbral cumplido -> termina en PAGADO (no es "abierto")
+    pagado = await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, "evt-pagado", Decimal("100"), Decimal("80"), True, Decimal("1"), poliza_id
+    )
+    # umbral no cumplido -> termina en DECIDIDO (sí es "abierto")
+    abierto = await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, "evt-abierto", Decimal("10"), Decimal("80"), True, Decimal("1"), poliza_id
+    )
+    assert pagado.siniestro.estado is EstadoSiniestro.PAGADO
+    assert abierto.siniestro.estado is EstadoSiniestro.DECIDIDO
+
+    abiertos = await casos_uso.listar_siniestros_abiertos_de_poliza(uow, poliza_id)
+
+    assert [s.id for s in abiertos] == [abierto.siniestro.id]
+
+
+async def test_listar_siniestros_abiertos_de_poliza_sin_siniestros_devuelve_vacio(uow):
+    assert await casos_uso.listar_siniestros_abiertos_de_poliza(uow, uuid4()) == []
+
+
+async def test_listar_siniestros_abiertos_no_incluye_los_de_otra_poliza(uow, almacen, adaptador_desembolso):
+    propia, ajena = uuid4(), uuid4()
+    await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, "evt-propia", Decimal("10"), Decimal("80"), True, Decimal("1"), propia
+    )
+    await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, "evt-ajena", Decimal("10"), Decimal("80"), True, Decimal("1"), ajena
+    )
+
+    abiertos = await casos_uso.listar_siniestros_abiertos_de_poliza(uow, propia)
+
+    assert len(abiertos) == 1 and abiertos[0].evento_id == "evt-propia"

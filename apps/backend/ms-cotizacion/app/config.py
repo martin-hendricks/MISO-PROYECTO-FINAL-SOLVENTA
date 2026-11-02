@@ -22,5 +22,7 @@ class Settings(BaseSettings):
     oferta_vigencia_minutos: int = 60
 
     # Aceptación (HU-12/SOLV-105): encadena la decisión de suscripción de HU-13.
-    ms_suscripcion_url: str = "http://ms-suscripcion:8000"
+    # El Service de ms-suscripcion escucha en 8080; el default anterior apuntaba
+    # a 8000 y toda llamada de aceptación agotaba el timeout de 2 s.
+    ms_suscripcion_url: str = "http://ms-suscripcion:8080"
     timeout_dependencias: float = 2.0

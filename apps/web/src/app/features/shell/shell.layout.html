@@ -1,6 +1,16 @@
 <header class="top-nav">
+  <button
+    type="button"
+    class="menu-toggle"
+    data-testid="nav-menu-toggle"
+    [attr.aria-label]="(menuOpen() ? 'shell.nav.close' : 'shell.nav.open') | translate"
+    [attr.aria-expanded]="menuOpen()"
+    (click)="toggleMenu()"
+  >
+    <span aria-hidden="true">☰</span>
+  </button>
   <p class="brand" data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
-  <nav>
+  <nav class="top-nav-links" [attr.aria-label]="'shell.nav.label' | translate">
     <a
       routerLink="/inicio"
       routerLinkActive="active"
@@ -15,6 +25,20 @@
       data-testid="nav-polizas"
       >{{ 'shell.nav.polizas' | translate }}</a
     >
+    <a
+      routerLink="/siniestros"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      data-testid="nav-siniestros"
+      >{{ 'shell.nav.siniestros' | translate }}</a
+    >
+    <a
+      routerLink="/perfil"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      data-testid="nav-perfil"
+      >{{ 'shell.nav.perfil' | translate }}</a
+    >
   </nav>
   <div class="session">
     <a class="cta" routerLink="/cotizacion" data-testid="header-new-quote">{{
@@ -26,4 +50,52 @@
     <span class="avatar" aria-hidden="true"></span>
   </div>
 </header>
+
+@if (menuOpen()) {
+  <div class="nav-overlay" data-testid="nav-menu-overlay">
+    <div class="nav-overlay-head">
+      <p class="brand">{{ 'shell.portal' | translate }}</p>
+      <button
+        type="button"
+        class="menu-close"
+        data-testid="nav-menu-close"
+        [attr.aria-label]="'shell.nav.close' | translate"
+        (click)="closeMenu()"
+      >
+        <span aria-hidden="true">✕</span>
+      </button>
+    </div>
+    <nav class="nav-overlay-links" [attr.aria-label]="'shell.nav.label' | translate">
+      <a
+        routerLink="/inicio"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        data-testid="nav-menu-inicio"
+        >{{ 'shell.nav.inicio' | translate }}</a
+      >
+      <a
+        routerLink="/polizas"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        data-testid="nav-menu-polizas"
+        >{{ 'shell.nav.polizas' | translate }}</a
+      >
+      <a
+        routerLink="/siniestros"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        data-testid="nav-menu-siniestros"
+        >{{ 'shell.nav.siniestros' | translate }}</a
+      >
+      <a
+        routerLink="/perfil"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        data-testid="nav-menu-perfil"
+        >{{ 'shell.nav.perfil' | translate }}</a
+      >
+    </nav>
+  </div>
+}
+
 <router-outlet />

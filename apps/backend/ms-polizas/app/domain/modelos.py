@@ -23,12 +23,29 @@ _TRANSICIONES_VALIDAS: dict[EstadoPoliza, frozenset[EstadoPoliza]] = {
     EstadoPoliza.CANCELADA: frozenset(),
 }
 
+# HU-59: días tras una fin_vigencia vencida en los que renovar sigue
+# permitido (el dominio no tiene un estado "VENCIDA" separado -- una póliza
+# con fin_vigencia pasada sigue reportando VIGENTE hasta que algo la cambie,
+# no hay job que la transicione sola).
+VENTANA_GRACIA_DIAS = 30
+
 
 @dataclass(frozen=True)
 class Cobertura:
     nombre: str
     suma_asegurada: Decimal
     deducible: Decimal = Decimal("0")
+
+
+@dataclass(frozen=True)
+class Prima:
+    """HU-59/61: valor de referencia para calcular la prima de renovación y
+    la devolución al cancelar. L1 no tiene motor de tarificación: el valor se
+    fija en emitir() como la suma de las sumas aseguradas de las coberturas,
+    una heurística explícita, no un cálculo actuarial real."""
+
+    valor: Decimal
+    periodicidad: str = "ANUAL"
 
 
 def _validar_coberturas(coberturas: list[Cobertura]) -> None:
@@ -70,8 +87,11 @@ class Poliza:
     fin_vigencia: date
     estado: EstadoPoliza
     coberturas: tuple[Cobertura, ...]
+    prima: Prima
     motivo_cancelacion: str | None = None
     cancelada_en: date | None = None
+    cancelada_por: str | None = None
+    devolucion_estimada: Decimal | None = None
     firma_hash: str | None = None
 
     @classmethod
@@ -94,20 +114,45 @@ class Poliza:
             fin_vigencia=_un_anio_despues(hoy),
             estado=EstadoPoliza.VIGENTE,
             coberturas=tuple(coberturas),
+            prima=Prima(valor=sum((c.suma_asegurada for c in coberturas), Decimal("0"))),
             firma_hash=firma_hash,
         )
 
     def _exigir_vigente(self) -> None:
-        """Renovar y modificar no son transiciones de estado, pero sí exigen
-        que la póliza esté VIGENTE hoy; se expresa como el mismo error
-        tipificado de transición inválida (destino implícito: seguir VIGENTE)."""
+        """Modificar coberturas no es una transición de estado, pero sí exige
+        que la póliza esté VIGENTE hoy (sin tolerancia de ventana de gracia,
+        a diferencia de renovar -- ver _exigir_renovable); se expresa como el
+        mismo error tipificado de transición inválida (destino implícito:
+        seguir VIGENTE)."""
         if self.estado is not EstadoPoliza.VIGENTE:
             raise TransicionInvalida(self.estado.value, EstadoPoliza.VIGENTE.value)
 
-    def renovar(self, nueva_fin_vigencia: date) -> None:
+    def en_ventana_gracia(self, hoy: date) -> bool:
+        """HU-59: una póliza VIGENTE con fin_vigencia ya pasada sigue siendo
+        renovable hasta VENTANA_GRACIA_DIAS después de vencer. No aplica a una
+        póliza CANCELADA (cancelar es terminal, ver cancelar())."""
+        return self.estado is EstadoPoliza.VIGENTE and hoy > self.fin_vigencia
+
+    def renovable(self, hoy: date) -> bool:
+        """Predicado sin lanzar excepción, usado por la API (PolizaSalida.renovable)
+        para que el canal web deshabilite el CTA sin duplicar esta regla en el
+        frontend. Misma condición que _exigir_renovable()."""
+        if self.estado is not EstadoPoliza.VIGENTE:
+            return False
+        return not (hoy > self.fin_vigencia and (hoy - self.fin_vigencia).days > VENTANA_GRACIA_DIAS)
+
+    def _exigir_renovable(self, hoy: date) -> None:
+        """HU-59: renovar tolera fin_vigencia vencida dentro de la ventana de
+        gracia; fuera de esa ventana (o si la póliza está CANCELADA) es la
+        misma transición inválida que exige modificar_coberturas()."""
+        if not self.renovable(hoy):
+            raise TransicionInvalida(self.estado.value, EstadoPoliza.VIGENTE.value)
+
+    def renovar(self, nueva_fin_vigencia: date, hoy: date) -> None:
         """HU-59: renovar no cambia el estado (sigue VIGENTE), solo extiende la
-        vigencia. Una póliza cancelada no se puede renovar."""
-        self._exigir_vigente()
+        vigencia. Una póliza cancelada no se puede renovar, y una vencida hace
+        más que la ventana de gracia tampoco (ver _exigir_renovable)."""
+        self._exigir_renovable(hoy)
         if nueva_fin_vigencia <= self.fin_vigencia:
             raise ReglaDeNegocioViolada(
                 "nueva_vigencia_no_posterior", "La nueva fecha de fin de vigencia debe ser posterior a la actual"
@@ -121,16 +166,32 @@ class Poliza:
         _validar_coberturas(nuevas_coberturas)
         self.coberturas = tuple(nuevas_coberturas)
 
-    def cancelar(self, motivo: str, hoy: date) -> None:
+    def _devolucion_estimada(self, hoy: date) -> Decimal:
+        """HU-61: prorrata simple de la prima sobre los días de vigencia que
+        quedaban por correr; estimada, no un cálculo actuarial exacto (fuera
+        de alcance en L1). Nunca negativa: una póliza ya vencida al cancelar
+        no genera devolución."""
+        dias_totales = (self.fin_vigencia - self.inicio_vigencia).days
+        dias_restantes = (self.fin_vigencia - hoy).days
+        if dias_totales <= 0 or dias_restantes <= 0:
+            return Decimal("0")
+        return (self.prima.valor * dias_restantes / dias_totales).quantize(Decimal("0.01"))
+
+    def cancelar(self, motivo: str, hoy: date, cancelada_por: str) -> None:
         """HU-61: única transición de estado real. Es terminal: no se puede
-        cancelar una póliza ya cancelada."""
+        cancelar una póliza ya cancelada. Registra quién canceló (auditoría)
+        y calcula la devolución estimada una sola vez."""
         if not motivo or not motivo.strip():
             raise ReglaDeNegocioViolada("motivo_requerido", "La cancelación requiere un motivo")
+        if not cancelada_por or not cancelada_por.strip():
+            raise ReglaDeNegocioViolada("operador_requerido", "La cancelación requiere el operador que la ejecuta")
         if EstadoPoliza.CANCELADA not in _TRANSICIONES_VALIDAS.get(self.estado, frozenset()):
             raise TransicionInvalida(self.estado.value, EstadoPoliza.CANCELADA.value)
+        self.devolucion_estimada = self._devolucion_estimada(hoy)
         self.estado = EstadoPoliza.CANCELADA
         self.motivo_cancelacion = motivo.strip()
         self.cancelada_en = hoy
+        self.cancelada_por = cancelada_por.strip()
 
 
 @dataclass(frozen=True)
@@ -209,6 +270,8 @@ def poliza_cancelada(poliza: Poliza) -> EventoDominio:
             "numero": poliza.numero,
             "motivo_cancelacion": poliza.motivo_cancelacion,
             "cancelada_en": poliza.cancelada_en.isoformat() if poliza.cancelada_en else None,
+            "cancelada_por": poliza.cancelada_por,
+            "devolucion_estimada": str(poliza.devolucion_estimada) if poliza.devolucion_estimada is not None else None,
             "estado": poliza.estado.value,
         },
     )

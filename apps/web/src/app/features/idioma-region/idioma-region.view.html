@@ -1,0 +1,70 @@
+@if (embedded()) {
+  <div class="card embedded" data-testid="idioma-region" [attr.data-embedded]="true">
+    <h1>{{ 'idiomaRegion.title' | translate }}</h1>
+    <p class="hint">{{ 'idiomaRegion.hint' | translate }}</p>
+
+    <div class="options" role="radiogroup" [attr.aria-label]="'idiomaRegion.title' | translate">
+      @for (locale of locales; track locale) {
+        <button
+          type="button"
+          class="option"
+          role="radio"
+          [attr.aria-checked]="selected() === locale"
+          [class.selected]="selected() === locale"
+          [attr.data-testid]="'idioma-region-' + locale"
+          (click)="select(locale)"
+        >
+          {{ 'idiomaRegion.locale.' + locale | translate }}
+        </button>
+      }
+    </div>
+
+    <button type="button" class="filled" data-testid="idioma-region-done" (click)="continue()">
+      {{ 'idiomaRegion.done' | translate }}
+    </button>
+  </div>
+} @else {
+  <div class="split">
+    <section class="brand">
+      <p class="brand-name">{{ 'shell.portal' | translate }}</p>
+      <p class="brand-claim">{{ 'login.customer.claim' | translate }}</p>
+    </section>
+
+    <main class="panel">
+      <div class="card" data-testid="idioma-region">
+        <h1>{{ 'idiomaRegion.title' | translate }}</h1>
+        <p class="hint">{{ 'idiomaRegion.hint' | translate }}</p>
+
+        <div class="options" role="radiogroup" [attr.aria-label]="'idiomaRegion.title' | translate">
+          @for (locale of locales; track locale) {
+            <button
+              type="button"
+              class="option"
+              role="radio"
+              [attr.aria-checked]="selected() === locale"
+              [class.selected]="selected() === locale"
+              [attr.data-testid]="'idioma-region-' + locale"
+              (click)="select(locale)"
+            >
+              {{ 'idiomaRegion.locale.' + locale | translate }}
+            </button>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="filled"
+          data-testid="idioma-region-continue"
+          (click)="continue()"
+        >
+          {{ 'idiomaRegion.continue' | translate }}
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+    <p class="footer-legal">{{ 'login.footer' | translate }}</p>
+  </footer>
+}

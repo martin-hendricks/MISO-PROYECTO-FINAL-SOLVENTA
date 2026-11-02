@@ -1,10 +1,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Response, status
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
+from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.modelos import EstadoSolicitud
 from app.dependencies import (
     obtener_adaptador_perfil_riesgo,
     obtener_catalogo,
@@ -22,6 +24,7 @@ from .schemas_cotizaciones import (
     AceptarOfertaEntrada,
     CotizacionSalida,
     ErrorSalida,
+    PaginaCotizacionesAsesorSalida,
     SolicitarCotizacionEntrada,
 )
 
@@ -56,10 +59,36 @@ async def solicitar_cotizacion(
         entrada.producto,
         entrada.canal,
         entrada.datos_riesgo,
+        asesor_id=entrada.asesor_id,
+        cliente_ref=entrada.cliente_ref,
     )
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return CotizacionSalida.desde(resultado.solicitud, resultado.oferta)
+
+
+def _estados(valor: str) -> frozenset[EstadoSolicitud]:
+    try:
+        return frozenset(EstadoSolicitud(e.strip()) for e in valor.split(",") if e.strip())
+    except ValueError as exc:
+        raise ReglaDeNegocioViolada("estado_invalido", f"Estado desconocido en '{valor}'") from exc
+
+
+@router.get("", response_model=PaginaCotizacionesAsesorSalida, responses={422: {"model": ErrorSalida}})
+async def listar_cotizaciones_asesor(
+    uow: Uow,
+    asesor_id: UUID,
+    estados: str = "cotizada,aceptada",
+    incluir_vencidas: bool = False,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamano: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """HU-163: cotizaciones que creó el asesor desde el back-office. Las creadas sin
+    asesor_id (canal socio o anteriores a HU-163) nunca se listan."""
+    resultado = await casos_uso.listar_cotizaciones_asesor(
+        uow, asesor_id, _estados(estados), incluir_vencidas, pagina, tamano
+    )
+    return PaginaCotizacionesAsesorSalida.desde(resultado)
 
 
 @router.get("/{cotizacion_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}})

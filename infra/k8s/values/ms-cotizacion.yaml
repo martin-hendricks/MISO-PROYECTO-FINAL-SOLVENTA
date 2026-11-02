@@ -120,6 +120,12 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
+  # Sin esta URL el código cae al default http://ms-suscripcion:8000 (puerto
+  # equivocado: el Service de ms-suscripcion escucha en 8080). Por eso
+  # POST /v1/cotizaciones/{id}/aceptacion devolvía 503 dependencia_no_disponible
+  # tras agotarse el timeout de dependencias (2 s).
+  - nombre: MS_SUSCRIPCION_URL
+    valor: "http://ms-suscripcion.solventa.svc.cluster.local:8080"
   - nombre: REDIS_CACHE_OF_HOST
     valor: "cache-of.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
   - nombre: REDIS_CACHE_OF_TTL_SECONDS

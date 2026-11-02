@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.domain.modelos import SolicitudCotizacion
-from app.application.casos_uso_cotizaciones import Aceptacion
+from app.application.casos_uso_cotizaciones import Aceptacion, PaginaPendientes, PendienteAsesor
 from app.domain.oferta import ConsultaOferta, Oferta
 
 
@@ -17,6 +17,9 @@ class SolicitarCotizacionEntrada(BaseModel):
     producto: str = Field(min_length=1, max_length=80)
     canal: str = Field(min_length=1, max_length=40)
     datos_riesgo: dict[str, Any] = Field(default_factory=dict)
+    # HU-163: los envía el BFF del back-office; sin ellos el flujo es el de siempre.
+    asesor_id: UUID | None = None
+    cliente_ref: str | None = Field(default=None, max_length=100)
 
 
 class CotizacionSalida(BaseModel):
@@ -51,6 +54,36 @@ class CotizacionSalida(BaseModel):
     def desde_consulta(cls, solicitud: SolicitudCotizacion, consulta: ConsultaOferta) -> "CotizacionSalida":
         base = cls.desde(solicitud, consulta.oferta)
         return base.model_copy(update={"vencida": consulta.vencida})
+
+
+class CotizacionAsesorSalida(CotizacionSalida):
+    oferta_id: UUID
+    cliente_ref: str | None
+
+    @classmethod
+    def desde_pendiente(cls, pendiente: PendienteAsesor) -> "CotizacionAsesorSalida":
+        base = CotizacionSalida.desde_consulta(pendiente.solicitud, pendiente.consulta)
+        return cls(
+            **base.model_dump(),
+            oferta_id=pendiente.consulta.oferta.id,
+            cliente_ref=pendiente.solicitud.cliente_ref,
+        )
+
+
+class PaginaCotizacionesAsesorSalida(BaseModel):
+    items: list[CotizacionAsesorSalida]
+    pagina: int
+    tamano: int
+    hay_mas: bool
+
+    @classmethod
+    def desde(cls, pagina: PaginaPendientes) -> "PaginaCotizacionesAsesorSalida":
+        return cls(
+            items=[CotizacionAsesorSalida.desde_pendiente(p) for p in pagina.items],
+            pagina=pagina.pagina,
+            tamano=pagina.tamano,
+            hay_mas=pagina.hay_mas,
+        )
 
 
 class AceptarOfertaEntrada(BaseModel):
