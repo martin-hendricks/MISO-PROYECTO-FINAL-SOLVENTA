@@ -339,7 +339,7 @@ async def firmar_y_emitir(
 
     aceptacion = await cliente_cotizacion.aceptar_oferta(
         cotizacion_id=solicitud_id,
-        idempotency_key=_idempotency_key(),
+        idempotency_key=str(_uuid_desde("aceptacion-asesor", solicitud_id)),
         perfil_id=perfil_id,
         score=score_stub,
     )
