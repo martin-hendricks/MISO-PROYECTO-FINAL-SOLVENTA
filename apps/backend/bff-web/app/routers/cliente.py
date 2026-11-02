@@ -490,23 +490,40 @@ async def hipoteca(
     return _oferta_hipotecaria_salida(oferta)
 
 
-# TODO: este resumen agrega datos de varios microservicios (cotización
-# vigente, póliza, siniestro en curso, hipotecario) que hoy no tienen todos
-# equivalente real conectado (ms-siniestros y la oferta hipotecaria no están
-# integrados) -- requiere componer varias llamadas reales, no solo una.
+ESTADO_POLIZA_VIGENTE = "vigente"
+
+
 @router.get("/inicio")
-def inicio() -> dict:
+async def inicio(
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """Agregado de Inicio (HU-138). Cada bloque en `null` no dibuja card.
+
+    - poliza: la primera póliza vigente del cliente en ms-polizas.
+    - ofertaVigente: `null` -- ms-cotizacion solo lista cotizaciones por
+      asesor (HU-163), no por cliente; no hay de dónde sacar una oferta real.
+    - siniestroEnCurso: `null` -- ms-siniestros no asocia siniestros a un
+      cliente ni a una póliza, así que no se puede filtrar el del cliente.
+    """
+    # Misma identidad placeholder que billetera()/emitir(): así Inicio ve las
+    # mismas pólizas que el cliente emitió y tiene en su billetera.
+    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
+    vigente = next((p for p in polizas if p["estado"].lower() == ESTADO_POLIZA_VIGENTE), None)
+
+    poliza = None
+    if vigente is not None:
+        cotizacion = await _cotizacion_de_poliza(cliente_cotizacion, vigente)
+        poliza = {
+            "numero": vigente["numero"],
+            "ramo": cotizacion.get("producto") or RAMO_SIN_CLASIFICAR,
+            "estado": ESTADO_POLIZA_VIGENTE,
+        }
+
     return {
-        "ofertaVigente": {
-            "cotizacionId": "COT-1042",
-            "ramo": "Protección de dispositivo",
-            "estado": "oferta_vigente",
-        },
-        "poliza": {
-            "numero": "POL-88219-CO",
-            "ramo": "Protección de dispositivo",
-            "estado": "vigente",
-        },
-        "siniestroEnCurso": {"siniestroId": "SIN-441", "estado": "en_evaluacion"},
+        "ofertaVigente": None,
+        "poliza": poliza,
+        "siniestroEnCurso": None,
         "hipotecario": None,
     }

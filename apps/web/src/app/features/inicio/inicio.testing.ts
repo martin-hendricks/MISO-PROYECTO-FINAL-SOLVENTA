@@ -1,6 +1,6 @@
 import { Inicio } from './inicio.gateway';
 
-/** Same aggregate the `bff-web` stub answers, plus an origination. For specs only. */
+/** A fully populated Inicio aggregate. For specs only; not what `bff-web` returns. */
 export const INICIO: Inicio = {
   ofertaVigente: {
     cotizacionId: 'COT-1042',

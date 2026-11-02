@@ -1,5 +1,6 @@
 import httpx
 
+from app.routers.cliente import ContextoUsuario
 from tests.conftest import token
 
 COTIZACION_ID = "11111111-1111-1111-1111-111111111111"
@@ -482,9 +483,38 @@ def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
     assert response.status_code == 404
 
 
-def test_inicio(client):
+def test_inicio_muestra_la_poliza_vigente_real_del_cliente(client, nucleo_polizas, nucleo_cotizacion):
+    cancelada = {**POLIZA_SALIDA, "numero": "POL-00001-CO", "estado": "cancelada"}
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
+        200, json=[cancelada, POLIZA_SALIDA]
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-oferta/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
+
     body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
+
+    assert body["poliza"] == {
+        "numero": POLIZA_SALIDA["numero"],
+        "ramo": "proteccion-dispositivo",
+        "estado": "vigente",
+    }
+    usuario_id = str(ContextoUsuario("sesion-cliente@solventa.com").usuario_id)
+    assert nucleo_polizas.peticiones[-1].url.params["usuario_id"] == usuario_id
+    # Sin fuente real por cliente: no se inventan oferta ni siniestro.
+    assert body["ofertaVigente"] is None
+    assert body["siniestroEnCurso"] is None
     assert body["hipotecario"] is None
+
+
+def test_inicio_sin_polizas_no_dibuja_card_de_poliza(client, nucleo_polizas):
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(200, json=[])
+
+    body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
+
+    assert body["poliza"] is None
+    assert body["ofertaVigente"] is None
+    assert body["siniestroEnCurso"] is None
 
 
 def test_sin_token_es_401(client):
