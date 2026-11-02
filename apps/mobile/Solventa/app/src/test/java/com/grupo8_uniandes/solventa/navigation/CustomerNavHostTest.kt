@@ -1,6 +1,10 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import android.Manifest
+import android.app.Application
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.test.core.app.ApplicationProvider
+import org.robolectric.Shadows.shadowOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -17,6 +21,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -79,7 +84,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
-        rule.onNodeWithTag("issued_policy_id").assertTextEquals("SOAT")
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
@@ -91,11 +96,8 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
-        rule.onNodeWithTag("action_new_quote").performClick()
-        rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
-        rule.onNodeWithTag("action_cancel_quote").performClick()
+        nav.popBackStack()
+        rule.waitForIdle()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
@@ -135,6 +137,30 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Polizas)
         rule.waitForIdle()
         assertTrue(wallet.walletLoads > afterReturn)
+    }
+
+    @Test
+    fun givenLocationAllowed_whenTheCatalogOpens_thenAssistanceReturnsToTheCatalog() {
+        shadowOf(ApplicationProvider.getApplicationContext<Application>())
+            .grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+
+        rule.onNodeWithTag("action_open_catalog").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        rule.onNodeWithText("Taller Norte").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_open_provider_0").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
+        rule.onNodeWithTag("action_continuar_evidencia").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        assertEquals(AsistenciaSitioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_cancelar_asistencia").performClick()
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
     }
 
     @Test

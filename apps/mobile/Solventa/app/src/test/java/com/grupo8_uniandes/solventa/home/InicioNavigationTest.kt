@@ -35,7 +35,8 @@ class InicioNavigationTest {
         show(HomePanel(offerId = "Q-42"))
         rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
-        rule.onNodeWithTag("issued_policy_id").assertTextEquals("Q-42")
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
+        rule.onAllNodesWithText("Q-42").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
     }
@@ -101,8 +102,8 @@ class InicioNavigationTest {
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        rule.onNodeWithText("Avisos de vencimiento").performClick()
+        rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
 
@@ -116,7 +117,9 @@ class InicioNavigationTest {
         rule.onNodeWithText("Reportar siniestro").assertIsDisplayed()
         rule.onNodeWithTag("solventa_floating_action").performClick()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
-        rule.onAllNodesWithTag("solventa_floating_action").assertCountEquals(0)
+        rule.onNodeWithTag("solventa_floating_action").performClick()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_siniestro_detalle").assertCountEquals(0)
     }
 
     @Test

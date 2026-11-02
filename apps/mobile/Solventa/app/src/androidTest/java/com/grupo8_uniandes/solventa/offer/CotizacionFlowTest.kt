@@ -45,7 +45,7 @@ class CotizacionFlowTest {
         assertTrue(acceptTop < quoteTop)
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
         rule.waitForTag("screen_issued")
-        rule.onNodeWithTag("issued_policy_id").assertTextEquals("COT-1042")
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
     }

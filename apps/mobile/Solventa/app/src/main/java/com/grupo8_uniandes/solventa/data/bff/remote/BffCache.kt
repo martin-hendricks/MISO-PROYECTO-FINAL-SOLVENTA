@@ -2,11 +2,15 @@ package com.grupo8_uniandes.solventa.data.bff.remote
 
 import android.content.Context
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
+import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.bffJson
+import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -27,6 +31,26 @@ class BffCache(context: Context) {
 
     fun writeWallet(entries: List<WalletEntry>) {
         prefs.edit().putString(WALLET, bffJson.encodeToString(entries.toDto())).commit()
+    }
+
+    fun readDetail(numero: String): PolicyDetail? = readDetails()[numero]
+
+    fun writeDetail(detail: PolicyDetail) {
+        val stored = readDetails().toMutableMap()
+        stored[detail.numero] = detail
+        val payload = StoredDetails(stored.values.map { it.toStored() })
+        prefs.edit().putString(DETAILS, bffJson.encodeToString(payload)).commit()
+    }
+
+    private fun readDetails(): Map<String, PolicyDetail> {
+        val raw = prefs.getString(DETAILS, null) ?: return emptyMap()
+        return try {
+            bffJson.decodeFromString<StoredDetails>(raw).items
+                .map { it.toDetail() }
+                .associateBy { it.numero }
+        } catch (_: SerializationException) {
+            emptyMap()
+        }
     }
 
     fun readClaim(): PendingClaim? {
@@ -56,8 +80,24 @@ class BffCache(context: Context) {
         const val FILE = "solventa.bff"
         const val WALLET = "wallet"
         const val CLAIM = "claim"
+        const val DETAILS = "details"
     }
+}
+
+class BffPolicyMemory(private val cache: BffCache) : PolicyMemory {
+    override fun readWallet(): List<WalletEntry>? = cache.readWallet()
+
+    override fun writeWallet(entries: List<WalletEntry>) = cache.writeWallet(entries)
+
+    override fun readDetail(numero: String): PolicyDetail? = cache.readDetail(numero)
+
+    override fun writeDetail(detail: PolicyDetail) = cache.writeDetail(detail)
 }
 
 @Serializable
 private data class StoredClaim(val key: String, val notice: ClaimNoticeDto)
+
+@Serializable
+private data class StoredDetails(val items: List<DetailDto>)
+
+private fun PolicyDetail.toStored() = DetailDto(numero, ramo, resumen, estado, venceEn, queHacer)

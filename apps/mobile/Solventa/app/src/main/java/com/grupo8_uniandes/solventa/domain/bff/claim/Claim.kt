@@ -45,7 +45,18 @@ data class ClaimSummary(
     val ramo: String,
     val resumen: String,
     val estado: ClaimStatus,
-)
+    val estadoTexto: String? = null,
+) {
+    fun whatHappened(): String = "$ramo · $resumen"
+
+    fun statusWords(): String = estadoTexto ?: when (estado) {
+        ClaimStatus.RECIBIDO -> "Recibido"
+        ClaimStatus.EN_EVALUACION -> "En evaluación"
+        ClaimStatus.DECIDIDO -> "Decidido"
+        ClaimStatus.ENRUTADO -> "Enrutado"
+        ClaimStatus.PAGADO -> "Pagado"
+    }
+}
 
 interface ClaimRepository {
     suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt>
