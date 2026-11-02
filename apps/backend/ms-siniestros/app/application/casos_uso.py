@@ -62,6 +62,14 @@ async def listar_siniestros(uow: FabricaUnidadDeTrabajo, limite: int) -> list[Si
         return await tx.siniestros.listar(limite)
 
 
+async def listar_siniestros_abiertos_de_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> list[Siniestro]:
+    """HU-61 (back-office): siniestros de la póliza que no llegaron a PAGADO,
+    el único estado terminal del enum -- usado por ms-polizas/bff-web como
+    dato informativo antes de cancelar (no bloquea la cancelación)."""
+    async with uow() as tx:
+        return await tx.siniestros.listar_abiertos_por_poliza(poliza_id)
+
+
 async def recibir_evento_parametrico(
     uow: FabricaUnidadDeTrabajo,
     adaptador_desembolso: AdaptadorDesembolso,
@@ -70,6 +78,7 @@ async def recibir_evento_parametrico(
     umbral: Decimal,
     poliza_vigente: bool,
     monto_pago: Decimal,
+    poliza_id: UUID | None = None,
 ) -> ResultadoIngesta:
     """Encadena HU-32 (ingesta idempotente) -> HU-33 (evaluación de umbral) -> HU-34
     (pago paramétrico stub) en una sola invocación desde la ruta de ingesta, pero cada
@@ -86,7 +95,7 @@ async def recibir_evento_parametrico(
         if existente is not None:
             return await _resultado_existente(tx, existente)
 
-        siniestro = Siniestro.recibir(evento.evento_id, origen="stub-evento-parametrico")
+        siniestro = Siniestro.recibir(evento.evento_id, origen="stub-evento-parametrico", poliza_id=poliza_id)
         await tx.siniestros.agregar(siniestro)
         await tx.eventos_parametricos.agregar(evento)
         await tx.outbox.agregar(evento_parametrico_recibido(evento, siniestro))

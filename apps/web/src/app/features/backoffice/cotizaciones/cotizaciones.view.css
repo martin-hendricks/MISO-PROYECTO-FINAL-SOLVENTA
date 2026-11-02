@@ -24,3 +24,7 @@ tr[data-vencida='true'] {
   gap: 8px;
   margin-top: 16px;
 }
+
+.badge + .badge {
+  margin-left: 4px;
+}

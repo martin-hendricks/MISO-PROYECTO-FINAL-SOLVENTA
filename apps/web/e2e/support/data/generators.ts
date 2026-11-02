@@ -123,6 +123,37 @@ export function policyDetail(numero: string): PolicyDetail {
   };
 }
 
+export interface OperatorPolicy {
+  numero: string;
+  ramo: string;
+  estado: 'vigente' | 'cancelada';
+  venceEn: string;
+  prima: { valor: number; periodicidad: string };
+  renovable: boolean;
+  devolucionEstimada: number | null;
+  canceladaEn: string | null;
+  canceladaPor: string | null;
+  motivoCancelacion: string | null;
+  siniestrosAbiertos: number | null;
+}
+
+/** Shape of GET/POST /operador/polizas/* (bff-web routers/operador.py, _poliza_salida). */
+export function operatorPolicy(numero: string): OperatorPolicy {
+  return {
+    numero,
+    ramo: 'Protección de dispositivo',
+    estado: 'vigente',
+    venceEn: '2027-10-01',
+    prima: { valor: 1000, periodicidad: 'ANUAL' },
+    renovable: true,
+    devolucionEstimada: null,
+    canceladaEn: null,
+    canceladaPor: null,
+    motivoCancelacion: null,
+    siniestrosAbiertos: null,
+  };
+}
+
 export interface Catalog {
   ramo: string;
   nombre: string;

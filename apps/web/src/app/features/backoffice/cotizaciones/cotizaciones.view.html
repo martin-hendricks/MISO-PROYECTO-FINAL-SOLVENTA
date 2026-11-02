@@ -104,6 +104,7 @@
                     <a
                       class="text"
                       [routerLink]="['/cms/cotizaciones', cotizacion.cotizacionId, 'emision']"
+                      [queryParams]="{ cliente: cotizacion.clienteRef }"
                       [attr.data-testid]="'continuar-' + cotizacion.cotizacionId"
                       >{{ 'backoffice.cotizaciones.continuar' | translate }}</a
                     >

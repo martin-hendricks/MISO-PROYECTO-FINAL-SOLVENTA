@@ -49,12 +49,4 @@ describe('SectionView', () => {
 
     expect(element('no-permission')?.getAttribute('data-required')).toBe('asesor');
   });
-
-  it('lets the advisor into Pólizas', () => {
-    const { host, element } = render('polizas', 'asesor');
-
-    expect(host.querySelector('h1')?.textContent).toContain('Pólizas');
-    expect(element('section-pending')).not.toBeNull();
-    expect(element('nueva-cotizacion')).toBeNull();
-  });
 });

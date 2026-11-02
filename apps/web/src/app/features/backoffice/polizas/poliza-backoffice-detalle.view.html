@@ -1,0 +1,135 @@
+<section
+  data-testid="poliza-backoffice"
+  [attr.data-state]="allowed ? (numero ? vm.status() : 'buscar') : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.polizas.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <h1>{{ 'backoffice.polizas.title' | translate }}</h1>
+
+    <div class="buscador">
+      <label for="poliza-backoffice-buscar-input">{{ 'backoffice.polizas.buscar.label' | translate }}</label>
+      <div class="buscador-row">
+        <input
+          id="poliza-backoffice-buscar-input"
+          data-testid="poliza-backoffice-buscar"
+          type="text"
+          [value]="busqueda()"
+          (input)="busqueda.set($any($event.target).value)"
+          (keyup.enter)="buscar()"
+        />
+        <button type="button" class="outlined" data-testid="poliza-backoffice-buscar-submit" (click)="buscar()">
+          {{ 'backoffice.polizas.buscar.action' | translate }}
+        </button>
+      </div>
+    </div>
+
+    @if (numero) {
+      @switch (vm.status()) {
+        @case ('loading') {
+          <p class="subtitle" role="status" data-testid="poliza-backoffice-loading">
+            {{ 'backoffice.polizas.loading' | translate }}
+          </p>
+        }
+        @case ('error') {
+          <div class="empty-state" role="alert" data-testid="poliza-backoffice-error">
+            <p>{{ 'backoffice.polizas.error.body' | translate }}</p>
+            <button type="button" class="outlined" data-testid="poliza-backoffice-retry" (click)="vm.load()">
+              {{ 'backoffice.polizas.error.retry' | translate }}
+            </button>
+          </div>
+        }
+        @case ('not-found') {
+          <div class="empty-state" data-testid="poliza-backoffice-not-found">
+            <h2>{{ 'backoffice.polizas.notFound.title' | translate }}</h2>
+            <p>{{ 'backoffice.polizas.notFound.body' | translate }}</p>
+          </div>
+        }
+        @default {
+          @let poliza = vm.poliza()!;
+          <div class="page-head">
+            <h2 data-testid="poliza-backoffice-numero">{{ poliza.numero }}</h2>
+            <span class="badge" data-testid="poliza-backoffice-estado" [attr.data-estado]="poliza.estado">
+              {{ 'backoffice.polizas.estado.' + poliza.estado | translate }}
+            </span>
+          </div>
+
+          <dl class="detalle">
+            <dt>{{ 'backoffice.polizas.venceEn' | translate }}</dt>
+            <dd data-testid="poliza-backoffice-vence">{{ poliza.venceEn | svDate }}</dd>
+            <dt>{{ 'backoffice.polizas.prima' | translate }}</dt>
+            <dd class="mono" data-testid="poliza-backoffice-prima">
+              {{ poliza.prima.valor | svMoney: 'COP' }}
+            </dd>
+            @if (poliza.siniestrosAbiertos !== null) {
+              <dt>{{ 'backoffice.polizas.siniestrosAbiertos' | translate }}</dt>
+              <dd data-testid="poliza-backoffice-siniestros-abiertos">{{ poliza.siniestrosAbiertos }}</dd>
+            }
+          </dl>
+
+          @if (poliza.estado === 'cancelada') {
+            <div class="notice" data-testid="poliza-backoffice-cancelacion-previa">
+              <p class="notice-title">{{ 'backoffice.polizas.cancelacionPrevia.title' | translate }}</p>
+              <dl class="detalle">
+                <dt>{{ 'backoffice.polizas.cancelacionPrevia.fecha' | translate }}</dt>
+                <dd>{{ poliza.canceladaEn! | svDate }}</dd>
+                <dt>{{ 'backoffice.polizas.cancelacionPrevia.motivo' | translate }}</dt>
+                <dd>{{ poliza.motivoCancelacion }}</dd>
+                <dt>{{ 'backoffice.polizas.cancelacionPrevia.operador' | translate }}</dt>
+                <dd>{{ poliza.canceladaPor }}</dd>
+                @if (poliza.devolucionEstimada !== null) {
+                  <dt>{{ 'backoffice.polizas.cancelacionPrevia.devolucion' | translate }}</dt>
+                  <dd class="mono">{{ poliza.devolucionEstimada | svMoney: 'COP' }}</dd>
+                }
+              </dl>
+            </div>
+          }
+
+          <div class="actions">
+            <button
+              type="button"
+              class="filled"
+              data-testid="poliza-backoffice-renovar"
+              [disabled]="poliza.estado === 'cancelada' || !poliza.renovable || vm.accion() === 'enviando'"
+              (click)="vm.renovar()"
+            >
+              {{ 'backoffice.polizas.renovar' | translate }}
+            </button>
+            @if (poliza.estado === 'cancelada' || !poliza.renovable) {
+              <p class="hint" data-testid="poliza-backoffice-no-renovable">
+                {{ 'backoffice.polizas.noRenovable' | translate }}
+              </p>
+            }
+
+            <button
+              type="button"
+              class="outlined error"
+              data-testid="poliza-backoffice-cancelar"
+              [disabled]="poliza.estado === 'cancelada' || vm.accion() === 'enviando'"
+              (click)="abrirCancelar()"
+            >
+              {{ 'backoffice.polizas.cancelar' | translate }}
+            </button>
+          </div>
+
+          @if (vm.accion() === 'rechazado' && vm.rechazo(); as rechazo) {
+            <p class="error-text" role="alert" data-testid="poliza-backoffice-rechazo">{{ rechazo }}</p>
+          }
+
+          @if (dialogoCancelarAbierto()) {
+            <sv-confirm-dialog
+              [titulo]="'backoffice.polizas.confirmCancelar.title' | translate"
+              [advertencia]="'backoffice.polizas.confirmCancelar.advertencia' | translate"
+              [requiereMotivo]="true"
+              confirmarTexto="backoffice.polizas.confirmCancelar.confirmar"
+              (cancelar)="dialogoCancelarAbierto.set(false)"
+              (confirmar)="confirmarCancelar($event)"
+            />
+          }
+        }
+      }
+    }
+  }
+</section>
