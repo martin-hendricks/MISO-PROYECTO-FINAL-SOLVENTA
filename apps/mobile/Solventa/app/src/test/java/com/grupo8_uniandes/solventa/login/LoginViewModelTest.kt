@@ -337,18 +337,17 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun givenStoredRefusal_whenPasswordSucceeds_thenHomeOpensWithoutPrompt() {
+    fun givenStoredRefusal_whenPasswordSucceeds_thenTheQuestionIsAskedAgain() {
         val viewModel = LoginViewModel(
             signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
             biometricEnabled = { false },
-            biometricChoiceStored = { true },
         )
         viewModel.onEmail("camila@correo.com")
         viewModel.onPassword("secret")
 
         viewModel.ingresar()
 
-        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(LoginEffect.ConfirmBiometric, viewModel.state.value.effect)
     }
 
     @Test

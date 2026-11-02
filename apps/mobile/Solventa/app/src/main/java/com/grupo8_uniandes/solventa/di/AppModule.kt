@@ -38,11 +38,11 @@ import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.issuance.EmisionViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
-import com.grupo8_uniandes.solventa.ui.login.BiometricChoiceStored
 import com.grupo8_uniandes.solventa.ui.login.BiometricGate
 import com.grupo8_uniandes.solventa.ui.login.DisableBiometric
 import com.grupo8_uniandes.solventa.ui.login.EnableBiometric
@@ -89,7 +89,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<ConsentRepository> { SharedPrefsConsentRepository(androidContext()) }
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }
     single<DevicePermissionReader> { AndroidDevicePermissionReader(androidContext()) }
-    viewModel { HomeViewModel(get(), get()) }
+    viewModel { HomeViewModel(get()) }
     viewModel {
         val registration = get<RegistrationRepository>()
         val session = get<MobileSessionRepository>()
@@ -98,7 +98,6 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
             biometricEnabled = BiometricGate(registration::biometricUnlockEnabled),
             enableBiometric = EnableBiometric(registration::enableBiometricUnlock),
             disableBiometric = DisableBiometric { registration.setBiometricUnlock(false) },
-            biometricChoiceStored = BiometricChoiceStored(registration::prefsChoiceExists),
             openRemoteSession = RemoteSessionOpener { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
             },
@@ -111,8 +110,9 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     viewModel { (contextId: String) -> QuoteViewModel(get(), contextId) }
     viewModel { (cotizacionId: String, region: Region) ->
-        OfferViewModel(get(), get(), cotizacionId, region)
+        OfferViewModel(get(), cotizacionId, region)
     }
+    viewModel { (cotizacionId: String) -> EmisionViewModel(get(), cotizacionId) }
     viewModel { PolizasViewModel(get()) }
     viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero) }
     viewModel { SiniestrosViewModel(get()) }

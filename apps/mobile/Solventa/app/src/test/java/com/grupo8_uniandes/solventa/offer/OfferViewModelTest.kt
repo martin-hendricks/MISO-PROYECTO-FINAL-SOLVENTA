@@ -1,7 +1,6 @@
 package com.grupo8_uniandes.solventa.offer
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -18,7 +17,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
@@ -123,52 +121,18 @@ class OfferViewModelTest {
         venceEn = "2026-10-01",
     )
 
-    @Test
-    fun givenAFirmOffer_whenAccepted_thenTheIdIsReadyForIssuance() {
-        val accepted = AcceptedQuote("COT-1042", "aceptada", 10, "COP")
-        val viewModel = offerModel(published(), StandInAnswer.Ready(accepted))
+    private fun offerModel(offer: FirmOffer) = offerModel(StandInAnswer.Ready(offer))
 
-        viewModel.accept()
-
-        assertEquals("COT-1042", viewModel.state.value.acceptedId)
-        assertFalse(viewModel.state.value.acceptFailed)
-        assertFalse(viewModel.state.value.accepting)
-        viewModel.consumeAccepted()
-        assertNull(viewModel.state.value.acceptedId)
+    private fun offerModel(answer: StandInAnswer<FirmOffer>): OfferViewModel {
+        val repo = scripted(answer)
+        return OfferViewModel(ShowFirmOffer(repo), "COT-1042")
     }
 
-    @Test
-    fun givenAFirmOffer_whenAcceptanceFails_thenItStaysOnTheOffer() {
-        val viewModel = offerModel(published(), StandInAnswer.Failed)
-
-        viewModel.accept()
-
-        assertNull(viewModel.state.value.acceptedId)
-        assertTrue(viewModel.state.value.acceptFailed)
-        assertEquals(OfferPhase.Ready, viewModel.state.value.phase)
-    }
-
-    private fun offerModel(
-        offer: FirmOffer,
-        accepted: StandInAnswer<AcceptedQuote> = StandInAnswer.Failed,
-    ) = offerModel(StandInAnswer.Ready(offer), accepted)
-
-    private fun offerModel(
-        answer: StandInAnswer<FirmOffer>,
-        accepted: StandInAnswer<AcceptedQuote> = StandInAnswer.Failed,
-    ): OfferViewModel {
-        val repo = scripted(answer, accepted)
-        return OfferViewModel(ShowFirmOffer(repo), repo, "COT-1042")
-    }
-
-    private fun scripted(
-        answer: StandInAnswer<FirmOffer>,
-        accepted: StandInAnswer<AcceptedQuote> = StandInAnswer.Failed,
-    ) = object : OfferRepository {
+    private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
         override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
 
         override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
 
-        override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> = accepted
+        override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
     }
 }

@@ -154,8 +154,13 @@ class MockIssuanceRepository(
     override suspend fun rejected(): StandInAnswer<IssueRejection> =
         control.ready { required(decode<RejectionDto>(PublishedSamples.REJECTION).let(::required).toRejection()) }
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> =
-        control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    var walletLoads: Int = 0
+        private set
+
+    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> {
+        walletLoads += 1
+        return control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    }
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         control.ready { decode<DetailDto>(PublishedSamples.DETAIL).let(::required).toDetail() }

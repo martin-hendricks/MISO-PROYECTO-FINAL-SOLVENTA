@@ -39,7 +39,7 @@ class StandInHomeRepository(
                 listOf(
                     PolicyCandidate(
                         id = policy.numero,
-                        active = policy.estado == POLICY_IN_FORCE,
+                        active = policy.estado.equals(POLICY_IN_FORCE, ignoreCase = true),
                         issuedAt = becameCurrentAt,
                     ),
                 )

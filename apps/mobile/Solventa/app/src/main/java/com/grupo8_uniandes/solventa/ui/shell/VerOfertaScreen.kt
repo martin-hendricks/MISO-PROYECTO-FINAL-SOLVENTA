@@ -51,13 +51,6 @@ fun VerOfertaScreen(
                 modifier = Modifier.testTag("offer_failed"),
             )
             OfferPhase.Ready -> {
-                if (state.acceptFailed) {
-                    Text(
-                        text = stringResource(R.string.quote_failed),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.testTag("offer_failed"),
-                    )
-                }
                 if (state.expired) {
                     Text(
                         text = stringResource(R.string.offer_expired),
@@ -97,7 +90,7 @@ fun VerOfertaScreen(
                     text = stringResource(R.string.action_accept_and_issue),
                     style = SolventaButtonStyle.Filled,
                     onClick = { onAccept(state.cotizacionId) },
-                    enabled = state.acceptEnabled && !state.accepting,
+                    enabled = state.acceptEnabled,
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "action_accept_offer",
                 )

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
-import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.formatOfferDate
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -13,7 +12,6 @@ import com.grupo8_uniandes.solventa.domain.region.formatPremium
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import java.math.BigDecimal
 
 enum class OfferPhase { Pending, Failed, Ready }
@@ -26,14 +24,10 @@ data class OfferUiState(
     val expired: Boolean = false,
     val cotizacionId: String = "",
     val ramo: String = "",
-    val accepting: Boolean = false,
-    val acceptFailed: Boolean = false,
-    val acceptedId: String? = null,
 )
 
 class OfferViewModel(
     private val showFirmOffer: ShowFirmOffer,
-    private val offers: OfferRepository,
     private val cotizacionId: String,
     private val region: Region = Region.Colombia,
 ) : ViewModel() {
@@ -53,28 +47,6 @@ class OfferViewModel(
             is StandInAnswer.Ready -> answer.value.toUi(region)
             }
         }
-    }
-
-    fun accept() {
-        val current = _state.value
-        if (current.accepting || current.acceptedId != null || !current.acceptEnabled) return
-        viewModelScope.launch {
-            _state.update { it.copy(accepting = true, acceptFailed = false) }
-            _state.update { state ->
-                when (val answer = offers.accept(cotizacionId)) {
-                    is StandInAnswer.Ready -> state.copy(
-                        accepting = false,
-                        acceptFailed = false,
-                        acceptedId = answer.value.cotizacionId,
-                    )
-                    else -> state.copy(accepting = false, acceptFailed = true)
-                }
-            }
-        }
-    }
-
-    fun consumeAccepted() {
-        _state.update { it.copy(acceptedId = null) }
     }
 
     private fun FirmOffer.toUi(region: Region): OfferUiState {

@@ -35,11 +35,15 @@ import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
 import com.grupo8_uniandes.solventa.domain.profile.PermissionKind
 import com.grupo8_uniandes.solventa.domain.profile.PermissionRow
+import com.grupo8_uniandes.solventa.domain.registration.BiometricLogin
 import com.grupo8_uniandes.solventa.domain.registration.Registration
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
+import com.grupo8_uniandes.solventa.ui.shell.BiometricEnrollment
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -298,21 +302,56 @@ class PerfilScreenTest {
     }
 
     @Test
-    fun givenProfile_whenBiometricToggled_thenPreferenceIsStored() {
-        val registration = SharedPrefsRegistrationRepository(context)
+    fun givenProfile_whenBiometricCheckSucceeds_thenLoginIsStoredUntilDisabled() {
+        SharedPrefsRegistrationRepository(context).save(sampleRegistration())
         rule.setContent {
             SolventaTheme {
-                PerfilScreen()
+                PerfilScreen(
+                    biometricEnrollment = BiometricEnrollment { onResult ->
+                        onResult(DeviceUnlock.Accepted)
+                        true
+                    },
+                )
             }
         }
 
+        val registration = SharedPrefsRegistrationRepository(context)
         rule.onNodeWithTag("profile_biometric").assertIsDisplayed()
         rule.onNodeWithText("Ingresa con huella o rostro").assertIsDisplayed()
         assertFalse(registration.biometricUnlockEnabled())
         rule.onNodeWithTag("profile_biometric_switch").performClick()
         assertTrue(registration.biometricUnlockEnabled())
+        assertEquals(BiometricLogin("camila@example.com", "secret"), registration.biometricLogin())
         rule.onNodeWithTag("profile_biometric_switch").performClick()
         assertFalse(registration.biometricUnlockEnabled())
+        assertNull(registration.biometricLogin())
+    }
+
+    @Test
+    fun givenProfile_whenBiometricCheckFailsOrThePhoneCannot_thenTheSwitchStaysOff() {
+        SharedPrefsRegistrationRepository(context).save(sampleRegistration())
+        var mode = DeviceUnlock.Dismissed
+        rule.setContent {
+            SolventaTheme {
+                PerfilScreen(
+                    biometricEnrollment = BiometricEnrollment { onResult ->
+                        if (mode == DeviceUnlock.Unavailable) return@BiometricEnrollment false
+                        onResult(mode)
+                        true
+                    },
+                )
+            }
+        }
+
+        val registration = SharedPrefsRegistrationRepository(context)
+        rule.onNodeWithTag("profile_biometric_switch").performClick()
+        assertFalse(registration.biometricUnlockEnabled())
+        assertNull(registration.biometricLogin())
+
+        mode = DeviceUnlock.Unavailable
+        rule.onNodeWithTag("profile_biometric_switch").performClick()
+        assertFalse(registration.biometricUnlockEnabled())
+        assertNull(registration.biometricLogin())
     }
 
     private fun sampleRegistration() = Registration(

@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -43,9 +44,9 @@ class CotizacionFlowTest {
         val quoteTop = rule.onNodeWithTag("action_new_quote").getBoundsInRoot().top
         assertTrue(acceptTop < quoteTop)
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
-        rule.waitForTag("screen_emision")
-        rule.onNodeWithTag("emision_body").assertIsDisplayed()
-        rule.onAllNodesWithText("COT-1042").assertCountEquals(0)
+        rule.waitForTag("screen_issued")
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("COT-1042")
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
     }
 

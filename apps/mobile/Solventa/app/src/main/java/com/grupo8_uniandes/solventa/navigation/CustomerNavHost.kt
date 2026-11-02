@@ -9,8 +9,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
@@ -30,7 +28,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
-import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.issuance.EmisionPhase
+import com.grupo8_uniandes.solventa.issuance.EmisionViewModel
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
@@ -61,22 +60,12 @@ fun CustomerNavHost(
         modifier = modifier.padding(contentPadding),
     ) {
         composable<InicioRoute> {
-            val homeViewModel: HomeViewModel = koinViewModel()
-            val acceptance by homeViewModel.state.collectAsState()
-            LaunchedEffect(acceptance.acceptedId) {
-                val acceptedId = acceptance.acceptedId ?: return@LaunchedEffect
-                homeViewModel.consumeAccepted()
-                navController.navigate(EmisionEnCursoRoute(acceptedId))
-            }
             LaunchedEffect(Unit) { onInicioVisible() }
             InicioScreen(
-                state = homeState.copy(
-                    failed = homeState.failed || acceptance.failed,
-                    accepting = acceptance.accepting,
-                ),
+                state = homeState,
                 onNewQuote = { navController.navigate(CotizacionRoute()) },
                 onOpenOffer = { offerId -> navController.navigate(VerOfertaRoute(offerId)) },
-                onAcceptOffer = homeViewModel::accept,
+                onAcceptOffer = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
                 onOpenPolicy = { policyId ->
                     navController.openParentThen(PolizasRoute, PolizaDetalleRoute(policyId))
                 },
@@ -93,16 +82,11 @@ fun CustomerNavHost(
             }
             val viewModel: OfferViewModel = koinViewModel { parametersOf(route.cotizacionId, region) }
             val state by viewModel.state.collectAsState()
-            LaunchedEffect(state.acceptedId) {
-                val acceptedId = state.acceptedId ?: return@LaunchedEffect
-                viewModel.consumeAccepted()
-                navController.navigate(EmisionEnCursoRoute(acceptedId))
-            }
             VerOfertaScreen(
                 state = state,
-                onAccept = { _ -> viewModel.accept() },
+                onAccept = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
-                onDecline = { navController.popBackStack() },
+                onDecline = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
         }
         composable<CotizacionRoute> { entry ->
@@ -180,10 +164,22 @@ fun CustomerNavHost(
         }
         composable<EmisionEnCursoRoute> { entry ->
             val route = entry.toRoute<EmisionEnCursoRoute>()
-            EmisionEnCursoScreen(
-                offerId = route.offerId,
-                onFinished = { navController.navigate(PolizaEmitidaRoute) },
-            )
+            val viewModel: EmisionViewModel = koinViewModel { parametersOf(route.offerId) }
+            val state by viewModel.state.collectAsState()
+            LaunchedEffect(state.phase) {
+                when (state.phase) {
+                    EmisionPhase.Issued -> navController.navigate(
+                        PolizaEmitidaRoute(state.cotizacionId.orEmpty()),
+                    ) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
+                    EmisionPhase.Rejected -> navController.navigate(SuscripcionRechazadaRoute) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
+                    EmisionPhase.Processing -> Unit
+                }
+            }
+            EmisionEnCursoScreen(offerId = route.offerId)
         }
         composable<SuscripcionRechazadaRoute> {
             SuscripcionRechazadaScreen(
@@ -191,9 +187,10 @@ fun CustomerNavHost(
                 onUnderstood = { navController.popBackStack() },
             )
         }
-        composable<PolizaEmitidaRoute> {
+        composable<PolizaEmitidaRoute> { entry ->
+            val route = entry.toRoute<PolizaEmitidaRoute>()
             PolizaEmitidaScreen(
-                policyId = stringResource(R.string.sample_policy_id),
+                policyId = route.cotizacionId,
                 onGoHome = { navController.leaveIssuance(InicioRoute) },
                 onGoPolicy = { navController.leaveIssuanceToPolicy() },
             )
@@ -213,13 +210,17 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<PerfilRoute>() -> PerfilRoute
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
-        destination.hasRoute<PolizaEmitidaRoute>() -> PolizaEmitidaRoute
+        destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
         destination.hasRoute<SuscripcionRechazadaRoute>() -> SuscripcionRechazadaRoute
         else -> InicioRoute
     }
 }
 
 fun NavHostController.openDestination(destination: Destination) {
+    if (destination == Destination.Polizas) {
+        reopenPolizas()
+        return
+    }
     val current = currentBackStackEntry?.toSolventaRoute()
     val currentParent = current?.let { selectedDestination(it) }
     val currentMode = current?.let { shellMode(it, signedIn = true) }
@@ -234,6 +235,17 @@ fun NavHostController.openDestination(destination: Destination) {
         }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+private fun NavHostController.reopenPolizas() {
+    popBackStack(PolizasRoute, inclusive = true)
+    navigate(PolizasRoute) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = false
     }
 }
 

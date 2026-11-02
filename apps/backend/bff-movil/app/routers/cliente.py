@@ -252,23 +252,62 @@ def aceptar_cotizacion(
 ) -> dict:
     if not es_v1(request):
         raise HTTPException(status_code=404, detail="No existe")
+    nucleo = request.app.state.nucleo
+    contexto = _contexto(usuario["sub"])
     aceptacion = _exigir(
-        request.app.state.nucleo.aceptar_oferta(
+        nucleo.aceptar_oferta(
             cotizacion_id=cotizacion_id,
             idempotency_key=idempotency_key,
-            perfil_id=_contexto(usuario["sub"])["perfil_id"],
+            perfil_id=contexto["perfil_id"],
             score=SCORE,
         ),
-        "cotizacion_id",
-        "estado",
-        "prima",
-        "moneda",
+        "decision",
     )
+    if str(aceptacion["decision"]).upper() != "ACEPTADA":
+        if "motivo" not in aceptacion:
+            raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        return {"estado": "rechazada", "motivo": aceptacion["motivo"]}
+    aceptacion = _exigir(aceptacion, "oferta_id", "cotizacion_id", "prima", "estado", "moneda")
+    pago = _exigir(
+        nucleo.cobrar_prima(
+            solicitud_id=str(aceptacion["cotizacion_id"]),
+            oferta_id=str(aceptacion["oferta_id"]),
+            usuario_id=contexto["usuario_id"],
+            monto=str(Decimal(str(aceptacion["prima"]))),
+            token_medio_pago=TOKEN_MEDIO_PAGO,
+        ),
+        "id",
+    )
+    poliza = _exigir(
+        nucleo.emitir(
+            solicitud_id=str(aceptacion["cotizacion_id"]),
+            oferta_id=str(aceptacion["oferta_id"]),
+            usuario_id=contexto["usuario_id"],
+            token_pago_confirmado=str(pago["id"]),
+            coberturas=[
+                {
+                    "nombre": aceptacion.get("estado", "cobertura-base"),
+                    "suma_asegurada": str(aceptacion["prima"]),
+                    "deducible": "0",
+                }
+            ],
+        ),
+        "numero",
+        "estado",
+        "fin_vigencia",
+    )
+    cotizacion = _exigir(nucleo.reconsultar(str(aceptacion["cotizacion_id"])), "producto")
     return {
         "cotizacionId": aceptacion["cotizacion_id"],
         "estado": aceptacion["estado"],
         "prima": aceptacion["prima"],
         "moneda": aceptacion["moneda"],
+        "poliza": {
+            "numero": poliza["numero"],
+            "ramo": cotizacion["producto"],
+            "estado": poliza["estado"],
+            "venceEn": poliza["fin_vigencia"],
+        },
     }
 
 

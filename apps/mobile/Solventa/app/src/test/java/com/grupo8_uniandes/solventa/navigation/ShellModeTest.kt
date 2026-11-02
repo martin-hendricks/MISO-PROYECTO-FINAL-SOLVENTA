@@ -53,9 +53,9 @@ class ShellModeTest {
         assertEquals("", EmisionEnCursoRoute().offerId)
         assertEquals(SiniestroDetalleRoute("CLM-1"), SiniestroDetalleRoute("CLM-1").copy(claimId = "CLM-1"))
         assertEquals(ShellMode.Issuance, shellMode(EmisionEnCursoRoute(), signedIn = true))
-        assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute, signedIn = true))
+        assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute(), signedIn = true))
         assertNull(selectedDestination(EmisionEnCursoRoute()))
-        assertNull(selectedDestination(PolizaEmitidaRoute))
+        assertNull(selectedDestination(PolizaEmitidaRoute()))
         assertEquals(ShellMode.Nested, shellMode(SuscripcionRechazadaRoute, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(SuscripcionRechazadaRoute))
     }

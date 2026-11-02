@@ -6,6 +6,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.required
 import com.grupo8_uniandes.solventa.data.bff.mapping.toHome
 import com.grupo8_uniandes.solventa.data.home.StandInHomeRepository
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.home.LoadInicio
 import com.grupo8_uniandes.solventa.domain.bff.home.BffHome
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeClaimSlot
@@ -83,6 +84,17 @@ class StandInHomeRepositoryTest {
         assertFalse(situation.claims.single().inProgress)
     }
 
+    @Test
+    fun givenAPolicyMarkedVigente_whenLoaded_thenInicioKeepsIt() {
+        val situation = load(LIVE_HOME)
+        val panel = LoadInicio { situation }.select(situation)
+
+        assertEquals("POL-2026-00000001", situation.policies.single().id)
+        assertTrue(situation.policies.single().active)
+        assertEquals("POL-2026-00000001", panel.policyId)
+        assertEquals("41ad4ca3-9c5b-461c-ac99-533b4d5e2469", panel.offerId)
+    }
+
     private fun load(raw: String) = StandInHomeRepository(
         home = object : HomeBffRepository {
             override suspend fun load(): StandInAnswer<BffHome> =
@@ -96,6 +108,9 @@ class StandInHomeRepositoryTest {
         """
         const val EMPTY_HOME = """
             {"ofertaVigente":null,"poliza":null,"siniestroEnCurso":null,"hipotecario":null}
+        """
+        const val LIVE_HOME = """
+            {"ofertaVigente":{"cotizacionId":"41ad4ca3-9c5b-461c-ac99-533b4d5e2469","ramo":"Protección de dispositivo","estado":"oferta_vigente"},"cotizacionesPendientes":[{"cotizacionId":"41ad4ca3-9c5b-461c-ac99-533b4d5e2469","ramo":"Protección de dispositivo","estado":"oferta_vigente"}],"poliza":{"numero":"POL-2026-00000001","ramo":"proteccion-dispositivo","estado":"VIGENTE"},"siniestroEnCurso":{"siniestroId":"SIN-441","estado":"en_evaluacion"},"hipotecario":null}
         """
     }
 }

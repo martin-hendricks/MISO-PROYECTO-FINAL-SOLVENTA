@@ -273,9 +273,12 @@ def test_reconsulta_v1(client, doble):
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
 
 
-def test_aceptar_cotizacion_v1_no_cobra_ni_emite(client, doble):
+def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
     headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
     doble.respuestas["aceptar_oferta"] = {**ACEPTADA, "moneda": "COP"}
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = COTIZACION
 
     respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
 
@@ -285,22 +288,42 @@ def test_aceptar_cotizacion_v1_no_cobra_ni_emite(client, doble):
         "estado": "aceptada",
         "prima": "10.00",
         "moneda": "COP",
+        "poliza": {
+            "numero": "POL-9",
+            "ramo": "vida",
+            "estado": "vigente",
+            "venceEn": "2027-01-01",
+        },
     }
-    assert doble.llamadas == [
-        {
-            "metodo": "aceptar_oferta",
-            "cotizacion_id": "COT-9",
-            "idempotency_key": "clave-aceptar-01",
-            "perfil_id": _contexto("camila@correo.com")["perfil_id"],
-            "score": "0.5000",
-        }
-    ]
+    assert _nombres(doble) == ["aceptar_oferta", "cobrar_prima", "emitir", "reconsultar"]
+    assert doble.llamadas[0] == {
+        "metodo": "aceptar_oferta",
+        "cotizacion_id": "COT-9",
+        "idempotency_key": "clave-aceptar-01",
+        "perfil_id": _contexto("camila@correo.com")["perfil_id"],
+        "score": "0.5000",
+    }
+    assert doble.llamadas[1]["usuario_id"] == _contexto("camila@correo.com")["usuario_id"]
+    assert doble.llamadas[1]["token_medio_pago"] == "stub-medio-pago"
+    assert doble.llamadas[2]["token_pago_confirmado"] == "pago-1"
 
     doble.llamadas.clear()
     prefijo = client.post("/bff-movil/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
     assert prefijo.status_code == 200
     assert prefijo.json()["estado"] == "aceptada"
+    assert prefijo.json()["poliza"]["numero"] == "POL-9"
     assert doble.llamadas[0]["idempotency_key"] == "clave-aceptar-01"
+
+
+def test_aceptar_cotizacion_rechazada_no_emite(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA", "motivo": "fuera de rango"}
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "rechazada", "motivo": "fuera de rango"}
+    assert _nombres(doble) == ["aceptar_oferta"]
 
 
 def test_aceptar_cotizacion_sin_version_es_404(client, doble):
@@ -328,6 +351,10 @@ def test_aceptar_cotizacion_incompleta_es_502(client, doble):
     respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
     assert respuesta.status_code == 502
     assert respuesta.json()["detail"] == DETALLE_INCOMPLETA
+    assert _nombres(doble) == ["aceptar_oferta"]
+    doble.llamadas.clear()
+    doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA"}
+    assert client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers).status_code == 502
     assert _nombres(doble) == ["aceptar_oferta"]
 
 

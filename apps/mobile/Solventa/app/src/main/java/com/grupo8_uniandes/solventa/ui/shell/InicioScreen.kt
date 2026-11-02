@@ -79,7 +79,6 @@ fun InicioScreen(
                     text = stringResource(R.string.action_accept_offer),
                     style = SolventaButtonStyle.Filled,
                     onClick = { onAcceptOffer(offerId) },
-                    enabled = !state.accepting,
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "action_accept_offer",
                 )

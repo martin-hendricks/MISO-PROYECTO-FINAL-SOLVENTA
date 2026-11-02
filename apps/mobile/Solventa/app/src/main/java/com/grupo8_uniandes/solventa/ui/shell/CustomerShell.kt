@@ -354,7 +354,7 @@ internal fun SignedInShell(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            if (signedIn && mode != ShellMode.PreLogin && route != PolizaEmitidaRoute) {
+            if (signedIn && mode != ShellMode.PreLogin && route !is PolizaEmitidaRoute) {
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
@@ -401,7 +401,7 @@ private fun routeTitle(route: Any): String = when (route) {
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
-    PolizaEmitidaRoute -> stringResource(R.string.issued_title)
+    is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute -> stringResource(R.string.destination_siniestros)
@@ -431,7 +431,7 @@ private fun LoginHost(
             negativeButtonText = host.getString(R.string.action_secondary),
         )
     }
-    val unlockEnabled = registration.biometricPromptOffered()
+    val unlockEnabled = registration.biometricUnlockEnabled()
     val deviceCanAuthenticate = biometricPrompt?.available() == true
     val offerBiometric = unlockEnabled && deviceCanAuthenticate && !state.biometricFallback
     val confirmBiometric = state.effect == LoginEffect.ConfirmBiometric && deviceCanAuthenticate

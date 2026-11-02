@@ -27,7 +27,6 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 @Composable
 fun EmisionEnCursoScreen(
-    onFinished: () -> Unit,
     @Suppress("UNUSED_PARAMETER") offerId: String = "",
     modifier: Modifier = Modifier,
 ) {
@@ -47,13 +46,6 @@ fun EmisionEnCursoScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("emision_body"),
-        )
-        SolventaButton(
-            text = stringResource(R.string.action_continue_issued),
-            style = SolventaButtonStyle.Filled,
-            onClick = onFinished,
-            modifier = Modifier.fillMaxWidth(),
-            testTag = "action_finish_issuing",
         )
     }
 }
