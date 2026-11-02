@@ -152,6 +152,22 @@ def test_ingreso_v1_autentica_y_emite_cliente(client, doble):
     ]
 
 
+def test_ingreso_bff_movil_prefix_autentica_igual_que_v1(client, doble):
+    # /bff-movil/v1/*: el ALB distingue bff-movil de bff-web por este prefijo
+    # propio (ver infra/terraform/environments/minimo/variables.tf), ya que
+    # ambos BFF comparten los mismos paths /v1/* y el ALB solo enruta por
+    # path. El pod responde al path completo tal cual, sin que el ALB lo
+    # recorte -- este test confirma que ese tercer router registrado existe
+    # y se comporta igual que /v1/sesion/ingreso.
+    response = client.post(
+        "/bff-movil/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto"},
+    )
+    assert response.status_code == 200
+    payload = jwt.decode(response.json()["accessToken"], secret(), algorithms=["HS256"])
+    assert payload["rol"] == "cliente"
+
+
 def test_ingreso_v1_credenciales_invalidas(client, doble):
     doble.respuestas["autenticar"] = HTTPException(status_code=401, detail="no")
     response = client.post(
