@@ -195,7 +195,7 @@ internal fun ClaimNoticeDto.toNotice() = ClaimNotice(
 internal fun ClaimReceiptDto.toReceipt() = ClaimReceipt(siniestroId, estado.toStatus())
 
 internal fun ClaimsDto.toSummaries() = siniestros.map {
-    ClaimSummary(it.siniestroId, it.ramo, it.resumen, it.estado.toStatus())
+    ClaimSummary(it.siniestroId, it.ramo, it.resumen, it.estado.toStatus(), it.estadoTexto)
 }
 
 internal fun PaymentDto.toPayment() = AutomaticPayment(siniestroId, poliza, umbral, monto, moneda, estado)

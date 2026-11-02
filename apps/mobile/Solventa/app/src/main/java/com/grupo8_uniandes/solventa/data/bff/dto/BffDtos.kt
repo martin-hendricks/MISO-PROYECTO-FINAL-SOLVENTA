@@ -116,6 +116,7 @@ data class ClaimSummaryDto(
     val ramo: String,
     val resumen: String,
     val estado: ClaimStatusDto,
+    val estadoTexto: String? = null,
 )
 
 @Serializable

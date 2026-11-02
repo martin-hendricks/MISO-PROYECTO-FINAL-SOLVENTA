@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
@@ -82,7 +84,8 @@ private fun ChoiceChip(
         modifier = modifier
             .then(border)
             .height(32.dp)
-            .testTag(testTag),
+            .testTag(testTag)
+            .semantics { this.selected = selected },
         shape = shape,
         contentPadding = PaddingValues(horizontal = SolventaSpacing.s16, vertical = SolventaSpacing.s8),
         colors = ButtonDefaults.textButtonColors(

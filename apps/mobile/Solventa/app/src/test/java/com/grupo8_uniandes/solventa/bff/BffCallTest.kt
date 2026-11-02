@@ -251,7 +251,8 @@ class BffCallTest {
 
         enqueue(PublishedSamples.CLAIMS)
         val claims = RemoteClaimRepository(api(), gate, cache).list() as StandInAnswer.Ready
-        assertEquals("SIN-441", claims.value.single().siniestroId)
+        assertEquals(3, claims.value.size)
+        assertEquals("SIN-441", claims.value.first().siniestroId)
 
         enqueue(PublishedSamples.PAYMENT)
         val payment = RemotePaymentRepository(api(), gate).read() as StandInAnswer.Ready

@@ -110,7 +110,9 @@ class InicioNavigationTest {
         rule.onNodeWithText("Reportar siniestro").assertIsDisplayed()
         rule.onNodeWithTag("solventa_floating_action").performClick()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
-        rule.onAllNodesWithTag("solventa_floating_action").assertCountEquals(0)
+        rule.onNodeWithTag("solventa_floating_action").performClick()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_siniestro_detalle").assertCountEquals(0)
     }
 
     @Test
