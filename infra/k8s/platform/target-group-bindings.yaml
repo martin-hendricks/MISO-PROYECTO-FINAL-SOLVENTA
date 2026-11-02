@@ -51,3 +51,15 @@ spec:
     port: 8000
   targetGroupARN: ${BFF_WEB_TARGET_GROUP_ARN}
   targetType: ip
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: bff-movil
+  namespace: solventa
+spec:
+  serviceRef:
+    name: bff-movil
+    port: 8000
+  targetGroupARN: ${BFF_MOVIL_TARGET_GROUP_ARN}
+  targetType: ip

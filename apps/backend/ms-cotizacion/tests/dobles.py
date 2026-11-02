@@ -84,6 +84,19 @@ class _RepoSolicitudes:
             raise AceptacionConcurrente
         self._uow.pendientes[solicitud.id] = solicitud
 
+    async def listar_por_asesor(self, asesor_id, estados, vigentes_desde, desplazamiento, limite):
+        ofertas = {o.solicitud_id: o for o in self._uow.almacen.ofertas.values()}
+        filas = [
+            (s, ofertas[s.id])
+            for s in self._vista().values()
+            if s.asesor_id == asesor_id
+            and s.estado in estados
+            and s.id in ofertas
+            and (vigentes_desde is None or ofertas[s.id].vence_en > vigentes_desde)
+        ]
+        filas.sort(key=lambda f: (f[0].creada_en, f[0].id), reverse=True)
+        return deepcopy(filas[desplazamiento : desplazamiento + limite])
+
 
 class _RepoOfertas:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:

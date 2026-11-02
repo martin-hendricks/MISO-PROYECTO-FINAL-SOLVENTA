@@ -1,0 +1,104 @@
+.buscador {
+  margin-bottom: 32px;
+}
+
+.buscador label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--sv-on-surface-variant);
+}
+
+.buscador-row {
+  display: flex;
+  gap: 12px;
+}
+
+.buscador-row input {
+  flex: 1;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.mono {
+  font-family: var(--sv-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  color: var(--sv-on-surface-variant);
+  background: var(--sv-surface-container);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.badge[data-estado='vigente'] {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+}
+
+.badge[data-estado='cancelada'] {
+  color: var(--sv-error);
+  background: var(--sv-error-container);
+}
+
+.detalle {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 16px 0;
+}
+
+.detalle dt {
+  color: var(--sv-on-surface-variant);
+}
+
+.detalle dd {
+  margin: 0;
+}
+
+.notice {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--sv-surface-container-low);
+}
+
+.notice-title {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.outlined.error {
+  border-color: var(--sv-error);
+  color: var(--sv-error);
+}
+
+.outlined:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hint {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  font-size: 14px;
+}
+
+.error-text {
+  color: var(--sv-error);
+}
