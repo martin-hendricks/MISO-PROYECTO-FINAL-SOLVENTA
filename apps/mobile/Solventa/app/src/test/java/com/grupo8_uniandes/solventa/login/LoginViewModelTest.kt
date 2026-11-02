@@ -314,12 +314,14 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun givenPasswordWithoutBiometric_whenDeclined_thenHomeOpensWithoutUnlock() {
+    fun givenPasswordWithoutBiometric_whenDeclined_thenRefusalIsStoredAndHomeOpens() {
         var enabled = false
+        var declined = false
         val viewModel = LoginViewModel(
             signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
             biometricEnabled = { enabled },
             enableBiometric = { enabled = true },
+            disableBiometric = { declined = true },
         )
         viewModel.onEmail("camila@correo.com")
         viewModel.onPassword("secret")
@@ -328,9 +330,25 @@ class LoginViewModelTest {
         viewModel.declineBiometric()
 
         assertFalse(enabled)
+        assertTrue(declined)
         assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
         viewModel.consumeEffect()
         assertNull(viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenStoredRefusal_whenPasswordSucceeds_thenHomeOpensWithoutPrompt() {
+        val viewModel = LoginViewModel(
+            signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
+            biometricEnabled = { false },
+            biometricChoiceStored = { true },
+        )
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.ingresar()
+
+        assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
     }
 
     @Test

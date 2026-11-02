@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.mapping
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceGeoDto
@@ -56,6 +57,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.LifeRisk
@@ -113,10 +115,11 @@ internal fun OfferInDto.toRisk() = DeviceRisk(
     datosRiesgo.valorDispositivo,
     datosRiesgo.marca,
     datosRiesgo.masDe12Meses,
+    datosRiesgo.modelo,
 )
 
 internal fun LineRisk.toRequestElement(): JsonElement = when (this) {
-    is DeviceRisk -> bffJson.encodeToJsonElement(DeviceRiskDto(valorDispositivo, marca, masDe12Meses))
+    is DeviceRisk -> bffJson.encodeToJsonElement(DeviceRiskDto(valorDispositivo, marca, masDe12Meses, modelo))
     is LifeRisk -> buildJsonObject {
         put("sumaAsegurada", sumInsured)
         put("edad", ageYears)
@@ -177,6 +180,8 @@ private fun AttachmentKind.toDto() = when (this) {
 
 internal fun OfferOutDto.toOffer() = FirmOffer(cotizacionId, ramo, estado, prima, moneda, venceEn)
 
+internal fun AcceptedQuoteDto.toAccepted() = AcceptedQuote(cotizacionId, estado, prima, moneda)
+
 internal fun IssuedDto.toPolicy() = IssuedPolicy(numero, ramo, estado, venceEn)
 
 internal fun RejectionDto.toRejection(): IssueRejection? =
@@ -213,9 +218,9 @@ internal fun PolicyCommandDto.toPolicyOrNull(issued: IssuedPolicy): IssuedPolicy
     if (verbo == PolicyVerbDto.cancelar && motivo.isNullOrBlank()) null else issued
 
 internal fun HomeDto.toHome() = BffHome(
-    HomeOfferSlot(ofertaVigente.cotizacionId, ofertaVigente.ramo, ofertaVigente.estado),
-    HomePolicySlot(poliza.numero, poliza.ramo, poliza.estado),
-    HomeClaimSlot(siniestroEnCurso.siniestroId, siniestroEnCurso.estado),
+    ofertaVigente?.let { HomeOfferSlot(it.cotizacionId, it.ramo, it.estado) },
+    poliza?.let { HomePolicySlot(it.numero, it.ramo, it.estado) },
+    siniestroEnCurso?.let { HomeClaimSlot(it.siniestroId, it.estado) },
     hipotecario,
 )
 

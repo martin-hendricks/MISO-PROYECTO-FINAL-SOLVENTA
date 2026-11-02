@@ -108,6 +108,7 @@ class SampleMappingTest {
         assertEquals("Protección de dispositivo", offer.ramo)
         assertEquals("oferta_vigente", offer.estado)
         assertEquals(89_000L, offer.prima)
+        assertEquals(89_000L, decode<OfferOutDto>(PublishedSamples.OFFER_OUT)!!.prima)
         assertEquals("COP", offer.moneda)
         assertEquals("2026-10-01", offer.venceEn)
         assertEquals(offer, bff.offer.requote("COT-1042").ready())
@@ -187,14 +188,17 @@ class SampleMappingTest {
         assertEquals("POL-88219-CO", bff.policyCommand.cancel("POL-88219-CO", "El cliente lo pidió").ready().numero)
 
         val home = bff.home.load().ready()
-        assertEquals("COT-1042", home.ofertaVigente.cotizacionId)
-        assertEquals("Protección de dispositivo", home.ofertaVigente.ramo)
-        assertEquals("oferta_vigente", home.ofertaVigente.estado)
-        assertEquals("POL-88219-CO", home.poliza.numero)
-        assertEquals("Protección de dispositivo", home.poliza.ramo)
-        assertEquals("vigente", home.poliza.estado)
-        assertEquals("SIN-441", home.siniestroEnCurso.siniestroId)
-        assertEquals("en_evaluacion", home.siniestroEnCurso.estado)
+        val homeOffer = checkNotNull(home.ofertaVigente)
+        assertEquals("COT-1042", homeOffer.cotizacionId)
+        assertEquals("Protección de dispositivo", homeOffer.ramo)
+        assertEquals("oferta_vigente", homeOffer.estado)
+        val homePolicy = checkNotNull(home.poliza)
+        assertEquals("POL-88219-CO", homePolicy.numero)
+        assertEquals("Protección de dispositivo", homePolicy.ramo)
+        assertEquals("vigente", homePolicy.estado)
+        val homeClaim = checkNotNull(home.siniestroEnCurso)
+        assertEquals("SIN-441", homeClaim.siniestroId)
+        assertEquals("en_evaluacion", homeClaim.estado)
         assertNull(home.hipotecario)
 
         val registration = bff.push.register(PushRegistration("fcm-stub", "android")).ready()
@@ -235,6 +239,18 @@ class SampleMappingTest {
 
         assertEquals(true, bff.mortgage.degraded().ready().degradada)
         assertEquals(64_000L, bff.mortgage.degraded().ready().prima)
+    }
+
+    @Test
+    fun givenADecimalPrima_whenRead_thenItIsWholePesos() {
+        val live = """
+            {"cotizacionId":"89167dc2-aab6-491c-8378-45131495f364","ramo":"Protección de dispositivo","estado":"cotizada","prima":"106900.00","moneda":"COP","venceEn":"2026-11-02T02:00:23.185686Z"}
+        """
+        val offer = decode<OfferOutDto>(live)!!
+        assertEquals("89167dc2-aab6-491c-8378-45131495f364", offer.cotizacionId)
+        assertEquals(106_900L, offer.prima)
+        assertEquals("cotizada", offer.estado)
+        assertEquals("2026-11-02T02:00:23.185686Z", offer.venceEn)
     }
 
     @Test

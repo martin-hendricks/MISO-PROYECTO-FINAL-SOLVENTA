@@ -30,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
+import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
@@ -60,12 +61,22 @@ fun CustomerNavHost(
         modifier = modifier.padding(contentPadding),
     ) {
         composable<InicioRoute> {
+            val homeViewModel: HomeViewModel = koinViewModel()
+            val acceptance by homeViewModel.state.collectAsState()
+            LaunchedEffect(acceptance.acceptedId) {
+                val acceptedId = acceptance.acceptedId ?: return@LaunchedEffect
+                homeViewModel.consumeAccepted()
+                navController.navigate(EmisionEnCursoRoute(acceptedId))
+            }
             LaunchedEffect(Unit) { onInicioVisible() }
             InicioScreen(
-                state = homeState,
+                state = homeState.copy(
+                    failed = homeState.failed || acceptance.failed,
+                    accepting = acceptance.accepting,
+                ),
                 onNewQuote = { navController.navigate(CotizacionRoute()) },
                 onOpenOffer = { offerId -> navController.navigate(VerOfertaRoute(offerId)) },
-                onAcceptOffer = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onAcceptOffer = homeViewModel::accept,
                 onOpenPolicy = { policyId ->
                     navController.openParentThen(PolizasRoute, PolizaDetalleRoute(policyId))
                 },
@@ -82,9 +93,14 @@ fun CustomerNavHost(
             }
             val viewModel: OfferViewModel = koinViewModel { parametersOf(route.cotizacionId, region) }
             val state by viewModel.state.collectAsState()
+            LaunchedEffect(state.acceptedId) {
+                val acceptedId = state.acceptedId ?: return@LaunchedEffect
+                viewModel.consumeAccepted()
+                navController.navigate(EmisionEnCursoRoute(acceptedId))
+            }
             VerOfertaScreen(
                 state = state,
-                onAccept = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onAccept = { _ -> viewModel.accept() },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
                 onDecline = { navController.popBackStack() },
             )
@@ -108,6 +124,7 @@ fun CustomerNavHost(
                 onLine = viewModel::onLine,
                 onValueChange = viewModel::onValue,
                 onBrandChange = viewModel::onBrand,
+                onModelChange = viewModel::onModel,
                 onAge = viewModel::onAge,
                 onText = viewModel::onText,
                 onCotizar = viewModel::cotizar,

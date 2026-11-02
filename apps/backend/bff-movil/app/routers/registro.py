@@ -35,7 +35,7 @@ def alta(body: Alta, request: Request) -> dict:
     if body.pruebaDeVida not in {"ok", "no"}:
         raise HTTPException(status_code=400, detail="Prueba de vida no permitida")
     tiene_cuenta = bool(body.contrasena) and bool(body.tipoDocumento.strip())
-    if request.url.path.startswith("/v1/") and not tiene_cuenta:
+    if "/v1/" in request.url.path and not tiene_cuenta:
         raise HTTPException(status_code=422, detail="Cuenta incompleta")
     if not tiene_cuenta:
         return _publico(body)

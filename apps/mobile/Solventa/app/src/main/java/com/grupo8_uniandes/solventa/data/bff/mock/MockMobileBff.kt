@@ -69,6 +69,7 @@ import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -137,6 +138,9 @@ class MockOfferRepository(
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }
+
+    override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> =
+        control.ready { AcceptedQuote(cotizacionId, "aceptada", 89_000, "COP") }
 
     fun release() = control.release()
 }

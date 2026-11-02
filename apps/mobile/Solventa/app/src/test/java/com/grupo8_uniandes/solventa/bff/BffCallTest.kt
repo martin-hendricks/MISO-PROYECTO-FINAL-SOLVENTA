@@ -82,7 +82,17 @@ class BffCallTest {
         enqueue(PublishedSamples.HOME)
         val home = RemoteHomeBffRepository(api(), gate).load() as StandInAnswer.Ready
         assertNull(home.value.hipotecario)
-        assertEquals("COT-1042", home.value.ofertaVigente.cotizacionId)
+        assertEquals("COT-1042", checkNotNull(home.value.ofertaVigente).cotizacionId)
+
+        enqueue(
+            """
+            {"ofertaVigente":{"cotizacionId":"COT-1042","ramo":"Protección de dispositivo","estado":"oferta_vigente"},"poliza":null,"siniestroEnCurso":{"siniestroId":"SIN-441","estado":"en_evaluacion"},"hipotecario":null}
+            """,
+        )
+        val withoutPolicy = RemoteHomeBffRepository(api(), gate).load() as StandInAnswer.Ready
+        assertNull(withoutPolicy.value.poliza)
+        assertEquals("COT-1042", checkNotNull(withoutPolicy.value.ofertaVigente).cotizacionId)
+        assertEquals("SIN-441", checkNotNull(withoutPolicy.value.siniestroEnCurso).siniestroId)
     }
 
     @Test
@@ -97,6 +107,36 @@ class BffCallTest {
     }
 
     @Test
+    fun givenADecimalPrima_whenQuoted_thenTheOfferIsReady() = runBlocking {
+        val body = """
+            {"cotizacionId":"89167dc2-aab6-491c-8378-45131495f364","ramo":"Protección de dispositivo","estado":"cotizada","prima":"106900.00","moneda":"COP","venceEn":"2026-11-02T02:00:23.185686Z"}
+        """
+        enqueue(body)
+        val answer = RemoteOfferRepository(api(), gate).quote("Protección de dispositivo", DeviceRisk(2_400_000, "apple", false, "iPhone 15"))
+        val ready = answer as StandInAnswer.Ready
+        assertEquals("89167dc2-aab6-491c-8378-45131495f364", ready.value.cotizacionId)
+        assertEquals(106_900L, ready.value.prima)
+        assertEquals("cotizada", ready.value.estado)
+    }
+
+    @Test
+    fun givenADecimalPrima_whenTheQuoteIsAccepted_thenThePathCarriesTheId() = runBlocking {
+        val body = """
+            {"cotizacionId":"COT-9","estado":"aceptada","prima":"10.00","moneda":"COP"}
+        """
+        enqueue(body)
+        val answer = RemoteOfferRepository(api(), gate).accept("COT-9") as StandInAnswer.Ready
+        assertEquals("COT-9", answer.value.cotizacionId)
+        assertEquals("aceptada", answer.value.estado)
+        assertEquals(10L, answer.value.prima)
+        assertEquals("COP", answer.value.moneda)
+        val recorded = server.takeRequest()
+        assertTrue(recorded.path.orEmpty().endsWith("cliente/cotizaciones/COT-9/aceptacion"))
+        assertTrue(recorded.getHeader("Idempotency-Key").orEmpty().length in 8..128)
+        assertEquals("POST", recorded.method)
+    }
+
+    @Test
     fun givenASilentHost_whenAsked_thenTheAskFails() = runBlocking {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         val api = BffClients.open(server.url("/").toString(), tokens, readTimeoutSeconds = 1).api
@@ -108,7 +148,7 @@ class BffCallTest {
     fun givenEachLine_whenQuoted_thenDatosRiesgoMatchesThatLine() = runBlocking {
         val offer = RemoteOfferRepository(api(), gate)
         val cases = listOf(
-            "valorDispositivo" to DeviceRisk(2_400_000, "Pixel", false),
+            "valorDispositivo" to DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
             "sumaAsegurada" to LifeRisk(50_000_000, 34),
             "evento" to ClimateRisk("lluvia", "Chapinero", 40),
             "\"valor\"" to MortgageRisk(180_000_000, 180),
@@ -122,6 +162,10 @@ class BffCallTest {
             val recorded = server.takeRequest()
             val body = recorded.body.readUtf8()
             assertTrue(body.contains(field))
+            if (risk is DeviceRisk) {
+                assertTrue(body.contains("\"marca\":\"${risk.marca}\""))
+                assertTrue(body.contains("\"modelo\":\"${risk.modelo}\""))
+            }
             val key = recorded.getHeader("Idempotency-Key").orEmpty()
             assertTrue(key.length in 8..128)
             assertFalse(body.contains("\"rol\""))

@@ -1,6 +1,11 @@
 package com.grupo8_uniandes.solventa.home
 
 import com.grupo8_uniandes.solventa.data.home.EmptyHomeRepository
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
+import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
+import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.data.home.StandInHomeRepository
 import com.grupo8_uniandes.solventa.domain.home.ClaimCandidate
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
@@ -27,6 +32,7 @@ class HomeViewModelTest {
     fun givenStandInHome_whenDefaultLoads_thenPublishedOfferIsCurrent() {
         val panel = HomeViewModel(LoadInicio(StandInHomeRepository())).state.value.panel
         assertEquals("COT-1042", panel.offerId)
+        assertEquals("Protección de dispositivo", panel.offerRamo)
         assertEquals("POL-88219-CO", panel.policyId)
         assertEquals("SIN-441", panel.claimId)
         assertFalse(panel.vidaCrediticia)
@@ -64,6 +70,27 @@ class HomeViewModelTest {
         assertEquals("POL-1", panel.policyId)
         assertEquals("CLM-1", panel.claimId)
         assertFalse(panel.vidaCrediticia)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenAnOffer_whenAccepted_thenTheIdIsExposedAndAFailureStaysHome() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val ready = HomeViewModel(LoadInicio(EmptyHomeRepository()), accepting("COT-9"))
+            ready.accept("COT-9")
+            assertEquals("COT-9", ready.state.value.acceptedId)
+            assertFalse(ready.state.value.failed)
+            ready.consumeAccepted()
+            assertNull(ready.state.value.acceptedId)
+
+            val failed = HomeViewModel(LoadInicio(EmptyHomeRepository()))
+            failed.accept("COT-9")
+            assertNull(failed.state.value.acceptedId)
+            assertTrue(failed.state.value.failed)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test
@@ -205,5 +232,18 @@ class HomeViewModelTest {
         } finally {
             Dispatchers.resetMain()
         }
+    }
+
+    private fun accepting(id: String) = object : OfferRepository {
+        override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = StandInAnswer.Failed
+
+        override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = StandInAnswer.Failed
+
+        override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> =
+            if (cotizacionId == id) {
+                StandInAnswer.Ready(AcceptedQuote(id, "aceptada", 10, "COP"))
+            } else {
+                StandInAnswer.Failed
+            }
     }
 }

@@ -35,8 +35,26 @@ class OnboardingViewModelTest {
         assertEquals("", state.passwordConfirm)
         assertFalse(state.hasPhoto)
         assertFalse(state.emailError)
+        assertFalse(state.habeasData)
         assertFalse(state.continuarEnabled)
         assertNull(state.effect)
+    }
+
+    @Test
+    fun givenEveryFieldAndPhoto_whenHabeasDataIsOff_thenContinuarStaysDisabled() {
+        viewModel.onGivenName("Camila")
+        viewModel.onSurnames("Restrepo")
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onDocumentType("CC")
+        viewModel.onDocumentNumber("1023456789")
+        viewModel.onPassword("secret12")
+        viewModel.onPasswordConfirm("secret12")
+        viewModel.attachPhoto(byteArrayOf(7, 8))
+
+        assertFalse(viewModel.state.value.habeasData)
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertNull(viewModel.state.value.effect)
     }
 
     @Test
@@ -275,15 +293,17 @@ class OnboardingViewModelTest {
         try {
             val order = mutableListOf<String>()
             var recorded: AccountDraft? = null
+            var habeasData = false
             val remote = OnboardingViewModel(
                 register,
                 openRemoteSession = { _, _ ->
                     order += "ingreso"
                     true
                 },
-                registerRemote = { draft ->
+                registerRemote = { draft, granted ->
                     order += "registro"
                     recorded = draft
+                    habeasData = granted
                     true
                 },
             )
@@ -291,6 +311,7 @@ class OnboardingViewModelTest {
             remote.attachPhoto(byteArrayOf(1))
             remote.continuar()
             assertEquals(listOf("registro", "ingreso"), order)
+            assertTrue(habeasData)
             assertEquals("CC", recorded?.documentType)
             assertEquals("1023456789", recorded?.documentNumber)
             assertEquals("camila@correo.com", recorded?.email)
@@ -314,7 +335,7 @@ class OnboardingViewModelTest {
                     ingreso = true
                     true
                 },
-                registerRemote = { false },
+                registerRemote = { _, _ -> false },
             )
             fill(remote)
             remote.attachPhoto(byteArrayOf(1))
@@ -361,6 +382,7 @@ class OnboardingViewModelTest {
         target.onDocumentNumber("1023456789")
         target.onPassword("secret12")
         target.onPasswordConfirm("secret12")
+        target.onHabeasData(true)
     }
 }
 

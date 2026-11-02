@@ -256,16 +256,15 @@ private fun OnboardingHost(
             openRemoteSession = { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
             },
-            registerRemote = { draft ->
-                val granted = consentGranted(context)
-                granted && signup.register(
+            registerRemote = { draft, habeasData ->
+                habeasData && signup.register(
                     SignupRecord(
                         nombre = draft.givenName.trim(),
                         apellidos = draft.surnames.trim(),
                         documento = draft.documentNumber.trim(),
                         correo = draft.email.trim(),
                         pruebaDeVida = Liveness.NO,
-                        habeasData = granted,
+                        habeasData = habeasData,
                         contrasena = draft.password.trim(),
                         tipoDocumento = draft.documentType.trim(),
                     ),
@@ -294,6 +293,7 @@ private fun OnboardingHost(
             onPasswordConfirm = viewModel::onPasswordConfirm,
             onPhotoAttached = viewModel::attachPhoto,
             onPhotoDeclined = viewModel::photoDeclined,
+            onHabeasData = viewModel::onHabeasData,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
             showStep = showStep,
@@ -434,8 +434,11 @@ private fun LoginHost(
     val unlockEnabled = registration.biometricPromptOffered()
     val deviceCanAuthenticate = biometricPrompt?.available() == true
     val offerBiometric = unlockEnabled && deviceCanAuthenticate && !state.biometricFallback
-    LaunchedEffect(state.effect) {
-        if (state.effect == LoginEffect.OpenHome || state.effect == LoginEffect.ConfirmBiometric) {
+    val confirmBiometric = state.effect == LoginEffect.ConfirmBiometric && deviceCanAuthenticate
+    LaunchedEffect(state.effect, deviceCanAuthenticate) {
+        val openHome = state.effect == LoginEffect.OpenHome ||
+            (state.effect == LoginEffect.ConfirmBiometric && !deviceCanAuthenticate)
+        if (openHome) {
             activity?.openHomeAfterOnboarding()
             viewModel.consumeEffect()
         }
@@ -450,7 +453,7 @@ private fun LoginHost(
         onBiometric = { biometricPrompt?.authenticate(viewModel::onDeviceUnlock) },
         biometricEnabled = true,
         biometricFallback = !offerBiometric,
-        confirmBiometric = false,
+        confirmBiometric = confirmBiometric,
         onAcceptBiometric = viewModel::acceptBiometric,
         onDeclineBiometric = viewModel::declineBiometric,
         onBack = { onLeaveToAccount?.invoke() },

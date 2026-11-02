@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -103,6 +104,7 @@ fun OnboardingScreen(
     onPasswordConfirm: (String) -> Unit,
     onPhotoAttached: (ByteArray) -> Unit,
     onPhotoDeclined: () -> Unit,
+    onHabeasData: (Boolean) -> Unit,
     onContinue: () -> Unit,
     onExistingAccount: () -> Unit,
     showStep: Boolean = true,
@@ -378,6 +380,31 @@ fun OnboardingScreen(
                         )
                     }
                 }
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(
+                        checked = state.habeasData,
+                        onCheckedChange = onHabeasData,
+                        modifier = Modifier.testTag("field_habeas_data"),
+                    )
+                    Text(
+                        text = stringResource(R.string.consent_heading),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.consent_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         Column(

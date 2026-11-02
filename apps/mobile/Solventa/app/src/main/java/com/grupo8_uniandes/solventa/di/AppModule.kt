@@ -42,7 +42,9 @@ import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
+import com.grupo8_uniandes.solventa.ui.login.BiometricChoiceStored
 import com.grupo8_uniandes.solventa.ui.login.BiometricGate
+import com.grupo8_uniandes.solventa.ui.login.DisableBiometric
 import com.grupo8_uniandes.solventa.ui.login.EnableBiometric
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
 import com.grupo8_uniandes.solventa.ui.login.RememberBiometricLogin
@@ -87,7 +89,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<ConsentRepository> { SharedPrefsConsentRepository(androidContext()) }
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }
     single<DevicePermissionReader> { AndroidDevicePermissionReader(androidContext()) }
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(get(), get()) }
     viewModel {
         val registration = get<RegistrationRepository>()
         val session = get<MobileSessionRepository>()
@@ -95,6 +97,8 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
             signIn = get(),
             biometricEnabled = BiometricGate(registration::biometricUnlockEnabled),
             enableBiometric = EnableBiometric(registration::enableBiometricUnlock),
+            disableBiometric = DisableBiometric { registration.setBiometricUnlock(false) },
+            biometricChoiceStored = BiometricChoiceStored(registration::prefsChoiceExists),
             openRemoteSession = RemoteSessionOpener { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
             },
@@ -107,7 +111,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     viewModel { (contextId: String) -> QuoteViewModel(get(), contextId) }
     viewModel { (cotizacionId: String, region: Region) ->
-        OfferViewModel(get(), cotizacionId, region)
+        OfferViewModel(get(), get(), cotizacionId, region)
     }
     viewModel { PolizasViewModel(get()) }
     viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero) }

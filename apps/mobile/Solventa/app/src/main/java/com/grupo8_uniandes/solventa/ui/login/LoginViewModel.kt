@@ -40,6 +40,14 @@ fun interface EnableBiometric {
     fun enable()
 }
 
+fun interface DisableBiometric {
+    fun disable()
+}
+
+fun interface BiometricChoiceStored {
+    fun stored(): Boolean
+}
+
 fun interface RemoteSessionOpener {
     suspend fun open(email: String, password: String): Boolean
 }
@@ -57,6 +65,8 @@ class LoginViewModel(
     private val openHomeFromDeviceUnlock: OpenHomeFromDeviceUnlock = OpenHomeFromDeviceUnlock(),
     private val biometricEnabled: BiometricGate = BiometricGate { true },
     private val enableBiometric: EnableBiometric = EnableBiometric { },
+    private val disableBiometric: DisableBiometric = DisableBiometric { },
+    private val biometricChoiceStored: BiometricChoiceStored = BiometricChoiceStored { false },
     private val openRemoteSession: RemoteSessionOpener? = null,
     private val storedBiometricLogin: StoredBiometricLogin = StoredBiometricLogin { null },
     private val rememberBiometricLogin: RememberBiometricLogin = RememberBiometricLogin { _, _ -> },
@@ -81,7 +91,7 @@ class LoginViewModel(
         attempt(current.email, current.password, fromBiometric = false)
     }
 
-    private fun homeEffect(): LoginEffect = if (biometricEnabled.enabled()) {
+    private fun homeEffect(): LoginEffect = if (biometricEnabled.enabled() || biometricChoiceStored.stored()) {
         LoginEffect.OpenHome
     } else {
         LoginEffect.ConfirmBiometric
@@ -171,6 +181,7 @@ class LoginViewModel(
     fun declineBiometric() {
         val current = _state.value
         if (current.effect != LoginEffect.ConfirmBiometric) return
+        disableBiometric.disable()
         _state.value = current.copy(effect = LoginEffect.OpenHome)
     }
 

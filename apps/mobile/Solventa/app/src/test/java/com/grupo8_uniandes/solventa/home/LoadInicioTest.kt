@@ -22,9 +22,19 @@ class LoadInicioTest {
     @Test
     fun givenConsultableQuote_whenLoaded_thenItIsTheOffer() {
         val panel = panel(
-            HomeSituation(quotes = listOf(Quote("Q-1", consultable = true, becameCurrentAt = earlier))),
+            HomeSituation(quotes = listOf(Quote("Q-1", consultable = true, becameCurrentAt = earlier, ramo = "Protección de dispositivo"))),
         )
         assertEquals("Q-1", panel.offerId)
+        assertEquals("Protección de dispositivo", panel.offerRamo)
+    }
+
+    @Test
+    fun givenABlankRamo_whenLoaded_thenTheOfferKeepsNoLine() {
+        val panel = panel(
+            HomeSituation(quotes = listOf(Quote("Q-1", consultable = true, becameCurrentAt = earlier, ramo = " "))),
+        )
+        assertEquals("Q-1", panel.offerId)
+        assertNull(panel.offerRamo)
     }
 
     @Test
@@ -45,12 +55,13 @@ class LoadInicioTest {
         val panel = panel(
             HomeSituation(
                 quotes = listOf(
-                    Quote("Q-old", consultable = true, becameCurrentAt = earlier),
-                    Quote("Q-new", consultable = true, becameCurrentAt = later),
+                    Quote("Q-old", consultable = true, becameCurrentAt = earlier, ramo = "Protección de dispositivo"),
+                    Quote("Q-new", consultable = true, becameCurrentAt = later, ramo = "SOAT motocicleta"),
                 ),
             ),
         )
         assertEquals("Q-new", panel.offerId)
+        assertEquals("SOAT motocicleta", panel.offerRamo)
         val olderLater = panel(
             HomeSituation(
                 quotes = listOf(

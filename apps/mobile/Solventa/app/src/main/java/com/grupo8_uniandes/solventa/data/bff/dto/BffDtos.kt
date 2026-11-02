@@ -1,7 +1,18 @@
 package com.grupo8_uniandes.solventa.data.bff.dto
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Serializable
 data class SessionInDto(val correo: String, val contrasena: String)
@@ -35,6 +46,7 @@ data class DeviceRiskDto(
     val valorDispositivo: Long,
     val marca: String,
     val masDe12Meses: Boolean,
+    val modelo: String = "",
 )
 
 @Serializable
@@ -48,9 +60,47 @@ data class OfferOutDto(
     val cotizacionId: String,
     val ramo: String,
     val estado: String,
+    @Serializable(with = PesosSerializer::class)
     val prima: Long,
     val moneda: String,
     val venceEn: String,
+)
+
+/** Whole pesos from a JSON number or a decimal string such as `"106900.00"`. */
+object PesosSerializer : KSerializer<Long> {
+    override val descriptor: SerialDescriptor = JsonElement.serializer().descriptor
+
+    override fun serialize(encoder: Encoder, value: Long) {
+        val jsonEncoder = encoder as? JsonEncoder
+        if (jsonEncoder == null) {
+            encoder.encodeLong(value)
+        } else {
+            jsonEncoder.encodeJsonElement(JsonPrimitive(value))
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): Long {
+        val element = (decoder as? JsonDecoder)?.decodeJsonElement()
+            ?: return decoder.decodeLong()
+        val raw = element.jsonPrimitive.content
+        val pesos = try {
+            BigDecimal(raw).setScale(0, RoundingMode.HALF_UP).longValueExact()
+        } catch (error: NumberFormatException) {
+            throw SerializationException("prima", error)
+        } catch (error: ArithmeticException) {
+            throw SerializationException("prima", error)
+        }
+        return pesos
+    }
+}
+
+@Serializable
+data class AcceptedQuoteDto(
+    val cotizacionId: String,
+    val estado: String,
+    @Serializable(with = PesosSerializer::class)
+    val prima: Long,
+    val moneda: String,
 )
 
 @Serializable
@@ -181,9 +231,9 @@ data class HomeClaimDto(val siniestroId: String, val estado: String)
 
 @Serializable
 data class HomeDto(
-    val ofertaVigente: HomeOfferDto,
-    val poliza: HomePolicyDto,
-    val siniestroEnCurso: HomeClaimDto,
+    val ofertaVigente: HomeOfferDto? = null,
+    val poliza: HomePolicyDto? = null,
+    val siniestroEnCurso: HomeClaimDto? = null,
     val hipotecario: String? = null,
 )
 

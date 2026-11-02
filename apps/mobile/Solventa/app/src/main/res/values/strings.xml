@@ -83,7 +83,13 @@
     <string name="field_credit_value">Valor del crédito (%1$s)</string>
     <string name="field_credit_term">Plazo (años)</string>
     <string name="field_device_value">Valor del dispositivo (%1$s)</string>
-    <string name="field_brand_model">Marca / modelo</string>
+    <string name="field_brand">Marca</string>
+    <string name="field_brand_placeholder">Selecciona una marca</string>
+    <string name="field_model">Modelo</string>
+    <string name="brand_samsung">Samsung</string>
+    <string name="brand_apple">Apple</string>
+    <string name="brand_xiaomi">Xiaomi</string>
+    <string name="brand_motorola">Motorola</string>
     <string name="field_older_than_12">¿El equipo tiene más de 12 meses?</string>
     <string name="answer_yes">Sí</string>
     <string name="answer_no">No</string>
@@ -94,6 +100,8 @@
     <string name="policy_detail_title">Detalle de póliza</string>
     <string name="home_vida_crediticia">Vida Crediticia</string>
     <string name="home_section_offer">Cotización por aceptar</string>
+    <string name="home_offer_id">Id cotización</string>
+    <string name="home_offer_ramo">Ramo</string>
     <string name="home_section_policies">Tus pólizas</string>
     <string name="home_section_claims">Tus siniestros</string>
     <string name="home_section_mortgage">Vida hipotecario</string>

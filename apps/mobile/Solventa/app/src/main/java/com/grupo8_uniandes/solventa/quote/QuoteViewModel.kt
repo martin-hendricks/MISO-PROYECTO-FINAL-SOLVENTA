@@ -19,6 +19,7 @@ data class QuoteUiState(
     val menuOpen: Boolean = false,
     val value: String = "",
     val brand: String = "",
+    val model: String = "",
     val olderThan12Months: Boolean? = null,
     val sumInsured: String = "",
     val ageYears: String = "",
@@ -58,11 +59,14 @@ class QuoteViewModel(
 
     fun onBrand(brand: String) = onText(QuoteInput.Brand, brand)
 
+    fun onModel(model: String) = onText(QuoteInput.Model, model)
+
     fun onText(input: QuoteInput, text: String) {
         _state.update { state ->
             val updated = when (input) {
                 QuoteInput.Value -> state.copy(value = text)
                 QuoteInput.Brand -> state.copy(brand = text)
+                QuoteInput.Model -> state.copy(model = text)
                 QuoteInput.SumInsured -> state.copy(sumInsured = text)
                 QuoteInput.AgeYears -> state.copy(ageYears = text)
                 QuoteInput.Event -> state.copy(event = text)
@@ -95,6 +99,7 @@ class QuoteViewModel(
         val answers = QuoteAnswers(
             value = current.value,
             brand = current.brand,
+            model = current.model,
             olderThan12Months = current.olderThan12Months,
             sumInsured = current.sumInsured,
             ageYears = current.ageYears,

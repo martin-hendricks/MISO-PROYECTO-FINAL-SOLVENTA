@@ -74,6 +74,14 @@ class ClienteNucleo:
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
+    def listar_cotizaciones_usuario(self, *, usuario_id: str, tamano: int) -> dict:
+        return self._pedir(
+            "ms-cotizacion",
+            "GET",
+            f"/v1/cotizaciones/por-usuario/{usuario_id}",
+            params={"tamano": tamano},
+        )
+
     def reconsultar(self, cotizacion_id: str) -> dict:
         return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/{cotizacion_id}")
 

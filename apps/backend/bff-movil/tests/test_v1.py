@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo
 from app.dependencies import secret
 from app.main import app
+from app.routers.cliente import _contexto
 from tests.conftest import customer_token, desk_token
 
 AVISO = {
@@ -88,6 +89,9 @@ class DobleNucleo:
     def emitir(self, **kwargs):
         return self._llamar("emitir", **kwargs)
 
+    def listar_cotizaciones_usuario(self, *, usuario_id, tamano):
+        return self._llamar("listar_cotizaciones_usuario", usuario_id=usuario_id, tamano=tamano)
+
     def listar_polizas(self, **kwargs):
         return self._llamar("listar_polizas", **kwargs)
 
@@ -166,6 +170,9 @@ def test_ingreso_bff_movil_prefix_autentica_igual_que_v1(client, doble):
     assert response.status_code == 200
     payload = jwt.decode(response.json()["accessToken"], secret(), algorithms=["HS256"])
     assert payload["rol"] == "cliente"
+    assert doble.llamadas == [
+        {"metodo": "autenticar", "correo": "camila@correo.com", "contrasena": "secreto"}
+    ]
 
 
 def test_ingreso_v1_credenciales_invalidas(client, doble):
@@ -204,6 +211,19 @@ def test_salida_v1_no_llama_al_nucleo(client, doble):
     response = client.post("/v1/sesion/salida", headers=_auth(client))
     assert response.json() == {"estado": "aceptada"}
     assert doble.llamadas == []
+
+
+def test_cotizacion_bff_movil_prefix_llama_cotizar(client, doble):
+    doble.respuestas["cotizar"] = COTIZACION
+    response = client.post(
+        "/bff-movil/v1/cliente/cotizaciones",
+        headers=_auth(client),
+        json={"ramo": "Protección de dispositivo", "datosRiesgo": {"valor": 1}},
+    )
+    assert response.status_code == 200
+    assert response.json()["cotizacionId"] == "COT-9"
+    assert doble.llamadas[0]["metodo"] == "cotizar"
+    assert doble.llamadas[0]["producto"] == "proteccion-dispositivo"
 
 
 def test_cotizacion_v1_llama_cotizar_sin_rol(client, doble):
@@ -251,6 +271,64 @@ def test_reconsulta_v1(client, doble):
     assert doble.llamadas[-1] == {"metodo": "reconsultar", "cotizacion_id": "COT-9"}
     doble.respuestas["reconsultar"] = {"estado": "oferta_vigente"}
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
+
+
+def test_aceptar_cotizacion_v1_no_cobra_ni_emite(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {**ACEPTADA, "moneda": "COP"}
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {
+        "cotizacionId": "COT-9",
+        "estado": "aceptada",
+        "prima": "10.00",
+        "moneda": "COP",
+    }
+    assert doble.llamadas == [
+        {
+            "metodo": "aceptar_oferta",
+            "cotizacion_id": "COT-9",
+            "idempotency_key": "clave-aceptar-01",
+            "perfil_id": _contexto("camila@correo.com")["perfil_id"],
+            "score": "0.5000",
+        }
+    ]
+
+    doble.llamadas.clear()
+    prefijo = client.post("/bff-movil/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert prefijo.status_code == 200
+    assert prefijo.json()["estado"] == "aceptada"
+    assert doble.llamadas[0]["idempotency_key"] == "clave-aceptar-01"
+
+
+def test_aceptar_cotizacion_sin_version_es_404(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    respuesta = client.post("/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert respuesta.status_code == 404
+    assert doble.llamadas == []
+
+
+def test_aceptar_cotizacion_clave_invalida_es_422(client, doble):
+    token = _auth(client)
+    sin_clave = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=token)
+    corta = client.post(
+        "/v1/cliente/cotizaciones/COT-9/aceptacion",
+        headers={**token, "Idempotency-Key": "corta"},
+    )
+    assert sin_clave.status_code == 422
+    assert corta.status_code == 422
+    assert doble.llamadas == []
+
+
+def test_aceptar_cotizacion_incompleta_es_502(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {"cotizacion_id": "COT-9", "estado": "aceptada", "prima": "10.00"}
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert respuesta.status_code == 502
+    assert respuesta.json()["detail"] == DETALLE_INCOMPLETA
+    assert _nombres(doble) == ["aceptar_oferta"]
 
 
 def test_aceptar_emitida_y_rechazada(client, doble):
@@ -392,13 +470,52 @@ def test_detalle_v1(client, doble):
     assert doble.llamadas[0] == {"metodo": "obtener_por_numero", "numero": "POL-9"}
 
 
-def test_pagos_e_inicio_siguen_en_muestra(client, doble):
+def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     headers = _auth(client)
     pagos = client.get("/v1/cliente/pagos-automaticos", headers=headers).json()
     assert pagos["siniestroId"] == "SIN-220"
-    inicio = client.get("/v1/cliente/inicio", headers=headers).json()
-    assert inicio["hipotecario"] is None
     assert doble.llamadas == []
+
+    doble.respuestas["listar_cotizaciones_usuario"] = {
+        "items": [
+            {"cotizacion_id": "COT-9", "producto": "proteccion-dispositivo"},
+            {"cotizacion_id": "COT-8", "producto": "soat-motocicleta"},
+        ]
+    }
+    doble.respuestas["listar_polizas"] = [POLIZA]
+    doble.respuestas["reconsultar_por_oferta"] = {"producto": "vida"}
+    inicio = client.get("/v1/cliente/inicio", headers=headers).json()
+    pendiente = {"cotizacionId": "COT-9", "ramo": "Protección de dispositivo", "estado": "oferta_vigente"}
+    assert inicio["hipotecario"] is None
+    assert inicio["cotizacionesPendientes"] == [
+        pendiente,
+        {"cotizacionId": "COT-8", "ramo": "soat-motocicleta", "estado": "oferta_vigente"},
+    ]
+    assert inicio["ofertaVigente"] == pendiente
+    assert inicio["siniestroEnCurso"]["siniestroId"] == "SIN-441"
+    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "vida", "estado": "vigente"}
+    assert doble.llamadas[0] == {
+        "metodo": "listar_cotizaciones_usuario",
+        "usuario_id": _contexto("camila@correo.com")["usuario_id"],
+        "tamano": 20,
+    }
+    assert doble.llamadas[1]["metodo"] == "listar_polizas"
+    assert doble.llamadas[1]["limite"] == 20
+
+    doble.llamadas.clear()
+    doble.respuestas["listar_cotizaciones_usuario"] = {"items": []}
+    doble.respuestas["listar_polizas"] = []
+    vacio = client.get("/bff-movil/v1/cliente/inicio", headers=headers).json()
+    assert vacio["poliza"] is None
+    assert vacio["ofertaVigente"] is None
+    assert vacio["cotizacionesPendientes"] == []
+    assert doble.llamadas[0]["metodo"] == "listar_cotizaciones_usuario"
+    assert doble.llamadas[1]["metodo"] == "listar_polizas"
+
+    doble.respuestas["listar_cotizaciones_usuario"] = {}
+    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
+    doble.respuestas["listar_cotizaciones_usuario"] = {"items": [{"cotizacion_id": "COT-9"}]}
+    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
 
 
 def test_hipoteca_v1(client, doble):
