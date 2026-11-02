@@ -337,9 +337,12 @@ async def firmar_y_emitir(
     score_stub = Decimal("0.5000")
     perfil_id = ContextoUsuario(solicitud_id).perfil_id
 
+    # Stable key per quote: resuming an already accepted quote (HU-163) replays
+    # the original acceptance instead of failing with oferta_ya_usada. Payment
+    # (key per offer) and policy (one per offer) are idempotent downstream.
     aceptacion = await cliente_cotizacion.aceptar_oferta(
         cotizacion_id=solicitud_id,
-        idempotency_key=_idempotency_key(),
+        idempotency_key=str(_uuid_desde("aceptacion-asesor", solicitud_id)),
         perfil_id=perfil_id,
         score=score_stub,
     )
