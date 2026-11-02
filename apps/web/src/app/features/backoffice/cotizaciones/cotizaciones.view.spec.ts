@@ -58,7 +58,7 @@ describe('CotizacionesView', () => {
     fixture.detectChanges();
 
     expect(element('continuar-COT-1')?.getAttribute('href')).toBe(
-      '/cms/cotizaciones/COT-1/emision',
+      '/cms/cotizaciones/COT-1/emision?cliente=CLI-18',
     );
   });
 

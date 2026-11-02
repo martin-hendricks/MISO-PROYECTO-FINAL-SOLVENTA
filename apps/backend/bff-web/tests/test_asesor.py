@@ -264,6 +264,23 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     assert cuerpo["pasos"][3] == {"paso": "POLIZA", "estado": "COMPLETADO"}
 
 
+def test_firmar_y_emitir_reintento_reusa_la_misma_clave_de_aceptacion(client, nucleo_cotizacion):
+    headers = _auth(client, "asesor")
+    claves: list[str] = []
+
+    def aceptar(peticion: httpx.Request) -> httpx.Response:
+        claves.append(peticion.headers["Idempotency-Key"])
+        return httpx.Response(201, json={**ACEPTACION_SALIDA, "decision": "RECHAZADA", "motivo": "x"})
+
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = aceptar
+
+    client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+
+    assert len(claves) == 2
+    assert claves[0] == claves[1]
+
+
 def test_firmar_y_emitir_con_decision_rechazada_no_cobra_ni_emite(
     client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
 ):
