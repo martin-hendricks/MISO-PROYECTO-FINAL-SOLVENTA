@@ -161,8 +161,10 @@ class HomeViewModelTest {
             viewModel.refresh()
             viewModel.refresh()
             dispatcher.scheduler.advanceUntilIdle()
+            viewModel.refresh()
+            dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(2, calls)
+            assertEquals(3, calls)
             assertFalse(viewModel.state.value.failed)
         } finally {
             Dispatchers.resetMain()

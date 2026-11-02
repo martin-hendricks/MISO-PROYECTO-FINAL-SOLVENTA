@@ -74,6 +74,7 @@ class SharedPrefsRegistrationRepositoryTest {
         repository.rememberBiometricLogin("camila@correo.com", "secret")
         repository.setBiometricUnlock(true)
         assertTrue(repository.biometricUnlockEnabled())
+        assertTrue(repository.biometricPromptOffered())
         assertEquals(BiometricLogin("camila@correo.com", "secret"), repository.biometricLogin())
         repository.setBiometricUnlock(false)
         assertFalse(repository.biometricUnlockEnabled())

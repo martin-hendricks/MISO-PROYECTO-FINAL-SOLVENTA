@@ -28,6 +28,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PesosSerializer
 import com.grupo8_uniandes.solventa.data.bff.dto.ProviderDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushDestinationDto
@@ -71,8 +72,17 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.encoding.AbstractDecoder
+import kotlinx.serialization.encoding.AbstractEncoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.EmptySerializersModule
+import kotlinx.serialization.modules.SerializersModule
 import org.junit.Test
 
 class SampleMappingTest {
@@ -254,6 +264,23 @@ class SampleMappingTest {
     }
 
     @Test
+    fun givenPesos_whenWrittenAsJsonOrAsALong_thenBothFormsRoundTrip() {
+        val json = Json
+        assertEquals("106900", json.encodeToString(PesosSerializer, 106_900L))
+        assertEquals(11L, json.decodeFromString(PesosSerializer, "\"10.5\""))
+        val encoder = LongEncoder()
+        PesosSerializer.serialize(encoder, 12L)
+        assertEquals(12L, encoder.value)
+        assertEquals(12L, PesosSerializer.deserialize(LongDecoder(12L)))
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(PesosSerializer, "\"no\"")
+        }
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(PesosSerializer, "\"10000000000000000000\"")
+        }
+    }
+
+    @Test
     fun givenABodyOutsideTheContract_whenRead_thenItIsNotASuccess() = runBlocking {
         assertNull(decode<OfferOutDto>("""{"cotizacionId":"COT-1042"}"""))
         val brokenSignup = PublishedSamples.SIGNUP.replace("\"ok\"", "\"maybe\"")
@@ -399,4 +426,21 @@ class SampleMappingTest {
         val ready = this as StandInAnswer.Ready
         return ready.value
     }
+}
+
+private class LongEncoder : AbstractEncoder() {
+    var value: Long = 0
+    override val serializersModule: SerializersModule = EmptySerializersModule()
+
+    override fun encodeLong(value: Long) {
+        this.value = value
+    }
+}
+
+private class LongDecoder(private val value: Long) : AbstractDecoder() {
+    override val serializersModule: SerializersModule = EmptySerializersModule()
+
+    override fun decodeLong(): Long = value
+
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int = 0
 }

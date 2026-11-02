@@ -288,6 +288,22 @@ class OnboardingViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun givenARemoteSession_whenIngresoThrows_thenTheUnavailableBannerStays() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val remote = OnboardingViewModel(register, openRemoteSession = { _, _ -> error("bff") })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertNull(remote.state.value.effect)
+            assertTrue(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun givenARemoteSession_whenRegistroSucceeds_thenIngresoFollows() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         try {

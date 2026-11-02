@@ -451,9 +451,39 @@ class LoginViewModelTest {
             thrown.ingresar()
             assertEquals(LoginFailure.Unavailable, thrown.state.value.failure)
             assertNull(thrown.state.value.effect)
+
+            val rejected = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.Rejected)),
+                openRemoteSession = { _, _ -> false },
+            )
+            rejected.onEmail("camila@correo.com")
+            rejected.onPassword("secret")
+            rejected.ingresar()
+            assertEquals(LoginFailure.Rejected, rejected.state.value.failure)
+            assertNull(rejected.state.value.effect)
         } finally {
             Dispatchers.resetMain()
         }
+    }
+
+    @Test
+    fun givenIncomplete_whenRemoteIsConfigured_thenRemoteIsNotCalled() {
+        var called = false
+        val viewModel = LoginViewModel(
+            signIn = ScriptedSignIn(mutableListOf(SignInResult.Incomplete)),
+            openRemoteSession = { _, _ ->
+                called = true
+                true
+            },
+        )
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.ingresar()
+
+        assertFalse(called)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertNull(viewModel.state.value.effect)
     }
 
     @Test
