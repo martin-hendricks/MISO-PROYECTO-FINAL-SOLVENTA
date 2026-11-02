@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -278,7 +279,7 @@ fun OnboardingScreen(
                 value = state.password,
                 onValueChange = onPassword,
                 label = stringResource(R.string.onboarding_contrasena),
-                helper = stringResource(R.string.onboarding_contrasena_hint),
+                helper = "",
                 keyboardOptions = KeyboardOptions(
                     keyboardType = if (passwordVisible) KeyboardType.Text else KeyboardType.Password,
                 ),
@@ -296,6 +297,11 @@ fun OnboardingScreen(
                 },
                 externalLabel = true,
                 testTag = "field_contrasena",
+            )
+            PasswordRequirements(
+                typed = state.password.trim().isNotEmpty(),
+                minimumMet = state.passwordMinMet,
+                maximumMet = state.passwordMaxMet,
             )
             SolventaTextField(
                 value = state.passwordConfirm,
@@ -418,6 +424,45 @@ private fun launchCapture(
     } else {
         launch(captureUri(context, file))
     }
+}
+
+@Composable
+private fun PasswordRequirements(
+    typed: Boolean,
+    minimumMet: Boolean,
+    maximumMet: Boolean,
+) {
+    val titleStyle = TextStyle(
+        fontFamily = HankenGrotesk,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_requisitos),
+            style = titleStyle,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        Spacer(Modifier.height(SolventaSpacing.s4))
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_min),
+            style = titleStyle,
+            color = passwordRuleColor(typed, minimumMet),
+        )
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_max),
+            style = titleStyle,
+            color = passwordRuleColor(typed, maximumMet),
+        )
+    }
+}
+
+@Composable
+private fun passwordRuleColor(typed: Boolean, met: Boolean) = when {
+    !typed -> MaterialTheme.colorScheme.outline
+    met -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.error
 }
 
 internal fun captureUri(context: android.content.Context, file: File): Uri {

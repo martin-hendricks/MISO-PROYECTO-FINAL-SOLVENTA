@@ -33,6 +33,21 @@ class ClienteNucleo:
             json={"email": correo, "password": contrasena},
         )
 
+    def crear_usuario(
+        self, *, tipo_documento: str, numero_documento: str, email: str, password: str
+    ) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "POST",
+            "/v1/usuarios",
+            json={
+                "tipo_documento": tipo_documento,
+                "numero_documento": numero_documento,
+                "email": email,
+                "password": password,
+            },
+        )
+
     def cotizar(
         self,
         *,

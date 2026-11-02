@@ -61,6 +61,15 @@ class DobleNucleo:
     def autenticar(self, *, correo, contrasena):
         return self._llamar("autenticar", correo=correo, contrasena=contrasena)
 
+    def crear_usuario(self, *, tipo_documento, numero_documento, email, password):
+        return self._llamar(
+            "crear_usuario",
+            tipo_documento=tipo_documento,
+            numero_documento=numero_documento,
+            email=email,
+            password=password,
+        )
+
     def cotizar(self, **kwargs):
         return self._llamar("cotizar", **kwargs)
 
@@ -468,10 +477,76 @@ def test_rol_no_cliente_v1_es_403(client, doble):
     assert doble.llamadas == []
 
 
+def test_registro_v1_crea_el_usuario_sin_eco_de_contrasena(client, doble):
+    response = client.post(
+        "/v1/registro",
+        json={
+            **ALTA,
+            "pruebaDeVida": "no",
+            "habeasData": False,
+            "contrasena": "secreto12",
+            "tipoDocumento": "CC",
+        },
+    )
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert "contrasena" not in cuerpo
+    assert cuerpo["pruebaDeVida"] == "no"
+    assert cuerpo["habeasData"] is False
+    assert cuerpo["tipoDocumento"] == "CC"
+    assert doble.llamadas == [
+        {
+            "metodo": "crear_usuario",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+            "email": "camila@correo.com",
+            "password": "secreto12",
+        }
+    ]
+
+
+def test_registro_sin_version_con_contrasena_crea_el_usuario(client, doble):
+    response = client.post(
+        "/registro",
+        json={**ALTA, "contrasena": "secreto12", "tipoDocumento": "CC"},
+    )
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert "contrasena" not in cuerpo
+    assert cuerpo["tipoDocumento"] == "CC"
+    assert doble.llamadas == [
+        {
+            "metodo": "crear_usuario",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+            "email": "camila@correo.com",
+            "password": "secreto12",
+        }
+    ]
+
+
+def test_registro_sin_version_sin_contrasena_no_llama_al_nucleo(client, doble):
+    response = client.post("/registro", json=ALTA)
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert cuerpo["pruebaDeVida"] == "ok"
+    assert "contrasena" not in cuerpo
+    assert "tipoDocumento" not in cuerpo
+    assert doble.llamadas == []
+
+
+def test_registro_v1_cuenta_existente_es_409(client, doble):
+    doble.respuestas["crear_usuario"] = HTTPException(status_code=409, detail="duplicada")
+    response = client.post(
+        "/v1/registro",
+        json={**ALTA, "contrasena": "secreto12", "tipoDocumento": "CC"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "La cuenta ya existe"
+
+
 def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
     headers = _auth(client)
-    alta = client.post("/v1/registro", json=ALTA)
-    assert alta.json()["pruebaDeVida"] == "ok"
     assert client.post("/v1/registro/consentimiento", json={"habeasData": False}).json() == {
         "habeasData": False
     }

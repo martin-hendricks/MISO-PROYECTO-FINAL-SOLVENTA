@@ -30,6 +30,7 @@ import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRep
 import com.grupo8_uniandes.solventa.domain.registration.Registration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -59,12 +60,13 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             assertFalse(registrationCompleted())
-            assertFalse(consentRecorded())
+            assertTrue(consentRecorded())
         }
     }
 
     @Test
     fun givenDemoPair_whenNoSavedAccount_thenHome() {
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "secret")
@@ -78,6 +80,7 @@ class LoginTest {
     @Test
     fun givenSavedPair_whenIngresar_thenHomeWithoutConsentOrPhoto() {
         saveAccount()
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "secret")
@@ -87,13 +90,14 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
             rule.onAllNodesWithTag("action_foto").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-            assertFalse(consentRecorded())
+            assertTrue(consentRecorded())
         }
     }
 
     @Test
     fun givenWrongPair_whenIngresar_thenBannerStaysUntilAMatch() {
         saveAccount()
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "other")
@@ -158,7 +162,7 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
-            rule.waitForTag("screen_onboarding")
+            rule.waitForTag("screen_consentimiento")
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         }
@@ -209,6 +213,14 @@ private fun readyForAccount(tag: String) {
         .edit()
         .putString(KeyAppliedRegion, tag)
         .putBoolean(KeyFirstLaunchCompleted, true)
+        .commit()
+    grantConsent()
+}
+
+private fun grantConsent() {
+    appContext().getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+        .edit()
+        .putString("state", "granted")
         .commit()
 }
 

@@ -125,10 +125,12 @@ class OnboardingViewModelTest {
     fun givenMatchingPassword_whenConfirmed_thenContinuarEnablesUntilTheyDiffer() {
         fillValid()
         viewModel.attachPhoto(byteArrayOf(1))
-        viewModel.onPassword("secret")
-        viewModel.onPasswordConfirm("secret")
+        viewModel.onPassword("secret123")
+        viewModel.onPasswordConfirm("secret123")
 
         assertTrue(viewModel.state.value.continuarEnabled)
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
 
         viewModel.onPassword("secret12")
         viewModel.onPasswordConfirm("secret13")
@@ -136,6 +138,36 @@ class OnboardingViewModelTest {
         assertFalse(viewModel.state.value.continuarEnabled)
         viewModel.continuar()
         assertTrue(register.drafts.isEmpty())
+    }
+
+    @Test
+    fun givenAShortOrLongPassword_whenTyped_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+
+        viewModel.onPassword("qwerty1")
+        viewModel.onPasswordConfirm("qwerty1")
+
+        assertFalse(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
+        assertFalse(viewModel.state.value.continuarEnabled)
+
+        val tooLong = "a".repeat(73)
+        viewModel.onPassword(tooLong)
+        viewModel.onPasswordConfirm(tooLong)
+
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertFalse(viewModel.state.value.passwordMaxMet)
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertTrue(register.drafts.isEmpty())
+
+        viewModel.onPassword("secret12")
+        viewModel.onPasswordConfirm("secret12")
+
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
+        assertTrue(viewModel.state.value.continuarEnabled)
     }
 
     @Test
@@ -229,6 +261,65 @@ class OnboardingViewModelTest {
             fill(remote)
             remote.attachPhoto(byteArrayOf(1))
             remote.continuar()
+            assertNull(remote.state.value.effect)
+            assertTrue(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenRegistroSucceeds_thenIngresoFollows() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val order = mutableListOf<String>()
+            var recorded: AccountDraft? = null
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ ->
+                    order += "ingreso"
+                    true
+                },
+                registerRemote = { draft ->
+                    order += "registro"
+                    recorded = draft
+                    true
+                },
+            )
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertEquals(listOf("registro", "ingreso"), order)
+            assertEquals("CC", recorded?.documentType)
+            assertEquals("1023456789", recorded?.documentNumber)
+            assertEquals("camila@correo.com", recorded?.email)
+            assertEquals("secret12", recorded?.password)
+            assertEquals(OnboardingEffect.ContinueToLiveness, remote.state.value.effect)
+            assertFalse(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenRegistroFails_thenIngresoIsNotCalled() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var ingreso = false
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ ->
+                    ingreso = true
+                    true
+                },
+                registerRemote = { false },
+            )
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertFalse(ingreso)
             assertNull(remote.state.value.effect)
             assertTrue(remote.state.value.unavailable)
         } finally {

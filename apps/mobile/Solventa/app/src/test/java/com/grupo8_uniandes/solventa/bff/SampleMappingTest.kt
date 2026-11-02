@@ -94,6 +94,8 @@ class SampleMappingTest {
         assertEquals("camila@correo.com", signup.correo)
         assertEquals(Liveness.OK, signup.pruebaDeVida)
         assertEquals(true, signup.habeasData)
+        assertEquals("", signup.contrasena)
+        assertEquals("", signup.tipoDocumento)
         assertEquals("Camila", bff.signup.register(signup).ready().nombre)
         assertEquals(false, bff.signup.revokeConsent().ready().habeasData)
 
@@ -356,8 +358,23 @@ class SampleMappingTest {
 
     @Test
     fun givenLivenessNoAndNoGeo_whenMapped_thenThoseChoicesStay() {
-        val signup = publishedSignup().copy(pruebaDeVida = Liveness.NO)
-        assertEquals(LivenessDto.no, signup.toDto().pruebaDeVida)
+        val signup = publishedSignup().copy(
+            pruebaDeVida = Liveness.NO,
+            contrasena = "secreto12",
+            tipoDocumento = "CC",
+        )
+        val sent = signup.toDto()
+        assertEquals(LivenessDto.no, sent.pruebaDeVida)
+        assertEquals("secreto12", sent.contrasena)
+        assertEquals("CC", sent.tipoDocumento)
+        val echoed = decode<SignupDto>(
+            PublishedSamples.SIGNUP.replace(
+                "\"habeasData\":true",
+                "\"habeasData\":true,\"contrasena\":\"secreto12\",\"tipoDocumento\":\"CC\"",
+            ),
+        )!!.toRecord()
+        assertEquals("", echoed.contrasena)
+        assertEquals("CC", echoed.tipoDocumento)
         val notice = ClaimNotice("POL-9", "2026-03-12", null, emptyList())
         assertNull(notice.toDto().geo)
     }

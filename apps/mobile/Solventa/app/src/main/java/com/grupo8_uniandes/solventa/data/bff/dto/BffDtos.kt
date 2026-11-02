@@ -23,6 +23,8 @@ data class SignupDto(
     val correo: String,
     val pruebaDeVida: LivenessDto,
     val habeasData: Boolean,
+    val contrasena: String = "",
+    val tipoDocumento: String = "",
 )
 
 @Serializable
