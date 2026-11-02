@@ -3,6 +3,7 @@ import { Browser, chromium, Page } from 'playwright';
 import { BackofficePage } from '../pages/backoffice.page';
 import { CotizacionPage } from '../pages/cotizacion.page';
 import { ConsentimientoPage } from '../pages/consentimiento.page';
+import { IdiomaRegionPage } from '../pages/idioma-region.page';
 import { LoginPage } from '../pages/login.page';
 import { InicioPage } from '../pages/inicio.page';
 import { PolizaBackofficePage } from '../pages/poliza-backoffice.page';
@@ -24,6 +25,7 @@ export class PortalWorld extends World {
   inicio!: InicioPage;
   cotizacion!: CotizacionPage;
   polizaDetalle!: PolizaDetallePage;
+  idiomaRegion!: IdiomaRegionPage;
   polizaBackoffice!: PolizaBackofficePage;
   account!: Credentials;
   alta!: SignUp;
@@ -50,6 +52,7 @@ export class PortalWorld extends World {
     this.inicio = new InicioPage(this.page);
     this.cotizacion = new CotizacionPage(this.page);
     this.polizaDetalle = new PolizaDetallePage(this.page);
+    this.idiomaRegion = new IdiomaRegionPage(this.page);
     this.polizaBackoffice = new PolizaBackofficePage(this.page);
     this.account = credentials();
   }

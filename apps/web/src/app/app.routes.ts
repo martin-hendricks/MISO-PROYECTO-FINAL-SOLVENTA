@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
-import { redirectSignedIn, requireRole } from './core/session/session.guard';
+import { redirectSignedIn, requireLocaleChosen, requireRole } from './core/session/session.guard';
 import { Role, SessionService } from './core/session/session.service';
 import { homeSection, Section } from './features/backoffice/sections';
 import type { Destino } from './features/destino/destino.view';
@@ -26,6 +26,15 @@ const destino = (path: string, name: Destino) => ({
 
 export const routes: Routes = [
   {
+    path: 'idioma-region',
+    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
+    loadComponent: () =>
+      import('./features/idioma-region/idioma-region.view').then((m) => m.IdiomaRegionView),
+  },
+  {
+    // HU-108's gate is only on sign-up ("Continuar sigue a registro"): a
+    // returning customer going straight to /login to sign in is not a
+    // "first launch" and must not be stopped here.
     path: 'login',
     canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
     data: { login: CUSTOMER_LOGIN },
@@ -33,7 +42,7 @@ export const routes: Routes = [
   },
   {
     path: 'registro',
-    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home)],
+    canActivate: [redirectSignedIn(CUSTOMER, CUSTOMER_LOGIN.home), requireLocaleChosen],
     loadComponent: () => import('./features/registro/registro.view').then((m) => m.RegistroView),
   },
   {
