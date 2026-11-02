@@ -402,6 +402,33 @@ class LoginViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun givenNoLocalAccount_whenIngresar_thenRemoteIngresoStillRuns() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var called: BiometricLogin? = null
+            val viewModel = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.Rejected)),
+                openRemoteSession = { email, password ->
+                    called = BiometricLogin(email, password)
+                    true
+                },
+                biometricEnabled = { true },
+            )
+            viewModel.onEmail("ana@correo.com")
+            viewModel.onPassword("secret")
+
+            viewModel.ingresar()
+
+            assertEquals(BiometricLogin("ana@correo.com", "secret"), called)
+            assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+            assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun givenARemoteSession_whenItStaysClosedOrThrows_thenTheUnavailableFailureStays() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         try {

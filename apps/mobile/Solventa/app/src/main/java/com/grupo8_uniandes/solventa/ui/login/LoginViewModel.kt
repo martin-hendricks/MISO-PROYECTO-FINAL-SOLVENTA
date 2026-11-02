@@ -112,7 +112,7 @@ class LoginViewModel(
         submitting = true
         val result = signIn.submit(email, password)
         val openRemoteSession = openRemoteSession
-        if (result == SignInResult.SignedIn && openRemoteSession != null) {
+        if (openRemoteSession != null && result != SignInResult.Incomplete) {
             viewModelScope.launch {
                 val opened = try {
                     openRemoteSession.open(email, password)
@@ -123,7 +123,15 @@ class LoginViewModel(
                 _state.value = if (opened) {
                     signedIn(current, email, password, fromBiometric)
                 } else {
-                    failed(current, LoginFailure.Unavailable, fromBiometric)
+                    failed(
+                        current,
+                        if (result == SignInResult.Rejected) {
+                            LoginFailure.Rejected
+                        } else {
+                            LoginFailure.Unavailable
+                        },
+                        fromBiometric,
+                    )
                 }
             }
             return
