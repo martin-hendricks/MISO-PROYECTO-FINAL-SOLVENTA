@@ -55,7 +55,7 @@ class ListaSiniestrosTest {
         rule.onNodeWithText("Pago automático · pagado").assertIsDisplayed()
         rule.onNodeWithTag("chip_todos").assertIsSelected()
         rule.onNodeWithText("Inicio").assertIsDisplayed()
-        rule.onNodeWithText("Pólizas").assertIsDisplayed()
+        rule.onNodeWithText("Polizas").assertIsDisplayed()
         rule.onNodeWithText("Siniestros").assertIsDisplayed()
         rule.onNodeWithText("Perfil").assertIsDisplayed()
         rule.onNodeWithTag("tab_Siniestros").assertIsSelected()

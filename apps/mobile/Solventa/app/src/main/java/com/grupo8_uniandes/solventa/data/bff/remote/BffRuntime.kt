@@ -6,7 +6,9 @@ import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -32,6 +34,7 @@ class BffRuntime private constructor(
     val home: HomeBffRepository,
     val push: PushRepository,
     val assistance: AssistanceRepository,
+    val memory: PolicyMemory,
 ) {
     companion object {
         fun standIn(): BffRuntime {
@@ -49,6 +52,7 @@ class BffRuntime private constructor(
                 bff.home,
                 bff.push,
                 bff.assistance,
+                InMemoryPolicyStore(),
             )
         }
 
@@ -70,6 +74,7 @@ class BffRuntime private constructor(
                 RemoteHomeBffRepository(api, gate),
                 RemotePushRepository(api, gate),
                 RemoteAssistanceRepository(api, gate),
+                BffPolicyMemory(cache),
             )
         }
     }

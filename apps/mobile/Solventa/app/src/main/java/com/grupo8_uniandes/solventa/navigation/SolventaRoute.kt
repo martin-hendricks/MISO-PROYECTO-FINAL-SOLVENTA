@@ -36,7 +36,7 @@ data class SiniestroDetalleRoute(val claimId: String)
 data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
-data object PolizaEmitidaRoute
+data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")
 
 @Serializable
 data object SuscripcionRechazadaRoute

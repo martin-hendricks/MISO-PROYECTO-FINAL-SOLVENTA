@@ -34,8 +34,8 @@ class InicioNavigationTest {
     fun givenOffer_whenAccepted_thenIssuanceShowsThatId() {
         show(HomePanel(offerId = "Q-42"))
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
     }
@@ -52,7 +52,7 @@ class InicioNavigationTest {
     fun givenNoOfferIdArgument_whenIssuing_thenTheIdStaysHidden() {
         rule.setContent {
             SolventaTheme {
-                EmisionEnCursoScreen(onFinished = {})
+                EmisionEnCursoScreen()
             }
         }
         rule.onNodeWithTag("screen_emision").assertIsDisplayed()
@@ -95,8 +95,8 @@ class InicioNavigationTest {
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        rule.onNodeWithText("Avisos de vencimiento").performClick()
+        rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
 
