@@ -58,6 +58,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 
 private val quoteMenu = listOf(
+    QuoteLine.Soat,
     QuoteLine.Device,
     QuoteLine.Travel,
     QuoteLine.Life,
@@ -129,7 +130,9 @@ fun CotizacionScreen(
             }
         } else {
             state.line.fields().forEach { field ->
-                val numeric = field != QuoteInput.Destination && field != QuoteInput.Event
+                val numeric = field != QuoteInput.Destination &&
+                    field != QuoteInput.Event &&
+                    field != QuoteInput.City
                 val money = field.isMoney()
                 val raw = state.textOf(field)
                 SolventaTextField(
@@ -470,6 +473,9 @@ private fun QuoteInput.label(currency: String): String = when (this) {
     QuoteInput.Term -> stringResource(R.string.field_term)
     QuoteInput.CreditValue -> stringResource(R.string.field_credit_value, currency)
     QuoteInput.CreditTerm -> stringResource(R.string.field_credit_term)
+    QuoteInput.Displacement -> stringResource(R.string.field_displacement)
+    QuoteInput.ModelYear -> stringResource(R.string.field_model_year)
+    QuoteInput.City -> stringResource(R.string.field_city)
     QuoteInput.Reference, QuoteInput.Value, QuoteInput.Brand, QuoteInput.Model, QuoteInput.Age ->
         stringResource(R.string.field_required)
 }
@@ -480,6 +486,7 @@ private fun QuoteInput.isMoney(): Boolean = this == QuoteInput.Value ||
     this == QuoteInput.Installment
 
 private fun QuoteLine.label(): Int = when (this) {
+    QuoteLine.Soat -> R.string.line_soat
     QuoteLine.Device -> R.string.line_device
     QuoteLine.Life -> R.string.line_life
     QuoteLine.Climate -> R.string.line_climate
@@ -489,6 +496,7 @@ private fun QuoteLine.label(): Int = when (this) {
 }
 
 private fun QuoteLine.hint(): Int = when (this) {
+    QuoteLine.Soat -> R.string.hint_line_soat
     QuoteLine.Device -> R.string.hint_line_device
     QuoteLine.Life -> R.string.hint_line_life
     QuoteLine.Climate -> R.string.hint_line_climate
@@ -498,6 +506,7 @@ private fun QuoteLine.hint(): Int = when (this) {
 }
 
 private fun QuoteLine.optionTag(): String = when (this) {
+    QuoteLine.Soat -> "quote_option_soat"
     QuoteLine.Device -> "quote_option_device"
     QuoteLine.Life -> "quote_option_life"
     QuoteLine.Climate -> "quote_option_climate"
@@ -507,6 +516,7 @@ private fun QuoteLine.optionTag(): String = when (this) {
 }
 
 private fun QuoteLine.fields(): List<QuoteInput> = when (this) {
+    QuoteLine.Soat -> listOf(QuoteInput.Displacement, QuoteInput.ModelYear, QuoteInput.City)
     QuoteLine.Device -> emptyList()
     QuoteLine.Life -> listOf(QuoteInput.SumInsured, QuoteInput.AgeYears)
     QuoteLine.Climate -> listOf(QuoteInput.Event, QuoteInput.Threshold)
@@ -518,6 +528,9 @@ private fun QuoteLine.fields(): List<QuoteInput> = when (this) {
 private fun QuoteInput.tag(): String = when (this) {
     QuoteInput.Destination -> "field_destination"
     QuoteInput.Duration -> "field_duration"
+    QuoteInput.Displacement -> "field_displacement"
+    QuoteInput.ModelYear -> "field_model_year"
+    QuoteInput.City -> "field_city"
     QuoteInput.SumInsured -> "field_sum_insured"
     QuoteInput.AgeYears -> "field_age_years"
     QuoteInput.Event -> "field_event"
@@ -536,6 +549,9 @@ private fun QuoteInput.tag(): String = when (this) {
 private fun QuoteUiState.textOf(field: QuoteInput): String = when (field) {
     QuoteInput.Destination -> destination
     QuoteInput.Duration -> duration
+    QuoteInput.Displacement -> displacement
+    QuoteInput.ModelYear -> modelYear
+    QuoteInput.City -> city
     QuoteInput.SumInsured -> sumInsured
     QuoteInput.AgeYears -> ageYears
     QuoteInput.Event -> event

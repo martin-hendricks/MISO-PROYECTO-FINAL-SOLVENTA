@@ -12,6 +12,7 @@ from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
+from ..ramos import PRODUCTOS, presentar, producto_de
 from ..dependencies import (
     obtener_cliente_cotizacion,
     obtener_cliente_pagos,
@@ -50,15 +51,7 @@ PAYMENT = {
     "estado": "pagado",
 }
 
-# Mapeo de "ramo" (vocabulario del canal web) a "producto" (catálogo real de
-# ms-cotizacion, ver apps/backend/ms-cotizacion/app/domain/catalogo.py). Si
-# llega un ramo no mapeado se usa un slug derivado de su texto -- ms-cotizacion
-# responderá 404/422 si ese producto no existe en su catálogo, y ese error ya
-# se propaga tipificado por los exception handlers de main.py.
-RAMO_A_PRODUCTO = {
-    "Protección de dispositivo": "proteccion-dispositivo",
-    "Vida crediticia": "vida-crediticia",
-}
+RAMO_A_PRODUCTO = {nombre: codigo for codigo, (nombre, _) in PRODUCTOS.items()}
 
 # Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
 # partir de datos ya disponibles (correo de sesión). No tiene significado de
@@ -70,7 +63,10 @@ _NAMESPACE_SOLVENTA = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
 
 
 def _producto_de(ramo: str) -> str:
-    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
+    codigo = producto_de(ramo)
+    if codigo is None:
+        raise HTTPException(status_code=404, detail="ramo_no_disponible")
+    return codigo
 
 
 def _uuid_desde(*partes: str) -> UUID:
@@ -127,7 +123,7 @@ def _offer(cotizacion_id: str) -> dict:
     return body
 
 
-def _cotizacion_salida(datos: dict, ramo: str) -> dict:
+def _cotizacion_salida(datos: dict, ramo: str, descripcion: str = "") -> dict:
     """Traduce la salida real de ms-cotizacion al shape que el canal web ya
     espera, para no romper el contrato existente del frontend.
 
@@ -137,6 +133,7 @@ def _cotizacion_salida(datos: dict, ramo: str) -> dict:
     return {
         "cotizacionId": datos["cotizacion_id"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "estado": datos["estado"],
         "prima": datos["prima"],
         "primaNeta": datos["prima_neta"],
@@ -162,8 +159,12 @@ def _catalogo_salida(producto: dict, ramo: str) -> dict:
     """Traduce ProductoSalida (ms-cotizacion, HU-1/HU-2) al shape propuesto
     para SOLV-245: el frontend bloquea "Continuar" con estos rangos antes de
     cotizar, en vez de esperar al 422 de dato fuera de rango."""
+    codigo = _producto_de(ramo)
+    _, descripcion = presentar(codigo)
     return {
         "ramo": ramo,
+        "descripcion": producto.get("descripcion") or descripcion,
+        "disponible": producto.get("disponible", True),
         "nombre": producto["nombre"],
         "moneda": producto["moneda"],
         "coberturas": [
@@ -218,7 +219,8 @@ async def cotizar(
         canal="web",
         datos_riesgo=body.datosRiesgo,
     )
-    return _cotizacion_salida(datos, body.ramo)
+    _, descripcion = presentar(producto)
+    return _cotizacion_salida(datos, body.ramo, descripcion)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
@@ -227,10 +229,8 @@ async def reconsultar(
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     datos = await cliente_cotizacion.reconsultar(cotizacion_id)
-    # No existe mapeo inverso producto->ramo (RAMO_A_PRODUCTO es de solo
-    # ida): se devuelve el código de producto del núcleo tal cual mientras
-    # no haya un catálogo de vocabulario web que lo traduzca de regreso.
-    return _cotizacion_salida(datos, datos.get("producto", ""))
+    ramo, descripcion = presentar(datos.get("producto"))
+    return _cotizacion_salida(datos, ramo, descripcion)
 
 
 @router.post("/polizas")
@@ -322,13 +322,14 @@ async def emitir(
         return {"resultado": "RECHAZADA", "motivo": {"codigo": rechazo.codigo, "mensaje": rechazo.mensaje}}
 
     cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
-    ramo = cotizacion.get("producto", "")
+    ramo, descripcion = presentar(cotizacion.get("producto"))
 
     return {
         "resultado": "EMITIDA",
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "descripcion": descripcion,
             "producto": ramo,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
@@ -357,10 +358,11 @@ async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza:
 
 
 def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
-    ramo = cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
+    ramo, descripcion = presentar(cotizacion.get("producto"))
     return {
         "numero": poliza["numero"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "producto": ramo,
         "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
         "estado": poliza["estado"].upper(),

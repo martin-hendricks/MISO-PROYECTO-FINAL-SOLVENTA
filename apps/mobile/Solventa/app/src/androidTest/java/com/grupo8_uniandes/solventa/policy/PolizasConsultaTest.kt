@@ -1,9 +1,11 @@
 package com.grupo8_uniandes.solventa.policy
 
 import android.content.Intent
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -54,6 +56,20 @@ class PolizasConsultaTest {
         rule.onNodeWithText("Robo y Pantalla").assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
     }
+
+    private fun openShell() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
+        scenario = ActivityScenario.launch(intent)
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+}
+
+class PolizasListContentTest {
+    @get:Rule
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun givenNoPolicies_whenTheListIsShown_thenTheEmptyPromptReplacesTheCards() {
@@ -118,14 +134,5 @@ class PolizasConsultaTest {
         rule.onNodeWithTag("policy_numero").assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
-    }
-
-    private fun openShell() {
-        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
-        scenario = ActivityScenario.launch(intent)
-        rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
-        }
     }
 }

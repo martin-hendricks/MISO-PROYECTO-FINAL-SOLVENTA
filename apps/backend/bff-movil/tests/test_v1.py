@@ -247,17 +247,18 @@ def test_cotizacion_v1_llama_cotizar_sin_rol(client, doble):
 def test_cotizacion_v1_slug_y_cuerpo_incompleto(client, doble):
     headers = _auth(client)
     doble.respuestas["cotizar"] = COTIZACION
-    client.post(
+    desconocido = client.post(
         "/v1/cliente/cotizaciones",
         headers=headers,
         json={"ramo": "Vida Extra", "datosRiesgo": {}},
     )
-    assert doble.llamadas[-1]["producto"] == "vida-extra"
+    assert desconocido.status_code == 404
+    assert doble.llamadas == []
     doble.respuestas["cotizar"] = {"cotizacion_id": "COT-9"}
     incompleta = client.post(
         "/v1/cliente/cotizaciones",
         headers=headers,
-        json={"ramo": "Vida", "datosRiesgo": {}},
+        json={"ramo": "Protección de dispositivo", "datosRiesgo": {}},
     )
     assert incompleta.status_code == 502
     assert incompleta.json()["detail"] == DETALLE_INCOMPLETA
@@ -267,7 +268,8 @@ def test_reconsulta_v1(client, doble):
     headers = _auth(client)
     doble.respuestas["reconsultar"] = COTIZACION
     releida = client.get("/v1/cliente/cotizaciones/COT-9", headers=headers)
-    assert releida.json()["ramo"] == "vida"
+    assert releida.json()["ramo"] == "Sin clasificar"
+    assert releida.json()["descripcion"] == ""
     assert doble.llamadas[-1] == {"metodo": "reconsultar", "cotizacion_id": "COT-9"}
     doble.respuestas["reconsultar"] = {"estado": "oferta_vigente"}
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
@@ -290,7 +292,8 @@ def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
         "moneda": "COP",
         "poliza": {
             "numero": "POL-9",
-            "ramo": "vida",
+            "ramo": "Sin clasificar",
+            "descripcion": "",
             "estado": "vigente",
             "venceEn": "2027-01-01",
         },
@@ -367,7 +370,8 @@ def test_aceptar_emitida_y_rechazada(client, doble):
     emitida = client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9"})
     assert emitida.json() == {
         "numero": "POL-9",
-        "ramo": "vida",
+        "ramo": "Sin clasificar",
+        "descripcion": "",
         "estado": "vigente",
         "venceEn": "2027-01-01",
     }
@@ -437,7 +441,8 @@ def test_billetera_v1_proyecta_y_degrada(client, doble):
     assert body["polizas"] == [
         {
             "numero": "POL-9",
-            "ramo": "vida",
+            "ramo": "Sin clasificar",
+            "descripcion": "",
             "resumen": "Robo",
             "estado": "vigente",
             "venceEn": "2027-01-01",
@@ -516,11 +521,11 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     assert inicio["hipotecario"] is None
     assert inicio["cotizacionesPendientes"] == [
         pendiente,
-        {"cotizacionId": "COT-8", "ramo": "soat-motocicleta", "estado": "oferta_vigente"},
+        {"cotizacionId": "COT-8", "ramo": "SOAT motocicleta", "estado": "oferta_vigente"},
     ]
     assert inicio["ofertaVigente"] == pendiente
     assert inicio["siniestroEnCurso"]["siniestroId"] == "SIN-441"
-    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "vida", "estado": "vigente"}
+    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "vigente"}
     assert doble.llamadas[0] == {
         "metodo": "listar_cotizaciones_usuario",
         "usuario_id": _contexto("camila@correo.com")["usuario_id"],

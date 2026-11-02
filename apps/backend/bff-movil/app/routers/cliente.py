@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ..clients.nucleo import DETALLE_INCOMPLETA
 from ..dependencies import require_customer
+from ..ramos import SIN_CLASIFICAR, presentar, producto_de
 
 router = APIRouter(
     prefix="/cliente",
@@ -40,13 +41,8 @@ QUE_HACER = "Toma la foto del daño y anota fecha y lugar."
 CANAL = "movil"
 SCORE = "0.5000"
 TOKEN_MEDIO_PAGO = "stub-medio-pago"
-RAMO_SIN_CLASIFICAR = "Sin clasificar"
+RAMO_SIN_CLASIFICAR = SIN_CLASIFICAR
 _NAMESPACE = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
-RAMO_A_PRODUCTO = {
-    "Protección de dispositivo": "proteccion-dispositivo",
-    "Vida crediticia": "vida-crediticia",
-}
-PRODUCTO_A_RAMO = {producto: ramo for ramo, producto in RAMO_A_PRODUCTO.items()}
 
 
 class Cotizacion(BaseModel):
@@ -110,7 +106,10 @@ def _offer(cotizacion_id: str) -> dict:
 
 
 def _producto_de(ramo: str) -> str:
-    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
+    codigo = producto_de(ramo)
+    if codigo is None:
+        raise HTTPException(status_code=404, detail="ramo_no_disponible")
+    return codigo
 
 
 def _uuid_desde(*partes: str) -> str:
@@ -132,11 +131,12 @@ def _exigir(cuerpo: dict, *claves: str) -> dict:
     return cuerpo
 
 
-def _oferta_movil(datos: dict, ramo: str) -> dict:
+def _oferta_movil(datos: dict, ramo: str, descripcion: str = "") -> dict:
     datos = _exigir(datos, "cotizacion_id", "estado", "prima", "moneda", "vence_en")
     return {
         "cotizacionId": datos["cotizacion_id"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "estado": datos["estado"],
         "prima": datos["prima"],
         "moneda": datos["moneda"],
@@ -153,9 +153,11 @@ def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
         if not isinstance(cobertura, dict) or "nombre" not in cobertura:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
         nombres.append(cobertura["nombre"])
+    ramo, descripcion = presentar(cotizacion.get("producto"))
     cuerpo = {
         "numero": poliza["numero"],
-        "ramo": cotizacion.get("producto") or RAMO_SIN_CLASIFICAR,
+        "ramo": ramo,
+        "descripcion": descripcion,
         "resumen": ", ".join(nombres) or "Sin coberturas",
         "estado": poliza["estado"],
         "venceEn": poliza["fin_vigencia"],
@@ -231,7 +233,8 @@ def cotizar(body: Cotizacion, request: Request, usuario: dict = Depends(require_
         canal=CANAL,
         datos_riesgo=body.datosRiesgo,
     )
-    return _oferta_movil(datos, body.ramo)
+    _, descripcion = presentar(_producto_de(body.ramo))
+    return _oferta_movil(datos, body.ramo, descripcion)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
@@ -240,7 +243,8 @@ def reconsultar(cotizacion_id: str, request: Request) -> dict:
         return _offer(cotizacion_id)
     datos = request.app.state.nucleo.reconsultar(cotizacion_id)
     datos = _exigir(datos, "producto")
-    return _oferta_movil(datos, datos["producto"])
+    ramo, descripcion = presentar(datos["producto"])
+    return _oferta_movil(datos, ramo, descripcion)
 
 
 @router.post("/cotizaciones/{cotizacion_id}/aceptacion")
@@ -304,7 +308,8 @@ def aceptar_cotizacion(
         "moneda": aceptacion["moneda"],
         "poliza": {
             "numero": poliza["numero"],
-            "ramo": cotizacion["producto"],
+            "ramo": presentar(cotizacion["producto"])[0],
+            "descripcion": presentar(cotizacion["producto"])[1],
             "estado": poliza["estado"],
             "venceEn": poliza["fin_vigencia"],
         },
@@ -362,9 +367,11 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
         "fin_vigencia",
     )
     cotizacion = _exigir(nucleo.reconsultar(str(aceptacion["cotizacion_id"])), "producto")
+    ramo, descripcion = presentar(cotizacion["producto"])
     return {
         "numero": poliza["numero"],
-        "ramo": cotizacion["producto"],
+        "ramo": ramo,
+        "descripcion": descripcion,
         "estado": poliza["estado"],
         "venceEn": poliza["fin_vigencia"],
     }
@@ -492,7 +499,8 @@ def _cotizaciones_pendientes(nucleo, usuario: dict) -> list:
     for item in pagina["items"]:
         item = _exigir(item, "cotizacion_id", "producto")
         producto = item["producto"]
-        tarjetas.append(_tarjeta_inicio(item["cotizacion_id"], PRODUCTO_A_RAMO.get(producto, producto)))
+        ramo, _ = presentar(producto)
+        tarjetas.append(_tarjeta_inicio(item["cotizacion_id"], ramo))
     return tarjetas
 
 

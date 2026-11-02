@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.domain.bff.offer
 
 enum class QuoteLine(val ramo: String) {
+    Soat("SOAT motocicleta"),
     Device("Protección de dispositivo"),
     Life("Microseguro de vida"),
     Climate("Clima y vuelos"),
@@ -25,6 +26,9 @@ enum class QuoteInput {
     Term,
     Destination,
     Duration,
+    Displacement,
+    ModelYear,
+    City,
 }
 
 data class QuoteAnswers(
@@ -43,6 +47,9 @@ data class QuoteAnswers(
     val term: String = "",
     val destination: String = "",
     val duration: String = "",
+    val displacement: String = "",
+    val modelYear: String = "",
+    val city: String = "",
 )
 
 data class LifeRisk(
@@ -64,6 +71,12 @@ data class MortgageRisk(
 data class PaymentsRisk(
     val installment: Long,
     val termMonths: Long,
+) : LineRisk
+
+data class SoatRisk(
+    val displacement: Long,
+    val modelYear: Long,
+    val city: String,
 ) : LineRisk
 
 data class TravelRisk(

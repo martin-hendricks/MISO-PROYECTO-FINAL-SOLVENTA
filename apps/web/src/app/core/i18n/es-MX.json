@@ -374,6 +374,7 @@
       "column": {
         "cliente": "Cliente",
         "ramo": "Ramo",
+        "descripcion": "Descripción",
         "prima": "Prima",
         "estado": "Estado",
         "creadaEn": "Creada",

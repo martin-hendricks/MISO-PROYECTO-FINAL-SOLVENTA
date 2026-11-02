@@ -71,6 +71,7 @@
             <tr>
               <th scope="col">{{ 'backoffice.cotizaciones.column.cliente' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.ramo' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.descripcion' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.prima' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.estado' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.creadaEn' | translate }}</th>
@@ -86,6 +87,7 @@
               >
                 <th scope="row" class="mono">{{ cotizacion.clienteRef }}</th>
                 <td>{{ cotizacion.ramo }}</td>
+                <td>{{ cotizacion.descripcion }}</td>
                 <td class="mono">{{ cotizacion.prima | svMoney: cotizacion.moneda }}</td>
                 <td>
                   <span class="badge" [attr.data-estado]="cotizacion.estado">{{

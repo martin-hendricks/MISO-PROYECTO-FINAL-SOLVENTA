@@ -42,11 +42,11 @@ describe('CotizacionFormViewModel', () => {
     expect(vm.ramos.map((ramo) => [ramo.ramo, ramo.disponible])).toEqual([
       ['Protección de dispositivo', true],
       ['SOAT motocicleta', true],
-      ['Microseguro de vida', false],
-      ['Clima y vuelos', false],
-      ['Vida hipotecario', false],
-      ['Pagos', false],
-      ['Viaje', false],
+      ['Microseguro de vida', true],
+      ['Clima y vuelos', true],
+      ['Vida hipotecario', true],
+      ['Pagos', true],
+      ['Viaje', true],
     ]);
   });
 

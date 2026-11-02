@@ -155,8 +155,11 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     assert body["resultado"] == "EMITIDA"
     assert body["poliza"]["numero"] == "POL-88219-CO"
     assert body["poliza"]["estado"] == "vigente"
-    assert body["poliza"]["ramo"] == COTIZACION_SALIDA["producto"]
-    assert body["poliza"]["producto"] == COTIZACION_SALIDA["producto"]
+    assert body["poliza"]["ramo"] == "Protección de dispositivo"
+    assert body["poliza"]["producto"] == "Protección de dispositivo"
+    assert body["poliza"]["descripcion"] == (
+        "Cubre robo, daño accidental y reposición del equipo asegurado."
+    )
     assert body["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
     assert body["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
     assert body["poliza"]["moneda"] == ACEPTACION_SALIDA["moneda"]
@@ -283,12 +286,12 @@ def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas, nucl
     assert polizas[0]["numero"] == "POL-88219-CO"
     assert polizas[0]["estado"] == "VIGENTE"
     assert polizas[0]["venceEn"] == "2027-10-01T00:00:00Z"
-    assert polizas[0]["producto"] == COTIZACION_SALIDA["producto"]
+    assert polizas[0]["producto"] == "Protección de dispositivo"
     assert polizas[0]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
     assert polizas[0]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
     assert polizas[0]["moneda"] == "COP"
     assert polizas[0]["primaTotal"] == 89000.0
-    assert polizas[0]["ramo"] == COTIZACION_SALIDA["producto"]
+    assert polizas[0]["ramo"] == "Protección de dispositivo"
     assert "cobertura-base" in polizas[0]["resumen"]
 
     peticion = nucleo_polizas.peticiones[-1]
@@ -336,7 +339,7 @@ def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas, nucleo_
     assert respuesta.status_code == 200
     detalle = respuesta.json()
     assert detalle["numero"] == "POL-88219-CO"
-    assert detalle["ramo"] == COTIZACION_SALIDA["producto"]
+    assert detalle["ramo"] == "Protección de dispositivo"
     assert detalle["queHacer"]
     assert detalle["coberturas"] == [{"nombre": "cobertura-base", "sumaAsegurada": 89000.0, "deducible": 0.0}]
 
