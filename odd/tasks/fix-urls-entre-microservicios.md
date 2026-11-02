@@ -45,13 +45,15 @@ Servicios con el mismo defecto, verificados contra el cluster:
 
 ## Tareas
 
-- [ ] 1. ms-cotizacion: definir `MS_SUSCRIPCION_URL` en values y corregir el default de `app/config.py` y su README
-- [ ] 2. ms-pagos: definir `MS_SUSCRIPCION_URL` en values
-- [ ] 3. ms-polizas: definir `MS_SUSCRIPCION_URL` y `MS_PAGOS_URL` en values
-- [ ] 4. api-socios: agregar `:8080` a `MS_IDENTIDAD_URL`
-- [ ] 5. ms-suscripcion: agregar `:8080` a `MS_POLIZAS_URL` y `MS_IDENTIDAD_URL`
-- [ ] 6. Verificar con `helm template` que cada values renderiza URLs completas
-- [ ] 7. Commit del work unit
+- [x] 1. ms-cotizacion: definir `MS_SUSCRIPCION_URL` en values y corregir el default de `app/config.py` y su README
+- [x] 2. ms-pagos: definir `MS_SUSCRIPCION_URL` en values
+- [x] 3. ms-polizas: definir `MS_SUSCRIPCION_URL` y `MS_PAGOS_URL` en values
+- [x] 4. api-socios: agregar `:8080` a `MS_IDENTIDAD_URL`
+- [x] 5. ms-suscripcion: agregar `:8080` a `MS_POLIZAS_URL` y `MS_IDENTIDAD_URL`
+- [x] 6. Verificar con `helm template` que cada values renderiza URLs completas
+- [x] 7. Commit del work unit
+- [x] 8. ms-consentimiento: agregar `:8080` a `MS_IDENTIDAD_URL` (hallado por el verificador independiente)
+- [x] 9. Documentar los defaults de ms-pagos/ms-polizas como solo-locales
 
 ## Criterios de aceptación
 
@@ -73,3 +75,30 @@ Servicios con el mismo defecto, verificados contra el cluster:
 - Skill registry: no disponible en Engram (store vacío) → sin estándares
   específicos inyectados.
 - TDD: no aplica (solo configuración YAML y un default de settings).
+
+## Verificación ejecutada
+
+- `helm template <svc> charts/microservicio -f values/<svc>.yaml` para los 14
+  values: **todos renderizan**. Las variables afectadas salen como FQDN con
+  puerto explícito.
+- `grep` de `svc.cluster.local"` sobre `values/`: **ninguna URL sin puerto**.
+- `Settings().ms_suscripcion_url` (venv de ms-cotizacion): `http://ms-suscripcion:8080`.
+- Verificador independiente (contexto limpio) sobre `5f39e34`: confirmó las 6
+  correcciones declaradas, el mapeo 503 de bff-web y el flujo de asesor; refutó
+  la afirmación de "clase cerrada" por `ms-consentimiento` (corregido en
+  `6116b05`).
+- `gentle-ai review assess`: `risk: high`, `review_due: true`. El review nativo
+  no corre en este runtime (`immutable_review_transport_unsupported`), así que
+  la verificación fue writer + verificador independiente.
+
+## Commits
+
+- `5f39e34` — fix(infra): define las URLs internas entre microservicios con puerto explícito
+- `6116b05` — fix(infra): cierra el último MS_*_URL sin puerto y documenta los defaults locales
+
+## Siguiente paso
+
+Desplegar los values corregidos (helm upgrade de ms-cotizacion, ms-pagos,
+ms-polizas, api-socios, ms-suscripcion, ms-consentimiento) y verificar que
+`POST /v1/cotizaciones/{id}/aceptacion` deja de agotar los 2 s contra
+`ms-suscripcion:8000`.
