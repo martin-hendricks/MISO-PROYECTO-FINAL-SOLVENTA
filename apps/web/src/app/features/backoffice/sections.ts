@@ -7,7 +7,8 @@ export const SECTIONS: readonly Section[] = ['clientes', 'cotizaciones', 'poliza
 const REQUIRED_ROLE: Record<Section, Role> = {
   clientes: 'asesor',
   cotizaciones: 'asesor',
-  polizas: 'asesor',
+  // HU-59/61: renovar y cancelar son exclusivas del operador.
+  polizas: 'operador',
   avisos: 'operador',
 };
 

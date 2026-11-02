@@ -85,7 +85,20 @@ export const routes: Routes = [
             (m) => m.AsesorEmisionView,
           ),
       },
-      section('polizas'),
+      {
+        path: 'polizas',
+        loadComponent: () =>
+          import('./features/backoffice/polizas/poliza-backoffice-detalle.view').then(
+            (m) => m.PolizaBackofficeDetalleView,
+          ),
+      },
+      {
+        path: 'polizas/:numero',
+        loadComponent: () =>
+          import('./features/backoffice/polizas/poliza-backoffice-detalle.view').then(
+            (m) => m.PolizaBackofficeDetalleView,
+          ),
+      },
       section('avisos'),
     ],
   },

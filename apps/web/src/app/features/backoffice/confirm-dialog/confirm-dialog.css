@@ -1,0 +1,72 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--sv-surface-container-lowest);
+  color: var(--sv-on-surface);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+}
+
+.advertencia {
+  color: var(--sv-on-surface-variant);
+  margin-bottom: 16px;
+}
+
+.motivo-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  font-family: var(--sv-font-ui);
+  resize: vertical;
+}
+
+.acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.outlined {
+  background: transparent;
+  border: 1px solid var(--sv-outline);
+  color: var(--sv-on-surface);
+}
+
+.filled {
+  background: var(--sv-error);
+  border: none;
+  color: var(--sv-on-primary);
+}
+
+.filled:disabled {
+  background: var(--sv-outline-variant);
+  color: var(--sv-on-surface-variant);
+  cursor: not-allowed;
+}

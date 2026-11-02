@@ -76,6 +76,11 @@ def nucleo_siniestros() -> NucleoSimulado:
     # el genérico 404 de NucleoSimulado, igual que haría ms-siniestros real.
     doble = NucleoSimulado()
     doble.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json=[])
+    # HU-61: toda cancelación consulta siniestros abiertos (informativo, no
+    # bloquea); sin ninguno registrado, cero abiertos es la respuesta vigente.
+    doble.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(
+        200, json={"abiertos": 0, "siniestros": []}
+    )
     return doble
 
 

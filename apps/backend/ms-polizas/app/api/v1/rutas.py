@@ -120,5 +120,5 @@ async def modificar_coberturas(poliza_id: UUID, entrada: ModificarCoberturasEntr
 
 @router.post("/{poliza_id}/cancelacion", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
 async def cancelar(poliza_id: UUID, entrada: CancelarPolizaEntrada, uow: Uow):
-    poliza = await casos_uso.cancelar_poliza(uow, poliza_id, entrada.motivo)
+    poliza = await casos_uso.cancelar_poliza(uow, poliza_id, entrada.motivo, entrada.operador)
     return PolizaSalida.desde(poliza)
