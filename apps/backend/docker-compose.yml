@@ -5,7 +5,7 @@
 # Kubernetes en el cluster real.
 #
 # Uso:
-#   cd apps/backend && ./levantar-local.sh
+#   infra/scripts/levantar-local.sh
 #   (equivalente a `docker compose up -d --build` + aplicar las migraciones
 #   de cada servicio que falten -- ver el propio script para el por qué.
 #   Un `docker compose up -d --build` manual también funciona para un
