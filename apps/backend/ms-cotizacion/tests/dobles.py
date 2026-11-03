@@ -97,6 +97,19 @@ class _RepoSolicitudes:
         filas.sort(key=lambda f: (f[0].creada_en, f[0].id), reverse=True)
         return deepcopy(filas[desplazamiento : desplazamiento + limite])
 
+    async def listar_por_usuario(self, usuario_id, vigentes_desde, desplazamiento, limite):
+        ofertas = {o.solicitud_id: o for o in self._uow.almacen.ofertas.values()}
+        filas = [
+            (s, ofertas[s.id])
+            for s in self._vista().values()
+            if s.usuario_id == usuario_id
+            and s.estado is EstadoSolicitud.COTIZADA
+            and s.id in ofertas
+            and ofertas[s.id].vence_en > vigentes_desde
+        ]
+        filas.sort(key=lambda f: (f[0].creada_en, f[0].id), reverse=True)
+        return deepcopy(filas[desplazamiento : desplazamiento + limite])
+
 
 class _RepoOfertas:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:

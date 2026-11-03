@@ -59,7 +59,22 @@ fun InicioScreen(
             HomeSection {
                 HomeSectionLabel(R.string.home_section_offer)
                 SolventaCard(onClick = { onOpenOffer(offerId) }, testTag = "home_offer") {
-                    Text(text = offerId, style = SolventaTypography.amount)
+                    Column(verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12)) {
+                        LabeledValue(
+                            label = R.string.home_offer_id,
+                            value = offerId,
+                            valueStyle = SolventaTypography.amount,
+                            testTag = "home_offer_id",
+                        )
+                        panel.offerRamo?.let { ramo ->
+                            LabeledValue(
+                                label = R.string.home_offer_ramo,
+                                value = ramo,
+                                valueStyle = MaterialTheme.typography.bodyLarge,
+                                testTag = "home_offer_ramo",
+                            )
+                        }
+                    }
                 }
                 SolventaButton(
                     text = stringResource(R.string.action_accept_offer),
@@ -124,6 +139,27 @@ fun InicioScreen(
                 testTag = "action_new_quote",
             )
         }
+    }
+}
+
+@Composable
+private fun LabeledValue(
+    @StringRes label: Int,
+    value: String,
+    valueStyle: TextStyle,
+    testTag: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4)) {
+        Text(
+            text = stringResource(label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = valueStyle,
+            modifier = Modifier.testTag(testTag),
+        )
     }
 }
 

@@ -70,6 +70,22 @@ class CotizacionAsesorSalida(CotizacionSalida):
         )
 
 
+class PaginaCotizacionesSalida(BaseModel):
+    items: list[CotizacionSalida]
+    pagina: int
+    tamano: int
+    hay_mas: bool
+
+    @classmethod
+    def desde(cls, pagina: PaginaPendientes) -> "PaginaCotizacionesSalida":
+        return cls(
+            items=[CotizacionSalida.desde_consulta(p.solicitud, p.consulta) for p in pagina.items],
+            pagina=pagina.pagina,
+            tamano=pagina.tamano,
+            hay_mas=pagina.hay_mas,
+        )
+
+
 class PaginaCotizacionesAsesorSalida(BaseModel):
     items: list[CotizacionAsesorSalida]
     pagina: int

@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -43,9 +44,9 @@ class CotizacionFlowTest {
         val quoteTop = rule.onNodeWithTag("action_new_quote").getBoundsInRoot().top
         assertTrue(acceptTop < quoteTop)
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
-        rule.waitForTag("screen_emision")
-        rule.onNodeWithTag("emision_body").assertIsDisplayed()
-        rule.onAllNodesWithText("COT-1042").assertCountEquals(0)
+        rule.waitForTag("screen_issued")
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
     }
 
@@ -55,7 +56,9 @@ class CotizacionFlowTest {
         rule.onNodeWithTag("action_new_quote").performScrollTo().performClick()
         rule.waitForTag("screen_cotizacion")
         rule.onNodeWithTag("field_device_value").performScrollTo().performTextInput("2400000")
-        rule.onNodeWithTag("field_brand_model").performScrollTo().performTextInput("Pixel")
+        rule.onNodeWithTag("field_brand").performScrollTo().performClick()
+        rule.onNodeWithTag("brand_option_apple").performScrollTo().performClick()
+        rule.onNodeWithTag("field_model").performScrollTo().performTextInput("iPhone 15")
         rule.onNodeWithTag("answer_no").performScrollTo().performClick()
         rule.onNodeWithTag("action_quote").performScrollTo().performClick()
         rule.waitForTag("screen_ver_oferta")

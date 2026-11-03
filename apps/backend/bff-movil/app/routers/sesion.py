@@ -16,7 +16,7 @@ class Refresh(BaseModel):
 
 
 def es_v1(request: Request) -> bool:
-    return request.url.path.startswith("/v1/")
+    return "/v1/" in request.url.path
 
 
 @router.post("/ingreso")

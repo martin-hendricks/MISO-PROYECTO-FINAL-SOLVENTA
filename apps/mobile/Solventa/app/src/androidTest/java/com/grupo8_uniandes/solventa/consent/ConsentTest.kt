@@ -67,21 +67,16 @@ class ConsentTest {
     }
 
     @Test
-    fun givenValidAccount_whenContinuar_thenAltaStartsOffAndGrantOpensHome() {
-        openAccount()
-        fillAccount()
-        OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
-        rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.waitUntilEnabled("action_continuar")
+    fun givenLanguageContinuar_whenAltaStartsOff_thenGrantOpensAccount() {
+        rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_prueba_de_vida")
-        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
         rule.onNodeWithTag("solventa_switch").assertIsOff()
         rule.onNodeWithTag("action_aceptar_continuar").assertIsNotEnabled()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+        rule.onNodeWithText("Paso 2 de 4 · Consentimiento de datos").assertIsDisplayed()
         rule.onNodeWithText("Consentimiento").assertIsDisplayed()
         rule.onNodeWithText("Tratamiento de datos").assertIsDisplayed()
         rule.onNodeWithText(
@@ -90,28 +85,23 @@ class ConsentTest {
 
         rule.onNodeWithTag("solventa_switch").performClick()
         rule.onNodeWithTag("action_aceptar_continuar").performClick()
-        rule.waitForTag("screen_inicio")
-        rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
+        rule.waitForTag("screen_onboarding")
+        rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         val records = consentRecords()
         assertTrue(records.orEmpty().startsWith("GRANT|"))
         assertEquals(1, records.orEmpty().lines().size)
     }
 
     @Test
-    fun givenAltaSwitchOn_whenBack_thenAccountAndNoConsentLine() {
-        openAccount()
-        fillAccount()
-        OnboardingPhotoInjector.next = byteArrayOf(4)
-        rule.onNodeWithTag("action_foto").performScrollTo().performClick()
-        rule.waitUntilEnabled("action_continuar")
+    fun givenAltaSwitchOn_whenBack_thenLanguageAndNoConsentLine() {
+        rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_prueba_de_vida")
-        rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
         rule.waitForTag("screen_consentimiento")
         rule.onNodeWithTag("solventa_switch").performClick()
         rule.onNodeWithTag("action_volver").performClick()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_idioma_region")
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_onboarding").assertCountEquals(0)
         assertEquals(null, consentRecords())
     }
 
@@ -124,10 +114,11 @@ class ConsentTest {
                 .putString(KeyAppliedRegion, tag)
                 .putBoolean(KeyFirstLaunchCompleted, true)
                 .commit()
-            saveRegistration()
+            context.getSharedPreferences("registration_prefs", Context.MODE_PRIVATE).edit().clear().commit()
             context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
             rule.activityRule.scenario.recreate()
             rule.waitForTag("screen_consentimiento")
+            rule.onNodeWithText("Paso 2 de 4 · Consentimiento de datos").assertIsDisplayed()
             rule.onNodeWithText("Tratamiento de datos").assertIsDisplayed()
             rule.onNodeWithText(
                 "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
@@ -135,22 +126,6 @@ class ConsentTest {
         }
     }
 
-    private fun openAccount() {
-        rule.waitForTag("screen_idioma_region")
-        rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_onboarding")
-    }
-
-    private fun fillAccount() {
-        rule.onNodeWithTag("field_nombre").performScrollTo().performTextReplacement("Camila")
-        rule.onNodeWithTag("field_apellidos").performScrollTo().performTextReplacement("Restrepo")
-        rule.onNodeWithTag("field_correo").performScrollTo().performTextReplacement("camila@correo.com")
-        rule.onNodeWithTag("solventa_select_closed").performScrollTo().performClick()
-        rule.onNodeWithTag("option_CC").performScrollTo().performClick()
-        rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
-        rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
-        rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
-    }
 }
 
 @RunWith(AndroidJUnit4::class)

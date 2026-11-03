@@ -37,6 +37,7 @@ class InicioNavigationTest {
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
     }
 
@@ -73,11 +74,17 @@ class InicioNavigationTest {
         show(HomePanel())
         rule.onNodeWithTag("action_new_quote").performClick()
         rule.onNodeWithTag("field_device_value").performTextInput("2400000")
-        rule.onNodeWithTag("field_brand_model").performTextInput("Pixel")
+        rule.onNodeWithTag("field_brand").performClick()
+        rule.onNodeWithTag("brand_option_apple").performClick()
+        rule.onNodeWithTag("field_model").performTextInput("iPhone 15")
         rule.onNodeWithTag("answer_no").performClick()
         rule.onNodeWithTag("action_quote").performClick()
         rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
         rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
+        rule.onNodeWithTag("action_not_now").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_ver_oferta").assertCountEquals(0)
     }
 
     @Test

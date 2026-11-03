@@ -49,6 +49,7 @@ import com.grupo8_uniandes.solventa.policy.IssuanceViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
 import com.grupo8_uniandes.solventa.quote.QuoteViewModel
 import com.grupo8_uniandes.solventa.ui.login.BiometricGate
+import com.grupo8_uniandes.solventa.ui.login.DisableBiometric
 import com.grupo8_uniandes.solventa.ui.login.EnableBiometric
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
 import com.grupo8_uniandes.solventa.ui.login.RememberBiometricLogin
@@ -105,6 +106,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
             signIn = get(),
             biometricEnabled = BiometricGate(registration::biometricUnlockEnabled),
             enableBiometric = EnableBiometric(registration::enableBiometricUnlock),
+            disableBiometric = DisableBiometric { registration.setBiometricUnlock(false) },
             openRemoteSession = RemoteSessionOpener { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
             },

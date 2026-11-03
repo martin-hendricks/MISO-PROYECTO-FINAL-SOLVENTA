@@ -23,7 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteLine
+import com.grupo8_uniandes.solventa.domain.bff.offer.deviceBrands
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
 import com.grupo8_uniandes.solventa.quote.QuoteUiState
@@ -69,6 +73,7 @@ fun CotizacionScreen(
     onLine: (QuoteLine) -> Unit,
     onValueChange: (String) -> Unit,
     onBrandChange: (String) -> Unit,
+    onModelChange: (String) -> Unit,
     onAge: (Boolean) -> Unit,
     onText: (QuoteInput, String) -> Unit,
     onCotizar: () -> Unit,
@@ -100,14 +105,19 @@ fun CotizacionScreen(
                 externalLabel = true,
                 testTag = "field_device_value",
             )
+            BrandSelect(
+                brand = state.brand,
+                gap = state.gap == QuoteInput.Brand,
+                onBrand = onBrandChange,
+            )
             SolventaTextField(
-                value = state.brand,
-                onValueChange = onBrandChange,
-                label = stringResource(R.string.field_brand_model),
-                helper = if (state.gap == QuoteInput.Brand) required else "",
-                state = if (state.gap == QuoteInput.Brand) SolventaFieldState.Error else SolventaFieldState.Default,
+                value = state.model,
+                onValueChange = onModelChange,
+                label = stringResource(R.string.field_model),
+                helper = if (state.gap == QuoteInput.Model) required else "",
+                state = if (state.gap == QuoteInput.Model) SolventaFieldState.Error else SolventaFieldState.Default,
                 externalLabel = true,
-                testTag = "field_brand_model",
+                testTag = "field_model",
             )
             DeviceAge(olderThan12Months = state.olderThan12Months, onAge = onAge)
             if (state.gap == QuoteInput.Age) {
@@ -285,6 +295,136 @@ private fun InsuranceTypeSelect(
     }
 }
 
+private val brandLabels = mapOf(
+    "samsung" to R.string.brand_samsung,
+    "apple" to R.string.brand_apple,
+    "xiaomi" to R.string.brand_xiaomi,
+    "motorola" to R.string.brand_motorola,
+)
+
+@Composable
+private fun BrandSelect(
+    brand: String,
+    gap: Boolean,
+    onBrand: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val fieldShape = RoundedCornerShape(4.dp)
+    val menuShape = RoundedCornerShape(8.dp)
+    val borderColor = if (gap) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.outline
+    }
+    val closed = if (brand in deviceBrands) {
+        stringResource(brandLabels.getValue(brand))
+    } else {
+        stringResource(R.string.field_brand_placeholder)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
+    ) {
+        Text(
+            text = stringResource(R.string.field_brand),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(SolventaSpacing.minTouch)
+                .clip(fieldShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .border(1.dp, borderColor, fieldShape)
+                .clickable { open = !open }
+                .semantics { role = Role.DropdownList }
+                .testTag("field_brand")
+                .padding(SolventaSpacing.s12),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
+        ) {
+            Text(
+                text = closed,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (brand in deviceBrands) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (gap) {
+            Text(
+                text = stringResource(R.string.field_required),
+                style = TextStyle(
+                    fontFamily = HankenGrotesk,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                ),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (open) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(menuShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, menuShape)
+                    .testTag("field_brand_menu"),
+            ) {
+                deviceBrands.forEach { slug ->
+                    val selected = slug == brand
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .background(
+                                if (selected) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLowest
+                                },
+                            )
+                            .clickable {
+                                onBrand(slug)
+                                open = false
+                            }
+                            .padding(horizontal = SolventaSpacing.s12)
+                            .testTag("brand_option_$slug"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
+                    ) {
+                        Text(
+                            text = stringResource(brandLabels.getValue(slug)),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun DeviceAge(
     olderThan12Months: Boolean?,
@@ -330,7 +470,7 @@ private fun QuoteInput.label(currency: String): String = when (this) {
     QuoteInput.Term -> stringResource(R.string.field_term)
     QuoteInput.CreditValue -> stringResource(R.string.field_credit_value, currency)
     QuoteInput.CreditTerm -> stringResource(R.string.field_credit_term)
-    QuoteInput.Reference, QuoteInput.Value, QuoteInput.Brand, QuoteInput.Age ->
+    QuoteInput.Reference, QuoteInput.Value, QuoteInput.Brand, QuoteInput.Model, QuoteInput.Age ->
         stringResource(R.string.field_required)
 }
 
@@ -388,7 +528,8 @@ private fun QuoteInput.tag(): String = when (this) {
     QuoteInput.CreditValue -> "field_credit_value"
     QuoteInput.CreditTerm -> "field_credit_term"
     QuoteInput.Value -> "field_device_value"
-    QuoteInput.Brand -> "field_brand_model"
+    QuoteInput.Brand -> "field_brand"
+    QuoteInput.Model -> "field_model"
     QuoteInput.Age -> "field_older_than_12"
 }
 
@@ -406,5 +547,6 @@ private fun QuoteUiState.textOf(field: QuoteInput): String = when (field) {
     QuoteInput.CreditTerm -> creditTerm
     QuoteInput.Value -> value
     QuoteInput.Brand -> brand
+    QuoteInput.Model -> model
     QuoteInput.Age -> ""
 }
