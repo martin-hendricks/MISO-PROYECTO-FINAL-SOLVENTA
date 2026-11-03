@@ -77,9 +77,14 @@ def test_rechazo_sin_motivo_es_400(client):
     assert response.status_code == 400
 
 
-def test_aprobar_decision_cambia_estado(client, nucleo_siniestros):
-    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/estado")] = lambda _: httpx.Response(
-        200, json=SINIESTRO_DECIDIDO
+def _detalle_nucleo(siniestro: dict) -> dict:
+    return {"siniestro": siniestro, "adjuntos": [], "decisiones": [], "pago": None, "intentos_pago": []}
+
+
+def test_aprobar_decision_llama_a_decision_del_nucleo_con_auditoria(client, nucleo_siniestros):
+    aprobado = {**SINIESTRO_DECIDIDO, "resultado": "aprobado", "tipo": "asistido", "numero": "SIN-1001"}
+    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/decision")] = lambda _: httpx.Response(
+        200, json=_detalle_nucleo(aprobado)
     )
 
     response = client.post(
@@ -90,17 +95,21 @@ def test_aprobar_decision_cambia_estado(client, nucleo_siniestros):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["siniestroId"] == SINIESTRO_ID
-    assert body["estado"] == "decidido"
+    assert body["id"] == SINIESTRO_ID
+    assert body["siniestroId"] == "SIN-1001"
+    assert body["estadoCola"] == "aprobado"
 
-    enviado = nucleo_siniestros.peticiones[-1]
     import json as _json
 
-    assert _json.loads(enviado.read()) == {"estado": "decidido", "origen": "operador"}
+    enviado = _json.loads(nucleo_siniestros.peticiones[-1].read())
+    # Aprobar y rechazar ya NO colapsan en el mismo estado: viaja el resultado, y el
+    # actor es el usuario de la sesión (quién decidió, HU-27).
+    assert enviado["resultado"] == "aprobado"
+    assert enviado["actor"]
 
 
 def test_decision_con_transicion_invalida_es_409(client, nucleo_siniestros):
-    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/estado")] = lambda _: httpx.Response(
+    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/decision")] = lambda _: httpx.Response(
         409, json={"codigo": "transicion_invalida", "mensaje": "No se puede pasar de 'decidido' a 'decidido'"}
     )
 

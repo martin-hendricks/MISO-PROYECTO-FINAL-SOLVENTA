@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
-from .routers import asesor, cliente, operador, registro, sesion
+from .routers import asesor, cliente, operador, registro, sesion, siniestros
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,8 @@ app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
 app.include_router(asesor.router, prefix="/v1")
 app.include_router(operador.router, prefix="/v1")
+app.include_router(siniestros.router_cliente, prefix="/v1")
+app.include_router(siniestros.router_operador, prefix="/v1")
 
 
 @app.get("/health", include_in_schema=False)
