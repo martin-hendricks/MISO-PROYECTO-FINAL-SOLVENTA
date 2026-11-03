@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.errores import DependenciaNoDisponible, ReglaDeNegocioViolada
 from app.domain.modelos import (
     EstadoPago,
     Pago,
@@ -65,3 +65,8 @@ async def test_el_stub_es_determinista_por_token_y_por_clave():
     assert aprobado.referencia_externa == repetido.referencia_externa
     assert rechazado.estado is EstadoPago.RECHAZADO
     assert rechazado.referencia_externa != aprobado.referencia_externa
+
+
+async def test_el_stub_con_caida_forzada_no_esta_disponible():
+    with pytest.raises(DependenciaNoDisponible):
+        await PasarelaStub(fallar=True).cobrar("tok_visa", Decimal("1"), "cobro-prima:z")

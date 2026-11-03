@@ -3,21 +3,30 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from app.application import casos_uso
-from app.dependencies import obtener_uow
+from app.dependencies import obtener_uow, obtener_verificador_kyc
+from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 
 from .schemas import AutenticarEntrada, CrearUsuarioEntrada, ErrorSalida, UsuarioSalida
 
 router = APIRouter(prefix="/v1/usuarios", tags=["usuarios"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
-ERRORES = {401: {"model": ErrorSalida}, 409: {"model": ErrorSalida}, 422: {"model": ErrorSalida}}
+Kyc = Annotated[VerificadorKYC, Depends(obtener_verificador_kyc)]
+ERRORES = {
+    401: {"model": ErrorSalida},
+    409: {"model": ErrorSalida},
+    422: {"model": ErrorSalida},
+    503: {"model": ErrorSalida},
+}
 
 
 @router.post("", response_model=UsuarioSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
-async def crear(entrada: CrearUsuarioEntrada, uow: Uow):
-    """Alta de cuenta (SOLV-215). 409 si el correo o el documento ya existen."""
+async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
+    """Alta de cuenta (SOLV-215). 409 si el correo o el documento ya existen; 422 si el KYC
+    rechaza el documento y 503 si el proveedor KYC no responde (HU-88)."""
     usuario = await casos_uso.crear_usuario(
         uow,
+        kyc,
         tipo_documento=entrada.tipo_documento,
         numero_documento=entrada.numero_documento,
         email=entrada.email,

@@ -220,6 +220,39 @@ def test_dependencia_caida_responde_503(client, suscripciones):
     assert respuesta.json()["codigo"] == "dependencia_no_disponible"
 
 
+def test_pasarela_caida_responde_503_sin_registrar_el_pago(client, almacen):
+    client.app.dependency_overrides[obtener_pasarela] = lambda: PasarelaStub(fallar=True)
+    cuerpo = {
+        "solicitud_id": str(uuid4()),
+        "oferta_id": str(uuid4()),
+        "usuario_id": str(uuid4()),
+        "monto": "10.00",
+        "token_medio_pago": "tok_visa",
+    }
+
+    respuesta = client.post("/v1/pagos/primas", json=cuerpo)
+
+    assert respuesta.status_code == 503
+    assert respuesta.json()["codigo"] == "dependencia_no_disponible"
+    assert almacen.pagos == {}
+
+
+def test_al_arrancar_la_app_configura_el_doble_de_pasarela_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace()
+
+    async def liberar():
+        pass
+
+    motor.dispose = liberar
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_PASARELA_LATENCIA_MS", "300")
+    monkeypatch.setenv("DOBLE_PASARELA_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert (app.state.pasarela._latencia_ms, app.state.pasarela._fallar) == (300, True)
+
+
 def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):
     motor = SimpleNamespace(liberado=False)
 

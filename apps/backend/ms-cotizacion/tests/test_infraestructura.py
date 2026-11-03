@@ -133,6 +133,27 @@ def test_al_arrancar_la_app_carga_el_catalogo_y_libera_el_motor(monkeypatch):
     assert motor.liberado
 
 
+def test_al_arrancar_la_app_configura_el_doble_de_perfil_de_riesgo_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace()
+
+    async def liberar():
+        pass
+
+    async def cargar(_motor):
+        return CatalogoEnMemoria()
+
+    motor.dispose = liberar
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main.CatalogoSQL, "cargar", cargar)
+    monkeypatch.setenv("DOBLE_PERFIL_RIESGO_LATENCIA_MS", "900")
+    monkeypatch.setenv("DOBLE_PERFIL_RIESGO_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        doble = app.state.adaptador_perfil_riesgo
+        assert (doble._latencia_ms, doble._fallar) == (900, True)
+
+
 @pytest.mark.parametrize(
     ("error", "estado"),
     [
