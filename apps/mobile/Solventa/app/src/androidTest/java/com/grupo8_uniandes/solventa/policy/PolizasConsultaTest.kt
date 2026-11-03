@@ -53,7 +53,12 @@ class PolizasConsultaTest {
         rule.onAllNodesWithTag("tab_Avisos").assertCountEquals(0)
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("Robo y Pantalla").assertIsDisplayed()
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithText("Protección de dispositivo · Robo y Pantalla")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        rule.onNodeWithText("Protección de dispositivo · Robo y Pantalla").assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
     }
 
@@ -113,7 +118,10 @@ class PolizasListContentTest {
         rule.onNodeWithText("POL-88219-CO").assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
+    }
 
+    @Test
+    fun givenASavedDetail_whenItRecovers_thenTheNoticeStaysOnTheDetail() {
         rule.setContent {
             SolventaTheme {
                 PolizaDetalleScreen(

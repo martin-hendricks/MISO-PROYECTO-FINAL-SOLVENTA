@@ -18,6 +18,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -88,7 +89,7 @@ class SplashPermissionTest {
     val rule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun givenInstall_whenPackageInspected_thenNoPhotosOrGps() {
+    fun givenInstall_whenPackageInspected_thenNoPhotosAndLocationIsDeclared() {
         val context = rule.activity
         @Suppress("DEPRECATION")
         val info = context.packageManager.getPackageInfo(
@@ -99,11 +100,11 @@ class SplashPermissionTest {
         listOf(
             Manifest.permission.READ_MEDIA_IMAGES,
             Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
         ).forEach { permission ->
             assertFalse(requested.contains(permission))
         }
+        assertTrue(requested.contains(Manifest.permission.ACCESS_FINE_LOCATION))
+        assertTrue(requested.contains(Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 }
 

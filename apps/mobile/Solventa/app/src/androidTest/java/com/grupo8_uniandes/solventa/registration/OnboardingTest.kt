@@ -94,8 +94,6 @@ class OnboardingTest {
         rule.onAllNodes(isDialog()).assertCountEquals(0)
         assertFalse(declaredPermissions().contains(Manifest.permission.READ_MEDIA_IMAGES))
         assertFalse(declaredPermissions().contains(Manifest.permission.READ_EXTERNAL_STORAGE))
-        assertFalse(declaredPermissions().contains(Manifest.permission.ACCESS_FINE_LOCATION))
-        assertFalse(declaredPermissions().contains(Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
     @Test

@@ -570,6 +570,8 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
 internal fun Activity.openConsent() {
     intent.putExtra(MainActivity.EXTRA_OPEN_CONSENT, true)
     intent.removeExtra(MainActivity.EXTRA_OPEN_ONBOARDING)
+    intent.removeExtra(MainActivity.EXTRA_SIGNED_OUT)
+    intent.removeExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL)
     recreate()
 }
 
