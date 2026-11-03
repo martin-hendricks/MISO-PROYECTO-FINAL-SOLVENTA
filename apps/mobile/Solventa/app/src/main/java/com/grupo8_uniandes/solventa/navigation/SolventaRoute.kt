@@ -21,6 +21,15 @@ data class PolizaDetalleRoute(val policyId: String = "SOL-0001")
 data object SiniestrosRoute
 
 @Serializable
+data object AvisoSiniestroRoute
+
+@Serializable
+data object EvidenciaAvisoRoute
+
+@Serializable
+data class ConfirmacionAvisoRoute(val siniestroId: String)
+
+@Serializable
 data object MapaPrestadoresRoute
 
 @Serializable

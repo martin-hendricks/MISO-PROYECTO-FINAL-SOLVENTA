@@ -96,7 +96,7 @@ class SiniestrosViewModelTest {
         var answer: StandInAnswer<List<ClaimSummary>> = StandInAnswer.Ready(listOf(publishedRow()))
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
             },
@@ -116,7 +116,7 @@ class SiniestrosViewModelTest {
         var calls = 0
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> {
                     calls += 1
@@ -167,7 +167,7 @@ class SiniestrosViewModelTest {
     )
 
     private fun scripted(answer: StandInAnswer<List<ClaimSummary>>) = object : ClaimRepository {
-        override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+        override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
         override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
     }

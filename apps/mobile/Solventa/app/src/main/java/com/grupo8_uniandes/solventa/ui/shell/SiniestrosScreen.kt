@@ -32,6 +32,7 @@ fun SiniestrosScreen(
     claims: List<ClaimSummary>,
     onOpenClaim: (String) -> Unit,
     onOpenCatalog: () -> Unit,
+    onReport: () -> Unit = {},
     failed: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -62,7 +63,7 @@ fun SiniestrosScreen(
         SolventaFloatingAction(
             label = stringResource(R.string.action_report_claim),
             icon = painterResource(R.drawable.add),
-            onClick = {},
+            onClick = onReport,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(SolventaSpacing.gutter),
