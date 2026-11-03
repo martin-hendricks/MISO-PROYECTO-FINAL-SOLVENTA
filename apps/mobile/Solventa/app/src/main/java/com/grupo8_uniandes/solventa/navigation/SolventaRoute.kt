@@ -27,6 +27,12 @@ data object AvisoSiniestroRoute
 data object ParametricoRoute
 
 @Serializable
+data object AvisoVencimientoRoute
+
+@Serializable
+data object AvisoRenovacionRoute
+
+@Serializable
 data object EvidenciaAvisoRoute
 
 @Serializable
