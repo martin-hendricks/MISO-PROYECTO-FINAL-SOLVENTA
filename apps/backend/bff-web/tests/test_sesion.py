@@ -1,3 +1,38 @@
+import jwt
+
+
+def test_ingreso_cliente_conserva_el_uid_canonico(client):
+    response = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "Camila@Correo.com", "contrasena": "secreto", "rol": "cliente"},
+    )
+    claims = jwt.decode(response.json()["accessToken"], "test-secret", algorithms=["HS256"])
+    assert response.status_code == 200
+    assert claims["sub"] == "camila@correo.com"
+    assert claims["uid"] == "11111111-1111-1111-1111-111111111111"
+    refrescado = client.post("/v1/sesion/refresh", json={"refreshToken": response.json()["refreshToken"]})
+    renovados = jwt.decode(refrescado.json()["accessToken"], "test-secret", algorithms=["HS256"])
+    assert renovados["uid"] == claims["uid"]
+
+
+def test_cuenta_inactiva_no_abre_sesion(client, nucleo_identidad):
+    import httpx
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
+        200,
+        json={
+            "usuario_id": "11111111-1111-1111-1111-111111111111",
+            "email": "camila@correo.com",
+            "estado": "INACTIVO",
+        },
+    )
+    response = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto", "rol": "cliente"},
+    )
+    assert response.status_code == 401
+
+
 def test_ingreso_asesor_devuelve_par_de_tokens(client):
     response = client.post(
         "/v1/sesion/ingreso",

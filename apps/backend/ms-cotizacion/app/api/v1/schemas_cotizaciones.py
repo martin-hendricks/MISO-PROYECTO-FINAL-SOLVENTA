@@ -24,6 +24,7 @@ class SolicitarCotizacionEntrada(BaseModel):
 
 class CotizacionSalida(BaseModel):
     cotizacion_id: UUID
+    usuario_id: UUID
     estado: str
     producto: str
     creada_en: datetime
@@ -39,6 +40,7 @@ class CotizacionSalida(BaseModel):
     def desde(cls, solicitud: SolicitudCotizacion, oferta: Oferta) -> "CotizacionSalida":
         return cls(
             cotizacion_id=solicitud.id,
+            usuario_id=solicitud.usuario_id,
             estado=solicitud.estado.value,
             producto=solicitud.producto,
             creada_en=solicitud.creada_en,

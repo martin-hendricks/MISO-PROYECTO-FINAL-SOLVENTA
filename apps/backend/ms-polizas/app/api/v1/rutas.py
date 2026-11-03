@@ -74,8 +74,8 @@ async def listar(uow: UowLectura, usuario_id: UUID, limite: Annotated[int, Query
 # intentaría parsear "numero" como UUID y fallaría con 422 en vez de llegar
 # aquí).
 @router.get("/numero/{numero}", response_model=PolizaSalida, responses=ERRORES)
-async def consultar_por_numero(numero: str, uow: UowLectura):
-    return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero))
+async def consultar_por_numero(numero: str, uow: UowLectura, usuario_id: UUID | None = None):
+    return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero, usuario_id))
 
 
 # Igual que "/numero/": el prefijo literal "/firmas/" va antes de "/{poliza_id}".

@@ -24,6 +24,7 @@ data class BffHome(
     val poliza: HomePolicySlot?,
     val siniestroEnCurso: HomeClaimSlot?,
     val hipotecario: String?,
+    val cotizacionesPendientes: List<HomeOfferSlot> = emptyList(),
 )
 
 interface HomeBffRepository {

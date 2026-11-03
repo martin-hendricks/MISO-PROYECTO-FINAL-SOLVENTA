@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
@@ -9,6 +11,8 @@ describe('DestinoView', () => {
       imports: [DestinoView],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         ...provideSolventaI18n(),
         {
           provide: ActivatedRoute,
@@ -20,6 +24,26 @@ describe('DestinoView', () => {
     });
     const fixture = TestBed.createComponent(DestinoView);
     fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    if (destino === 'perfil') {
+      http.expectOne('/web/cliente/perfil').flush({
+        usuarioId: '11111111-1111-1111-1111-111111111111',
+        correo: 'camila@correo.com',
+        nombre: 'Camila',
+        apellidos: 'Restrepo',
+        documento: '1012345678',
+      });
+      fixture.detectChanges();
+    }
+    if (destino === 'siniestro' || destino === 'siniestros') {
+      http.expectOne('/web/cliente/inicio').flush({
+        ofertaVigente: null,
+        poliza: null,
+        siniestroEnCurso: { siniestroId: 'SIN-1', estado: 'recibido' },
+        hipotecario: null,
+      });
+      fixture.detectChanges();
+    }
     return { fixture, host: fixture.nativeElement as HTMLElement };
   }
 

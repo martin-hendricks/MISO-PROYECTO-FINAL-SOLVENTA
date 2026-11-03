@@ -34,7 +34,14 @@ class ClienteNucleo:
         )
 
     def crear_usuario(
-        self, *, tipo_documento: str, numero_documento: str, email: str, password: str
+        self,
+        *,
+        tipo_documento: str,
+        numero_documento: str,
+        email: str,
+        password: str,
+        nombre: str = "",
+        apellidos: str = "",
     ) -> dict:
         return self._pedir(
             "ms-identidad",
@@ -45,7 +52,20 @@ class ClienteNucleo:
                 "numero_documento": numero_documento,
                 "email": email,
                 "password": password,
+                "nombre": nombre,
+                "apellidos": apellidos,
             },
+        )
+
+    def obtener_usuario(self, usuario_id: str) -> dict:
+        return self._pedir("ms-identidad", "GET", f"/v1/usuarios/{usuario_id}")
+
+    def actualizar_perfil(self, usuario_id: str, *, nombre: str, apellidos: str) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/perfil",
+            json={"nombre": nombre, "apellidos": apellidos},
         )
 
     def cotizar(
@@ -82,20 +102,28 @@ class ClienteNucleo:
             params={"tamano": tamano},
         )
 
-    def reconsultar(self, cotizacion_id: str) -> dict:
-        return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/{cotizacion_id}")
+    def reconsultar(self, cotizacion_id: str, usuario_id: str | None = None) -> dict:
+        params = {"usuario_id": usuario_id} if usuario_id else None
+        return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/{cotizacion_id}", params=params)
 
     def reconsultar_por_oferta(self, oferta_id: str) -> dict:
         return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/por-oferta/{oferta_id}")
 
     def aceptar_oferta(
-        self, *, cotizacion_id: str, idempotency_key: str, perfil_id: str, score: str
+        self,
+        *,
+        cotizacion_id: str,
+        idempotency_key: str,
+        perfil_id: str,
+        score: str,
+        usuario_id: str | None = None,
     ) -> dict:
         return self._pedir(
             "ms-cotizacion",
             "POST",
             f"/v1/cotizaciones/{cotizacion_id}/aceptacion",
             json={"perfil_id": perfil_id, "score": score},
+            params={"usuario_id": usuario_id} if usuario_id else None,
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
@@ -151,8 +179,21 @@ class ClienteNucleo:
             params={"usuario_id": usuario_id, "limite": limite},
         )
 
-    def obtener_por_numero(self, numero: str) -> dict:
-        return self._pedir("ms-polizas", "GET", f"/v1/polizas/numero/{numero}")
+    def obtener_por_numero(self, numero: str, usuario_id: str | None = None) -> dict:
+        params = {"usuario_id": usuario_id} if usuario_id else None
+        return self._pedir("ms-polizas", "GET", f"/v1/polizas/numero/{numero}", params=params)
+
+    def listar_siniestros(self, *, usuario_id: str) -> list:
+        cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
+        return cuerpo if isinstance(cuerpo, list) else []
+
+    def crear_siniestro(self, *, usuario_id: str, poliza: str) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "POST",
+            "/v1/siniestros",
+            json={"usuario_id": usuario_id, "poliza": poliza},
+        )
 
     def otorgar_consentimiento(self, cliente_id: str) -> dict:
         return self._pedir(

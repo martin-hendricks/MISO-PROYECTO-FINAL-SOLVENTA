@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.errores import CredencialesInvalidas
+from app.domain.errores import CredencialesInvalidas, CuentaInactiva
 from app.domain.modelos import EstadoUsuario, Usuario, autenticar
 
 
@@ -78,6 +78,28 @@ def test_autenticar_usuario_inexistente_y_password_incorrecto_dan_el_mismo_error
 
     assert con_usuario.value.codigo == sin_usuario.value.codigo
     assert con_usuario.value.mensaje == sin_usuario.value.mensaje
+
+
+def test_cuenta_inactiva_no_autentica():
+    usuario = _usuario()
+    usuario.estado = EstadoUsuario.INACTIVO
+
+    with pytest.raises(CuentaInactiva):
+        autenticar(usuario, "clave-secreta-123")
+
+
+def test_perfil_se_guarda_en_la_cuenta():
+    usuario = Usuario.crear(
+        tipo_documento="CC",
+        numero_documento="1012345678",
+        email="Camila@Correo.com",
+        password_plano="clave-secreta-123",
+        nombre="Camila",
+        apellidos="Restrepo",
+    )
+    usuario.actualizar_perfil(nombre="Ana", apellidos="Lopez")
+
+    assert (usuario.nombre, usuario.apellidos, usuario.email) == ("Ana", "Lopez", "camila@correo.com")
 
 
 def test_verificar_password_con_hash_corrupto_no_lanza_excepcion():

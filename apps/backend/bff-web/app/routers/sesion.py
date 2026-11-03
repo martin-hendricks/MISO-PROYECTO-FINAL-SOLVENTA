@@ -62,11 +62,13 @@ async def ingreso(body: Ingreso, cliente_identidad: ClienteIdentidad) -> dict:
     # ms-identidad rechaza (correo inexistente o contrasena incorrecta),
     # responde 401 igual que el stub anterior.
     try:
-        await cliente_identidad.autenticar(email=body.correo, password=body.contrasena)
+        usuario = await cliente_identidad.autenticar(email=body.correo, password=body.contrasena)
     except RechazoDelNucleo as exc:
         raise HTTPException(status_code=401, detail="Credenciales invalidas") from exc
+    if usuario.get("estado") != "ACTIVO" or not usuario.get("usuario_id") or not usuario.get("email"):
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
 
-    return issue_pair(body.correo, rol)
+    return issue_pair(usuario["email"], rol, str(usuario["usuario_id"]))
 
 
 @router.post("/refresh")

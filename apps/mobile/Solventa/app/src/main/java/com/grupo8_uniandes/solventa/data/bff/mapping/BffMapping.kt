@@ -228,6 +228,7 @@ internal fun HomeDto.toHome() = BffHome(
     poliza?.let { HomePolicySlot(it.numero, it.ramo, it.estado) },
     siniestroEnCurso?.let { HomeClaimSlot(it.siniestroId, it.estado) },
     hipotecario,
+    cotizacionesPendientes.map { HomeOfferSlot(it.cotizacionId, it.ramo, it.estado) },
 )
 
 internal fun PushRegistrationDto.toRegistration() = PushRegistration(token, plataforma)

@@ -43,6 +43,7 @@ class SiniestroFila(Base):
     estado: Mapped[str]
     creado_en: Mapped[datetime]
     poliza_id: Mapped[UUID | None]
+    usuario_id: Mapped[UUID | None] = mapped_column(default=None)
 
 
 class TransicionEstadoFila(Base):
@@ -109,6 +110,7 @@ def _siniestro_a_dominio(fila: SiniestroFila, transiciones: list[TransicionEstad
         historial=historial,
         creado_en=fila.creado_en,
         poliza_id=fila.poliza_id,
+        usuario_id=fila.usuario_id,
     )
 
 
@@ -158,8 +160,12 @@ class RepositorioSiniestrosSQL:
             return None
         return await self.obtener(fila.id)
 
-    async def listar(self, limite: int) -> list[Siniestro]:
-        filas = await self._s.scalars(select(SiniestroFila).order_by(SiniestroFila.creado_en.desc()).limit(limite))
+    async def listar(self, limite: int, usuario_id: UUID | None = None) -> list[Siniestro]:
+        consulta = select(SiniestroFila)
+        if usuario_id is not None:
+            consulta = consulta.where(SiniestroFila.usuario_id == usuario_id)
+        consulta = consulta.order_by(SiniestroFila.creado_en.desc()).limit(limite)
+        filas = await self._s.scalars(consulta)
         resultado = []
         for fila in filas:
             siniestro = await self.obtener(fila.id)
@@ -189,6 +195,7 @@ class RepositorioSiniestrosSQL:
                 estado=siniestro.estado.value,
                 creado_en=siniestro.creado_en,
                 poliza_id=siniestro.poliza_id,
+                usuario_id=siniestro.usuario_id,
             )
         )
         for transicion in siniestro.historial:

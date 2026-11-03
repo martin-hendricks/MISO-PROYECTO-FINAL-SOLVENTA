@@ -50,7 +50,7 @@ POLIZA_SALIDA = {
     "id": "55555555-5555-5555-5555-555555555555",
     "numero": "POL-88219-CO",
     "oferta_id": OFERTA_ID,
-    "usuario_id": "66666666-6666-6666-6666-666666666666",
+    "usuario_id": "11111111-1111-1111-1111-111111111111",
     "inicio_vigencia": "2026-10-01T00:00:00Z",
     "fin_vigencia": "2027-10-01T00:00:00Z",
     "estado": "vigente",
@@ -342,6 +342,14 @@ def test_detalle_devuelve_la_poliza_con_quehacer(client, nucleo_polizas, nucleo_
     assert detalle["ramo"] == "Protección de dispositivo"
     assert detalle["queHacer"]
     assert detalle["coberturas"] == [{"nombre": "cobertura-base", "sumaAsegurada": 89000.0, "deducible": 0.0}]
+
+
+def test_detalle_de_otro_cliente_es_404(client, nucleo_polizas):
+    ajena = {**POLIZA_SALIDA, "usuario_id": "99999999-9999-9999-9999-999999999999"}
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=ajena
+    )
+    assert client.get("/v1/cliente/polizas/POL-88219-CO", headers=_auth(client)).status_code == 404
 
 
 def test_detalle_poliza_inexistente_es_404(client, nucleo_polizas):

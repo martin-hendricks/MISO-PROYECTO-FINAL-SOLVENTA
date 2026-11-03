@@ -95,6 +95,19 @@ class StandInHomeRepositoryTest {
         assertEquals("41ad4ca3-9c5b-461c-ac99-533b4d5e2469", panel.offerId)
     }
 
+    @Test
+    fun givenAReceivedClaim_whenLoaded_thenInicioKeepsIt() {
+        val situation = load(
+            """
+            {"ofertaVigente":null,"poliza":null,"siniestroEnCurso":{"siniestroId":"0713e99f-32d6-4ee9-a9ab-25f58c284946","estado":"recibido"},"hipotecario":null}
+            """,
+        )
+        val panel = LoadInicio { situation }.select(situation)
+
+        assertTrue(situation.claims.single().inProgress)
+        assertEquals("0713e99f-32d6-4ee9-a9ab-25f58c284946", panel.claimId)
+    }
+
     private fun load(raw: String) = StandInHomeRepository(
         home = object : HomeBffRepository {
             override suspend fun load(): StandInAnswer<BffHome> =
