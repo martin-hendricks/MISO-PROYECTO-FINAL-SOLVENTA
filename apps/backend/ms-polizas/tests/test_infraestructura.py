@@ -232,11 +232,10 @@ async def test_obtener_sin_fila_devuelve_none():
         assert await tx.polizas.obtener_por_numero("POL-2026-00000001") is None
 
 
-async def test_obtener_con_fila_de_poliza_pero_sin_su_prima_falla_explicito():
-    """Una fila de poliza sin su fila de prima correspondiente es un estado
-    corrupto -- hoy inalcanzable porque agregar() siempre inserta ambas en la
-    misma transacción, pero si ocurriera no debe fallar en silencio con un
-    AttributeError oscuro."""
+async def test_obtener_sin_fila_de_prima_la_reconstruye_desde_las_coberturas():
+    """Pólizas emitidas antes de persistir ms_polizas.prima no deben tumbar
+    el listado. La prima se reconstruye como en Poliza.emitir: suma de las
+    sumas aseguradas, periodicidad anual."""
     fila = PolizaFila(
         poliza_id=uuid4(),
         oferta_id=uuid4(),
@@ -246,10 +245,29 @@ async def test_obtener_con_fila_de_poliza_pero_sin_su_prima_falla_explicito():
         fin_vigencia=date(2026, 12, 31),
         estado="VIGENTE",
     )
+    coberturas = [
+        CoberturaFila(
+            cobertura_id=uuid4(),
+            poliza_id=fila.poliza_id,
+            nombre="aceptada",
+            suma_asegurada=Decimal("100"),
+            deducible=Decimal("0"),
+        ),
+        CoberturaFila(
+            cobertura_id=uuid4(),
+            poliza_id=fila.poliza_id,
+            nombre="robo",
+            suma_asegurada=Decimal("50"),
+            deducible=Decimal("0"),
+        ),
+    ]
 
-    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, prima=None)) as tx:
-        with pytest.raises(ValueError, match="prima"):
-            await tx.polizas.obtener(fila.poliza_id)
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, coberturas=coberturas, prima=None)) as tx:
+        encontrada = await tx.polizas.obtener(fila.poliza_id)
+
+    assert encontrada is not None
+    assert encontrada.prima.valor == Decimal("150")
+    assert encontrada.prima.periodicidad == "ANUAL"
 
 
 async def test_obtener_por_numero_mapea_la_fila_al_dominio():
