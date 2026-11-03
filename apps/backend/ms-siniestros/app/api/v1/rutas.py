@@ -1,16 +1,16 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from app.application import casos_uso
+from app.application import avisos, casos_uso
 from app.dependencies import obtener_adaptador_desembolso, obtener_uow
+from app.domain.modelos import EstadoSiniestro, ResultadoDecision, TipoSiniestro
 from app.ports.pagos import AdaptadorDesembolso
-from app.ports.persistencia import FabricaUnidadDeTrabajo
+from app.ports.persistencia import FabricaUnidadDeTrabajo, FiltroSiniestros
 from app.seguridad import LlamanteDep, alcance
 
 from .schemas import (
-    AvisoEntrada,
     CambiarEstadoEntrada,
     ErrorSalida,
     EventoParametricoEntrada,
@@ -65,31 +65,22 @@ async def listar_siniestros(
     llamante: LlamanteDep,
     limite: Annotated[int, Query(ge=1, le=100)] = 20,
     usuario_id: UUID | None = None,
+    tipo: TipoSiniestro | None = None,
+    estado: EstadoSiniestro | None = None,
+    resultado: ResultadoDecision | None = None,
+    requiere_revision: bool | None = None,
 ):
-    dueno = alcance(llamante, usuario_id)
-    return [SiniestroSalida.desde(s) for s in await casos_uso.listar_siniestros(uow, limite, dueno)]
-
-
-@router.post("/siniestros", response_model=SiniestroSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
-async def registrar_siniestro(
-    entrada: AvisoEntrada,
-    response: Response,
-    uow: Uow,
-    llamante: LlamanteDep,
-    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
-):
-    if llamante.rol != "cliente" or llamante.uid != entrada.usuario_id:
-        raise HTTPException(status_code=404, detail="No existe")
-    siniestro, creado = await casos_uso.registrar_siniestro(
-        uow,
-        usuario_id=entrada.usuario_id,
-        poliza=entrada.poliza,
-        poliza_id=entrada.poliza_id,
-        idempotency_key=idempotency_key,
+    """usuario_id = "Mis siniestros" (HU-160): un cliente solo ve lo suyo aunque no lo
+    envíe (alcance). requiere_revision/resultado = chips de la cola del operador (HU-26)."""
+    filtro = FiltroSiniestros(
+        usuario_id=alcance(llamante, usuario_id),
+        tipo=tipo,
+        estado=estado,
+        resultado=resultado,
+        requiere_revision=requiere_revision,
+        limite=limite,
     )
-    if not creado:
-        response.status_code = status.HTTP_200_OK
-    return SiniestroSalida.desde(siniestro)
+    return [SiniestroSalida.desde(s) for s in await avisos.filtrar(uow, filtro)]
 
 
 # Prefijo literal antes de "/siniestros/{siniestro_id}": mismo motivo que

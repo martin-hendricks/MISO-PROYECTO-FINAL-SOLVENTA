@@ -97,6 +97,10 @@ topologySpread:
 variablesEntorno:
   - nombre: S3_EVIDENCIAS_BUCKET
     valor: ""  # TODO: reemplazar por s3_evidencias.bucket_id (output de Terraform)
+  # HU-157: región del bucket. Sin S3_ENDPOINT_URL ni llaves: en EKS boto3 usa IRSA. El
+  # bucket ya cifra por defecto con la CMK del módulo kms (sin SSE explícito por objeto).
+  - nombre: AWS_REGION
+    valor: "us-east-1"
 
 variablesEntornoSecreto:
   - nombre: DATABASE_URL

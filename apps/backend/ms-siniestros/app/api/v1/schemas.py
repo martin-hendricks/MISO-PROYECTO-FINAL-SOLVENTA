@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -27,17 +27,39 @@ class TransicionSalida(BaseModel):
     origen: str
 
 
+class GeoSalida(BaseModel):
+    lat: Decimal
+    lng: Decimal
+    precision_m: Decimal | None = None
+
+
 class SiniestroSalida(BaseModel):
     id: UUID
-    evento_id: str
+    evento_id: str | None = None
     estado: str
     creado_en: datetime
     historial: list[TransicionSalida]
     poliza_id: UUID | None = None
+    # HU-157: campos del siniestro asistido (None en los paramétricos).
+    numero: str | None = None
+    tipo: str = "parametrico"
     usuario_id: UUID | None = None
+    canal: str | None = None
+    ramo: str | None = None
+    poliza_numero: str | None = None
+    fecha_hecho: date | None = None
+    descripcion: str | None = None
+    geo: GeoSalida | None = None
+    reserva: Decimal | None = None
+    umbral_automatico: Decimal | None = None
+    resultado: str | None = None
+    requiere_revision: bool = False
+    motivo_revision: str | None = None
 
     @classmethod
     def desde(cls, siniestro: Siniestro) -> "SiniestroSalida":
+        poliza = siniestro.poliza
+        geo = siniestro.geo
         return cls(
             id=siniestro.id,
             evento_id=siniestro.evento_id,
@@ -48,14 +70,21 @@ class SiniestroSalida(BaseModel):
                 for t in siniestro.historial
             ],
             poliza_id=siniestro.poliza_id,
+            numero=siniestro.numero,
+            tipo=siniestro.tipo.value,
             usuario_id=siniestro.usuario_id,
+            canal=siniestro.canal,
+            ramo=poliza.ramo if poliza else None,
+            poliza_numero=poliza.numero if poliza else None,
+            fecha_hecho=siniestro.fecha_hecho,
+            descripcion=siniestro.descripcion,
+            geo=GeoSalida(lat=geo.lat, lng=geo.lng, precision_m=geo.precision_m) if geo else None,
+            reserva=siniestro.reserva,
+            umbral_automatico=siniestro.umbral_automatico,
+            resultado=siniestro.resultado.value if siniestro.resultado else None,
+            requiere_revision=siniestro.requiere_revision,
+            motivo_revision=siniestro.motivo_revision,
         )
-
-
-class AvisoEntrada(BaseModel):
-    usuario_id: UUID
-    poliza: str = Field(min_length=1, max_length=80)
-    poliza_id: UUID
 
 
 class EvaluacionSalida(BaseModel):
