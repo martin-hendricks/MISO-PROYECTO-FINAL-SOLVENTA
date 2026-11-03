@@ -37,6 +37,9 @@ import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
+import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.RestoreRemoteSession
@@ -110,7 +113,11 @@ fun CustomerShell(
         return
     }
     if (openOnboarding) {
-        OnboardingHost(modifier = modifier, showStep = onboardingShowsStep)
+        if (consentGranted(LocalContext.current)) {
+            OnboardingHost(modifier = modifier, showStep = onboardingShowsStep)
+        } else {
+            ConsentHost(modifier = modifier)
+        }
         return
     }
     if (openLiveness) {
@@ -146,21 +153,19 @@ fun CustomerShell(
     val livenessDone = remember(context) {
         SharedPrefsRegistrationRepository(context.applicationContext).livenessCompleted()
     }
-    val consentOpen = remember(context) {
-        SharedPrefsConsentRepository(context.applicationContext).read().state != ConsentState.NotGranted
-    }
+    val consentGranted = remember(context) { consentGranted(context) }
     when {
         step == PostSplashStep.LanguageAndRegion && !completed -> {
             FirstLaunchLanguage(repository = repository, modifier = modifier)
+        }
+        step == PostSplashStep.LanguageAndRegion && completed && !registrationDone && !consentGranted -> {
+            ConsentHost(modifier = modifier)
         }
         step == PostSplashStep.LanguageAndRegion && completed && !registrationDone -> {
             OnboardingHost(modifier = modifier)
         }
         step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !livenessDone -> {
             LivenessHost(modifier = modifier)
-        }
-        step == PostSplashStep.LanguageAndRegion && completed && registrationDone && livenessDone && !consentOpen && !resumeProfile -> {
-            ConsentHost(modifier = modifier)
         }
         step == PostSplashStep.Login ||
             (registrationDone && !SharedPrefsSessionRepository(context.applicationContext).isOpen()) -> {
@@ -220,7 +225,7 @@ private fun FirstLaunchLanguage(
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
         if (state.effect == RegionEffect.ContinueToOnboarding) {
-            activity?.openOnboarding(showStep = true)
+            activity?.openConsent()
         }
     }
     IdiomaRegionScreen(
@@ -244,12 +249,29 @@ private fun OnboardingHost(
     val session = remember {
         GlobalContext.get().get<MobileSessionRepository>()
     }
-    val viewModel = remember(context, region, session) {
+    val signup = remember {
+        GlobalContext.get().get<SignupRepository>()
+    }
+    val viewModel = remember(context, region, session, signup) {
         OnboardingViewModel(
             RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
             region,
             openRemoteSession = { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
+            },
+            registerRemote = { draft, habeasData ->
+                habeasData && signup.register(
+                    SignupRecord(
+                        nombre = draft.givenName.trim(),
+                        apellidos = draft.surnames.trim(),
+                        documento = draft.documentNumber.trim(),
+                        correo = draft.email.trim(),
+                        pruebaDeVida = Liveness.NO,
+                        habeasData = habeasData,
+                        contrasena = draft.password.trim(),
+                        tipoDocumento = draft.documentType.trim(),
+                    ),
+                ) is StandInAnswer.Ready
             },
         )
     }
@@ -274,6 +296,7 @@ private fun OnboardingHost(
             onPasswordConfirm = viewModel::onPasswordConfirm,
             onPhotoAttached = viewModel::attachPhoto,
             onPhotoDeclined = viewModel::photoDeclined,
+            onHabeasData = viewModel::onHabeasData,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
             showStep = showStep,
@@ -418,11 +441,14 @@ private fun LoginHost(
             negativeButtonText = host.getString(R.string.action_secondary),
         )
     }
-    val unlockEnabled = registration.biometricPromptOffered()
+    val unlockEnabled = registration.biometricUnlockEnabled()
     val deviceCanAuthenticate = biometricPrompt?.available() == true
     val offerBiometric = unlockEnabled && deviceCanAuthenticate && !state.biometricFallback
-    LaunchedEffect(state.effect) {
-        if (state.effect == LoginEffect.OpenHome || state.effect == LoginEffect.ConfirmBiometric) {
+    val confirmBiometric = state.effect == LoginEffect.ConfirmBiometric && deviceCanAuthenticate
+    LaunchedEffect(state.effect, deviceCanAuthenticate) {
+        val openHome = state.effect == LoginEffect.OpenHome ||
+            (state.effect == LoginEffect.ConfirmBiometric && !deviceCanAuthenticate)
+        if (openHome) {
             activity?.openHomeAfterOnboarding()
             viewModel.consumeEffect()
         }
@@ -437,7 +463,7 @@ private fun LoginHost(
         onBiometric = { biometricPrompt?.authenticate(viewModel::onDeviceUnlock) },
         biometricEnabled = true,
         biometricFallback = !offerBiometric,
-        confirmBiometric = false,
+        confirmBiometric = confirmBiometric,
         onAcceptBiometric = viewModel::acceptBiometric,
         onDeclineBiometric = viewModel::declineBiometric,
         onBack = { onLeaveToAccount?.invoke() },
@@ -445,8 +471,10 @@ private fun LoginHost(
         onCreateAccount = {
             if (onLeaveToAccount != null) {
                 onLeaveToAccount()
-            } else {
+            } else if (consentGranted(context)) {
                 activity?.openOnboarding()
+            } else {
+                activity?.openConsent()
             }
         },
         modifier = modifier,
@@ -474,8 +502,8 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        if (state.effect == LivenessEffect.OpenConsent) {
-            activity?.openConsent()
+        if (state.effect == LivenessEffect.OpenHome) {
+            activity?.openHomeAfterOnboarding()
         }
     }
     if (state.effect == LivenessEffect.OpenLogin) {
@@ -521,8 +549,12 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        if (state.effect == ConsentEffect.OpenHome) {
-            activity?.openHomeAfterOnboarding()
+        if (state.effect == ConsentEffect.OpenAccount) {
+            activity?.openOnboarding(showStep = true)
+        }
+        if (state.effect == ConsentEffect.OpenLanguage) {
+            SharedPrefsRegionRepository(context.applicationContext).reopenFirstLaunch()
+            activity?.recreate()
         }
     }
     ConsentScreen(
@@ -530,18 +562,19 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
         confirmEnabled = state.confirmEnabled,
         onSwitch = viewModel::onSwitch,
         onConfirm = viewModel::confirm,
-        onBack = {
-            viewModel.back()
-            activity?.openOnboarding(showStep = true)
-        },
+        onBack = viewModel::back,
         modifier = modifier,
     )
 }
 
 internal fun Activity.openConsent() {
     intent.putExtra(MainActivity.EXTRA_OPEN_CONSENT, true)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_ONBOARDING)
     recreate()
 }
+
+private fun consentGranted(context: android.content.Context): Boolean =
+    SharedPrefsConsentRepository(context.applicationContext).read().state == ConsentState.Granted
 
 internal fun Activity.openHomeAfterOnboarding() {
     SharedPrefsSessionRepository(this).open()

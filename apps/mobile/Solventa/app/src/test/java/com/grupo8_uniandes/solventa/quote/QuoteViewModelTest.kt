@@ -36,7 +36,8 @@ class QuoteViewModelTest {
     fun givenPublishedAnswers_whenCotizar_thenReadyCarriesTheQuoteId() {
         val viewModel = QuoteViewModel(RequestFirmOffer(scripted(StandInAnswer.Ready(sample()))), "COT-1042")
         viewModel.onValue("2400000")
-        viewModel.onBrand("Pixel")
+        viewModel.onBrand("apple")
+        viewModel.onModel("iPhone 15")
         viewModel.onAge(false)
 
         viewModel.cotizar()
@@ -90,6 +91,7 @@ class QuoteViewModelTest {
         assertEquals(QuoteLine.Travel, viewModel.state.value.line)
         assertEquals("", viewModel.state.value.value)
         assertEquals("", viewModel.state.value.brand)
+        assertEquals("", viewModel.state.value.model)
         assertNull(viewModel.state.value.olderThan12Months)
         assertFalse(viewModel.state.value.menuOpen)
     }
@@ -107,6 +109,8 @@ class QuoteViewModelTest {
 
                     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
                         StandInAnswer.Failed
+
+                    override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
                 },
             ),
         )
@@ -135,7 +139,8 @@ class QuoteViewModelTest {
     private fun filled(repository: OfferRepository, contextId: String = "") : QuoteViewModel {
         return QuoteViewModel(RequestFirmOffer(repository), contextId).apply {
             onValue("2400000")
-            onBrand("Pixel")
+            onBrand("apple")
+            onModel("iPhone 15")
             onAge(false)
         }
     }
@@ -173,6 +178,7 @@ class QuoteViewModelTest {
             QuoteInput.Duration to { state: QuoteUiState -> state.duration },
             QuoteInput.Value to { state: QuoteUiState -> state.value },
             QuoteInput.Brand to { state: QuoteUiState -> state.brand },
+            QuoteInput.Model to { state: QuoteUiState -> state.model },
         )
         typed.forEach { (input, read) ->
             viewModel.onText(input, input.name)
@@ -209,11 +215,15 @@ class QuoteViewModelTest {
         override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = gate.await()
 
         override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = StandInAnswer.Failed
+
+        override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
     }
 
     private fun scripted(answer: StandInAnswer<FirmOffer>) = object : OfferRepository {
         override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> = answer
 
         override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> = answer
+
+        override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
     }
 }

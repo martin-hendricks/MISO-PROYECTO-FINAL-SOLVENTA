@@ -14,6 +14,8 @@ data class SignupRecord(
     val correo: String,
     val pruebaDeVida: Liveness,
     val habeasData: Boolean,
+    val contrasena: String = "",
+    val tipoDocumento: String = "",
 )
 
 data class ConsentRevocation(

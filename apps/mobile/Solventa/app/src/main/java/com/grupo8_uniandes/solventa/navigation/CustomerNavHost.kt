@@ -95,7 +95,7 @@ fun CustomerNavHost(
                 state = state,
                 onAccept = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
-                onDecline = { navController.popBackStack() },
+                onDecline = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
         }
         composable<CotizacionRoute> { entry ->
@@ -117,6 +117,7 @@ fun CustomerNavHost(
                 onLine = viewModel::onLine,
                 onValueChange = viewModel::onValue,
                 onBrandChange = viewModel::onBrand,
+                onModelChange = viewModel::onModel,
                 onAge = viewModel::onAge,
                 onText = viewModel::onText,
                 onCotizar = viewModel::cotizar,
@@ -263,6 +264,10 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
 }
 
 fun NavHostController.openDestination(destination: Destination) {
+    if (destination == Destination.Polizas) {
+        reopenPolizas()
+        return
+    }
     val current = currentBackStackEntry?.toSolventaRoute()
     val currentParent = current?.let { selectedDestination(it) }
     val currentMode = current?.let { shellMode(it, signedIn = true) }
@@ -277,6 +282,17 @@ fun NavHostController.openDestination(destination: Destination) {
         }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+private fun NavHostController.reopenPolizas() {
+    popBackStack(PolizasRoute, inclusive = true)
+    navigate(PolizasRoute) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = false
     }
 }
 

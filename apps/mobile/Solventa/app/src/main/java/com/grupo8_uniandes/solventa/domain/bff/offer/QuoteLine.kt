@@ -12,6 +12,7 @@ enum class QuoteLine(val ramo: String) {
 enum class QuoteInput {
     Value,
     Brand,
+    Model,
     Age,
     SumInsured,
     AgeYears,
@@ -29,6 +30,7 @@ enum class QuoteInput {
 data class QuoteAnswers(
     val value: String = "",
     val brand: String = "",
+    val model: String = "",
     val olderThan12Months: Boolean? = null,
     val sumInsured: String = "",
     val ageYears: String = "",

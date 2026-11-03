@@ -49,6 +49,8 @@ class RegisterAccountTest {
         assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(email = "camila", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(password = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = "qwerty1", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = "a".repeat(73), documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(email = " ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo), Region.Colombia))

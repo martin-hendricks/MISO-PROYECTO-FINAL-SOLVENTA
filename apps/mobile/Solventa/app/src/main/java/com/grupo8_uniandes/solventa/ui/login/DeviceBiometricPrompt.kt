@@ -21,10 +21,12 @@ class DeviceBiometricPrompt(
             return
         }
         val executor = ContextCompat.getMainExecutor(fragmentActivity)
-        val prompt = BiometricPrompt(
+        lateinit var prompt: BiometricPrompt
+        val callback = DeviceUnlockCallback(onResult) { prompt.cancelAuthentication() }
+        prompt = BiometricPrompt(
             fragmentActivity,
             executor,
-            DeviceUnlockCallback(onResult),
+            callback,
         )
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
@@ -49,25 +51,27 @@ class DeviceBiometricPrompt(
 
 internal class DeviceUnlockCallback(
     private val onResult: (DeviceUnlock) -> Unit,
+    private val onDismiss: () -> Unit = {},
 ) : BiometricPrompt.AuthenticationCallback() {
     private var completed = false
 
     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-        if (completed) return
-        completed = true
-        onResult(DeviceUnlock.Accepted)
+        finish(DeviceUnlock.Accepted)
     }
 
     override fun onAuthenticationFailed() {
-        if (completed) return
-        completed = true
-        onResult(DeviceUnlock.Dismissed)
+        finish(DeviceUnlock.Dismissed)
     }
 
     override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+        finish(DeviceUnlock.Dismissed)
+    }
+
+    private fun finish(result: DeviceUnlock) {
         if (completed) return
         completed = true
-        onResult(DeviceUnlock.Dismissed)
+        if (result != DeviceUnlock.Accepted) onDismiss()
+        onResult(result)
     }
 }
 

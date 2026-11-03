@@ -239,6 +239,29 @@ class RepositorioSolicitudesSQL:
         filas = (await self._s.execute(consulta)).all()
         return [(_a_dominio(s), _oferta_a_dominio(o)) for s, o in filas]
 
+    async def listar_por_usuario(
+        self,
+        usuario_id: UUID,
+        vigentes_desde: datetime,
+        desplazamiento: int,
+        limite: int,
+    ) -> list[tuple[SolicitudCotizacion, Oferta]]:
+        # ix_solicitud_usuario (db/01) acota por usuario; el desempate por id estabiliza la página.
+        consulta = (
+            select(SolicitudFila, OfertaFila)
+            .join(OfertaFila, OfertaFila.solicitud_id == SolicitudFila.solicitud_id)
+            .where(
+                SolicitudFila.usuario_id == usuario_id,
+                SolicitudFila.estado == EstadoSolicitud.COTIZADA.value,
+                OfertaFila.vence_en > vigentes_desde,
+            )
+            .order_by(SolicitudFila.creada_en.desc(), SolicitudFila.solicitud_id.desc())
+            .offset(desplazamiento)
+            .limit(limite)
+        )
+        filas = (await self._s.execute(consulta)).all()
+        return [(_a_dominio(s), _oferta_a_dominio(o)) for s, o in filas]
+
 
 class RepositorioReglasRatingSQL:
     def __init__(self, sesion: AsyncSession) -> None:

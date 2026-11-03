@@ -247,6 +247,26 @@ async def listar_cotizaciones_asesor(
     return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
 
 
+async def listar_cotizaciones_usuario(
+    uow: FabricaUnidadDeTrabajo,
+    usuario_id: UUID,
+    pagina: int,
+    tamano: int,
+) -> PaginaPendientes:
+    """Cotizaciones del usuario que siguen en cotizada y con oferta vigente.
+    Se pide una fila de más para saber si hay otra página sin un COUNT."""
+    ahora = datetime.now(UTC)
+    async with uow() as tx:
+        filas = await tx.solicitudes.listar_por_usuario(
+            usuario_id,
+            ahora,
+            (pagina - 1) * tamano,
+            tamano + 1,
+        )
+    items = [PendienteAsesor(s, ConsultaOferta.desde(o, ahora)) for s, o in filas[:tamano]]
+    return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
+
+
 @dataclass(frozen=True)
 class Aceptacion:
     solicitud: SolicitudCotizacion
