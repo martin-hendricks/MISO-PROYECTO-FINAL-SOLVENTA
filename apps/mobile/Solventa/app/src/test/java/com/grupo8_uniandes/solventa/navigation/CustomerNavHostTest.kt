@@ -16,14 +16,18 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.koin.core.context.GlobalContext
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -68,6 +72,18 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenOrigination_whenTheOfferIsAccepted_thenTheExistingIssuanceRouteIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
+        assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
+    }
+
+    @Test
     fun givenAQuote_whenIssued_thenHomeAndThePolicyStayReachable() {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, HomeUiState(
@@ -83,6 +99,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").performClick()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
@@ -91,6 +108,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
         rule.onNodeWithTag("action_accept_offer").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         nav.popBackStack()
@@ -109,6 +127,31 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Perfil)
         rule.waitForIdle()
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenPolizas_whenTheTabIsOpenedAgain_thenTheWalletLoadsAgain() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder)
+        val wallet = GlobalContext.get().get<IssuanceRepository>() as MockIssuanceRepository
+        val nav = holder[0]!!
+
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        val afterFirst = wallet.walletLoads
+        assertTrue(afterFirst > 0)
+
+        nav.openDestination(Destination.Inicio)
+        rule.waitForIdle()
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        val afterReturn = wallet.walletLoads
+        assertTrue(afterReturn > afterFirst)
+
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        assertTrue(wallet.walletLoads > afterReturn)
     }
 
     @Test

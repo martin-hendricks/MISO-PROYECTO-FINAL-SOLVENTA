@@ -58,6 +58,7 @@ class ProfileViewModelTest {
                 override fun stage(region: Region) = read()
                 override fun confirmFirstLaunch() = read()
                 override fun confirmFromProfile() = read()
+                override fun reopenFirstLaunch() = read()
             },
             permissions = { emptyList<PermissionRow>() },
             consent = object : ConsentRepository {

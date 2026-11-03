@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -28,6 +29,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
+import com.grupo8_uniandes.solventa.data.consent.KeyConsentState
 import com.grupo8_uniandes.solventa.data.region.KeyAppliedRegion
 import com.grupo8_uniandes.solventa.data.region.KeyFirstLaunchCompleted
 import com.grupo8_uniandes.solventa.data.region.RegionPrefsFile
@@ -67,10 +69,15 @@ class OnboardingTest {
     fun givenRegionContinuar_whenAccountOpens_thenEmptyFormWithoutPermissionPrompt() {
         openAccount()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Tratamiento de datos").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText(
+            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
+        ).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("field_habeas_data").performScrollTo().assertIsOff()
         listOf(
             "field_nombre",
             "field_apellidos",
@@ -105,7 +112,7 @@ class OnboardingTest {
     }
 
     @Test
-    fun givenValidFormAndPhoto_whenContinuar_thenConsent() {
+    fun givenValidFormAndPhoto_whenContinuar_thenHome() {
         openAccount()
         fill(email = "camila@correo.com")
         OnboardingPhotoInjector.next = byteArrayOf(1, 2, 3)
@@ -116,10 +123,8 @@ class OnboardingTest {
         rule.waitForTag("screen_prueba_de_vida")
         rule.onNodeWithText("Prueba de vida").assertIsDisplayed()
         rule.onNodeWithTag("action_liveness_continuar").performScrollTo().performClick()
-        rule.waitForTag("screen_consentimiento")
-        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
+        rule.waitForTag("screen_inicio")
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-        rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_login").assertCountEquals(0)
         assertEquals(true, registrationCompleted())
     }
@@ -150,7 +155,7 @@ class OnboardingTest {
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
         assertEquals(false, registrationCompleted())
-        assertEquals(false, consentRecorded())
+        assertEquals(true, consentRecorded())
     }
 
     @Test
@@ -161,7 +166,7 @@ class OnboardingTest {
             rule.waitForTag("screen_onboarding")
             listOf(
                 "Crea tu cuenta",
-                "Paso 2 de 4 · Crea tu cuenta",
+                "Paso 3 de 4 · Crea tu cuenta",
                 "Foto del documento",
                 "Una sola cara, sin flash",
                 "Confirmar contraseña",
@@ -174,6 +179,9 @@ class OnboardingTest {
     private fun openAccount() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
+        rule.waitForTag("screen_consentimiento")
+        rule.onNodeWithTag("solventa_switch").performClick()
+        rule.onNodeWithTag("action_aceptar_continuar").performClick()
         rule.waitForTag("screen_onboarding")
     }
 
@@ -186,6 +194,7 @@ class OnboardingTest {
         rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
         rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
         rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_habeas_data").performScrollTo().performClick()
     }
 
     private fun confirmRegion(tag: String) {
@@ -194,6 +203,10 @@ class OnboardingTest {
             .edit()
             .putString(KeyAppliedRegion, tag)
             .putBoolean(KeyFirstLaunchCompleted, true)
+            .commit()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KeyConsentState, "granted")
             .commit()
         clearRegistration()
     }

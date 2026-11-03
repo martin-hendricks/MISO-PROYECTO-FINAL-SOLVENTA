@@ -20,6 +20,7 @@ class LoadInicio(
         val claim = keepLatest(situation.claims.filter { it.inProgress }) { it.openedAt }
         return HomePanel(
             offerId = offer?.id,
+            offerRamo = offer?.ramo?.ifBlank { null },
             policyId = policy?.id,
             claimId = claim?.id,
             vidaCrediticia = situation.origination.present,

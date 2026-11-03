@@ -83,7 +83,13 @@
     <string name="field_credit_value">Valor del crédito (%1$s)</string>
     <string name="field_credit_term">Plazo (años)</string>
     <string name="field_device_value">Valor del dispositivo (%1$s)</string>
-    <string name="field_brand_model">Marca / modelo</string>
+    <string name="field_brand">Marca</string>
+    <string name="field_brand_placeholder">Selecciona una marca</string>
+    <string name="field_model">Modelo</string>
+    <string name="brand_samsung">Samsung</string>
+    <string name="brand_apple">Apple</string>
+    <string name="brand_xiaomi">Xiaomi</string>
+    <string name="brand_motorola">Motorola</string>
     <string name="field_older_than_12">¿El equipo tiene más de 12 meses?</string>
     <string name="answer_yes">Sí</string>
     <string name="answer_no">No</string>
@@ -103,6 +109,8 @@
     <string name="policy_device_guidance">Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.</string>
     <string name="home_vida_crediticia">Vida Crediticia</string>
     <string name="home_section_offer">Cotización por aceptar</string>
+    <string name="home_offer_id">Id cotización</string>
+    <string name="home_offer_ramo">Ramo</string>
     <string name="home_section_policies">Tus pólizas</string>
     <string name="home_section_claims">Tus siniestros</string>
     <string name="home_section_mortgage">Vida hipotecario</string>
@@ -197,8 +205,9 @@
     <string name="action_continuar_region">Continuar</string>
     <string name="action_listo">Listo</string>
     <string name="onboarding_wordmark">Solventa</string>
-    <string name="onboarding_step">Paso 2 de 4 · Crea tu cuenta</string>
-    <string name="liveness_step">Paso 3 de 4 · Prueba de vida</string>
+    <string name="consent_step">Paso 2 de 4 · Consentimiento de datos</string>
+    <string name="onboarding_step">Paso 3 de 4 · Crea tu cuenta</string>
+    <string name="liveness_step">Paso 4 de 4 · Prueba de vida</string>
     <string name="liveness_title">Prueba de vida</string>
     <string name="liveness_body">Una selfie confirma que eres tú. Si la verificación simulada no pasa, sigues con tu documento.</string>
     <string name="onboarding_title">Crea tu cuenta</string>
@@ -216,7 +225,9 @@
     <string name="onboarding_tipo">Tipo</string>
     <string name="onboarding_numero">Número de documento</string>
     <string name="onboarding_contrasena">Contraseña</string>
-    <string name="onboarding_contrasena_hint">Mínimo 8 caracteres</string>
+    <string name="onboarding_contrasena_requisitos">Requisitos de la contraseña</string>
+    <string name="onboarding_contrasena_min">Al menos 8 caracteres</string>
+    <string name="onboarding_contrasena_max">Máximo 72 caracteres</string>
     <string name="onboarding_confirmar">Confirmar contraseña</string>
     <string name="onboarding_confirmar_hint">Misma que usarás para ingresar</string>
     <string name="password_show">Mostrar contraseña</string>

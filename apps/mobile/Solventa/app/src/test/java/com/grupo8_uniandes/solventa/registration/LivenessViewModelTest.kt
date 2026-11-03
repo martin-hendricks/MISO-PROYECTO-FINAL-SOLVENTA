@@ -35,7 +35,7 @@ class LivenessViewModelTest {
 
         viewModel.continuar()
 
-        assertEquals(LivenessEffect.OpenConsent, viewModel.state.value.effect)
+        assertEquals(LivenessEffect.OpenHome, viewModel.state.value.effect)
         assertTrue(repository.liveness)
         assertEquals("Ana", repository.saved?.givenName)
         assertEquals("Restrepo", repository.saved?.surnames)
@@ -50,7 +50,7 @@ class LivenessViewModelTest {
 
         viewModel.continuar()
 
-        assertEquals(LivenessEffect.OpenConsent, viewModel.state.value.effect)
+        assertEquals(LivenessEffect.OpenHome, viewModel.state.value.effect)
         assertTrue(repository.liveness)
         assertEquals(null, repository.saved)
     }

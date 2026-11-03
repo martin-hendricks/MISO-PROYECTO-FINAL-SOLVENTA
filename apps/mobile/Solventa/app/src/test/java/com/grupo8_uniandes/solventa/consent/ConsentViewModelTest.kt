@@ -37,19 +37,19 @@ class ConsentViewModelTest {
         viewModel.confirm()
         viewModel.confirm()
 
-        assertEquals(ConsentEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(ConsentEffect.OpenAccount, viewModel.state.value.effect)
         assertEquals(1, change.grants)
         assertEquals(0, change.revokes)
     }
 
     @Test
-    fun givenAltaSwitchOn_whenBack_thenAccountWithoutGrant() {
+    fun givenAltaSwitchOn_whenBack_thenLanguageWithoutGrant() {
         val viewModel = alta()
         viewModel.onSwitch(true)
 
         viewModel.back()
 
-        assertEquals(ConsentEffect.OpenAccount, viewModel.state.value.effect)
+        assertEquals(ConsentEffect.OpenLanguage, viewModel.state.value.effect)
         assertEquals(0, change.grants)
         assertEquals(0, change.revokes)
     }
@@ -109,7 +109,7 @@ class ConsentViewModelTest {
         viewModel.onSwitch(false)
         viewModel.back()
 
-        assertEquals(ConsentEffect.OpenHome, viewModel.state.value.effect)
+        assertEquals(ConsentEffect.OpenAccount, viewModel.state.value.effect)
         assertTrue(viewModel.state.value.switchOn)
         assertEquals(1, change.grants)
     }

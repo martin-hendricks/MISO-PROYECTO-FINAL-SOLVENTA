@@ -20,9 +20,9 @@ data class HomeClaimSlot(
 )
 
 data class BffHome(
-    val ofertaVigente: HomeOfferSlot,
-    val poliza: HomePolicySlot,
-    val siniestroEnCurso: HomeClaimSlot,
+    val ofertaVigente: HomeOfferSlot?,
+    val poliza: HomePolicySlot?,
+    val siniestroEnCurso: HomeClaimSlot?,
     val hipotecario: String?,
 )
 

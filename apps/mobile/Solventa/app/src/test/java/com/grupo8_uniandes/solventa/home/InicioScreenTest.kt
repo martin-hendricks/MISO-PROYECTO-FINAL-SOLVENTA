@@ -53,10 +53,22 @@ class InicioScreenTest {
 
     @Test
     fun givenThreeSlots_whenInicioShows_thenIdsUseTheCards() {
-        show(HomePanel(offerId = "Q-1", policyId = "POL-1", claimId = "CLM-1"))
+        show(
+            HomePanel(
+                offerId = "Q-1",
+                offerRamo = "Protección de dispositivo",
+                policyId = "POL-1",
+                claimId = "CLM-1",
+            ),
+        )
         rule.onNodeWithText("COTIZACIÓN POR ACEPTAR").assertIsDisplayed()
         rule.onNodeWithTag("home_offer").assertIsDisplayed()
+        rule.onNodeWithText("Id cotización").assertIsDisplayed()
+        rule.onNodeWithTag("home_offer_id", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("Q-1").assertIsDisplayed()
+        rule.onNodeWithText("Ramo").assertIsDisplayed()
+        rule.onNodeWithTag("home_offer_ramo", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Protección de dispositivo").assertIsDisplayed()
         rule.onNodeWithText("TUS PÓLIZAS").assertIsDisplayed()
         rule.onNodeWithTag("home_policy").assertIsDisplayed()
         rule.onNodeWithText("Detalle de póliza").assertIsDisplayed()
@@ -154,6 +166,20 @@ class InicioScreenTest {
         rule.onNodeWithText("No se pudo cargar la información.").assertIsDisplayed()
         rule.onNodeWithTag("home_offer").assertIsDisplayed()
         rule.onNodeWithTag("home_policy").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenOrigination_whenVidaUsesTheDefaultCallback_thenInicioStays() {
+        rule.setContent {
+            SolventaTheme {
+                InicioScreen(
+                    state = HomeUiState(panel = HomePanel(vidaCrediticia = true)),
+                    onNewQuote = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
     }
 
     @Test
