@@ -25,6 +25,7 @@ from .schemas_cotizaciones import (
     CotizacionSalida,
     ErrorSalida,
     PaginaCotizacionesAsesorSalida,
+    PaginaCotizacionesSalida,
     SolicitarCotizacionEntrada,
 )
 
@@ -89,6 +90,22 @@ async def listar_cotizaciones_asesor(
         uow, asesor_id, _estados(estados), incluir_vencidas, pagina, tamano
     )
     return PaginaCotizacionesAsesorSalida.desde(resultado)
+
+
+@router.get(
+    "/por-usuario/{usuario_id}",
+    response_model=PaginaCotizacionesSalida,
+    responses={422: {"model": ErrorSalida}},
+)
+async def listar_cotizaciones_usuario(
+    usuario_id: UUID,
+    uow: Uow,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+    tamano: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """Cotizaciones del usuario que siguen en estado cotizada y con oferta vigente."""
+    resultado = await casos_uso.listar_cotizaciones_usuario(uow, usuario_id, pagina, tamano)
+    return PaginaCotizacionesSalida.desde(resultado)
 
 
 @router.get("/{cotizacion_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}})

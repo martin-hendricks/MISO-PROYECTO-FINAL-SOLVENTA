@@ -57,7 +57,10 @@ def test_hipoteca_avisos_inicio_push_y_asistencia(client):
     ).json()
     assert ready["degradada"] is False and ready["prima"] == 64000
     assert client.get("/cliente/avisos", headers=headers).json()["avisos"]
-    assert client.get("/cliente/inicio", headers=headers).json()["hipotecario"] is None
+    inicio = client.get("/cliente/inicio", headers=headers).json()
+    assert inicio["hipotecario"] is None
+    assert inicio["ofertaVigente"]["cotizacionId"] == "COT-1042"
+    assert inicio["cotizacionesPendientes"] == [inicio["ofertaVigente"]]
     token = client.post(
         "/cliente/avisos/token",
         headers=headers,

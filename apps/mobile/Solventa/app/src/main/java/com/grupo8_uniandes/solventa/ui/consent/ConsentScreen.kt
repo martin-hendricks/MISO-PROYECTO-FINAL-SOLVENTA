@@ -47,6 +47,11 @@ fun ConsentScreen(
                 .padding(SolventaSpacing.gutter),
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
         ) {
+            Text(
+                text = stringResource(R.string.consent_step),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             ConsentBody(
                 switchOn = switchOn,
                 confirmEnabled = confirmEnabled,

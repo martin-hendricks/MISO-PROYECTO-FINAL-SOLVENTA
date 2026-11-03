@@ -25,9 +25,11 @@ class RequestFirmOffer(
     private fun riskOf(line: QuoteLine, answers: QuoteAnswers): LineRisk? = when (line) {
         QuoteLine.Device -> {
             val value = positive(answers.value, QuoteInput.Value) ?: return null
-            val brand = text(answers.brand, QuoteInput.Brand) ?: return null
+            val brand = text(answers.brand, QuoteInput.Brand)?.takeIf { it in deviceBrands }
+                ?: return gap(QuoteInput.Brand)
+            val model = text(answers.model, QuoteInput.Model) ?: return null
             val older = answers.olderThan12Months ?: return gap(QuoteInput.Age)
-            DeviceRisk(value, brand, older)
+            DeviceRisk(value, brand, older, model)
         }
         QuoteLine.Life -> {
             val sum = positive(answers.sumInsured, QuoteInput.SumInsured) ?: return null

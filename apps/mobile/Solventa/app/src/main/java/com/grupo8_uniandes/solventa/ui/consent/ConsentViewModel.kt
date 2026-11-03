@@ -14,9 +14,9 @@ enum class ConsentSurface {
 }
 
 sealed interface ConsentEffect {
-    data object OpenHome : ConsentEffect
-
     data object OpenAccount : ConsentEffect
+
+    data object OpenLanguage : ConsentEffect
 
     data object ReturnToHub : ConsentEffect
 }
@@ -53,7 +53,7 @@ class ConsentViewModel(
         if (current.switchOn) change.grant() else change.revoke()
         val resulting = if (current.switchOn) ConsentState.Granted else ConsentState.Revoked
         val effect = if (surface == ConsentSurface.Alta) {
-            ConsentEffect.OpenHome
+            ConsentEffect.OpenAccount
         } else {
             ConsentEffect.ReturnToHub
         }
@@ -62,7 +62,7 @@ class ConsentViewModel(
 
     fun back() {
         if (_state.value.effect != null) return
-        _state.value = _state.value.copy(effect = ConsentEffect.OpenAccount)
+        _state.value = _state.value.copy(effect = ConsentEffect.OpenLanguage)
     }
 
     fun close() {

@@ -41,7 +41,9 @@ class CotizacionScreenTest {
         rule.onNodeWithTag("quote_ramo_note").assertIsDisplayed()
         rule.onNodeWithText("Valor del dispositivo (COP)").assertIsDisplayed()
         rule.onNodeWithText("$48.900").assertIsDisplayed()
-        rule.onNodeWithText("Marca / modelo").assertIsDisplayed()
+        rule.onNodeWithText("Marca").assertIsDisplayed()
+        rule.onNodeWithText("Selecciona una marca").assertIsDisplayed()
+        rule.onNodeWithText("Modelo").assertIsDisplayed()
         rule.onNodeWithText("¿El equipo tiene más de 12 meses?").assertIsDisplayed()
         rule.onNodeWithTag("answer_yes").assertIsDisplayed()
         rule.onNodeWithTag("answer_no").assertIsDisplayed()
@@ -94,9 +96,32 @@ class CotizacionScreenTest {
         rule.onNodeWithTag("quote_line_hint")
             .assertTextContains("No pidas valor ni marca de un dispositivo.", substring = true)
         rule.onAllNodesWithText("Valor del dispositivo (COP)").assertCountEquals(0)
-        rule.onAllNodesWithText("Marca / modelo").assertCountEquals(0)
+        rule.onAllNodesWithText("Marca").assertCountEquals(0)
+        rule.onAllNodesWithText("Modelo").assertCountEquals(0)
+        rule.onAllNodesWithTag("field_brand").assertCountEquals(0)
+        rule.onAllNodesWithTag("field_model").assertCountEquals(0)
         rule.onAllNodesWithText("¿El equipo tiene más de 12 meses?").assertCountEquals(0)
         rule.onAllNodesWithTag("answer_yes").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenTheBrandMenu_whenOpened_thenTheCatalogBrandsAreListed() {
+        var chosen = ""
+        show(QuoteUiState(brand = "apple"), onBrandChange = { chosen = it })
+
+        rule.onNodeWithText("Apple").assertIsDisplayed()
+        rule.onNodeWithTag("field_brand").performClick()
+        rule.onNodeWithTag("field_brand_menu").assertIsDisplayed()
+        rule.onNodeWithTag("brand_option_samsung").assertIsDisplayed()
+        rule.onNodeWithTag("brand_option_apple").assertIsDisplayed()
+        rule.onNodeWithTag("brand_option_xiaomi").assertIsDisplayed()
+        rule.onNodeWithText("Samsung").assertIsDisplayed()
+        rule.onNodeWithText("Xiaomi").assertIsDisplayed()
+        rule.onNodeWithText("Motorola").assertIsDisplayed()
+        rule.onNodeWithTag("brand_option_xiaomi").performClick()
+
+        assertEquals("xiaomi", chosen)
+        rule.onAllNodesWithTag("field_brand_menu").assertCountEquals(0)
     }
 
     @Test
@@ -118,6 +143,13 @@ class CotizacionScreenTest {
         rule.onAllNodesWithText("Completa este dato").assertCountEquals(1)
         rule.onNodeWithTag("quote_progress").assertIsDisplayed()
         rule.onNodeWithTag("quote_failed").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenModelGap_whenShown_thenTheModelMessageIsVisible() {
+        show(QuoteUiState(gap = QuoteInput.Model))
+        rule.onNodeWithTag("field_model").assertIsDisplayed()
+        rule.onAllNodesWithText("Completa este dato").assertCountEquals(1)
     }
 
     @Test
@@ -166,6 +198,7 @@ class CotizacionScreenTest {
         state: QuoteUiState,
         onMenu: (Boolean) -> Unit = {},
         onLine: (QuoteLine) -> Unit = {},
+        onBrandChange: (String) -> Unit = {},
         modifier: Modifier = Modifier,
     ) {
         rule.setContent {
@@ -175,7 +208,8 @@ class CotizacionScreenTest {
                     onMenu = onMenu,
                     onLine = onLine,
                     onValueChange = {},
-                    onBrandChange = {},
+                    onBrandChange = onBrandChange,
+                    onModelChange = {},
                     onAge = {},
                     onText = { _, _ -> },
                     onCotizar = {},

@@ -13,6 +13,8 @@ data class Quote(
     val consultable: Boolean,
     /** Compared only among consultable quotes. The latest one is the current offer. */
     val becameCurrentAt: Instant,
+    /** Line of business shown next to the quote id. Empty when the read did not include one. */
+    val ramo: String = "",
 )
 
 /**
@@ -66,6 +68,7 @@ data class HomeSituation(
  */
 data class HomePanel(
     val offerId: String? = null,
+    val offerRamo: String? = null,
     val policyId: String? = null,
     val claimId: String? = null,
     val vidaCrediticia: Boolean = false,
