@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
@@ -62,6 +63,12 @@ interface MobileBffApi {
 
     @GET("cliente/cotizaciones/{cotizacionId}")
     suspend fun requote(@Path("cotizacionId") cotizacionId: String): OfferOutDto
+
+    @POST("cliente/cotizaciones/{cotizacionId}/aceptacion")
+    suspend fun acceptQuote(
+        @Header("Idempotency-Key") key: String,
+        @Path("cotizacionId") cotizacionId: String,
+    ): AcceptedQuoteDto
 
     @POST("cliente/polizas")
     suspend fun accept(

@@ -314,12 +314,14 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun givenPasswordWithoutBiometric_whenDeclined_thenHomeOpensWithoutUnlock() {
+    fun givenPasswordWithoutBiometric_whenDeclined_thenRefusalIsStoredAndHomeOpens() {
         var enabled = false
+        var declined = false
         val viewModel = LoginViewModel(
             signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
             biometricEnabled = { enabled },
             enableBiometric = { enabled = true },
+            disableBiometric = { declined = true },
         )
         viewModel.onEmail("camila@correo.com")
         viewModel.onPassword("secret")
@@ -328,9 +330,24 @@ class LoginViewModelTest {
         viewModel.declineBiometric()
 
         assertFalse(enabled)
+        assertTrue(declined)
         assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
         viewModel.consumeEffect()
         assertNull(viewModel.state.value.effect)
+    }
+
+    @Test
+    fun givenStoredRefusal_whenPasswordSucceeds_thenTheQuestionIsAskedAgain() {
+        val viewModel = LoginViewModel(
+            signIn = ScriptedSignIn(mutableListOf(SignInResult.SignedIn)),
+            biometricEnabled = { false },
+        )
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.ingresar()
+
+        assertEquals(LoginEffect.ConfirmBiometric, viewModel.state.value.effect)
     }
 
     @Test
@@ -385,6 +402,33 @@ class LoginViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun givenNoLocalAccount_whenIngresar_thenRemoteIngresoStillRuns() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var called: BiometricLogin? = null
+            val viewModel = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.Rejected)),
+                openRemoteSession = { email, password ->
+                    called = BiometricLogin(email, password)
+                    true
+                },
+                biometricEnabled = { true },
+            )
+            viewModel.onEmail("ana@correo.com")
+            viewModel.onPassword("secret")
+
+            viewModel.ingresar()
+
+            assertEquals(BiometricLogin("ana@correo.com", "secret"), called)
+            assertEquals(LoginEffect.OpenHome, viewModel.state.value.effect)
+            assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun givenARemoteSession_whenItStaysClosedOrThrows_thenTheUnavailableFailureStays() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         try {
@@ -407,9 +451,39 @@ class LoginViewModelTest {
             thrown.ingresar()
             assertEquals(LoginFailure.Unavailable, thrown.state.value.failure)
             assertNull(thrown.state.value.effect)
+
+            val rejected = LoginViewModel(
+                signIn = ScriptedSignIn(mutableListOf(SignInResult.Rejected)),
+                openRemoteSession = { _, _ -> false },
+            )
+            rejected.onEmail("camila@correo.com")
+            rejected.onPassword("secret")
+            rejected.ingresar()
+            assertEquals(LoginFailure.Rejected, rejected.state.value.failure)
+            assertNull(rejected.state.value.effect)
         } finally {
             Dispatchers.resetMain()
         }
+    }
+
+    @Test
+    fun givenIncomplete_whenRemoteIsConfigured_thenRemoteIsNotCalled() {
+        var called = false
+        val viewModel = LoginViewModel(
+            signIn = ScriptedSignIn(mutableListOf(SignInResult.Incomplete)),
+            openRemoteSession = { _, _ ->
+                called = true
+                true
+            },
+        )
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onPassword("secret")
+
+        viewModel.ingresar()
+
+        assertFalse(called)
+        assertEquals(LoginFailure.None, viewModel.state.value.failure)
+        assertNull(viewModel.state.value.effect)
     }
 
     @Test

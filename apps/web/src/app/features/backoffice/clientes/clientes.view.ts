@@ -14,7 +14,7 @@ const KPIS = ['active', 'web', 'android', 'pendingConsent'] as const;
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, NoPermission, RouterLink],
   templateUrl: './clientes.view.html',
-  styleUrls: ['../backoffice.page.css', './clientes.view.css'],
+  styleUrls: ['../backoffice.page.css', '../backoffice.table.css', './clientes.view.css'],
 })
 export class ClientesView {
   private readonly session = inject(SessionService);

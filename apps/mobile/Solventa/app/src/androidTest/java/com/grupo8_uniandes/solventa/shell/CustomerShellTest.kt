@@ -131,6 +131,7 @@ class CustomerShellTest {
     @Test
     fun givenIssuedPolicy_whenContinueToDetail_thenPolizasIsSelected() {
         rule.onNodeWithText("Aceptar oferta").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()

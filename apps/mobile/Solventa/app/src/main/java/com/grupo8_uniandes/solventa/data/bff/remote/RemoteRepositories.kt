@@ -14,6 +14,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toHome
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotices
+import com.grupo8_uniandes.solventa.data.bff.mapping.toAccepted
 import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
@@ -51,6 +52,7 @@ import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -165,6 +167,14 @@ class RemoteOfferRepository(
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         gate.call { api.requote(cotizacionId).toOffer() }
+
+    override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> {
+        val answer = gate.call { api.acceptQuote(newIdempotencyKey(), cotizacionId).toAccepted() }
+        return when (answer) {
+            is StandInAnswer.Ready -> if (answer.value.estado == "aceptada") answer else StandInAnswer.Failed
+            else -> answer
+        }
+    }
 }
 
 class RemoteIssuanceRepository(

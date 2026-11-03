@@ -24,6 +24,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -73,15 +74,22 @@ class OnboardingScreenTest {
 
         rule.onNodeWithText("Solventa").assertIsDisplayed()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.").assertIsDisplayed()
         rule.onNodeWithText("Como aparece en tu documento").assertIsDisplayed()
         rule.onNodeWithText("El mismo que usarás para ingresar").assertIsDisplayed()
-        rule.onNodeWithText("Mínimo 8 caracteres").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Requisitos de la contraseña").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Al menos 8 caracteres").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Máximo 72 caracteres").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Misma que usarás para ingresar").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Tratamiento de datos").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText(
+            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
+        ).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("field_habeas_data").performScrollTo().assertIsOff()
         rule.onNodeWithTag("action_continuar").assertIsNotEnabled()
         rule.onNodeWithTag("action_ya_tengo_cuenta").assertIsDisplayed()
         rule.onNodeWithTag("preview_documento", useUnmergedTree = true).assertDoesNotExist()
@@ -92,7 +100,7 @@ class OnboardingScreenTest {
         show(OnboardingUiState(), showStep = false)
 
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertDoesNotExist()
+        rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertDoesNotExist()
     }
 
     @Test
@@ -125,6 +133,7 @@ class OnboardingScreenTest {
                     onPasswordConfirm = { passwordConfirm = it },
                     onPhotoAttached = {},
                     onPhotoDeclined = {},
+                    onHabeasData = {},
                     onContinue = {},
                     onExistingAccount = {},
                 )
@@ -177,6 +186,7 @@ class OnboardingScreenTest {
                         hasPhoto = true
                     },
                     onPhotoDeclined = { hasPhoto = false },
+                    onHabeasData = {},
                     onContinue = {},
                     onExistingAccount = {},
                 )
@@ -390,6 +400,7 @@ class OnboardingScreenTest {
         onPasswordConfirm: (String) -> Unit = {},
         onPhotoAttached: (ByteArray) -> Unit = {},
         onPhotoDeclined: () -> Unit = {},
+        onHabeasData: (Boolean) -> Unit = {},
         onContinue: () -> Unit = {},
         onExistingAccount: () -> Unit = {},
         showStep: Boolean = true,
@@ -409,6 +420,7 @@ class OnboardingScreenTest {
                         onPasswordConfirm = onPasswordConfirm,
                         onPhotoAttached = onPhotoAttached,
                         onPhotoDeclined = onPhotoDeclined,
+                        onHabeasData = onHabeasData,
                         onContinue = onContinue,
                         onExistingAccount = onExistingAccount,
                         showStep = showStep,

@@ -50,7 +50,7 @@ class OfferViewModel(
     }
 
     private fun FirmOffer.toUi(region: Region): OfferUiState {
-        val inForce = estado == IN_FORCE
+        val inForce = estado == IN_FORCE || estado == QUOTED
         val expired = estado == EXPIRED
         return OfferUiState(
             phase = OfferPhase.Ready,
@@ -65,6 +65,7 @@ class OfferViewModel(
 
     private companion object {
         const val IN_FORCE = "oferta_vigente"
+        const val QUOTED = "cotizada"
         const val EXPIRED = "oferta_vencida"
     }
 }

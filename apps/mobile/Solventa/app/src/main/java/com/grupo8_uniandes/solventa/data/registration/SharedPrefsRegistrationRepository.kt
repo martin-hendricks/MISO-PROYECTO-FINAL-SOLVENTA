@@ -54,7 +54,11 @@ class SharedPrefsRegistrationRepository(
         !prefs.contains(KeyBiometricUnlock) || prefs.getBoolean(KeyBiometricUnlock, false)
 
     override fun setBiometricUnlock(enabled: Boolean) {
-        prefs.edit().putBoolean(KeyBiometricUnlock, enabled).commit()
+        val editor = prefs.edit().putBoolean(KeyBiometricUnlock, enabled)
+        if (!enabled) {
+            editor.remove(KeyBiometricEmail).remove(KeyBiometricPassword)
+        }
+        editor.commit()
     }
 
     override fun enableBiometricUnlock() = setBiometricUnlock(true)
@@ -65,15 +69,10 @@ class SharedPrefsRegistrationRepository(
         prefs.edit().putBoolean(KeyLivenessCompleted, true).commit()
     }
 
-    override fun biometricLogin(): BiometricLogin? {
-        val stored = loginPair(
-            prefs.getString(KeyBiometricEmail, null),
-            prefs.getString(KeyBiometricPassword, null),
-        )
-        if (stored != null) return stored
-        val account = read() ?: return null
-        return loginPair(account.email, account.password)
-    }
+    override fun biometricLogin(): BiometricLogin? = loginPair(
+        prefs.getString(KeyBiometricEmail, null),
+        prefs.getString(KeyBiometricPassword, null),
+    )
 
     override fun rememberBiometricLogin(email: String, password: String) {
         val pair = loginPair(email, password) ?: return
@@ -84,14 +83,14 @@ class SharedPrefsRegistrationRepository(
     }
 
     override fun update(registration: Registration) {
-        writeAccount(registration, keepBiometricChoice = true)
+        writeAccount(registration)
     }
 
     override fun save(registration: Registration) {
-        writeAccount(registration, keepBiometricChoice = false)
+        writeAccount(registration)
     }
 
-    private fun writeAccount(registration: Registration, keepBiometricChoice: Boolean) {
+    private fun writeAccount(registration: Registration) {
         val directory = File(filesDir, "registration")
         directory.mkdirs()
         File(directory, "document.jpg").writeBytes(registration.documentPhoto)
@@ -102,12 +101,7 @@ class SharedPrefsRegistrationRepository(
             .putString(KeyDocumentType, registration.documentType)
             .putString(KeyDocumentNumber, registration.documentNumber)
             .putString(KeyPassword, registration.password)
-            .putString(KeyBiometricEmail, registration.email.trim())
-            .putString(KeyBiometricPassword, registration.password)
             .putBoolean(KeyRegistrationCompleted, true)
-        if (!keepBiometricChoice) {
-            editor.putBoolean(KeyBiometricUnlock, true)
-        }
         editor.commit()
     }
 

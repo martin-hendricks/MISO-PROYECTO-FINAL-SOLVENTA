@@ -68,6 +68,20 @@ class ConsultPoliciesTest {
             detailMeta(PolicyDetail("POL-1", "otro ramo", "resto", "vigente", "2027-03-12", "")),
         )
         assertEquals("otro", detailMeta(PolicyDetail("POL-1", "otro ramo", "resto", "otro", "2027-03-12", "")))
+        assertEquals(
+            "Por vencer · en 7 días",
+            detailMeta(PolicyDetail("POL-88219-CO", "Protección de dispositivo", "Robo y Pantalla", "por_vencer", "2027-03-12", "")),
+        )
+    }
+
+    @Test
+    fun givenALifeDetailForThatNumber_whenOpened_thenTheDeviceParagraphIsDropped() = runBlocking {
+        val life = StandInAnswer.Ready(
+            PolicyDetail("POL-11002-CO", "Microseguro de vida", "amparo de vida", "por_vencer", "2026-11-06", DEVICE_GUIDANCE),
+        )
+        val opened = ConsultPolicies(scripted(detail = life), InMemoryPolicyStore()).open("POL-11002-CO").detail!!
+        assertEquals("", opened.queHacer)
+        assertEquals("amparo de vida", opened.resumen)
     }
 
     @Test

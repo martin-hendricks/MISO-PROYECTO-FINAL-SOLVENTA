@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo
 from app.dependencies import secret
 from app.main import app
+from app.routers.cliente import _contexto
 from tests.conftest import customer_token, desk_token
 
 AVISO = {
@@ -61,6 +62,15 @@ class DobleNucleo:
     def autenticar(self, *, correo, contrasena):
         return self._llamar("autenticar", correo=correo, contrasena=contrasena)
 
+    def crear_usuario(self, *, tipo_documento, numero_documento, email, password):
+        return self._llamar(
+            "crear_usuario",
+            tipo_documento=tipo_documento,
+            numero_documento=numero_documento,
+            email=email,
+            password=password,
+        )
+
     def cotizar(self, **kwargs):
         return self._llamar("cotizar", **kwargs)
 
@@ -78,6 +88,9 @@ class DobleNucleo:
 
     def emitir(self, **kwargs):
         return self._llamar("emitir", **kwargs)
+
+    def listar_cotizaciones_usuario(self, *, usuario_id, tamano):
+        return self._llamar("listar_cotizaciones_usuario", usuario_id=usuario_id, tamano=tamano)
 
     def listar_polizas(self, **kwargs):
         return self._llamar("listar_polizas", **kwargs)
@@ -143,6 +156,25 @@ def test_ingreso_v1_autentica_y_emite_cliente(client, doble):
     ]
 
 
+def test_ingreso_bff_movil_prefix_autentica_igual_que_v1(client, doble):
+    # /bff-movil/v1/*: el ALB distingue bff-movil de bff-web por este prefijo
+    # propio (ver infra/terraform/environments/minimo/variables.tf), ya que
+    # ambos BFF comparten los mismos paths /v1/* y el ALB solo enruta por
+    # path. El pod responde al path completo tal cual, sin que el ALB lo
+    # recorte -- este test confirma que ese tercer router registrado existe
+    # y se comporta igual que /v1/sesion/ingreso.
+    response = client.post(
+        "/bff-movil/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto"},
+    )
+    assert response.status_code == 200
+    payload = jwt.decode(response.json()["accessToken"], secret(), algorithms=["HS256"])
+    assert payload["rol"] == "cliente"
+    assert doble.llamadas == [
+        {"metodo": "autenticar", "correo": "camila@correo.com", "contrasena": "secreto"}
+    ]
+
+
 def test_ingreso_v1_credenciales_invalidas(client, doble):
     doble.respuestas["autenticar"] = HTTPException(status_code=401, detail="no")
     response = client.post(
@@ -179,6 +211,19 @@ def test_salida_v1_no_llama_al_nucleo(client, doble):
     response = client.post("/v1/sesion/salida", headers=_auth(client))
     assert response.json() == {"estado": "aceptada"}
     assert doble.llamadas == []
+
+
+def test_cotizacion_bff_movil_prefix_llama_cotizar(client, doble):
+    doble.respuestas["cotizar"] = COTIZACION
+    response = client.post(
+        "/bff-movil/v1/cliente/cotizaciones",
+        headers=_auth(client),
+        json={"ramo": "Protección de dispositivo", "datosRiesgo": {"valor": 1}},
+    )
+    assert response.status_code == 200
+    assert response.json()["cotizacionId"] == "COT-9"
+    assert doble.llamadas[0]["metodo"] == "cotizar"
+    assert doble.llamadas[0]["producto"] == "proteccion-dispositivo"
 
 
 def test_cotizacion_v1_llama_cotizar_sin_rol(client, doble):
@@ -226,6 +271,91 @@ def test_reconsulta_v1(client, doble):
     assert doble.llamadas[-1] == {"metodo": "reconsultar", "cotizacion_id": "COT-9"}
     doble.respuestas["reconsultar"] = {"estado": "oferta_vigente"}
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
+
+
+def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {**ACEPTADA, "moneda": "COP"}
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = COTIZACION
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {
+        "cotizacionId": "COT-9",
+        "estado": "aceptada",
+        "prima": "10.00",
+        "moneda": "COP",
+        "poliza": {
+            "numero": "POL-9",
+            "ramo": "vida",
+            "estado": "vigente",
+            "venceEn": "2027-01-01",
+        },
+    }
+    assert _nombres(doble) == ["aceptar_oferta", "cobrar_prima", "emitir", "reconsultar"]
+    assert doble.llamadas[0] == {
+        "metodo": "aceptar_oferta",
+        "cotizacion_id": "COT-9",
+        "idempotency_key": "clave-aceptar-01",
+        "perfil_id": _contexto("camila@correo.com")["perfil_id"],
+        "score": "0.5000",
+    }
+    assert doble.llamadas[1]["usuario_id"] == _contexto("camila@correo.com")["usuario_id"]
+    assert doble.llamadas[1]["token_medio_pago"] == "stub-medio-pago"
+    assert doble.llamadas[2]["token_pago_confirmado"] == "pago-1"
+
+    doble.llamadas.clear()
+    prefijo = client.post("/bff-movil/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert prefijo.status_code == 200
+    assert prefijo.json()["estado"] == "aceptada"
+    assert prefijo.json()["poliza"]["numero"] == "POL-9"
+    assert doble.llamadas[0]["idempotency_key"] == "clave-aceptar-01"
+
+
+def test_aceptar_cotizacion_rechazada_no_emite(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA", "motivo": "fuera de rango"}
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "rechazada", "motivo": "fuera de rango"}
+    assert _nombres(doble) == ["aceptar_oferta"]
+
+
+def test_aceptar_cotizacion_sin_version_es_404(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    respuesta = client.post("/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert respuesta.status_code == 404
+    assert doble.llamadas == []
+
+
+def test_aceptar_cotizacion_clave_invalida_es_422(client, doble):
+    token = _auth(client)
+    sin_clave = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=token)
+    corta = client.post(
+        "/v1/cliente/cotizaciones/COT-9/aceptacion",
+        headers={**token, "Idempotency-Key": "corta"},
+    )
+    assert sin_clave.status_code == 422
+    assert corta.status_code == 422
+    assert doble.llamadas == []
+
+
+def test_aceptar_cotizacion_incompleta_es_502(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = {"cotizacion_id": "COT-9", "estado": "aceptada", "prima": "10.00"}
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    assert respuesta.status_code == 502
+    assert respuesta.json()["detail"] == DETALLE_INCOMPLETA
+    assert _nombres(doble) == ["aceptar_oferta"]
+    doble.llamadas.clear()
+    doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA"}
+    assert client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers).status_code == 502
+    assert _nombres(doble) == ["aceptar_oferta"]
 
 
 def test_aceptar_emitida_y_rechazada(client, doble):
@@ -367,13 +497,52 @@ def test_detalle_v1(client, doble):
     assert doble.llamadas[0] == {"metodo": "obtener_por_numero", "numero": "POL-9"}
 
 
-def test_pagos_e_inicio_siguen_en_muestra(client, doble):
+def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     headers = _auth(client)
     pagos = client.get("/v1/cliente/pagos-automaticos", headers=headers).json()
     assert pagos["siniestroId"] == "SIN-220"
-    inicio = client.get("/v1/cliente/inicio", headers=headers).json()
-    assert inicio["hipotecario"] is None
     assert doble.llamadas == []
+
+    doble.respuestas["listar_cotizaciones_usuario"] = {
+        "items": [
+            {"cotizacion_id": "COT-9", "producto": "proteccion-dispositivo"},
+            {"cotizacion_id": "COT-8", "producto": "soat-motocicleta"},
+        ]
+    }
+    doble.respuestas["listar_polizas"] = [POLIZA]
+    doble.respuestas["reconsultar_por_oferta"] = {"producto": "vida"}
+    inicio = client.get("/v1/cliente/inicio", headers=headers).json()
+    pendiente = {"cotizacionId": "COT-9", "ramo": "Protección de dispositivo", "estado": "oferta_vigente"}
+    assert inicio["hipotecario"] is None
+    assert inicio["cotizacionesPendientes"] == [
+        pendiente,
+        {"cotizacionId": "COT-8", "ramo": "soat-motocicleta", "estado": "oferta_vigente"},
+    ]
+    assert inicio["ofertaVigente"] == pendiente
+    assert inicio["siniestroEnCurso"]["siniestroId"] == "SIN-441"
+    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "vida", "estado": "vigente"}
+    assert doble.llamadas[0] == {
+        "metodo": "listar_cotizaciones_usuario",
+        "usuario_id": _contexto("camila@correo.com")["usuario_id"],
+        "tamano": 20,
+    }
+    assert doble.llamadas[1]["metodo"] == "listar_polizas"
+    assert doble.llamadas[1]["limite"] == 20
+
+    doble.llamadas.clear()
+    doble.respuestas["listar_cotizaciones_usuario"] = {"items": []}
+    doble.respuestas["listar_polizas"] = []
+    vacio = client.get("/bff-movil/v1/cliente/inicio", headers=headers).json()
+    assert vacio["poliza"] is None
+    assert vacio["ofertaVigente"] is None
+    assert vacio["cotizacionesPendientes"] == []
+    assert doble.llamadas[0]["metodo"] == "listar_cotizaciones_usuario"
+    assert doble.llamadas[1]["metodo"] == "listar_polizas"
+
+    doble.respuestas["listar_cotizaciones_usuario"] = {}
+    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
+    doble.respuestas["listar_cotizaciones_usuario"] = {"items": [{"cotizacion_id": "COT-9"}]}
+    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
 
 
 def test_hipoteca_v1(client, doble):
@@ -468,10 +637,76 @@ def test_rol_no_cliente_v1_es_403(client, doble):
     assert doble.llamadas == []
 
 
+def test_registro_v1_crea_el_usuario_sin_eco_de_contrasena(client, doble):
+    response = client.post(
+        "/v1/registro",
+        json={
+            **ALTA,
+            "pruebaDeVida": "no",
+            "habeasData": False,
+            "contrasena": "secreto12",
+            "tipoDocumento": "CC",
+        },
+    )
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert "contrasena" not in cuerpo
+    assert cuerpo["pruebaDeVida"] == "no"
+    assert cuerpo["habeasData"] is False
+    assert cuerpo["tipoDocumento"] == "CC"
+    assert doble.llamadas == [
+        {
+            "metodo": "crear_usuario",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+            "email": "camila@correo.com",
+            "password": "secreto12",
+        }
+    ]
+
+
+def test_registro_sin_version_con_contrasena_crea_el_usuario(client, doble):
+    response = client.post(
+        "/registro",
+        json={**ALTA, "contrasena": "secreto12", "tipoDocumento": "CC"},
+    )
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert "contrasena" not in cuerpo
+    assert cuerpo["tipoDocumento"] == "CC"
+    assert doble.llamadas == [
+        {
+            "metodo": "crear_usuario",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+            "email": "camila@correo.com",
+            "password": "secreto12",
+        }
+    ]
+
+
+def test_registro_sin_version_sin_contrasena_no_llama_al_nucleo(client, doble):
+    response = client.post("/registro", json=ALTA)
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert cuerpo["pruebaDeVida"] == "ok"
+    assert "contrasena" not in cuerpo
+    assert "tipoDocumento" not in cuerpo
+    assert doble.llamadas == []
+
+
+def test_registro_v1_cuenta_existente_es_409(client, doble):
+    doble.respuestas["crear_usuario"] = HTTPException(status_code=409, detail="duplicada")
+    response = client.post(
+        "/v1/registro",
+        json={**ALTA, "contrasena": "secreto12", "tipoDocumento": "CC"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "La cuenta ya existe"
+
+
 def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
     headers = _auth(client)
-    alta = client.post("/v1/registro", json=ALTA)
-    assert alta.json()["pruebaDeVida"] == "ok"
     assert client.post("/v1/registro/consentimiento", json={"habeasData": False}).json() == {
         "habeasData": False
     }
