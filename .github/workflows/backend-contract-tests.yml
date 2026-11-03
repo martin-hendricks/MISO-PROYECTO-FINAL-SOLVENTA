@@ -1,0 +1,62 @@
+name: Backend contract tests
+run-name: "[Contracts] ${{ github.event.pull_request.title || github.ref_name }}"
+
+# HU-88 / PI-01: a core change that breaks a consumer contract fails here, before it
+# reaches the channel. Unlike the unit workflow, every contract runs on any backend
+# change: the service that breaks a pact is not the one that owns it.
+# The job "backend-pact" must be a required status check in the rulesets of
+# develop, main and release/**.
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-contract-tests.yml"
+  push:
+    branches:
+      - develop
+      - main
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend-contract-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pact:
+    name: backend-pact
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12.7-slim-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify consumer contracts
+        env:
+          SOLVENTA_TOKEN_SECRET: test-secret
+        run: python apps/backend/scripts/verify_contracts.py
+
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-junit-reports
+          path: apps/backend/**/junit-contract.xml
+          if-no-files-found: warn
+
+      - name: Upload pacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacts
+          path: apps/backend/*/pacts/*.json
+          if-no-files-found: warn

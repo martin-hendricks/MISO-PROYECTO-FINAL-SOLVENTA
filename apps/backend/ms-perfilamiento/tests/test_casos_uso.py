@@ -6,6 +6,7 @@ from app.application import casos_uso
 from app.domain.errores import ConsentimientoNoOtorgado, NoEncontrado
 from app.domain.modelos import Oferta, Perfil
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO
+from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
 
 from .dobles import AdaptadorConfigurable
 
@@ -173,3 +174,27 @@ async def test_oferta_degradada_sigue_siendo_valida_y_no_cancela_originacion(
 
     assert resultado.oferta.precio > 0
     assert resultado.oferta.degradado is True
+
+
+async def test_doble_de_open_finance_con_demora_forzada_degrada(uow, config):
+    """HU-88: la demora configurada en el doble basta para ejercitar la degradación de HU-56."""
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    lento = AdaptadorOpenFinanceStub(latencia_ms=config.timeout_open_finance_ms * 4)
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow, lento, AdaptadorOpenDataStub(), config, "clave-doble-lento", "cliente-1"
+    )
+
+    degradados = {a.origen.value for a in resultado.oferta.snapshot_atributos if a.degradado}
+    assert degradados == {"open_finance"}
+
+
+async def test_doble_de_open_data_con_fallo_forzado_degrada(uow, config):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow, AdaptadorOpenFinanceStub(), AdaptadorOpenDataStub(fallar=True), config, "clave-doble-falla", "cliente-1"
+    )
+
+    degradados = {a.origen.value for a in resultado.oferta.snapshot_atributos if a.degradado}
+    assert degradados == {"open_data"}
