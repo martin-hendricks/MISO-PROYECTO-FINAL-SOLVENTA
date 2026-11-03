@@ -28,8 +28,10 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         motor = crear_motor(config)
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
-        app.state.adaptador_open_finance = AdaptadorOpenFinanceStub()
-        app.state.adaptador_open_data = AdaptadorOpenDataStub()
+        app.state.adaptador_open_finance = AdaptadorOpenFinanceStub(
+            config.doble_open_finance_latencia_ms, config.doble_open_finance_fallar
+        )
+        app.state.adaptador_open_data = AdaptadorOpenDataStub(config.doble_open_data_latencia_ms, config.doble_open_data_fallar)
         app.state.config = config
         yield
         await motor.dispose()

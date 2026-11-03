@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from app.domain.errores import CuentaDuplicada
+from app.domain.errores import CuentaDuplicada, IdentidadNoVerificada
 from app.domain.modelos import Usuario, autenticar
+from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import CuentaYaExiste, FabricaUnidadDeTrabajo
 
 
 async def crear_usuario(
     uow: FabricaUnidadDeTrabajo,
+    kyc: VerificadorKYC,
     *,
     tipo_documento: str,
     numero_documento: str,
@@ -17,13 +19,18 @@ async def crear_usuario(
     una optimización para responder rápido en el caso común; la garantía
     real de unicidad vive en los índices únicos de la base (uq_usuario_email,
     uq_usuario_documento) y se traduce aquí vía CuentaYaExiste, por si dos
-    altas concurrentes pasan la verificación previa a la vez."""
+    altas concurrentes pasan la verificación previa a la vez.
+
+    El KYC (HU-88) se consulta antes de abrir la transacción, para no retenerla
+    mientras responde el proveedor."""
     usuario = Usuario.crear(
         tipo_documento=tipo_documento,
         numero_documento=numero_documento,
         email=email,
         password_plano=password_plano,
     )
+    if not await kyc.verificar(usuario.tipo_documento, usuario.numero_documento):
+        raise IdentidadNoVerificada()
 
     async with uow() as tx:
         if await tx.usuarios.obtener_por_email(usuario.email) is not None:

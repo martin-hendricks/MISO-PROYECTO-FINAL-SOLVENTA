@@ -50,7 +50,11 @@ async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
             password=body.contrasena,
         )
     except RechazoDelNucleo as exc:
-        raise HTTPException(status_code=409, detail="La cuenta ya existe") from exc
+        if exc.status == 409:
+            raise HTTPException(status_code=409, detail="La cuenta ya existe") from exc
+        # Cualquier otro rechazo (p. ej. KYC, HU-88: 422 identidad_no_verificada) conserva
+        # su estado y mensaje: no es una cuenta duplicada.
+        raise HTTPException(status_code=exc.status, detail=exc.mensaje) from exc
 
     return {
         **issue_pair(body.correo, "cliente"),
