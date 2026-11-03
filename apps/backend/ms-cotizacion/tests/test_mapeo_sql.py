@@ -54,6 +54,28 @@ def test_solicitud_fila_a_dominio_ida_y_vuelta():
     assert reconstruida == solicitud
 
 
+def test_solicitud_fila_con_asesor_ida_y_vuelta():
+    asesor_id = uuid4()
+    fila = SolicitudFila(
+        solicitud_id=uuid4(),
+        idempotency_key="clave-0002",
+        usuario_id=uuid4(),
+        socio_id=uuid4(),
+        consentimiento_id=uuid4(),
+        producto="soat-motocicleta",
+        canal="back-office",
+        datos_riesgo={},
+        estado=EstadoSolicitud.COTIZADA.value,
+        creada_en=datetime.now(UTC),
+        asesor_id=asesor_id,
+        cliente_ref="CC-123",
+    )
+
+    reconstruida = _a_dominio(fila)
+
+    assert (reconstruida.asesor_id, reconstruida.cliente_ref) == (asesor_id, "CC-123")
+
+
 def test_regla_rating_fila_formula_json_ida_y_vuelta():
     regla = ReglaRating(
         id=uuid4(),

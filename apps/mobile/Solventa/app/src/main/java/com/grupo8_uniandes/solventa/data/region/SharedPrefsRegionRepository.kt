@@ -50,6 +50,12 @@ class SharedPrefsRegionRepository(
         return next
     }
 
+    override fun reopenFirstLaunch(): RegionChoice {
+        val next = read().copy(firstLaunchCompleted = false)
+        write(next)
+        return next
+    }
+
     private fun write(choice: RegionChoice) {
         prefs.edit()
             .putString(KeyAppliedRegion, choice.appliedRegion.languageTag)

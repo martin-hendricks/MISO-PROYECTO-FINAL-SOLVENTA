@@ -28,7 +28,7 @@ class RequestFirmOfferTest {
         val ready = (attempt as QuoteAttempt.Answer).answer as StandInAnswer.Ready
 
         assertEquals("Protección de dispositivo", repository.lastRamo)
-        assertEquals(DeviceRisk(2400000, "Pixel", false), repository.lastRisk)
+        assertEquals(DeviceRisk(2400000, "apple", false, "iPhone 15"), repository.lastRisk)
         assertEquals(89000L, ready.value.prima)
         assertEquals("COT-1042", ready.value.cotizacionId)
         assertEquals("COP", ready.value.moneda)
@@ -109,6 +109,8 @@ class RequestFirmOfferTest {
         assertEquals(QuoteInput.Value, gap(request, device(value = "-5")))
         assertEquals(QuoteInput.Value, gap(request, device(value = "12.5")))
         assertEquals(QuoteInput.Brand, gap(request, device(brand = "  ")))
+        assertEquals(QuoteInput.Brand, gap(request, device(brand = "nokia")))
+        assertEquals(QuoteInput.Model, gap(request, device(model = " ")))
         assertEquals(QuoteInput.Age, gap(request, device(older = null)))
         assertEquals(
             QuoteInput.Destination,
@@ -134,9 +136,10 @@ class RequestFirmOfferTest {
 
     private fun device(
         value: String = "2400000",
-        brand: String = "Pixel",
+        brand: String = "apple",
+        model: String = "iPhone 15",
         older: Boolean? = false,
-    ) = QuoteAnswers(value = value, brand = brand, olderThan12Months = older)
+    ) = QuoteAnswers(value = value, brand = brand, model = model, olderThan12Months = older)
 
     private fun gap(
         request: RequestFirmOffer,
@@ -173,4 +176,6 @@ private class RecordingOfferRepository : OfferRepository {
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         quote("", DeviceRisk(1, "x", false))
+
+    override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
 }

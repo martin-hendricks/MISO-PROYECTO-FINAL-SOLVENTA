@@ -2,6 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.exceptions import RequestValidationError
 
 from app.application import casos_uso
 from app.dependencies import (
@@ -21,6 +22,7 @@ from .schemas import (
     EmitirPolizaEntrada,
     ErrorSalida,
     ModificarCoberturasEntrada,
+    OfertasConPolizaSalida,
     PolizaSalida,
     RenovarPolizaEntrada,
 )
@@ -35,6 +37,7 @@ Cobros = Annotated[VerificadorCobro, Depends(obtener_cobros)]
 Firma = Annotated[FirmaElectronica, Depends(obtener_firma)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}, 503: {"model": ErrorSalida}}
 ERRORES_CICLO_VIDA = {**ERRORES, 409: {"model": ErrorSalida}}
+MAX_OFERTAS_POR_CONSULTA = 100
 
 
 @router.post("", response_model=PolizaSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
@@ -83,6 +86,21 @@ async def consultar_firma(oferta_id: UUID, uow: Uow):
     return ConstanciaFirmaSalida.desde(await casos_uso.consultar_firma(uow, oferta_id))
 
 
+# HU-163: bff-web cruza las cotizaciones aceptadas del asesor con las pólizas ya
+# emitidas. Prefijo literal antes de "/{poliza_id}", igual que "/numero/".
+@router.get("/por-ofertas", response_model=OfertasConPolizaSalida, responses=ERRORES)
+async def ofertas_con_poliza(uow: UowLectura, oferta_ids: Annotated[str, Query(min_length=1)]):
+    try:
+        ids = [UUID(valor.strip()) for valor in oferta_ids.split(",")]
+    except ValueError as exc:
+        raise RequestValidationError([{"loc": ("query", "oferta_ids"), "msg": "UUID inválido", "type": "uuid_parsing"}]) from exc
+    if len(ids) > MAX_OFERTAS_POR_CONSULTA:
+        raise RequestValidationError(
+            [{"loc": ("query", "oferta_ids"), "msg": f"Máximo {MAX_OFERTAS_POR_CONSULTA} ids", "type": "too_long"}]
+        )
+    return OfertasConPolizaSalida(oferta_ids_con_poliza=await casos_uso.ofertas_con_poliza(uow, ids))
+
+
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)
 async def consultar(poliza_id: UUID, uow: UowLectura):
     return PolizaSalida.desde(await casos_uso.consultar_poliza(uow, poliza_id))
@@ -102,5 +120,5 @@ async def modificar_coberturas(poliza_id: UUID, entrada: ModificarCoberturasEntr
 
 @router.post("/{poliza_id}/cancelacion", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
 async def cancelar(poliza_id: UUID, entrada: CancelarPolizaEntrada, uow: Uow):
-    poliza = await casos_uso.cancelar_poliza(uow, poliza_id, entrada.motivo)
+    poliza = await casos_uso.cancelar_poliza(uow, poliza_id, entrada.motivo, entrada.operador)
     return PolizaSalida.desde(poliza)

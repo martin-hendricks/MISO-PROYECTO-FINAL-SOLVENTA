@@ -97,6 +97,10 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
+  # Sin esta URL el default es http://localhost:8081, que dentro del cluster
+  # no apunta a nada: la llamada termina en ConnectError.
+  - nombre: MS_SUSCRIPCION_URL
+    valor: "http://ms-suscripcion.solventa.svc.cluster.local:8080"
   - nombre: MSK_BOOTSTRAP_BROKERS
     valor: ""  # TODO: reemplazar por msk.bootstrap_brokers_sasl_iam (output de Terraform)
   - nombre: MSK_TOPIC

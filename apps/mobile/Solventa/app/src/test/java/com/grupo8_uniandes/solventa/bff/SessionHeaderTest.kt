@@ -9,9 +9,12 @@ import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.data.bff.remote.BffGate
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteOfferRepository
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteSessionRepository
+import com.grupo8_uniandes.solventa.data.bff.remote.RemoteSignupRepository
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -60,6 +63,26 @@ class SessionHeaderTest {
         assertNull(refresh.getHeader("Authorization"))
         assertFalse(refresh.body.readUtf8().contains("rol"))
         assertEquals("jwt", tokens.read()?.accessToken)
+    }
+
+    @Test
+    fun givenAStoredToken_whenRegistering_thenNoAuthorizationIsSentAndA401DoesNotRefresh() = runBlocking {
+        tokens.save(SessionTokens("stale", "stale-refresh", 1))
+        val signup = RemoteSignupRepository(api(), gate())
+        enqueue(PublishedSamples.SIGNUP)
+        signup.register(signupRecord())
+        val created = server.takeRequest()
+        assertTrue(created.path.orEmpty().endsWith("/registro"))
+        assertNull(created.getHeader("Authorization"))
+        val body = created.body.readUtf8()
+        assertTrue(body.contains("secreto12"))
+        assertTrue(body.contains("\"tipoDocumento\":\"CC\""))
+
+        server.enqueue(MockResponse().setResponseCode(401))
+        signup.register(signupRecord())
+        server.takeRequest()
+        assertEquals(2, server.requestCount)
+        assertEquals("stale", tokens.read()?.accessToken)
     }
 
     @Test
@@ -190,6 +213,17 @@ class SessionHeaderTest {
     private fun gate() = BffGate(api(), BffCache(context))
 
     private fun session() = RemoteSessionRepository(api(), tokens, gate())
+
+    private fun signupRecord() = SignupRecord(
+        "Camila",
+        "Restrepo",
+        "1012345678",
+        "camila@correo.com",
+        Liveness.NO,
+        false,
+        contrasena = "secreto12",
+        tipoDocumento = "CC",
+    )
 
     private fun enqueue(body: String) {
         server.enqueue(

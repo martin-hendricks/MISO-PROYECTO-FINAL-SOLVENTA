@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, ForeignKey, MetaData, Numeric, String, func, select
+from sqlalchemy import JSON, DateTime, ForeignKey, MetaData, Numeric, String, and_, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -42,6 +42,7 @@ class SiniestroFila(Base):
     evento_id: Mapped[str] = mapped_column(String, unique=True)
     estado: Mapped[str]
     creado_en: Mapped[datetime]
+    poliza_id: Mapped[UUID | None]
 
 
 class TransicionEstadoFila(Base):
@@ -107,6 +108,7 @@ def _siniestro_a_dominio(fila: SiniestroFila, transiciones: list[TransicionEstad
         estado=EstadoSiniestro(fila.estado),
         historial=historial,
         creado_en=fila.creado_en,
+        poliza_id=fila.poliza_id,
     )
 
 
@@ -165,6 +167,20 @@ class RepositorioSiniestrosSQL:
                 resultado.append(siniestro)
         return resultado
 
+    async def listar_abiertos_por_poliza(self, poliza_id: UUID) -> list[Siniestro]:
+        """HU-61: abierto = cualquier estado salvo PAGADO (el único terminal)."""
+        filas = await self._s.scalars(
+            select(SiniestroFila).where(
+                and_(SiniestroFila.poliza_id == poliza_id, SiniestroFila.estado != EstadoSiniestro.PAGADO.value)
+            )
+        )
+        resultado = []
+        for fila in filas:
+            siniestro = await self.obtener(fila.id)
+            if siniestro is not None:
+                resultado.append(siniestro)
+        return resultado
+
     async def agregar(self, siniestro: Siniestro) -> None:
         self._s.add(
             SiniestroFila(
@@ -172,6 +188,7 @@ class RepositorioSiniestrosSQL:
                 evento_id=siniestro.evento_id,
                 estado=siniestro.estado.value,
                 creado_en=siniestro.creado_en,
+                poliza_id=siniestro.poliza_id,
             )
         )
         for transicion in siniestro.historial:

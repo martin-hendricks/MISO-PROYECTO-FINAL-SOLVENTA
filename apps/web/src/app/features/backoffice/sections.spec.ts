@@ -5,11 +5,11 @@ describe('back-office sections', () => {
     expect(SECTIONS).toEqual(['clientes', 'cotizaciones', 'polizas', 'avisos']);
   });
 
-  it('keeps Avisos for the operator and the rest for the advisor', () => {
+  it('keeps Avisos and Polizas for the operator and the rest for the advisor', () => {
     expect(requiredRole('avisos')).toBe('operador');
+    expect(requiredRole('polizas')).toBe('operador');
     expect(requiredRole('clientes')).toBe('asesor');
     expect(requiredRole('cotizaciones')).toBe('asesor');
-    expect(requiredRole('polizas')).toBe('asesor');
   });
 
   it('lands each role on a section it can open', () => {
