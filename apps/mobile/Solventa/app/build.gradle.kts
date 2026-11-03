@@ -86,6 +86,7 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.retrofit)
     implementation(libs.okhttp)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.retrofit.kotlinx.serialization)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

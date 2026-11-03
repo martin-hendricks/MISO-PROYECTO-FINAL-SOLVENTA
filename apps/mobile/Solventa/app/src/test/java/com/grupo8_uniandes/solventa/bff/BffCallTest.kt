@@ -21,6 +21,7 @@ import com.grupo8_uniandes.solventa.data.bff.remote.RemotePushRepository
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteSignupRepository
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
@@ -62,8 +63,10 @@ class BffCallTest {
 
     @Before
     fun setUp() {
+        AndroidKeyStoreProvider.install()
         server.start()
         tokens = TokenStore(context).also { it.clear() }
+        tokens.save(SessionTokens("jwt-access", "jwt-refresh", 900))
         cache = BffCache(context).also { it.clear() }
         val api = BffClients.open(server.url("/").toString(), tokens).api
         gate = BffGate(api, cache)
