@@ -2,9 +2,11 @@ package com.grupo8_uniandes.solventa.policy
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.issuance.ConsultPolicies
+import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -19,11 +21,14 @@ enum class WalletPhase { Pending, Failed, Ready }
 data class WalletUiState(
     val phase: WalletPhase = WalletPhase.Pending,
     val policies: List<WalletEntry> = emptyList(),
+    val notice: Boolean = false,
 )
 
 class PolizasViewModel(
-    private val issuance: IssuanceRepository,
+    issuance: IssuanceRepository,
+    memory: PolicyMemory = InMemoryPolicyStore(),
 ) : ViewModel() {
+    private val consult = ConsultPolicies(issuance, memory)
     private val _state = MutableStateFlow(WalletUiState())
     val state: StateFlow<WalletUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
@@ -35,12 +40,12 @@ class PolizasViewModel(
     fun refresh() {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            val answer = issuance.wallet()
+            val result = consult.list()
             coroutineContext.ensureActive()
-            _state.value = when (answer) {
-                StandInAnswer.Pending -> _state.value.copy(phase = WalletPhase.Pending)
-                StandInAnswer.Failed -> _state.value.copy(phase = WalletPhase.Failed)
-                is StandInAnswer.Ready -> WalletUiState(phase = WalletPhase.Ready, policies = answer.value)
+            _state.value = when {
+                result.policies.isEmpty() && !result.empty -> WalletUiState(phase = WalletPhase.Pending)
+                result.policies.isEmpty() -> WalletUiState(phase = WalletPhase.Failed, notice = result.notice)
+                else -> WalletUiState(phase = WalletPhase.Ready, policies = result.policies, notice = result.notice)
             }
         }
     }
@@ -56,12 +61,15 @@ data class PolicyDetailUiState(
     val estado: String = "",
     val venceEn: String = "",
     val queHacer: String = "",
+    val notice: Boolean = false,
 )
 
 class PolizaDetalleViewModel(
-    private val issuance: IssuanceRepository,
+    issuance: IssuanceRepository,
     private val numero: String,
+    memory: PolicyMemory = InMemoryPolicyStore(),
 ) : ViewModel() {
+    private val consult = ConsultPolicies(issuance, memory)
     private val _state = MutableStateFlow(PolicyDetailUiState(numero = numero))
     val state: StateFlow<PolicyDetailUiState> = _state.asStateFlow()
 
@@ -72,10 +80,11 @@ class PolizaDetalleViewModel(
     fun refresh() {
         viewModelScope.launch {
             _state.value = PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
-            _state.value = when (val answer = issuance.detail(numero)) {
-                StandInAnswer.Pending -> PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
-                StandInAnswer.Failed -> PolicyDetailUiState(phase = PolicyPhase.Failed, numero = numero)
-                is StandInAnswer.Ready -> answer.value.toUi().copy(numero = numero)
+            val result = consult.open(numero)
+            _state.value = when {
+                result.detail != null -> result.detail.toUi().copy(notice = result.notice)
+                result.missing -> PolicyDetailUiState(phase = PolicyPhase.Failed, numero = numero)
+                else -> PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
             }
         }
     }

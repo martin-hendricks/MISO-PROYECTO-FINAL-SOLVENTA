@@ -29,7 +29,7 @@ open class RegisterAccount(
             email.isEmpty() ||
             documentType.isEmpty() ||
             documentNumber.isEmpty() ||
-            password.isEmpty() ||
+            !PasswordLength.accepted(password) ||
             photo == null ||
             photo.isEmpty() ||
             EmailAddress.status(email) != EmailStatus.Valid ||

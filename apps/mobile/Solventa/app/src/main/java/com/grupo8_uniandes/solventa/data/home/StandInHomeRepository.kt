@@ -25,27 +25,34 @@ class StandInHomeRepository(
         val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return null
         val sample = ready.value
         return HomeSituation(
-            quotes = listOf(
+            quotes = sample.ofertaVigente?.let { offer ->
+                listOf(
                 Quote(
-                    id = sample.ofertaVigente.cotizacionId,
-                    consultable = sample.ofertaVigente.estado == IN_FORCE,
+                    id = offer.cotizacionId,
+                    consultable = offer.estado == IN_FORCE,
                     becameCurrentAt = becameCurrentAt,
+                    ramo = offer.ramo,
                 ),
-            ),
-            policies = listOf(
-                PolicyCandidate(
-                    id = sample.poliza.numero,
-                    active = sample.poliza.estado == POLICY_IN_FORCE,
-                    issuedAt = becameCurrentAt,
-                ),
-            ),
-            claims = listOf(
-                ClaimCandidate(
-                    id = sample.siniestroEnCurso.siniestroId,
-                    inProgress = sample.siniestroEnCurso.estado == CLAIM_IN_PROGRESS,
-                    openedAt = becameCurrentAt,
-                ),
-            ),
+                )
+            }.orEmpty(),
+            policies = sample.poliza?.let { policy ->
+                listOf(
+                    PolicyCandidate(
+                        id = policy.numero,
+                        active = policy.estado.equals(POLICY_IN_FORCE, ignoreCase = true),
+                        issuedAt = becameCurrentAt,
+                    ),
+                )
+            }.orEmpty(),
+            claims = sample.siniestroEnCurso?.let { claim ->
+                listOf(
+                    ClaimCandidate(
+                        id = claim.siniestroId,
+                        inProgress = claim.estado == CLAIM_IN_PROGRESS,
+                        openedAt = becameCurrentAt,
+                    ),
+                )
+            }.orEmpty(),
             origination = Origination(present = sample.hipotecario != null),
         )
     }

@@ -402,6 +402,25 @@ variable "alb_routes" {
       ]
       priority = 30
     }
+    # Faltaba: bff-movil tenía pod/Service real pero ninguna regla de ALB,
+    # así que la app Android no podía llegar a él en absoluto en este
+    # ambiente. No se puede usar /v1/sesion, /v1/registro, /v1/cliente como
+    # en bff-web: este ALB solo reenvía por path (nunca por host/header) y
+    # ambos BFFs comparten esos mismos paths -- la regla de menor priority
+    # (bff-web) siempre ganaría, sin importar qué priority le dé a esta
+    # entrada, dejando bff-movil inalcanzable. bff-movil responde además en
+    # /bff-movil/v1/* (apps/backend/bff-movil/app/main.py): un prefijo propio
+    # que el ALB puede enrutar sin ambigüedad. La app Android apunta su base
+    # URL a ese prefijo.
+    bff-movil = {
+      port = 8000
+      paths = [
+        "/bff-movil/v1/sesion",
+        "/bff-movil/v1/registro",
+        "/bff-movil/v1/cliente",
+      ]
+      priority = 40
+    }
   }
 }
 

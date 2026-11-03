@@ -33,6 +33,21 @@ class ClienteNucleo:
             json={"email": correo, "password": contrasena},
         )
 
+    def crear_usuario(
+        self, *, tipo_documento: str, numero_documento: str, email: str, password: str
+    ) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "POST",
+            "/v1/usuarios",
+            json={
+                "tipo_documento": tipo_documento,
+                "numero_documento": numero_documento,
+                "email": email,
+                "password": password,
+            },
+        )
+
     def cotizar(
         self,
         *,
@@ -57,6 +72,14 @@ class ClienteNucleo:
                 "datos_riesgo": datos_riesgo,
             },
             cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    def listar_cotizaciones_usuario(self, *, usuario_id: str, tamano: int) -> dict:
+        return self._pedir(
+            "ms-cotizacion",
+            "GET",
+            f"/v1/cotizaciones/por-usuario/{usuario_id}",
+            params={"tamano": tamano},
         )
 
     def reconsultar(self, cotizacion_id: str) -> dict:

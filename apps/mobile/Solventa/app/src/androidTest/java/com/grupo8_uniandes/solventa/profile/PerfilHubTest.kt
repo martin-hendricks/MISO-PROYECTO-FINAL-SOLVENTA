@@ -74,8 +74,8 @@ class PerfilHubTest {
         rule.onAllNodesWithTag("action_volver").assertCountEquals(0)
         rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
         rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithTag("screen_onboarding").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("screen_consentimiento").fetchSemanticsNodes().isNotEmpty()
         }
-        rule.onNodeWithTag("screen_onboarding").assertIsDisplayed()
+        rule.onNodeWithTag("screen_consentimiento").assertIsDisplayed()
     }
 }

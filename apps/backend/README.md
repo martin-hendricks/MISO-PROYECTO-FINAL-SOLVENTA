@@ -43,6 +43,21 @@ DOBLE_OPEN_FINANCE_LATENCIA_MS=1000 DOBLE_KYC_FALLAR=true docker compose up -d
 ```
 
 Sin ninguna variable, los dobles no alteran el comportamiento funcional: es el mismo ambiente que se despliega. Para volver a ese estado, `docker compose up -d` sin variables recrea solo los servicios que cambiaron.
+## Levantar todo local
+
+```bash
+infra/scripts/levantar-local.sh
+```
+
+Construye las imágenes, levanta `docker-compose.yml` completo (un Postgres por microservicio + `api-socios` + `bff-web` + `bff-movil`) y aplica las migraciones de cada servicio que falten contra las bases ya corriendo. Es seguro correrlo repetidas veces: no reaplica lo que ya está al día.
+
+Por qué hace falta el script y no basta con `docker compose up -d --build`: `docker-entrypoint-initdb.d` (los `.sql` de cada `<servicio>/db/`) solo corre la primera vez que Postgres crea el volumen de datos. Si ya tenías el stack levantado de antes y alguien agrega una migración nueva en su PR (una columna, una tabla), un `docker compose up` normal no la aplica a tu volumen existente — el servicio levanta pero sus queries fallan con `column ... does not exist`. `infra/scripts/levantar-local.sh` lleva un registro (`schema_migrations`, mismo mecanismo que usa `infra/k8s/platform/run-migrations.sh` en el cluster real) de qué migración ya corrió en cada base local y aplica solo las que falten.
+
+```bash
+infra/scripts/levantar-local.sh --no-build   # si ya compilaste las imágenes y solo quieres poner el esquema al día
+```
+
+Frontend, en otra terminal: `cd apps/web && pnpm start` (`http://localhost:4200`, con proxy real hacia `bff-web`).
 
 ## Pruebas y CI
 

@@ -50,7 +50,7 @@ class LivenessScreenTest {
         }
 
         rule.onNodeWithTag("screen_prueba_de_vida").assertIsDisplayed()
-        rule.onNodeWithText("Paso 3 de 4 · Prueba de vida").assertIsDisplayed()
+        rule.onNodeWithText("Paso 4 de 4 · Prueba de vida").assertIsDisplayed()
         rule.onNodeWithText("Prueba de vida").assertIsDisplayed()
         rule.onNodeWithText(
             "Una selfie confirma que eres tú. Si la verificación simulada no pasa, sigues con tu documento.",

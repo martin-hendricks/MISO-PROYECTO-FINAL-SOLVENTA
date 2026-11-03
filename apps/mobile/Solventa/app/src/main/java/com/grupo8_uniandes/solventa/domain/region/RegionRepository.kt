@@ -8,4 +8,6 @@ interface RegionRepository {
     fun confirmFirstLaunch(): RegionChoice
 
     fun confirmFromProfile(): RegionChoice
+
+    fun reopenFirstLaunch(): RegionChoice
 }

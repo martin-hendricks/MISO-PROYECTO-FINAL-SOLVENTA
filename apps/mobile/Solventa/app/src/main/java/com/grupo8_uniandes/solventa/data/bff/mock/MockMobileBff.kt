@@ -69,6 +69,7 @@ import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -138,6 +139,9 @@ class MockOfferRepository(
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }
 
+    override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> =
+        control.ready { AcceptedQuote(cotizacionId, "aceptada", 89_000, "COP") }
+
     fun release() = control.release()
 }
 
@@ -150,8 +154,13 @@ class MockIssuanceRepository(
     override suspend fun rejected(): StandInAnswer<IssueRejection> =
         control.ready { required(decode<RejectionDto>(PublishedSamples.REJECTION).let(::required).toRejection()) }
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> =
-        control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    var walletLoads: Int = 0
+        private set
+
+    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> {
+        walletLoads += 1
+        return control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    }
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         control.ready { decode<DetailDto>(PublishedSamples.DETAIL).let(::required).toDetail() }
@@ -161,7 +170,10 @@ class MockClaimRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
     private val noticeJson: String = PublishedSamples.CLAIM_NOTICE,
 ) : ClaimRepository {
-    override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> =
+    override suspend fun notify(
+        notice: ClaimNotice,
+        idempotencyKey: String?,
+    ): StandInAnswer<ClaimReceipt> =
         control.ready { decode<ClaimReceiptDto>(PublishedSamples.CLAIM_RECEIPT).let(::required).toReceipt() }
 
     override suspend fun list(): StandInAnswer<List<ClaimSummary>> =

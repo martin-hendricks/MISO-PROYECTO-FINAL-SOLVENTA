@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/solventa"
     db_pool_size: int = 10
     log_level: str = "INFO"
-    ms_suscripcion_url: str = "http://localhost:8081"
+    ms_suscripcion_url: str = "http://localhost:8081"  # solo local: el chart define MS_SUSCRIPCION_URL (:8080)
     timeout_dependencias: float = 2.0
 
     # Doble de la pasarela (HU-88): demora y caída forzables por entorno

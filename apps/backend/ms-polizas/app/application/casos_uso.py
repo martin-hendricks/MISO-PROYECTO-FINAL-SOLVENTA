@@ -127,6 +127,13 @@ async def listar_polizas_de_usuario(uow: FabricaUnidadDeTrabajo, usuario_id: UUI
         return await tx.polizas.listar_por_usuario(usuario_id, limite)
 
 
+async def ofertas_con_poliza(uow: FabricaUnidadDeTrabajo, oferta_ids: list[UUID]) -> list[UUID]:
+    async with uow() as tx:
+        encontradas = await tx.polizas.ofertas_con_poliza(oferta_ids)
+    # Conserva el orden de la consulta para que la respuesta sea determinista.
+    return [oferta_id for oferta_id in oferta_ids if oferta_id in encontradas]
+
+
 async def _obtener_o_fallar(tx, poliza_id: UUID) -> Poliza:
     poliza = await tx.polizas.obtener(poliza_id)
     if poliza is None:
@@ -136,10 +143,11 @@ async def _obtener_o_fallar(tx, poliza_id: UUID) -> Poliza:
 
 async def renovar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nueva_fin_vigencia: date) -> Poliza:
     """HU-59: extiende la vigencia. Lanza NoEncontrado si la póliza no existe
-    y TransicionInvalida (vía Poliza.renovar) si no está VIGENTE."""
+    y TransicionInvalida (vía Poliza.renovar) si no está VIGENTE ni dentro de
+    la ventana de gracia tras vencer."""
     async with uow() as tx:
         poliza = await _obtener_o_fallar(tx, poliza_id)
-        poliza.renovar(nueva_fin_vigencia)
+        poliza.renovar(nueva_fin_vigencia, _hoy())
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_renovada(poliza))
         await tx.confirmar()
@@ -159,13 +167,13 @@ async def modificar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nuevas_
         return poliza
 
 
-async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: str) -> Poliza:
+async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: str, cancelada_por: str) -> Poliza:
     """HU-61: única transición de estado real del ciclo de vida. Lanza
     NoEncontrado si la póliza no existe y TransicionInvalida (vía
     Poliza.cancelar) si ya estaba cancelada."""
     async with uow() as tx:
         poliza = await _obtener_o_fallar(tx, poliza_id)
-        poliza.cancelar(motivo, _hoy())
+        poliza.cancelar(motivo, _hoy(), cancelada_por)
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_cancelada(poliza))
         await tx.confirmar()

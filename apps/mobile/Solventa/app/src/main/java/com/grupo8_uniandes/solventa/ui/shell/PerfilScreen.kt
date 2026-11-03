@@ -36,6 +36,7 @@ import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
 import com.grupo8_uniandes.solventa.domain.profile.PermissionKind
@@ -53,10 +54,16 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionSheet
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
+import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
+
+fun interface BiometricEnrollment {
+    /** False when the phone cannot run a biometric check. */
+    fun start(onResult: (DeviceUnlock) -> Unit): Boolean
+}
 
 @Composable
 fun PerfilScreen(
@@ -64,11 +71,18 @@ fun PerfilScreen(
     originationActive: Boolean = false,
     permissionReader: DevicePermissionReader? = null,
     onSignedOut: () -> Unit = {},
+    biometricEnrollment: BiometricEnrollment? = null,
 ) {
     val context = LocalContext.current
+    val activity = context.findActivity()
     val repository = remember { SharedPrefsRegionRepository(context.applicationContext) }
     val registration = remember { SharedPrefsRegistrationRepository(context.applicationContext) }
     var biometricOn by remember { mutableStateOf(registration.biometricUnlockEnabled()) }
+    val promptTitle = stringResource(R.string.login_biometric_title)
+    val promptCancel = stringResource(R.string.action_secondary)
+    val enrollment = biometricEnrollment ?: remember(activity, promptTitle, promptCancel) {
+        deviceBiometricEnrollment(activity, promptTitle, promptCancel)
+    }
     val viewModel = remember {
         IdiomaRegionViewModel(repository = repository, surface = RegionSurface.Profile)
     }
@@ -133,8 +147,27 @@ fun PerfilScreen(
                 Switch(
                     checked = biometricOn,
                     onCheckedChange = { enabled ->
-                        registration.setBiometricUnlock(enabled)
-                        biometricOn = enabled
+                        if (!enabled) {
+                            registration.setBiometricUnlock(false)
+                            biometricOn = false
+                        } else {
+                            val started = enrollment.start { result ->
+                                val account = registration.read()
+                                if (
+                                    result == DeviceUnlock.Accepted &&
+                                    account != null &&
+                                    account.email.isNotBlank() &&
+                                    account.password.isNotEmpty()
+                                ) {
+                                    registration.rememberBiometricLogin(account.email, account.password)
+                                    registration.setBiometricUnlock(true)
+                                    biometricOn = true
+                                } else {
+                                    biometricOn = false
+                                }
+                            }
+                            if (!started) biometricOn = false
+                        }
                     },
                     modifier = Modifier
                         .semantics { contentDescription = label }
@@ -303,6 +336,23 @@ private fun StatusSheet(
             if (detail != null) {
                 Text(text = detail, style = MaterialTheme.typography.bodyMedium)
             }
+        }
+    }
+}
+
+private fun deviceBiometricEnrollment(
+    activity: android.app.Activity?,
+    title: String,
+    negativeButtonText: String,
+): BiometricEnrollment {
+    if (activity == null) return BiometricEnrollment { _ -> false }
+    val prompt = DeviceBiometricPrompt(activity, title, negativeButtonText)
+    return BiometricEnrollment { onResult ->
+        if (!prompt.available()) {
+            false
+        } else {
+            prompt.authenticate(onResult)
+            true
         }
     }
 }

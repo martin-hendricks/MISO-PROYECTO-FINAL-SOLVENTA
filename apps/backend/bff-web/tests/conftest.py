@@ -76,6 +76,11 @@ def nucleo_siniestros() -> NucleoSimulado:
     # el genérico 404 de NucleoSimulado, igual que haría ms-siniestros real.
     doble = NucleoSimulado()
     doble.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json=[])
+    # HU-61: toda cancelación consulta siniestros abiertos (informativo, no
+    # bloquea); sin ninguno registrado, cero abiertos es la respuesta vigente.
+    doble.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(
+        200, json={"abiertos": 0, "siniestros": []}
+    )
     return doble
 
 
@@ -159,9 +164,15 @@ def client(
 
 
 def token(client: TestClient, rol: str) -> str:
+    # El dominio del correo debe ser consistente con el rol pedido (ver
+    # routers/sesion.py: una cuenta no corporativa no puede entrar pidiendo
+    # rol asesor/operador, y viceversa) -- antes este fixture usaba el mismo
+    # correo @solventa.com para cualquier rol, lo que ahora el propio BFF
+    # rechazaría para rol="cliente".
+    correo = "persona@solventa.com" if rol in ("asesor", "operador") else "persona@correo.com"
     response = client.post(
         "/v1/sesion/ingreso",
-        json={"correo": "persona@solventa.com", "contrasena": "secreto", "rol": rol},
+        json={"correo": correo, "contrasena": "secreto", "rol": rol},
     )
     assert response.status_code == 200
     return response.json()["accessToken"]

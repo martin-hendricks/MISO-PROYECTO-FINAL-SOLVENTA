@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 sealed interface LivenessEffect {
-    data object OpenConsent : LivenessEffect
+    data object OpenHome : LivenessEffect
 
     data object OpenLogin : LivenessEffect
 }
@@ -62,7 +62,7 @@ class LivenessViewModel(
             )
         }
         repository.completeLiveness()
-        _state.value = current.copy(effect = LivenessEffect.OpenConsent)
+        _state.value = current.copy(effect = LivenessEffect.OpenHome)
     }
 
     fun yaTengoCuenta() {

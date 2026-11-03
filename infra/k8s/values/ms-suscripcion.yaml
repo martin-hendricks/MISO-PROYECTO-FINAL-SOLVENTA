@@ -95,10 +95,12 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
+  # Sin el puerto explícito el cliente HTTP apunta al 80 y nunca conecta
+  # (los Services de ms-polizas y ms-identidad escuchan en 8080).
   - nombre: MS_POLIZAS_URL
-    valor: "http://ms-polizas.solventa.svc.cluster.local"
+    valor: "http://ms-polizas.solventa.svc.cluster.local:8080"
   - nombre: MS_IDENTIDAD_URL
-    valor: "http://ms-identidad.solventa.svc.cluster.local"
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
 
 variablesEntornoSecreto:
   - nombre: DATABASE_URL

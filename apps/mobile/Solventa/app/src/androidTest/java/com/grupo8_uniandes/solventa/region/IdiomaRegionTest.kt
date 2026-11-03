@@ -74,7 +74,7 @@ class IdiomaRegionTest {
     fun givenPicker_whenContinuar_thenOnboardingWithoutPermissions() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -94,9 +94,9 @@ class IdiomaRegionTest {
     fun givenContinuar_whenRelaunched_thenPickerStaysClosed() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.activityRule.scenario.recreate()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
