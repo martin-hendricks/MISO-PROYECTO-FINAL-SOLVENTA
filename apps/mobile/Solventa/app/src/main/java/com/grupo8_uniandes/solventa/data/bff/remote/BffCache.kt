@@ -8,6 +8,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
@@ -81,6 +82,18 @@ class BffCache(context: Context) {
         const val WALLET = "wallet"
         const val CLAIM = "claim"
         const val DETAILS = "details"
+    }
+}
+
+class CachedClaimHold(private val cache: BffCache) : ClaimHold {
+    override fun keep(key: String, notice: ClaimNotice) {
+        cache.writeClaim(PendingClaim(key, notice))
+    }
+
+    override fun readKey(): String? = cache.readClaim()?.key
+
+    override fun clear() {
+        cache.clearClaim()
     }
 }
 

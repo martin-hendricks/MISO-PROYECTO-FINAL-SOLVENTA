@@ -96,7 +96,7 @@ class SiniestrosViewModelTest {
         var answer: StandInAnswer<List<ClaimSummary>> = StandInAnswer.Ready(listOf(publishedRow()))
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
             },
@@ -116,7 +116,7 @@ class SiniestrosViewModelTest {
         var calls = 0
         val viewModel = SiniestrosViewModel(
             object : ClaimRepository {
-                override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+                override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
                 override suspend fun list(): StandInAnswer<List<ClaimSummary>> {
                     calls += 1
@@ -145,6 +145,8 @@ class SiniestrosViewModelTest {
         assertEquals("Pago automático · pagado", viewModel.state.value.claims[2].statusWords())
         viewModel.openClaim("SIN-441")
         assertEquals("SIN-441", viewModel.state.value.openedClaimId)
+        viewModel.consumeOpenedClaim()
+        assertEquals(null, viewModel.state.value.openedClaimId)
     }
 
     private fun reviewRows() = listOf(
@@ -167,7 +169,7 @@ class SiniestrosViewModelTest {
     )
 
     private fun scripted(answer: StandInAnswer<List<ClaimSummary>>) = object : ClaimRepository {
-        override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
+        override suspend fun notify(notice: ClaimNotice, idempotencyKey: String?): StandInAnswer<ClaimReceipt> = StandInAnswer.Failed
 
         override suspend fun list(): StandInAnswer<List<ClaimSummary>> = answer
     }

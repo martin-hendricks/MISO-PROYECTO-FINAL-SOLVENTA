@@ -48,6 +48,7 @@ import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.OfertaHipotecarioRoute
 import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -62,6 +63,12 @@ import com.grupo8_uniandes.solventa.navigation.ShellMode
 import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
 import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoRenovacionRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoVencimientoRoute
+import com.grupo8_uniandes.solventa.navigation.ParametricoRoute
+import com.grupo8_uniandes.solventa.navigation.ConfirmacionAvisoRoute
+import com.grupo8_uniandes.solventa.navigation.EvidenciaAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.leaveIssuance
 import com.grupo8_uniandes.solventa.navigation.openDestination
@@ -335,7 +342,8 @@ internal fun SignedInShell(
     val route = entry?.toSolventaRoute() ?: start
     val mode = shellMode(route, signedIn)
     val selected = selectedDestination(route)
-    val showBottomBar = mode == ShellMode.Root || mode == ShellMode.Nested
+    val showBottomBar = (mode == ShellMode.Root || mode == ShellMode.Nested) &&
+        !(route is EvidenciaAvisoRoute && AvisoChrome.coverTabs)
 
     val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val consumeBack = remember {
@@ -361,6 +369,7 @@ internal fun SignedInShell(
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
+                    showIdentityMark = route is OfertaHipotecarioRoute,
                     onBack = {
                         if (route == SuscripcionRechazadaRoute) {
                             navController.leaveIssuance(InicioRoute)
@@ -407,6 +416,7 @@ internal fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     is CotizacionRoute -> stringResource(R.string.quote_step_title)
     is VerOfertaRoute -> stringResource(R.string.offer_title)
+    OfertaHipotecarioRoute -> stringResource(R.string.mortgage_offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
@@ -414,6 +424,11 @@ private fun routeTitle(route: Any): String = when (route) {
     SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
+    AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
+    ParametricoRoute -> stringResource(R.string.parametric_title)
+    AvisoVencimientoRoute, AvisoRenovacionRoute -> stringResource(R.string.validity_title)
+    EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
+    is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
     AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)

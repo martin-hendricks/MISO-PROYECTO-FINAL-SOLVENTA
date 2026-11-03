@@ -6,7 +6,6 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -28,7 +27,7 @@ import org.junit.Test
 
 class PolizasConsultaTest {
     @get:Rule
-    val rule = createEmptyComposeRule()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     private var scenario: ActivityScenario<MainActivity>? = null
 

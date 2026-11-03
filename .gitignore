@@ -9,6 +9,7 @@ venv/
 htmlcov/
 coverage.xml
 junit.xml
+junit-contract.xml
 .env
 
 # Node / Angular
@@ -59,4 +60,4 @@ out/
 .specify/
 .specs/
 apps/mobile/.specify/
-specs
+specs/

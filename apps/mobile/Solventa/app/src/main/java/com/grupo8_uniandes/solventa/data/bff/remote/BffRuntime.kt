@@ -4,7 +4,9 @@ import android.content.Context
 import com.grupo8_uniandes.solventa.data.bff.MobileBff
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
@@ -35,6 +37,7 @@ class BffRuntime private constructor(
     val push: PushRepository,
     val assistance: AssistanceRepository,
     val memory: PolicyMemory,
+    val claimHold: ClaimHold,
 ) {
     companion object {
         fun standIn(): BffRuntime {
@@ -53,6 +56,7 @@ class BffRuntime private constructor(
                 bff.push,
                 bff.assistance,
                 InMemoryPolicyStore(),
+                MemoryClaimHold(),
             )
         }
 
@@ -75,6 +79,7 @@ class BffRuntime private constructor(
                 RemotePushRepository(api, gate),
                 RemoteAssistanceRepository(api, gate),
                 BffPolicyMemory(cache),
+                CachedClaimHold(cache),
             )
         }
     }

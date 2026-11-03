@@ -116,6 +116,7 @@ class InicioScreenTest {
         var accepted: String? = null
         var policy: String? = null
         var claim: String? = null
+        var mortgage = 0
         show(
             HomePanel(
                 offerId = "Q-1",
@@ -127,6 +128,7 @@ class InicioScreenTest {
             onAcceptOffer = { accepted = it },
             onOpenPolicy = { policy = it },
             onOpenClaim = { claim = it },
+            onOpenMortgage = { mortgage += 1 },
         )
         rule.onNodeWithText("VIDA HIPOTECARIO").assertIsDisplayed()
         rule.onNodeWithTag("home_vida_crediticia").assertIsDisplayed()
@@ -136,6 +138,7 @@ class InicioScreenTest {
         assertNull(accepted)
         assertNull(policy)
         assertNull(claim)
+        assertEquals(1, mortgage)
     }
 
     @Test
@@ -166,6 +169,20 @@ class InicioScreenTest {
     }
 
     @Test
+    fun givenOrigination_whenVidaUsesTheDefaultCallback_thenInicioStays() {
+        rule.setContent {
+            SolventaTheme {
+                InicioScreen(
+                    state = HomeUiState(panel = HomePanel(vidaCrediticia = true)),
+                    onNewQuote = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
     fun givenNoOrigination_whenInicioShows_thenVidaIsAbsent() {
         show(HomePanel(vidaCrediticia = false))
         rule.onAllNodesWithTag("home_vida_crediticia").assertCountEquals(0)
@@ -180,6 +197,7 @@ class InicioScreenTest {
         onAcceptOffer: (String) -> Unit = {},
         onOpenPolicy: (String) -> Unit = {},
         onOpenClaim: (String) -> Unit = {},
+        onOpenMortgage: () -> Unit = {},
     ) {
         rule.setContent {
             SolventaTheme {
@@ -189,6 +207,7 @@ class InicioScreenTest {
                     onAcceptOffer = onAcceptOffer,
                     onOpenPolicy = onOpenPolicy,
                     onOpenClaim = onOpenClaim,
+                    onOpenMortgage = onOpenMortgage,
                 )
             }
         }

@@ -86,7 +86,7 @@ private class AccessInterceptor(private val tokens: TokenStore) : Interceptor {
         val request = chain.request()
         if (request.url.encodedPath.isOpenSession()) return chain.proceed(request)
         val access = tokens.read()?.accessToken
-        if (access.isNullOrBlank()) return chain.proceed(request)
+        if (access == null) throw IOException("missing access credential")
         return chain.proceed(
             request.newBuilder().header("Authorization", "Bearer $access").build(),
         )

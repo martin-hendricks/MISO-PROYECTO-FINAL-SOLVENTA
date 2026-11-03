@@ -50,4 +50,8 @@ class SiniestrosViewModel(
     fun openClaim(id: String) {
         _state.value = _state.value.copy(openedClaimId = id)
     }
+
+    fun consumeOpenedClaim() {
+        _state.value = _state.value.copy(openedClaimId = null)
+    }
 }

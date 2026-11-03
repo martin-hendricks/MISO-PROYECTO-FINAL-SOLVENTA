@@ -71,3 +71,24 @@ def test_alta_con_cuenta_ya_existente_en_ms_identidad_es_409(client, nucleo_iden
     response = client.post("/v1/registro", json=BODY)
 
     assert response.status_code == 409
+
+
+def test_alta_con_identidad_rechazada_por_kyc_es_422_y_no_cuenta_duplicada(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        422, json={"codigo": "identidad_no_verificada", "mensaje": "No fue posible verificar la identidad"}
+    )
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "No fue posible verificar la identidad"
+
+
+def test_alta_con_kyc_caido_en_ms_identidad_no_esta_disponible(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        503, json={"codigo": "dependencia_no_disponible", "mensaje": "No fue posible consultar el verificador KYC"}
+    )
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 503
