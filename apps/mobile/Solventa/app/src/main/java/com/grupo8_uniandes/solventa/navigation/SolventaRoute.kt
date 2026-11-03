@@ -40,3 +40,6 @@ data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")
 
 @Serializable
 data object SuscripcionRechazadaRoute
+
+@Serializable
+data object OfertaHipotecarioRoute

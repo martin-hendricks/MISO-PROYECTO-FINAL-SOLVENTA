@@ -28,6 +28,8 @@ class ShellModeTest {
         assertEquals(Destination.Polizas, selectedDestination(PolizasRoute))
         assertEquals(ShellMode.Root, shellMode(SiniestrosRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(SiniestrosRoute))
+        assertEquals(ShellMode.Root, shellMode(MapaPrestadoresRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(MapaPrestadoresRoute))
         assertEquals(ShellMode.Root, shellMode(PerfilRoute, signedIn = true))
         assertEquals(Destination.Perfil, selectedDestination(PerfilRoute))
     }
@@ -39,12 +41,16 @@ class ShellModeTest {
         val offer = VerOfertaRoute(cotizacionId = "COT-1042")
         assertEquals(ShellMode.Nested, shellMode(offer, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(offer))
+        assertEquals(ShellMode.Nested, shellMode(OfertaHipotecarioRoute, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(OfertaHipotecarioRoute))
         val detail = PolizaDetalleRoute(policyId = "SOL-0001")
         assertEquals(ShellMode.Nested, shellMode(detail, signedIn = true))
         assertEquals(Destination.Polizas, selectedDestination(detail))
         val claim = SiniestroDetalleRoute(claimId = "CLM-1")
         assertEquals(ShellMode.Nested, shellMode(claim, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(claim))
+        assertEquals(ShellMode.Nested, shellMode(AsistenciaSitioRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(AsistenciaSitioRoute))
     }
 
     @Test

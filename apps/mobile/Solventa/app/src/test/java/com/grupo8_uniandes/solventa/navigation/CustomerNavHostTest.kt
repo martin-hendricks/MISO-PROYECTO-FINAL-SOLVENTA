@@ -69,6 +69,18 @@ class CustomerNavHostTest {
     }
 
     @Test
+    fun givenOrigination_whenTheOfferIsAccepted_thenTheExistingIssuanceRouteIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
+        assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
+    }
+
+    @Test
     fun givenAQuote_whenIssued_thenHomeAndThePolicyStayReachable() {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, HomeUiState(

@@ -1,10 +1,11 @@
 package com.grupo8_uniandes.solventa.policy
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -19,7 +20,7 @@ import org.junit.Test
 
 class SuscripcionRechazadaTest {
     @get:Rule
-    val rule = createEmptyComposeRule()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun givenARefusal_whenShown_thenTheReasonLeavesForInicio() {
