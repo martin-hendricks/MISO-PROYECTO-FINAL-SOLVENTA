@@ -148,13 +148,13 @@ describe('CotizacionFormViewModel', () => {
     ]);
   });
 
-  it('ignores an unknown line or one that does not quote yet', () => {
+  it('ignores an unknown line and keeps the one just selected', () => {
     const vm = form();
 
     vm.select('viaje');
     vm.select('hogar');
 
-    expect(vm.ramo().id).toBe('dispositivo');
+    expect(vm.ramo().id).toBe('viaje');
   });
 
   it('blocks the CTA until the catalog loads and when it fails', () => {

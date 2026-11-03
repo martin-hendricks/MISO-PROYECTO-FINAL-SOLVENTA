@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from tests.conftest import token
 
@@ -496,6 +497,107 @@ def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
 def test_inicio(client):
     body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
     assert body["hipotecario"] is None
+
+
+UID = "11111111-1111-1111-1111-111111111111"
+
+
+def test_inicio_proyecta_cotizacion_poliza_y_siniestro(
+    client, nucleo_cotizacion, nucleo_polizas, nucleo_siniestros
+):
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-usuario/{UID}")] = lambda _: httpx.Response(
+        200, json={"items": [{"cotizacion_id": "COT-1", "producto": "proteccion-dispositivo"}]}
+    )
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
+        200,
+        json=[
+            {
+                "numero": "POL-1",
+                "estado": "VIGENTE",
+                "oferta_id": "22222222-2222-2222-2222-222222222222",
+            }
+        ],
+    )
+    nucleo_cotizacion.respuestas[
+        ("GET", "/v1/cotizaciones/por-oferta/22222222-2222-2222-2222-222222222222")
+    ] = lambda _: httpx.Response(200, json={"producto": "soat-motocicleta"})
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(
+        200, json=[{"id": "SIN-1", "estado": "recibido"}]
+    )
+
+    body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
+
+    assert body["ofertaVigente"] == {
+        "cotizacionId": "COT-1",
+        "ramo": "Protección de dispositivo",
+        "estado": "oferta_vigente",
+    }
+    assert body["poliza"] == {"numero": "POL-1", "ramo": "SOAT motocicleta", "estado": "vigente"}
+    assert body["siniestroEnCurso"] == {"siniestroId": "SIN-1", "estado": "recibido"}
+
+
+def test_inicio_propaga_una_forma_que_no_es_del_nucleo(
+    client, nucleo_cotizacion, nucleo_polizas, nucleo_siniestros
+):
+    headers = _auth(client)
+    lista = ("GET", f"/v1/cotizaciones/por-usuario/{UID}")
+    nucleo_cotizacion.respuestas[lista] = lambda _: httpx.Response(200, json=["no-es-pagina"])
+    with pytest.raises(AttributeError):
+        client.get("/v1/cliente/inicio", headers=headers)
+
+    nucleo_cotizacion.respuestas[lista] = lambda _: httpx.Response(200, json={"items": []})
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(200, json={"numero": "x"})
+    with pytest.raises(KeyError):
+        client.get("/v1/cliente/inicio", headers=headers)
+
+    nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(200, json=[])
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json={"id": "x"})
+    with pytest.raises(KeyError):
+        client.get("/v1/cliente/inicio", headers=headers)
+
+
+def test_perfil_lee_y_guarda(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("GET", f"/v1/usuarios/{UID}")] = lambda _: httpx.Response(
+        200,
+        json={"usuario_id": UID, "email": "persona@correo.com", "numero_documento": "1012345678"},
+    )
+    headers = _auth(client)
+    leido = client.get("/v1/cliente/perfil", headers=headers)
+    assert leido.status_code == 200
+    assert leido.json() == {
+        "usuarioId": UID,
+        "correo": "persona@correo.com",
+        "nombre": "",
+        "apellidos": "",
+        "documento": "1012345678",
+    }
+
+    nucleo_identidad.respuestas[("PATCH", f"/v1/usuarios/{UID}/perfil")] = lambda _: httpx.Response(
+        200,
+        json={
+            "usuario_id": UID,
+            "email": "persona@correo.com",
+            "nombre": "Camila",
+            "apellidos": "Restrepo",
+            "numero_documento": "1012345678",
+        },
+    )
+    guardado = client.patch(
+        "/v1/cliente/perfil", headers=headers, json={"nombre": "Camila", "apellidos": "Restrepo"}
+    )
+    assert guardado.status_code == 200
+    assert guardado.json()["nombre"] == "Camila"
+    assert guardado.json()["apellidos"] == "Restrepo"
+
+
+def test_token_sin_uid_no_abre_el_canal():
+    from fastapi import HTTPException
+
+    from app.routers.cliente import contexto_canonico
+
+    with pytest.raises(HTTPException) as exc:
+        contexto_canonico({})
+    assert exc.value.status_code == 401
 
 
 def test_sin_token_es_401(client):
