@@ -1,0 +1,220 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.chip {
+  padding: 8px 16px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 9999px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--sv-primary);
+  color: var(--sv-primary);
+  background: var(--sv-surface-container);
+}
+
+.cola-y-caso {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+/* Barra de acento + fondo neutro, sin tapar el badge de estado (HU-26). */
+tbody tr.seleccionado th {
+  box-shadow: inset 4px 0 0 var(--sv-primary);
+}
+
+tbody tr.seleccionado th,
+tbody tr.seleccionado td {
+  background: var(--sv-surface-container-low);
+}
+
+tbody tr:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: -2px;
+}
+
+.corto {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge[data-estado='aprobado'],
+.badge[data-estado='pagado'] {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+}
+
+.badge[data-estado='rechazado'] {
+  color: var(--sv-error);
+  background: var(--sv-error-container);
+}
+
+.tarjeta {
+  padding: 24px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  background: var(--sv-surface-container-lowest);
+}
+
+.tarjeta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tarjeta h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+h3 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sv-on-surface-variant);
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 24px;
+  margin: 16px 0 0;
+  font-size: 14px;
+}
+
+.datos dt {
+  color: var(--sv-on-surface-variant);
+}
+
+.datos dd {
+  margin: 0;
+}
+
+.motivo {
+  margin: 16px 0 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--sv-surface-container);
+  font-size: 14px;
+}
+
+.miniaturas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.miniaturas img,
+.miniaturas .archivo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--sv-surface-container);
+  font-size: 11px;
+  object-fit: cover;
+  word-break: break-all;
+}
+
+.acciones {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.acciones > * {
+  flex: 1;
+}
+
+.bloque {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.peligro {
+  padding: 14px 24px;
+  border: 1px solid var(--sv-error);
+  border-radius: 9999px;
+  color: var(--sv-error);
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hint-error {
+  margin: 16px 0 0;
+  color: var(--sv-error);
+  font-size: 14px;
+}
+
+.auditoria {
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+.back {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 0;
+  border: 0;
+  color: var(--sv-primary);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pago {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.traza {
+  background: var(--sv-surface-container-low);
+}
+
+.traza ul {
+  padding-left: 18px;
+  line-height: 28px;
+  font-size: 14px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1000px) {
+  .cola-y-caso,
+  .pago {
+    grid-template-columns: 1fr;
+  }
+}

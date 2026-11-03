@@ -1,0 +1,96 @@
+<section data-testid="siniestro-detalle" [attr.data-state]="vm.status()">
+  <a class="back" routerLink="/siniestros" data-testid="siniestro-volver">
+    <span aria-hidden="true">←</span> {{ 'siniestros.volver' | translate }}
+  </a>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status">{{ 'siniestros.detalle.loading' | translate }}</p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="siniestro-error">
+        <p>{{ 'siniestros.detalle.error' | translate }}</p>
+        <button type="button" class="outlined" (click)="vm.load()">
+          {{ 'siniestros.reintentar' | translate }}
+        </button>
+      </div>
+    }
+    @case ('not-found') {
+      <div class="empty-state" data-testid="siniestro-not-found">
+        <h2>{{ 'siniestros.detalle.notFound' | translate }}</h2>
+        <a class="outlined" routerLink="/siniestros">{{
+          'siniestros.confirmacion.misSiniestros' | translate
+        }}</a>
+      </div>
+    }
+    @default {
+      @let s = vm.siniestro()!;
+      <div class="page-head">
+        <div>
+          <h1 class="mono-title" data-testid="siniestro-titulo">
+            {{ s.siniestroId }} · {{ s.ramo }}
+          </h1>
+          <p class="subtitle">
+            <span
+              class="badge"
+              data-testid="siniestro-estado"
+              [attr.data-estado]="s.resultado ?? s.estado"
+              >{{ claveEstado(s.estado, s.resultado) | translate }}</span
+            >
+          </p>
+        </div>
+      </div>
+
+      @if (s.motivo) {
+        <div class="aviso-motivo" role="note" data-testid="siniestro-motivo">
+          <strong>{{ 'siniestros.detalle.motivo' | translate }}</strong> {{ s.motivo }}
+        </div>
+      }
+
+      <dl class="datos">
+        <dt>{{ 'siniestros.detalle.poliza' | translate }}</dt>
+        <dd class="mono">{{ s.poliza ?? '—' }}</dd>
+        <dt>{{ 'siniestros.detalle.fecha' | translate }}</dt>
+        <dd>{{ s.fecha ? (s.fecha | svDate) : '—' }}</dd>
+        <dt>{{ 'siniestros.detalle.descripcion' | translate }}</dt>
+        <dd>{{ s.descripcion ?? '—' }}</dd>
+        <dt>{{ 'siniestros.detalle.ubicacion' | translate }}</dt>
+        <dd class="mono">
+          {{
+            s.geo ? s.geo.lat + ', ' + s.geo.lng : ('siniestros.detalle.sinUbicacion' | translate)
+          }}
+        </dd>
+        <dt>{{ 'siniestros.column.reserva' | translate }}</dt>
+        <dd class="mono">{{ s.reserva !== null ? (s.reserva | svMoney: s.moneda) : '—' }}</dd>
+      </dl>
+
+      @if (s.pago; as pago) {
+        <div class="tarjeta" data-testid="siniestro-pago">
+          <h2>{{ 'siniestros.detalle.pago' | translate }}</h2>
+          <p class="mono">{{ pago.monto | svMoney: pago.moneda }} · {{ pago.comprobante }}</p>
+          <p class="subtitle">{{ pago.fecha | svDateTime }}</p>
+        </div>
+      }
+
+      <h2>{{ 'siniestros.detalle.evidencia' | translate }}</h2>
+      <ul class="evidencia" data-testid="siniestro-evidencia">
+        @for (archivo of s.evidencia; track archivo.url) {
+          <li>
+            <a [href]="archivo.url" target="_blank" rel="noopener">{{ archivo.nombre }}</a>
+          </li>
+        } @empty {
+          <li class="subtitle">{{ 'siniestros.detalle.sinEvidencia' | translate }}</li>
+        }
+      </ul>
+
+      <h2>{{ 'siniestros.detalle.historial' | translate }}</h2>
+      <ol class="historial" data-testid="siniestro-historial">
+        @for (paso of s.historial; track paso.fecha) {
+          <li>
+            {{ 'siniestros.estado.' + paso.estado | translate }} · {{ paso.fecha | svDateTime }}
+          </li>
+        }
+      </ol>
+    }
+  }
+</section>

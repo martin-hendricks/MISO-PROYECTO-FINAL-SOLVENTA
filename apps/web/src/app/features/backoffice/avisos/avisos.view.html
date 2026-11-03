@@ -1,0 +1,356 @@
+<section
+  data-testid="avisos"
+  [attr.data-state]="allowed ? vm.status() : 'no-permission'"
+  [attr.data-modo]="vm.modo()"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.avisos.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else if (vm.modo() === 'pago' && vm.caso(); as caso) {
+    <!-- HU-29: pago de bajo monto. Dos columnas: confirmación y trazabilidad. -->
+    <button type="button" class="back" data-testid="pago-volver" (click)="vm.volverACola()">
+      <span aria-hidden="true">←</span>
+      {{ 'backoffice.avisos.pago.volver' | translate: { aviso: caso.siniestroId } }}
+    </button>
+    <h1>{{ 'backoffice.avisos.pago.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.avisos.pago.subtitle' | translate }}</p>
+
+    <div class="pago">
+      <div class="tarjeta" data-testid="pago-confirmacion">
+        <div class="tarjeta-head">
+          <h2>{{ 'backoffice.avisos.pago.confirmacion' | translate }}</h2>
+          <span class="badge" [attr.data-estado]="caso.estadoCola">{{
+            'backoffice.avisos.estado.' + caso.estadoCola | translate
+          }}</span>
+        </div>
+        <dl class="datos">
+          <dt>{{ 'backoffice.avisos.column.aviso' | translate }}</dt>
+          <dd class="mono">{{ caso.siniestroId }}</dd>
+          <dt>{{ 'backoffice.avisos.detalle.beneficiario' | translate }}</dt>
+          <dd class="mono">{{ caso.clienteId }}</dd>
+          <dt>{{ 'backoffice.avisos.column.poliza' | translate }}</dt>
+          <dd>{{ caso.poliza }} · {{ caso.ramo }}</dd>
+          <dt>{{ 'backoffice.avisos.pago.monto' | translate }}</dt>
+          <dd class="mono" data-testid="pago-monto">
+            {{ caso.montoEstimado ?? 0 | svMoney: caso.moneda }}
+          </dd>
+          <dt>{{ 'backoffice.avisos.pago.umbral' | translate }}</dt>
+          <dd class="mono">{{ caso.umbralAutomatico ?? 0 | svMoney: caso.moneda }}</dd>
+          <dt>{{ 'backoffice.avisos.pago.clave' | translate }}</dt>
+          <dd class="mono" data-testid="pago-clave">
+            {{ caso.pago?.clave_idempotencia ?? caso.clavePago }}
+          </dd>
+          @if (caso.pago; as pago) {
+            <dt>{{ 'backoffice.avisos.pago.comprobante' | translate }}</dt>
+            <dd class="mono" data-testid="pago-comprobante">{{ pago.comprobante }}</dd>
+          }
+        </dl>
+
+        @if (vm.rechazo(); as rechazo) {
+          <p class="hint-error" role="alert" data-testid="pago-error">
+            {{ rechazo === 'error' ? ('backoffice.avisos.errorAccion' | translate) : rechazo }}
+          </p>
+        }
+        @if (vm.pago()?.reintento) {
+          <p class="subtitle" role="status" data-testid="pago-reintento">
+            {{ 'backoffice.avisos.pago.reintento' | translate }}
+          </p>
+        }
+
+        <div class="acciones">
+          <button
+            type="button"
+            class="filled"
+            data-testid="pago-confirmar"
+            [disabled]="vm.enviando() || !!caso.pago || !vm.puedePagar()"
+            (click)="vm.pagar()"
+          >
+            {{
+              (caso.pago
+                ? 'backoffice.avisos.pago.yaRealizado'
+                : 'backoffice.avisos.pago.confirmar'
+              ) | translate
+            }}
+          </button>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="pago-volver-aviso"
+            (click)="vm.volverACola()"
+          >
+            {{ 'backoffice.avisos.pago.volverAviso' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <aside class="tarjeta traza" data-testid="pago-trazabilidad">
+        <h2>{{ 'backoffice.avisos.pago.trazabilidad' | translate }}</h2>
+        <ul>
+          @for (paso of caso.historial; track paso.fecha) {
+            <li>
+              {{ 'siniestros.estado.' + paso.estado | translate }} · {{ paso.fecha | svDateTime }}
+            </li>
+          }
+          @for (intento of caso.intentosPago; track intento.ocurrido_en) {
+            <li>
+              {{ 'backoffice.avisos.pago.intento.' + intento.resultado | translate }} ·
+              <span class="mono">{{ intento.comprobante_devuelto }}</span> ·
+              {{ intento.ocurrido_en | svDateTime }}
+            </li>
+          }
+          @if (!caso.pago) {
+            <li>{{ 'backoffice.avisos.pago.pendiente' | translate }}</li>
+          }
+        </ul>
+      </aside>
+    </div>
+  } @else {
+    <h1>{{ 'backoffice.avisos.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.avisos.subtitle' | translate }}</p>
+
+    <div class="chips" role="group" [attr.aria-label]="'backoffice.avisos.filtrar' | translate">
+      @for (filtro of filtros; track filtro) {
+        <button
+          type="button"
+          class="chip"
+          [attr.data-testid]="'chip-' + filtro"
+          [attr.aria-pressed]="vm.filtro() === filtro"
+          (click)="vm.cargar(filtro)"
+        >
+          {{ 'backoffice.avisos.filtro.' + filtro | translate }}
+          @if (vm.filtro() === filtro) {
+            ({{ vm.conteos()[filtro] }})
+          }
+        </button>
+      }
+    </div>
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="avisos-loading">
+          {{ 'backoffice.avisos.loading' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="avisos-error">
+          <p>{{ 'backoffice.avisos.error' | translate }}</p>
+          <button type="button" class="outlined" (click)="vm.cargar()">
+            {{ 'backoffice.avisos.actualizar' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <!-- EmptyState / ColaVacia: sin tabla ni panel de detalle (HU-26). -->
+        <div class="empty-state" data-testid="avisos-vacia">
+          <h2>{{ 'backoffice.avisos.vacia.title' | translate }}</h2>
+          <p>{{ 'backoffice.avisos.vacia.body' | translate }}</p>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="avisos-actualizar"
+            (click)="vm.cargar()"
+          >
+            {{ 'backoffice.avisos.actualizar' | translate }}
+          </button>
+        </div>
+      }
+      @default {
+        <div class="cola-y-caso">
+          <table data-testid="avisos-tabla">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'backoffice.avisos.column.aviso' | translate }}</th>
+                <th scope="col">{{ 'backoffice.avisos.column.cliente' | translate }}</th>
+                <th scope="col">{{ 'backoffice.avisos.column.poliza' | translate }}</th>
+                <th scope="col">{{ 'backoffice.avisos.column.recibido' | translate }}</th>
+                <th scope="col">{{ 'backoffice.avisos.column.estado' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (aviso of vm.avisos(); track aviso.id) {
+                <tr
+                  [attr.data-testid]="'aviso-' + aviso.siniestroId"
+                  [class.seleccionado]="vm.seleccionado() === aviso.id"
+                  [attr.aria-selected]="vm.seleccionado() === aviso.id"
+                  tabindex="0"
+                  (click)="vm.seleccionar(aviso.id)"
+                  (keydown.enter)="vm.seleccionar(aviso.id)"
+                >
+                  <th scope="row" class="mono">{{ aviso.siniestroId }}</th>
+                  <td class="mono corto">{{ aviso.clienteId }}</td>
+                  <td class="mono">{{ aviso.poliza }}</td>
+                  <td>{{ aviso.recibidoEn | svDateTime }}</td>
+                  <td>
+                    <span class="badge" [attr.data-estado]="aviso.estadoCola">{{
+                      'backoffice.avisos.estado.' + aviso.estadoCola | translate
+                    }}</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          <aside class="tarjeta caso" data-testid="aviso-caso" [attr.data-state]="vm.casoStatus()">
+            @switch (vm.casoStatus()) {
+              @case ('loading') {
+                <p class="subtitle" role="status">
+                  {{ 'backoffice.avisos.caso.loading' | translate }}
+                </p>
+              }
+              @case ('error') {
+                <p class="hint-error" role="alert">
+                  {{ 'backoffice.avisos.caso.error' | translate }}
+                </p>
+              }
+              @case ('ready') {
+                @let caso = vm.caso()!;
+                <div class="tarjeta-head">
+                  <h2 class="mono">{{ caso.siniestroId }}</h2>
+                  <span class="badge" [attr.data-estado]="caso.estadoCola">{{
+                    'backoffice.avisos.estado.' + caso.estadoCola | translate
+                  }}</span>
+                </div>
+                <dl class="datos">
+                  <dt>{{ 'backoffice.avisos.column.cliente' | translate }}</dt>
+                  <dd class="mono corto">{{ caso.clienteId }}</dd>
+                  <dt>{{ 'backoffice.avisos.column.poliza' | translate }}</dt>
+                  <dd>{{ caso.poliza }} · {{ caso.ramo }}</dd>
+                  <dt>{{ 'backoffice.avisos.detalle.ocurrencia' | translate }}</dt>
+                  <dd>{{ caso.fechaHecho ? (caso.fechaHecho | svDate) : '—' }}</dd>
+                  <dt>{{ 'backoffice.avisos.detalle.ubicacion' | translate }}</dt>
+                  <dd class="mono">
+                    {{
+                      caso.geo
+                        ? caso.geo.lat + ', ' + caso.geo.lng
+                        : ('backoffice.avisos.detalle.sinUbicacion' | translate)
+                    }}
+                  </dd>
+                  <dt>{{ 'backoffice.avisos.detalle.monto' | translate }}</dt>
+                  <dd class="mono">
+                    {{
+                      caso.montoEstimado !== null
+                        ? (caso.montoEstimado | svMoney: caso.moneda)
+                        : '—'
+                    }}
+                  </dd>
+                  <dt>{{ 'backoffice.avisos.detalle.descripcion' | translate }}</dt>
+                  <dd>{{ caso.descripcion }}</dd>
+                </dl>
+
+                @if (caso.motivoRevision) {
+                  <p class="motivo" data-testid="aviso-motivo-revision">
+                    <strong>{{ 'backoffice.avisos.detalle.porQue' | translate }}</strong>
+                    {{ caso.motivoRevision }}
+                  </p>
+                }
+
+                <h3>{{ 'backoffice.avisos.detalle.evidencia' | translate }}</h3>
+                <!-- Solo lectura: no hay acciones de editar, reemplazar ni borrar (HU-26). -->
+                <ul class="miniaturas" data-testid="aviso-evidencia">
+                  @for (archivo of caso.evidencia; track archivo.url) {
+                    <li>
+                      <a [href]="archivo.url" target="_blank" rel="noopener">
+                        @if (archivo.contentType.startsWith('image/')) {
+                          <img [src]="archivo.url" [alt]="archivo.nombre" />
+                        } @else {
+                          <span class="archivo">{{ archivo.nombre }}</span>
+                        }
+                      </a>
+                    </li>
+                  }
+                </ul>
+
+                @if (vm.rechazo(); as rechazo) {
+                  <p class="hint-error" role="alert" data-testid="aviso-accion-error">
+                    {{
+                      rechazo === 'error' ? ('backoffice.avisos.errorAccion' | translate) : rechazo
+                    }}
+                  </p>
+                }
+
+                @if (vm.puedeDecidir()) {
+                  <div class="acciones">
+                    <button
+                      type="button"
+                      class="filled"
+                      data-testid="aviso-aprobar"
+                      (click)="vm.abrir('aprobar')"
+                    >
+                      {{ 'backoffice.avisos.aprobar' | translate }}
+                    </button>
+                    <button
+                      type="button"
+                      class="peligro"
+                      data-testid="aviso-rechazar"
+                      (click)="vm.abrir('rechazar')"
+                    >
+                      {{ 'backoffice.avisos.rechazar' | translate }}
+                    </button>
+                  </div>
+                  @if (!caso.bajoMonto) {
+                    <button
+                      type="button"
+                      class="outlined bloque"
+                      data-testid="aviso-perito"
+                      (click)="vm.abrir('perito')"
+                    >
+                      {{ 'backoffice.avisos.perito' | translate }}
+                    </button>
+                  }
+                } @else if (vm.puedePagar()) {
+                  <button
+                    type="button"
+                    class="filled bloque"
+                    data-testid="aviso-ir-pago"
+                    (click)="vm.abrirPago()"
+                  >
+                    {{
+                      (caso.pago ? 'backoffice.avisos.verPago' : 'backoffice.avisos.pagar')
+                        | translate
+                    }}
+                  </button>
+                }
+
+                <details class="auditoria">
+                  <summary>{{ 'backoffice.avisos.detalle.auditoria' | translate }}</summary>
+                  <ol data-testid="aviso-auditoria">
+                    @for (d of caso.decisiones; track d.decidida_en) {
+                      <li>
+                        {{ 'backoffice.avisos.auditoria.' + d.resultado | translate }} ·
+                        {{
+                          d.origen === 'motor'
+                            ? ('backoffice.avisos.auditoria.motor' | translate)
+                            : d.actor
+                        }}
+                        ·
+                        {{ d.decidida_en | svDateTime }}
+                        @if (d.motivo) {
+                          <br /><span class="subtitle">{{ d.motivo }}</span>
+                        }
+                      </li>
+                    }
+                  </ol>
+                </details>
+              }
+            }
+          </aside>
+        </div>
+      }
+    }
+
+    @if (vm.dialogo(); as dialogo) {
+      <sv-confirm-dialog
+        [titulo]="
+          'backoffice.avisos.dialogo.' + dialogo + '.title'
+            | translate: { aviso: vm.caso()!.siniestroId }
+        "
+        [advertencia]="'backoffice.avisos.dialogo.' + dialogo + '.advertencia' | translate"
+        [requiereMotivo]="dialogo === 'rechazar'"
+        [confirmarTexto]="'backoffice.avisos.dialogo.' + dialogo + '.cta'"
+        (cancelar)="vm.cerrarDialogo()"
+        (confirmar)="vm.confirmar($event)"
+      />
+    }
+  }
+</section>
