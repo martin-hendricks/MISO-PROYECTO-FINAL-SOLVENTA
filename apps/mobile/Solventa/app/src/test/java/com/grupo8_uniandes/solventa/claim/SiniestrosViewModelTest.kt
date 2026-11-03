@@ -145,6 +145,8 @@ class SiniestrosViewModelTest {
         assertEquals("Pago automático · pagado", viewModel.state.value.claims[2].statusWords())
         viewModel.openClaim("SIN-441")
         assertEquals("SIN-441", viewModel.state.value.openedClaimId)
+        viewModel.consumeOpenedClaim()
+        assertEquals(null, viewModel.state.value.openedClaimId)
     }
 
     private fun reviewRows() = listOf(
