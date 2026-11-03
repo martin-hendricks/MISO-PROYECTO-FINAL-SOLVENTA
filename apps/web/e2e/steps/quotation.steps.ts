@@ -41,17 +41,21 @@ Then(
   },
 );
 
-Then(
-  'the lines the core does not quote yet are disabled as Próximamente',
-  async function (this: PortalWorld) {
-    const lines = await this.cotizacion.lines();
-    assert.deepEqual(
-      lines.filter((line) => !line.disabled).map((line) => line.label),
-      ['Protección de dispositivo', 'SOAT motocicleta'],
-    );
-    assert.equal(lines.filter((line) => line.label.endsWith('· Próximamente')).length, 5);
-  },
-);
+Then('every line in the channel catalog can be chosen', async function (this: PortalWorld) {
+  const lines = await this.cotizacion.lines();
+  assert.deepEqual(
+    lines.map((line) => [line.label, line.disabled]),
+    [
+      ['Dispositivo', false],
+      ['SOAT motocicleta', false],
+      ['Vida', false],
+      ['Clima y vuelos', false],
+      ['Hipotecario', false],
+      ['Pagos', false],
+      ['Viaje', false],
+    ],
+  );
+});
 
 Then('"Cotizar" goes to the offer with premium and expiry', async function (this: PortalWorld) {
   await this.cotizacion.fillDevice();

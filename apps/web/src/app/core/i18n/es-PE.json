@@ -26,32 +26,44 @@
     }
   },
   "inicio": {
-    "title": "Hola",
-    "subtitle": "Resumen de tu cuenta",
+    "title": "Inicio",
+    "subtitle": "Tus cotizaciones por aceptar, pólizas y siniestros · Perú · PEN",
     "newQuote": "Nueva cotización",
     "loading": "Cargando tu inicio…",
     "offer": {
-      "label": "Oferta vigente",
-      "accept": "Aceptar oferta"
+      "pending": "{{ramo}} · por aceptar",
+      "accept": "Aceptar y emitir",
+      "detail": "Ver detalle",
+      "readyTitle": "Paso 2 de 4 · Cotización lista: acéptala para emitir",
+      "readyBody": "{{ramo}} · prima neta y gastos de expedición incluidos. Cobertura 12 meses.",
+      "vigencia": "Vigencia",
+      "vigenciaValor": "12 meses"
     },
     "policy": {
-      "label": "Póliza activa",
+      "label": "Póliza vigente",
       "link": "Ver póliza"
     },
     "claim": {
       "label": "Siniestro en curso",
-      "body": "Aviso #{{id}}",
-      "link": "Ver siniestro"
+      "body": "{{id}}",
+      "next": "Siguiente paso",
+      "nextBody": "Adjunta evidencia de {{id}} para continuar la evaluación.",
+      "link": "Ir a siniestros"
     },
     "vidaCrediticia": {
-      "label": "Vida Crediticia",
-      "body": "Originación hipotecaria disponible.",
-      "link": "Ver oferta"
+      "label": "Vida hipotecario",
+      "body": "Un solo flujo: consentimiento (paso 1 de 3) → oferta → emisión.",
+      "estado": "Disponible",
+      "link": "Continuar Vida hipotecario"
     },
     "estado": {
       "oferta_vigente": "Oferta vigente",
       "vigente": "Vigente",
-      "en_evaluacion": "En evaluación"
+      "recibido": "Recibido",
+      "en_evaluacion": "En evaluación",
+      "decidido": "Decidido",
+      "enrutado": "Enrutado",
+      "pagado": "Pagado"
     },
     "empty": {
       "title": "Aún no tienes productos",
@@ -450,10 +462,44 @@
       "option": "Elige una de las opciones"
     },
     "nueva": {
-      "title": "Nueva cotización",
-      "subtitle": "Elige el ramo y completa los datos del riesgo; el precio lo calcula Solventa.",
+      "title": "Nueva cotización · paso 1 de 4",
+      "volver": "Volver",
       "cotizar": "Cotizar",
-      "cancelar": "Cancelar"
+      "recibiras": "Qué recibirás",
+      "picker": {
+        "dispositivo": "Dispositivo",
+        "soat": "SOAT motocicleta",
+        "vida": "Vida",
+        "clima": "Clima y vuelos",
+        "hipotecario": "Hipotecario",
+        "pagos": "Pagos",
+        "viaje": "Viaje"
+      },
+      "leyenda": {
+        "dispositivo": "Datos del riesgo",
+        "soat": "Datos del riesgo",
+        "vida": "Datos del riesgo · vida",
+        "clima": "Datos del riesgo · clima y vuelos",
+        "hipotecario": "Datos del riesgo · hipotecario",
+        "pagos": "Datos del riesgo · pagos",
+        "viaje": "Datos del riesgo · viaje"
+      },
+      "subtitulo": {
+        "dispositivo": "Cubre robo, pantalla y hurto calificado. Pedimos valor, marca y ciudad del equipo. La prima es el precio del seguro, calculada sobre ese valor; no es el valor del dispositivo.",
+        "vida": "Amparo de vida por una suma fija. Pedimos suma asegurada y edad. La prima depende de esos datos, no de un bien.",
+        "clima": "Si el retraso o el clima supera el umbral, Solventa paga solo. No reportas siniestro ni el valor de un aparato.",
+        "hipotecario": "Protección de pagos ligada al crédito de vivienda. El siguiente paso es autorizar el perfilamiento. No uses el formulario de dispositivo.",
+        "pagos": "Cubre las cuotas de un crédito si no puedes pagarlas. Pedimos cuota y plazo, no datos de un celular.",
+        "viaje": "Cubre imprevistos del trayecto. Pedimos destino y duración, no el valor de un dispositivo. La prima es el precio del seguro."
+      },
+      "recibirasCuerpo": {
+        "dispositivo": "¿Qué es la prima? El precio de tu póliza. En este ramo se calcula con el valor del dispositivo. En vida o viaje usa otros datos de riesgo.",
+        "vida": "La prima es el precio del amparo. No se pide valor de un dispositivo.",
+        "clima": "La prima cubre el evento automático. El valor del dispositivo no aplica.",
+        "hipotecario": "Al cotizar pasarás al consentimiento de perfilamiento. La prima saldrá de ese perfil, no del valor de un dispositivo.",
+        "pagos": "La prima se calcula sobre la cuota y el plazo.",
+        "viaje": "La prima se calcula con destino y duración, no con el valor de un aparato."
+      }
     },
     "oferta": {
       "title": "Tu oferta",

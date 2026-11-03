@@ -11,6 +11,7 @@ import {
   OFERTA_DESGLOSE_WIRE,
   OFERTA_WIRE,
 } from '../../cotizacion/cotizacion.testing';
+import { RAMOS } from '../../cotizacion/ramos';
 import { sessionAs } from '../backoffice.testing';
 import { AsesorCotizacionView } from './asesor-cotizacion.view';
 
@@ -86,6 +87,22 @@ describe('AsesorCotizacionView', () => {
     expect(element('sin-oferta')).not.toBeNull();
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
     expect(element('cotizacion-back')?.getAttribute('href')).toBe('/cms/cotizaciones');
+  });
+
+  it('marks a line the channel does not quote yet as Próximamente', () => {
+    const viaje = RAMOS.find((ramo) => ramo.id === 'viaje')!;
+    viaje.disponible = false;
+    try {
+      const { element } = render();
+      const option = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options).find(
+        (item) => item.value === 'viaje',
+      )!;
+
+      expect(option.disabled).toBeTrue();
+      expect(option.textContent).toContain('Próximamente');
+    } finally {
+      viaje.disponible = true;
+    }
   });
 
   it('quotes on behalf of the customer and fills the offer panel', () => {

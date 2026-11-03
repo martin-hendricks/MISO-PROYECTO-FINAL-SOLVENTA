@@ -9,6 +9,7 @@ import {
   FUERA_DE_RANGO,
   OFERTA_WIRE,
 } from '../cotizacion.testing';
+import { RAMOS } from '../ramos';
 import { NuevaCotizacionView } from './nueva-cotizacion.view';
 
 describe('NuevaCotizacionView', () => {
@@ -64,19 +65,47 @@ describe('NuevaCotizacionView', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('offers the seven lines and disables the ones the core does not quote yet', () => {
+  it('offers every line the channel quotes, with the S7 step and help copy', () => {
     const { element } = render();
 
-    const options = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options);
-    expect(options.map((o) => [o.textContent!.replace(/\s+/g, ' ').trim(), o.disabled])).toEqual([
-      ['Protección de dispositivo', false],
+    const lines = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options);
+    expect(
+      lines.map((line) => [line.textContent!.replace(/\s+/g, ' ').trim(), line.disabled]),
+    ).toEqual([
+      ['Dispositivo', false],
       ['SOAT motocicleta', false],
-      ['Microseguro de vida · Próximamente', true],
-      ['Clima y vuelos · Próximamente', true],
-      ['Vida hipotecario · Próximamente', true],
-      ['Pagos · Próximamente', true],
-      ['Viaje · Próximamente', true],
+      ['Vida', false],
+      ['Clima y vuelos', false],
+      ['Hipotecario', false],
+      ['Pagos', false],
+      ['Viaje', false],
     ]);
+    expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
+    expect(element('cancelar')?.textContent).toContain('Volver');
+    expect(element('cancelar')?.getAttribute('href')).toBe('/inicio');
+    expect(element('nueva-cotizacion')?.querySelector('h1')?.textContent).toContain(
+      'Nueva cotización · paso 1 de 4',
+    );
+    expect(element('cotizacion-leyenda')?.textContent?.trim()).toBe('Datos del riesgo');
+    expect(element('cotizacion-subtitulo')?.textContent).toContain('hurto calificado');
+    expect(element('cotizacion-recibiras')?.textContent).toContain('¿Qué es la prima?');
+  });
+
+  it('keeps a line the channel does not quote yet disabled and marked Próximamente', () => {
+    const viaje = RAMOS.find((ramo) => ramo.id === 'viaje')!;
+    viaje.disponible = false;
+    try {
+      const { element } = render();
+      const option = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options).find(
+        (item) => item.value === 'viaje',
+      )!;
+
+      expect(option.disabled).toBeTrue();
+      expect(option.textContent).toContain('Próximamente');
+      expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
+    } finally {
+      viaje.disponible = true;
+    }
   });
 
   it('shows the device form with the coverages and brands of the catalog', () => {
@@ -137,6 +166,10 @@ describe('NuevaCotizacionView', () => {
     http.expectOne('/web/cliente/catalogo/SOAT%20motocicleta').flush(CATALOGO_SOAT_WIRE);
     fixture.detectChanges();
 
+    expect(element('cotizacion-leyenda')?.textContent?.trim()).toBe('Datos del riesgo');
+    expect(element('cotizacion-subtitulo')?.textContent).toContain('accidente de tránsito');
+    expect(element('cotizacion-recibiras')?.textContent).toContain('accidente de tránsito');
+    expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('soat');
     expect(element('riesgo-valorDispositivo')).toBeNull();
     expect(element('riesgo-cilindraje_cc')?.nextElementSibling?.textContent).toContain(
       'Entre 50 y 1800',
@@ -217,11 +250,6 @@ describe('NuevaCotizacionView', () => {
     expect(element('catalogo-error')).toBeNull();
   });
 
-  it('returns to Inicio on cancel', () => {
-    const { element } = render();
-
-    expect(element('cancelar')?.getAttribute('href')).toBe('/inicio');
-  });
   it('shows a catalog value without a translation as the core sends it', () => {
     const conHuawei = {
       ...CATALOGO_DISPOSITIVO_WIRE,
