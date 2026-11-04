@@ -1,36 +1,37 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.OutputTransformation
+import androidx.compose.foundation.text.input.TextFieldBuffer
+import androidx.compose.foundation.text.input.byValue
+import androidx.compose.foundation.text.input.insert
+import com.grupo8_uniandes.solventa.domain.issuance.CardFranchise
 import com.grupo8_uniandes.solventa.domain.issuance.CardNumber
 
-object CardNumberVisualTransformation : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val formatted = CardNumber.grouped(text.text)
-        if (formatted.isEmpty()) {
-            return TransformedText(AnnotatedString(""), OffsetMapping.Identity)
-        }
-        return TransformedText(AnnotatedString(formatted), spacedDigitOffset(formatted))
+/**
+ * Drops anything past the franchise length before the field can keep it.
+ * The string text field would otherwise keep rejected keystrokes.
+ */
+val CardNumberInput: InputTransformation =
+    InputTransformation.byValue { _, proposed ->
+        CardNumber.digits(proposed.toString())
     }
-}
 
-internal fun spacedDigitOffset(formatted: String): OffsetMapping {
-    val digitIndexes = formatted.mapIndexedNotNull { index, char ->
-        if (char.isDigit()) index else null
-    }
-    return object : OffsetMapping {
-        override fun originalToTransformed(offset: Int): Int {
-            if (digitIndexes.isEmpty()) return formatted.length
-            if (offset <= 0) return digitIndexes.first()
-            if (offset >= digitIndexes.size) return formatted.length
-            return digitIndexes[offset - 1] + 1
+object CardNumberOutput : OutputTransformation {
+    override fun TextFieldBuffer.transformOutput() {
+        val sizes = when (CardNumber.franchise(asCharSequence().toString())) {
+            CardFranchise.Amex -> intArrayOf(4, 6, 5)
+            CardFranchise.Diners -> intArrayOf(4, 6, 4)
+            else -> intArrayOf(4, 4, 4, 4)
         }
-
-        override fun transformedToOriginal(offset: Int): Int {
-            return formatted.take(offset.coerceIn(0, formatted.length)).count { it.isDigit() }
-                .coerceIn(0, digitIndexes.size)
+        var index = 0
+        val breaks = ArrayList<Int>(sizes.size)
+        for (size in sizes.dropLast(1)) {
+            index += size
+            if (index < length) breaks += index
+        }
+        for (at in breaks.asReversed()) {
+            insert(at, " ")
         }
     }
 }

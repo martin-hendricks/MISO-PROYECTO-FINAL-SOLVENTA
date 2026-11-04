@@ -104,7 +104,8 @@ fun ConfirmacionTarjetaScreen(
             helper = stringResource(numberHint),
             externalLabel = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            visualTransformation = CardNumberVisualTransformation,
+            inputTransformation = CardNumberInput,
+            outputTransformation = CardNumberOutput,
             placeholder = stringResource(R.string.card_number_placeholder),
             testTag = "field_tarjeta",
         )

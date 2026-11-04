@@ -72,4 +72,45 @@ class ConfirmacionTarjetaFormatTest {
         rule.onNodeWithText("Mes").assertIsDisplayed()
         rule.onNodeWithText("Año").assertIsDisplayed()
     }
+
+    @Test
+    fun givenAVisaPrefix_whenMoreThanSixteenDigitsAreTyped_thenTheRestIsDropped() {
+        val viewModel = ConfirmacionTarjetaViewModel()
+        var state by mutableStateOf(viewModel.state.value)
+        rule.setContent {
+            SolventaTheme {
+                ConfirmacionTarjetaScreen(
+                    state = state,
+                    onTitular = {
+                        viewModel.onTitular(it)
+                        state = viewModel.state.value
+                    },
+                    onNumero = {
+                        viewModel.onNumero(it)
+                        state = viewModel.state.value
+                    },
+                    onMes = {
+                        viewModel.onMes(it)
+                        state = viewModel.state.value
+                    },
+                    onAnio = {
+                        viewModel.onAnio(it)
+                        state = viewModel.state.value
+                    },
+                    onCodigo = {
+                        viewModel.onCodigo(it)
+                        state = viewModel.state.value
+                    },
+                    onConfirm = {},
+                    onBackToOffer = {},
+                    onLeave = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("field_tarjeta").performTextInput("4111111111111111")
+        rule.onNodeWithTag("field_tarjeta").performTextInput("9999")
+        org.junit.Assert.assertEquals("4111111111111111", viewModel.state.value.numero)
+        rule.onNodeWithText("4111 1111 1111 1111").assertIsDisplayed()
+        rule.onAllNodesWithText("9999", substring = true).assertCountEquals(0)
+    }
 }
