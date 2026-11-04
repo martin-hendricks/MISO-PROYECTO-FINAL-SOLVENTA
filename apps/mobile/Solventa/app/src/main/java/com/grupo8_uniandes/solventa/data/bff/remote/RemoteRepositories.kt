@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
+import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
 import com.grupo8_uniandes.solventa.data.bff.dto.QuoteRequestDto
@@ -56,6 +57,9 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
+import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteExplained
+import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalPreferenceRepository
+import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalSave
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
@@ -68,10 +72,11 @@ import com.grupo8_uniandes.solventa.domain.bff.signup.ConsentRevocation
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.jsonPrimitive
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -181,10 +186,22 @@ class RemoteOfferRepository(
     private val api: MobileBffApi,
     private val gate: BffGate,
 ) : OfferRepository {
-    override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> =
-        gate.call {
-            api.quote(newIdempotencyKey(), QuoteRequestDto(ramo, risk.toRequestElement())).toOffer()
+    override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
+        gate.flush()
+        return try {
+            StandInAnswer.Ready(
+                api.quote(newIdempotencyKey(), QuoteRequestDto(ramo, risk.toRequestElement())).toOffer(),
+            )
+        } catch (error: HttpException) {
+            val detail = problemDetail(error.response()?.errorBody()?.string().orEmpty())
+            if (error.code() == 422 && !detail.isNullOrBlank()) throw QuoteExplained(detail)
+            StandInAnswer.Failed
+        } catch (_: IOException) {
+            StandInAnswer.Failed
+        } catch (_: SerializationException) {
+            StandInAnswer.Failed
         }
+    }
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         gate.call { api.requote(cotizacionId).toOffer() }
@@ -349,9 +366,20 @@ class RemotePolicyCommandRepository(
 class RemoteHomeBffRepository(
     private val api: MobileBffApi,
     private val gate: BffGate,
+    private val tokens: TokenStore,
 ) : HomeBffRepository {
-    override suspend fun load(): StandInAnswer<BffHome> = gate.call { api.home().toHome() }
+    override suspend fun load(): StandInAnswer<BffHome> {
+        if (tokens.read() == null) return StandInAnswer.Ready(emptyHome())
+        return gate.call { api.home().toHome() }
+    }
 }
+
+private fun emptyHome() = BffHome(
+    ofertaVigente = null,
+    poliza = null,
+    siniestroEnCurso = null,
+    hipotecario = null,
+)
 
 class RemotePushRepository(
     private val api: MobileBffApi,
@@ -374,3 +402,28 @@ class RemoteAssistanceRepository(
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }
 }
+
+class RemoteRenewalPreferenceRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : RenewalPreferenceRepository {
+    override suspend fun save(numero: String, enabled: Boolean): RenewalSave {
+        gate.flush()
+        return try {
+            val saved = api.preferences(numero, RenewalRequestDto(enabled))
+            RenewalSave.Saved(saved.renovacionAutomatica)
+        } catch (error: HttpException) {
+            val detail = problemDetail(error.response()?.errorBody()?.string().orEmpty())
+            if (error.code() == 404 || detail == "No existe") RenewalSave.Missing else RenewalSave.Failed
+        } catch (_: IOException) {
+            RenewalSave.Failed
+        } catch (_: SerializationException) {
+            RenewalSave.Failed
+        }
+    }
+}
+
+internal fun problemDetail(raw: String): String? = runCatching {
+    val text = bffJson.parseToJsonElement(raw).jsonObject["detail"]?.jsonPrimitive?.content?.trim().orEmpty()
+    text.ifBlank { null }
+}.getOrNull()

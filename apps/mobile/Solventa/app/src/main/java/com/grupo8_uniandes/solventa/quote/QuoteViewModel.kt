@@ -38,6 +38,7 @@ data class QuoteUiState(
     val gap: QuoteInput? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
+    val explanation: String? = null,
     val readyId: String? = null,
     val contextId: String = "",
 )
@@ -86,12 +87,12 @@ class QuoteViewModel(
                 QuoteInput.City -> state.copy(city = text)
                 QuoteInput.Age -> state
             }
-            updated.copy(gap = null, failed = false)
+            updated.copy(gap = null, failed = false, explanation = null)
         }
     }
 
     fun onAge(olderThan12Months: Boolean) {
-        _state.update { it.copy(olderThan12Months = olderThan12Months, gap = null, failed = false) }
+        _state.update { it.copy(olderThan12Months = olderThan12Months, gap = null, failed = false, explanation = null) }
     }
 
     fun cotizar() {
@@ -122,20 +123,23 @@ class QuoteViewModel(
             modelYear = current.modelYear,
             city = current.city,
         )
-        _state.update { it.copy(pending = true, failed = false, gap = null, readyId = null) }
+        _state.update { it.copy(pending = true, failed = false, gap = null, explanation = null, readyId = null) }
         when (val attempt = request.submit(current.line, answers)) {
             is QuoteAttempt.Gap -> _state.update {
-                it.copy(gap = attempt.field, pending = false, failed = false, readyId = null)
+                it.copy(gap = attempt.field, pending = false, failed = false, explanation = null, readyId = null)
+            }
+            is QuoteAttempt.Refused -> _state.update {
+                it.copy(gap = null, pending = false, failed = false, explanation = attempt.detail, readyId = null)
             }
             is QuoteAttempt.Answer -> when (val answer = attempt.answer) {
                 StandInAnswer.Pending -> _state.update {
-                    it.copy(pending = true, failed = false, gap = null, readyId = null)
+                    it.copy(pending = true, failed = false, gap = null, explanation = null, readyId = null)
                 }
                 StandInAnswer.Failed -> _state.update {
-                    it.copy(pending = false, failed = true, gap = null, readyId = null)
+                    it.copy(pending = false, failed = true, gap = null, explanation = null, readyId = null)
                 }
                 is StandInAnswer.Ready -> _state.update {
-                    it.copy(pending = false, failed = false, gap = null, readyId = answer.value.cotizacionId)
+                    it.copy(pending = false, failed = false, gap = null, explanation = null, readyId = answer.value.cotizacionId)
                 }
             }
         }

@@ -30,9 +30,12 @@ import kotlinx.serialization.json.JsonElement
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Response
+import com.grupo8_uniandes.solventa.data.bff.dto.RenewalPreferenceDto
+import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -99,6 +102,12 @@ interface MobileBffApi {
 
     @GET("cliente/avisos")
     suspend fun notices(): NoticesDto
+
+    @PATCH("cliente/polizas/{numero}/preferencias")
+    suspend fun preferences(
+        @Path("numero") numero: String,
+        @Body body: RenewalRequestDto,
+    ): RenewalPreferenceDto
 
     @POST("cliente/polizas/{numero}/ciclo")
     suspend fun cycle(

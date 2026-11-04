@@ -14,7 +14,7 @@ object PublishedSamples {
     """
 
     const val SIGNUP = """
-        {"nombre":"Camila","apellidos":"Restrepo","documento":"1012345678","correo":"camila@correo.com","pruebaDeVida":"ok","habeasData":true}
+        {"nombre":"Camila","apellidos":"Restrepo","documento":"1012345678","correo":"camila@correo.com","pruebaDeVida":"ok","habeasData":true,"ingresos_mensuales":"4500000.00","gastos_mensuales":"1500000.00"}
     """
 
     const val REVOKE = """

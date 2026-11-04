@@ -16,6 +16,8 @@ data class SignupRecord(
     val habeasData: Boolean,
     val contrasena: String = "",
     val tipoDocumento: String = "",
+    val ingresosMensuales: String = "",
+    val gastosMensuales: String = "",
 )
 
 data class ConsentRevocation(

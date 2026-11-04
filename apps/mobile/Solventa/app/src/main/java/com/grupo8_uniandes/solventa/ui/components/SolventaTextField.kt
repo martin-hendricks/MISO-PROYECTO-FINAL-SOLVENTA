@@ -63,6 +63,7 @@ fun SolventaTextField(
     trailingIcon: @Composable (() -> Unit)? = null,
     testTag: String? = null,
     externalLabel: Boolean = false,
+    placeholder: String = "",
 ) {
     if (externalLabel) {
         ExternalLabelField(
@@ -76,6 +77,7 @@ fun SolventaTextField(
             modifier = modifier,
             trailingIcon = trailingIcon,
             testTag = testTag,
+            placeholder = placeholder,
         )
         return
     }
@@ -87,6 +89,11 @@ fun SolventaTextField(
         null
     } else {
         { Text(helper) }
+    }
+    val placeholderContent: @Composable (() -> Unit)? = if (placeholder.isEmpty()) {
+        null
+    } else {
+        { Text(placeholder) }
     }
     when (style) {
         SolventaFieldStyle.Outlined -> OutlinedTextField(
@@ -100,6 +107,7 @@ fun SolventaTextField(
             keyboardOptions = keyboardOptions,
             visualTransformation = visualTransformation,
             trailingIcon = trailingIcon,
+            placeholder = placeholderContent,
         )
         SolventaFieldStyle.Filled -> TextField(
             value = value,
@@ -112,6 +120,7 @@ fun SolventaTextField(
             keyboardOptions = keyboardOptions,
             visualTransformation = visualTransformation,
             trailingIcon = trailingIcon,
+            placeholder = placeholderContent,
         )
     }
 }
@@ -128,6 +137,7 @@ private fun ExternalLabelField(
     trailingIcon: @Composable (() -> Unit)?,
     modifier: Modifier,
     testTag: String?,
+    placeholder: String,
 ) {
     val isError = state == SolventaFieldState.Error
     val readOnly = state == SolventaFieldState.ReadOnly
@@ -172,6 +182,20 @@ private fun ExternalLabelField(
                     visualTransformation = visualTransformation,
                     singleLine = true,
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { innerTextField ->
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                            if (value.isEmpty() && placeholder.isNotEmpty()) {
+                                Text(
+                                    text = placeholder,
+                                    style = SolventaTypography.amount.copy(
+                                        color = MaterialTheme.colorScheme.outline,
+                                    ),
+                                    maxLines = 1,
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
                 )
                 trailingIcon?.invoke()
             }

@@ -167,6 +167,15 @@ fun CotizacionScreen(
                 modifier = Modifier.testTag("quote_progress"),
             )
         }
+        val explanation = state.explanation
+        if (explanation != null) {
+            Text(
+                text = explanation,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("quote_explanation"),
+            )
+        }
         if (state.failed) {
             Text(
                 text = stringResource(R.string.quote_failed),

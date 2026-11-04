@@ -108,6 +108,8 @@ internal fun SignupDto.toRecord() = SignupRecord(
     if (pruebaDeVida == LivenessDto.ok) Liveness.OK else Liveness.NO,
     habeasData,
     tipoDocumento = tipoDocumento,
+    ingresosMensuales = ingresosMensuales,
+    gastosMensuales = gastosMensuales,
 )
 
 internal fun RevokeDto.toRevocation() = ConsentRevocation(habeasData)
@@ -158,6 +160,8 @@ internal fun SignupRecord.toDto() = SignupDto(
     habeasData,
     contrasena,
     tipoDocumento,
+    ingresosMensuales,
+    gastosMensuales,
 )
 
 internal fun ClaimNotice.toDto() = ClaimNoticeDto(

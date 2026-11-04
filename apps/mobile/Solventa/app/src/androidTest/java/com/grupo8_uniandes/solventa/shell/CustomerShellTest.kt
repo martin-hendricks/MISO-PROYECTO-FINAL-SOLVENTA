@@ -16,6 +16,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -120,6 +121,7 @@ class CustomerShellTest {
     @Test
     fun givenOfferAccepted_whenIssuingAndIssued_thenBarIsHiddenUntilLeaving() {
         rule.onNodeWithText("Aceptar oferta").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
@@ -131,6 +133,7 @@ class CustomerShellTest {
     @Test
     fun givenIssuedPolicy_whenContinueToDetail_thenPolizasIsSelected() {
         rule.onNodeWithText("Aceptar oferta").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()

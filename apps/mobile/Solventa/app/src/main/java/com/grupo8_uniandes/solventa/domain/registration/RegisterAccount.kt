@@ -10,6 +10,8 @@ class AccountDraft(
     val documentNumber: String,
     val password: String,
     val documentPhoto: ByteArray?,
+    val monthlyIncome: String = "",
+    val monthlySpending: String = "",
 )
 
 open class RegisterAccount(
@@ -29,6 +31,7 @@ open class RegisterAccount(
             email.isEmpty() ||
             documentType.isEmpty() ||
             documentNumber.isEmpty() ||
+            MonthlyAmounts.pair(draft.monthlyIncome, draft.monthlySpending) == null ||
             !PasswordLength.accepted(password) ||
             photo == null ||
             photo.isEmpty() ||

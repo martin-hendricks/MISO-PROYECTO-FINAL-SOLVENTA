@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
@@ -34,6 +35,7 @@ class InicioNavigationTest {
     fun givenOffer_whenAccepted_thenIssuanceShowsThatId() {
         show(HomePanel(offerId = "Q-42"))
         rule.onNodeWithTag("action_accept_offer").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)

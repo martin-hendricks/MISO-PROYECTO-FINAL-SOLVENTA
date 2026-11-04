@@ -36,6 +36,7 @@ class OnboardingViewModelTest {
         assertFalse(state.hasPhoto)
         assertFalse(state.emailError)
         assertFalse(state.habeasData)
+        assertTrue(state.showDataTreatment)
         assertFalse(state.continuarEnabled)
         assertNull(state.effect)
     }
@@ -386,6 +387,51 @@ class OnboardingViewModelTest {
         }
     }
 
+    @Test
+    fun givenPriorDataTreatment_whenTheFormOpens_thenThatChoiceStaysAndTheControlIsClosed() {
+        val granted = OnboardingViewModel(register, priorDataTreatment = true)
+        assertTrue(granted.state.value.habeasData)
+        assertFalse(granted.state.value.showDataTreatment)
+        granted.onHabeasData(false)
+        assertTrue(granted.state.value.habeasData)
+
+        fill(granted)
+        granted.attachPhoto(byteArrayOf(7, 8))
+        assertTrue(granted.state.value.continuarEnabled)
+
+        val revoked = OnboardingViewModel(register, priorDataTreatment = false)
+        assertFalse(revoked.state.value.habeasData)
+        assertFalse(revoked.state.value.showDataTreatment)
+        revoked.onHabeasData(true)
+        assertFalse(revoked.state.value.habeasData)
+        fill(revoked)
+        revoked.attachPhoto(byteArrayOf(7, 8))
+        assertFalse(revoked.state.value.continuarEnabled)
+    }
+
+    @Test
+    fun givenWholeCopAmounts_whenTheOtherFieldsAreReady_thenContinuarSendsTwoFractionDigits() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onIncome("4.500.000")
+        viewModel.onSpending("0")
+        assertTrue(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertEquals("4500000.00", register.drafts.single().monthlyIncome)
+        assertEquals("0.00", register.drafts.single().monthlySpending)
+    }
+
+    @Test
+    fun givenIncomeZero_whenTheOtherFieldsAreReady_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onIncome("0.00")
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.onIncome("1.00")
+        viewModel.onSpending("0.00")
+        assertTrue(viewModel.state.value.continuarEnabled)
+    }
+
     private fun fillValid() {
         fill(viewModel)
     }
@@ -398,6 +444,8 @@ class OnboardingViewModelTest {
         target.onDocumentNumber("1023456789")
         target.onPassword("secret12")
         target.onPasswordConfirm("secret12")
+        target.onIncome("4500000.00")
+        target.onSpending("1200000.00")
         target.onHabeasData(true)
     }
 }
