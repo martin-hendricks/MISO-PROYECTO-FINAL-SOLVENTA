@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ..clients.nucleo import DETALLE_INCOMPLETA
 from ..dependencies import require_customer
@@ -52,7 +52,12 @@ class Cotizacion(BaseModel):
 
 
 class Aceptar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     cotizacionId: str
+
+
+class PreferenciaRenovacion(BaseModel):
+    renovacionAutomatica: bool
 
 
 class Geo(BaseModel):
@@ -232,17 +237,42 @@ def cotizar(body: Cotizacion, request: Request, usuario: dict = Depends(require_
     if not es_v1(request):
         return _offer(OFFER["cotizacionId"])
     contexto = _contexto(usuario)
+    producto = _producto_de(body.ramo)
+    datos_riesgo = dict(body.datosRiesgo)
+    try:
+        perfil = request.app.state.nucleo.obtener_usuario(contexto["usuario_id"]) or {}
+    except Exception:
+        perfil = {}
+    if isinstance(perfil, dict) and perfil.get("ingresos_mensuales") is not None:
+        datos_riesgo["ingresos_mensuales"] = perfil["ingresos_mensuales"]
+        datos_riesgo["gastos_mensuales"] = perfil["gastos_mensuales"]
     datos = request.app.state.nucleo.cotizar(
         idempotency_key=str(uuid.uuid4()),
         usuario_id=contexto["usuario_id"],
         socio_id=contexto["socio_id"],
         consentimiento_id=contexto["consentimiento_id"],
-        producto=_producto_de(body.ramo),
+        producto=producto,
         canal=CANAL,
-        datos_riesgo=body.datosRiesgo,
+        datos_riesgo=datos_riesgo,
     )
-    _, descripcion = presentar(_producto_de(body.ramo))
+    _, descripcion = presentar(producto)
     return _oferta_movil(datos, body.ramo, descripcion)
+
+
+@router.patch("/polizas/{numero}/preferencias")
+def guardar_renovacion(
+    numero: str, body: PreferenciaRenovacion, request: Request, usuario: dict = Depends(require_customer)
+) -> dict:
+    if not es_v1(request):
+        raise HTTPException(status_code=404, detail="No existe")
+    contexto = _contexto(usuario)
+    poliza = _exigir(request.app.state.nucleo.obtener_por_numero(numero, contexto["usuario_id"]), "id", "numero")
+    if _ajeno(poliza, contexto["usuario_id"]):
+        raise HTTPException(status_code=404, detail="No existe")
+    actualizada = request.app.state.nucleo.guardar_preferencia(
+        str(poliza["id"]), body.renovacionAutomatica, contexto["usuario_id"]
+    )
+    return {"numero": actualizada.get("numero", numero), "renovacionAutomatica": body.renovacionAutomatica}
 
 
 @router.get("/cotizaciones/{cotizacion_id}")

@@ -169,6 +169,20 @@ async def modificar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nuevas_
         return poliza
 
 
+async def guardar_renovacion_automatica(
+    uow: FabricaUnidadDeTrabajo, poliza_id: UUID, valor: bool, usuario_id: UUID | None = None
+) -> Poliza:
+    """Persiste la preferencia del cliente. No cobra ni renueva la póliza."""
+    async with uow() as tx:
+        poliza = await _obtener_o_fallar(tx, poliza_id)
+        if usuario_id is not None and poliza.usuario_id != usuario_id:
+            raise NoEncontrado(f"La póliza {poliza_id} no existe")
+        poliza.fijar_renovacion_automatica(valor, datetime.now(UTC))
+        await tx.polizas.actualizar(poliza)
+        await tx.confirmar()
+        return poliza
+
+
 async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: str, cancelada_por: str) -> Poliza:
     """HU-61: única transición de estado real del ciclo de vida. Lanza
     NoEncontrado si la póliza no existe y TransicionInvalida (vía

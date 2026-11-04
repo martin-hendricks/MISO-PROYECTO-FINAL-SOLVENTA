@@ -61,6 +61,7 @@ class PolizaSalida(BaseModel):
     cancelada_por: str | None = None
     devolucion_estimada: Decimal | None = None
     hash_firma_legal: str | None = None
+    renovacion_automatica: bool = False
 
     @classmethod
     def desde(cls, poliza: Poliza, hoy: date | None = None) -> "PolizaSalida":
@@ -83,6 +84,7 @@ class PolizaSalida(BaseModel):
             cancelada_por=poliza.cancelada_por,
             devolucion_estimada=poliza.devolucion_estimada,
             hash_firma_legal=poliza.firma_hash,
+            renovacion_automatica=poliza.renovacion_automatica,
         )
 
 
@@ -110,6 +112,10 @@ class RenovarPolizaEntrada(BaseModel):
 
 class ModificarCoberturasEntrada(BaseModel):
     coberturas: list[CoberturaEntrada] = Field(min_length=1)
+
+
+class PreferenciaPolizaEntrada(BaseModel):
+    renovacion_automatica: bool
 
 
 class CancelarPolizaEntrada(BaseModel):

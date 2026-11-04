@@ -43,7 +43,7 @@ async def otorgar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -
     return RegistroConsentimiento(consentimiento, creado=True)
 
 
-async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> Consentimiento:
+async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str, cache=None) -> Consentimiento:
     """HU-53: revocar impide futuras consultas de perfil. Efectivo de inmediato: la
     siguiente llamada a consultar_consentimiento_vigente/perfilar_y_ofertar ya no
     encuentra consentimiento vigente, porque no hay caché intermedia — se lee siempre
@@ -56,6 +56,8 @@ async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -
         await tx.consentimientos.actualizar(vigente)
         await tx.outbox.agregar(consentimiento_revocado(vigente))
         await tx.confirmar()
+    if cache is not None:
+        await cache.invalidar(cliente_id)
     return vigente
 
 
@@ -69,6 +71,9 @@ async def _atributos_con_respaldo(
     adaptador_open_data: AdaptadorOpenData,
     cliente_id: str,
     config: Settings,
+    cache=None,
+    sujeto: str | None = None,
+    consentimiento_id: str | None = None,
 ) -> list[AtributoPerfil]:
     """HU-54 + HU-56: invoca cada adaptador con su propio timeout (asyncio.wait_for).
     Si expira o el adaptador lanza cualquier excepción, sustituye por el valor de
@@ -76,12 +81,34 @@ async def _atributos_con_respaldo(
     (éxito/degradado) queda explícito en cada AtributoPerfil, que luego se persiste
     como parte del resultado del perfilamiento."""
 
+    sujeto_cache = sujeto or cliente_id
+
+    async def _cacheada(fuente: str, nombres: tuple[str, ...], origen: OrigenAdaptador) -> list[AtributoPerfil] | None:
+        if cache is None:
+            return None
+        entrada = await cache.obtener(fuente, sujeto_cache)
+        if entrada is None:
+            return None
+        return [
+            AtributoPerfil(
+                nombre=nombre,
+                valor=entrada.atributos[nombre],
+                origen=origen,
+                estado=EstadoAdaptador.EXITO,
+                degradado=False,
+                modo="CACHE",
+            )
+            for nombre in nombres
+        ]
+
     async def _invocar_open_finance() -> list[AtributoPerfil]:
         try:
             datos = await asyncio.wait_for(
-                adaptador_open_finance.obtener_atributos(cliente_id),
+                adaptador_open_finance.obtener_atributos(sujeto_cache),
                 timeout=config.timeout_open_finance_ms / 1000,
             )
+            if cache is not None:
+                await cache.guardar("OPEN_FINANCE", sujeto_cache, datos, consentimiento_id)
             return [
                 AtributoPerfil(
                     nombre=NIVEL_INGRESOS_ESTIMADO,
@@ -102,7 +129,13 @@ async def _atributos_con_respaldo(
             # Ancho deliberado (igual que ms-cotizacion/app/application/casos_uso_cotizaciones.py):
             # el Gherkin de HU-56 exige degradar igual si el adaptador "excede su tiempo
             # límite o falla", sin distinguir TimeoutError de cualquier otra excepción.
-            # El núcleo no debe acoplarse a qué excepciones lanza un proveedor real.
+            cacheada = await _cacheada(
+                "OPEN_FINANCE",
+                (NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO),
+                OrigenAdaptador.OPEN_FINANCE,
+            )
+            if cacheada is not None:
+                return cacheada
             return [
                 AtributoPerfil(
                     nombre=NIVEL_INGRESOS_ESTIMADO,
@@ -110,6 +143,7 @@ async def _atributos_con_respaldo(
                     origen=OrigenAdaptador.OPEN_FINANCE,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
+                    modo="DEFAULT",
                 ),
                 AtributoPerfil(
                     nombre=SCORE_COMPORTAMIENTO,
@@ -117,15 +151,18 @@ async def _atributos_con_respaldo(
                     origen=OrigenAdaptador.OPEN_FINANCE,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
+                    modo="DEFAULT",
                 ),
             ]
 
     async def _invocar_open_data() -> list[AtributoPerfil]:
         try:
             datos = await asyncio.wait_for(
-                adaptador_open_data.obtener_atributos(cliente_id),
+                adaptador_open_data.obtener_atributos(sujeto_cache),
                 timeout=config.timeout_open_data_ms / 1000,
             )
+            if cache is not None:
+                await cache.guardar("OPEN_DATA", sujeto_cache, datos, consentimiento_id)
             return [
                 AtributoPerfil(
                     nombre=ZONA_RIESGO,
@@ -143,6 +180,9 @@ async def _atributos_con_respaldo(
                 ),
             ]
         except Exception:
+            cacheada = await _cacheada("OPEN_DATA", (ZONA_RIESGO, ANTIGUEDAD_DOCUMENTO), OrigenAdaptador.OPEN_DATA)
+            if cacheada is not None:
+                return cacheada
             return [
                 AtributoPerfil(
                     nombre=ZONA_RIESGO,
@@ -150,6 +190,7 @@ async def _atributos_con_respaldo(
                     origen=OrigenAdaptador.OPEN_DATA,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
+                    modo="DEFAULT",
                 ),
                 AtributoPerfil(
                     nombre=ANTIGUEDAD_DOCUMENTO,
@@ -157,6 +198,7 @@ async def _atributos_con_respaldo(
                     origen=OrigenAdaptador.OPEN_DATA,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
+                    modo="DEFAULT",
                 ),
             ]
 
@@ -179,6 +221,8 @@ async def perfilar_y_ofertar(
     config: Settings,
     idempotency_key: str,
     cliente_id: str,
+    cache=None,
+    numero_documento: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-53+HU-54+HU-55+HU-56 en un único flujo (mismo endpoint/llamada):
     1) verifica consentimiento vigente (HU-53) ANTES de tocar cualquier adaptador;
@@ -197,7 +241,15 @@ async def perfilar_y_ofertar(
     if vigente is None:
         raise ConsentimientoNoOtorgado(cliente_id)
 
-    atributos = await _atributos_con_respaldo(adaptador_open_finance, adaptador_open_data, cliente_id, config)
+    atributos = await _atributos_con_respaldo(
+        adaptador_open_finance,
+        adaptador_open_data,
+        cliente_id,
+        config,
+        cache=cache,
+        sujeto=numero_documento,
+        consentimiento_id=str(vigente.id),
+    )
     perfil = Perfil.armar(cliente_id, atributos)
     pesos = {
         NIVEL_INGRESOS_ESTIMADO: config.peso_nivel_ingresos_estimado,

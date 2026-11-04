@@ -60,6 +60,7 @@ class AtributoPerfil:
     origen: OrigenAdaptador
     estado: EstadoAdaptador
     degradado: bool
+    modo: str = "LIVE"
 
 
 @dataclass(frozen=True)

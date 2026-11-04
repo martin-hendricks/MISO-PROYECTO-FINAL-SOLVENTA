@@ -13,6 +13,8 @@ BODY = {
     "correo": "camila@correo.com",
     "contrasena": "secreto123",
     "habeasData": True,
+    "ingresos_mensuales": "4500000.00",
+    "gastos_mensuales": "1500000.00",
 }
 
 

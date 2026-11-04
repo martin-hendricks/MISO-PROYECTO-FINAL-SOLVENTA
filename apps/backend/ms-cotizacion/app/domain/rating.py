@@ -29,6 +29,25 @@ class ResultadoPrima:
         return self.prima_neta + self.gastos_expedicion
 
 
+def evaluar_idoneidad(regla: ReglaRating, datos_riesgo: dict[str, Any]) -> None:
+    """Rechaza la cotización cuando el gasto supera el porcentaje máximo vigente.
+    Un ratio igual al umbral sigue siendo elegible. Sin umbral o sin montos, la
+    regla anterior de precio se conserva."""
+    formula = regla.formula
+    if "porcentaje_maximo" not in formula:
+        return
+    if "ingresos_mensuales" not in datos_riesgo or "gastos_mensuales" not in datos_riesgo:
+        return
+    ingresos = Decimal(str(datos_riesgo["ingresos_mensuales"]))
+    gastos = Decimal(str(datos_riesgo["gastos_mensuales"]))
+    if ingresos <= 0:
+        raise ReglaDeNegocioViolada("idoneidad_no_cumplida", "El ingreso mensual debe ser mayor que cero")
+    if gastos / ingresos > Decimal(str(formula["porcentaje_maximo"])):
+        raise ReglaDeNegocioViolada(
+            "idoneidad_no_cumplida", "El ratio de gastos supera el porcentaje máximo vigente"
+        )
+
+
 def calcular_prima(regla: ReglaRating, datos_riesgo: dict[str, Any]) -> ResultadoPrima:
     """Determinista: mismos (regla, datos_riesgo) -> mismo ResultadoPrima exacto.
     Falla con error tipificado si falta un insumo obligatorio, antes de construir

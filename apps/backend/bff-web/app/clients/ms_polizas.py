@@ -57,6 +57,14 @@ class ClienteMsPolizas(ClienteServicio):
         params = {"usuario_id": str(usuario_id)} if usuario_id is not None else None
         return await self._pedir("GET", f"/v1/polizas/numero/{numero}", params=params)
 
+    async def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/polizas/{poliza_id}/preferencias",
+            params={"usuario_id": usuario_id},
+            json={"renovacion_automatica": renovacion_automatica},
+        )
+
     async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
         """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),
         no por numero -- operador.py resuelve numero->poliza_id vía

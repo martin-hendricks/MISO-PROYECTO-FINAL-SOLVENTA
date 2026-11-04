@@ -8,6 +8,7 @@ from app.api.v1 import rutas
 from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
+from app.infrastructure.cache_fuentes import CacheEnMemoria
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
@@ -33,6 +34,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         )
         app.state.adaptador_open_data = AdaptadorOpenDataStub(config.doble_open_data_latencia_ms, config.doble_open_data_fallar)
         app.state.config = config
+        app.state.cache_fuentes = CacheEnMemoria()
         yield
         await motor.dispose()
 

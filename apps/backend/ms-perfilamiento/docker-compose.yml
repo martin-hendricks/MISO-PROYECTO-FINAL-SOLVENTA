@@ -15,6 +15,11 @@ services:
       timeout: 3s
       retries: 20
 
+  cache:
+    image: redis:7.4.2-bookworm
+    ports:
+      - "6379:6379"
+
   app:
     build:
       context: .

@@ -34,6 +34,8 @@ async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
         password_plano=entrada.password,
         nombre=entrada.nombre,
         apellidos=entrada.apellidos,
+        ingresos_mensuales=entrada.ingresos_mensuales,
+        gastos_mensuales=entrada.gastos_mensuales,
     )
     return UsuarioSalida.desde(usuario)
 

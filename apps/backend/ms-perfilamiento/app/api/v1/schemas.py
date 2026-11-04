@@ -31,6 +31,7 @@ class ConsentimientoSalida(BaseModel):
 
 class SolicitarOfertaEntrada(BaseModel):
     cliente_id: str = Field(min_length=1, max_length=120)
+    numero_documento: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class AtributoPerfilSalida(BaseModel):
@@ -39,6 +40,7 @@ class AtributoPerfilSalida(BaseModel):
     origen: str
     estado: str
     degradado: bool
+    modo: str = "LIVE"
 
     @classmethod
     def desde(cls, atributo: AtributoPerfil) -> "AtributoPerfilSalida":
@@ -48,6 +50,7 @@ class AtributoPerfilSalida(BaseModel):
             origen=atributo.origen.value,
             estado=atributo.estado.value,
             degradado=atributo.degradado,
+            modo=atributo.modo,
         )
 
 
