@@ -140,6 +140,10 @@
     },
     "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
     "expired": { "body": "La oferta venció.", "action": "Nueva cotización" },
+    "revoked": {
+      "body": "Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.",
+      "action": "Nueva cotización"
+    },
     "invalid": {
       "title": "No hay una oferta para emitir",
       "body": "Vuelve a la oferta y acéptala de nuevo."

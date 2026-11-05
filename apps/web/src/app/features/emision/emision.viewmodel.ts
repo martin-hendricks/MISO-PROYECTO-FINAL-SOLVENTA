@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { PolizaResumen } from '../polizas/polizas.gateway';
 import { Motivo, ResultadoEmision } from './emision.gateway';
 
-export type EmisionStatus = 'issuing' | 'issued' | 'rejected' | 'expired' | 'error';
+export type EmisionStatus = 'issuing' | 'issued' | 'rejected' | 'expired' | 'revoked' | 'error';
 
 export class EmisionViewModel {
   private readonly statusState = signal<EmisionStatus>('issuing');
@@ -33,7 +33,14 @@ export class EmisionViewModel {
       error: (error: unknown) => {
         const cuerpo = error instanceof HttpErrorResponse ? error.error : null;
         const codigo = cuerpo && typeof cuerpo === 'object' ? String((cuerpo as { codigo?: string }).codigo ?? '') : '';
-        this.statusState.set(error instanceof HttpErrorResponse && error.status === 409 && codigo === 'oferta_vencida' ? 'expired' : 'error');
+        const estado = error instanceof HttpErrorResponse ? error.status : 0;
+        if (estado === 409 && codigo === 'oferta_vencida') {
+          this.statusState.set('expired');
+        } else if (estado === 422 && codigo === 'consentimiento_revocado') {
+          this.statusState.set('revoked');
+        } else {
+          this.statusState.set('error');
+        }
       },
     });
   }
