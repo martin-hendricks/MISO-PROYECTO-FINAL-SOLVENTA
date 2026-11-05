@@ -41,6 +41,7 @@ class AtributoPerfilSalida(BaseModel):
     estado: str
     degradado: bool
     modo: str = "LIVE"
+    causa: str | None = None
 
     @classmethod
     def desde(cls, atributo: AtributoPerfil) -> "AtributoPerfilSalida":
@@ -51,6 +52,7 @@ class AtributoPerfilSalida(BaseModel):
             estado=atributo.estado.value,
             degradado=atributo.degradado,
             modo=atributo.modo,
+            causa=atributo.causa.value if atributo.causa else None,
         )
 
 

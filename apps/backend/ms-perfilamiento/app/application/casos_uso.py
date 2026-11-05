@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
+from decimal import Decimal
 
 from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, NoEncontrado
 from app.domain.modelos import (
     AtributoPerfil,
+    CausaDegradacion,
     Consentimiento,
     EstadoAdaptador,
     OrigenAdaptador,
@@ -19,6 +22,8 @@ from app.domain.modelos import (
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO, calcular_oferta
 from app.ports.adaptadores import AdaptadorOpenData, AdaptadorOpenFinance
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -57,7 +62,7 @@ async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str, c
         await tx.outbox.agregar(consentimiento_revocado(vigente))
         await tx.confirmar()
     if cache is not None:
-        await cache.invalidar(cliente_id)
+        await cache.invalidar_consentimiento(str(vigente.id))
     return vigente
 
 
@@ -83,127 +88,82 @@ async def _atributos_con_respaldo(
 
     sujeto_cache = sujeto or cliente_id
 
-    async def _cacheada(fuente: str, nombres: tuple[str, ...], origen: OrigenAdaptador) -> list[AtributoPerfil] | None:
-        if cache is None:
-            return None
-        entrada = await cache.obtener(fuente, sujeto_cache)
-        if entrada is None:
-            return None
-        return [
-            AtributoPerfil(
-                nombre=nombre,
-                valor=entrada.atributos[nombre],
-                origen=origen,
-                estado=EstadoAdaptador.EXITO,
-                degradado=False,
-                modo="CACHE",
-            )
-            for nombre in nombres
-        ]
-
-    async def _invocar_open_finance() -> list[AtributoPerfil]:
+    async def _invocar(
+        adaptador: AdaptadorOpenFinance | AdaptadorOpenData,
+        origen: OrigenAdaptador,
+        fuente: str,
+        timeout_ms: int,
+        respaldos: dict[str, Decimal],
+    ) -> list[AtributoPerfil]:
         try:
-            datos = await asyncio.wait_for(
-                adaptador_open_finance.obtener_atributos(sujeto_cache),
-                timeout=config.timeout_open_finance_ms / 1000,
-            )
-            if cache is not None:
-                await cache.guardar("OPEN_FINANCE", sujeto_cache, datos, consentimiento_id)
-            return [
+            datos = await asyncio.wait_for(adaptador.obtener_atributos(sujeto_cache), timeout=timeout_ms / 1000)
+            atributos = [
                 AtributoPerfil(
-                    nombre=NIVEL_INGRESOS_ESTIMADO,
-                    valor=datos[NIVEL_INGRESOS_ESTIMADO],
-                    origen=OrigenAdaptador.OPEN_FINANCE,
+                    nombre=nombre,
+                    valor=datos[nombre],
+                    origen=origen,
                     estado=EstadoAdaptador.EXITO,
                     degradado=False,
-                ),
-                AtributoPerfil(
-                    nombre=SCORE_COMPORTAMIENTO,
-                    valor=datos[SCORE_COMPORTAMIENTO],
-                    origen=OrigenAdaptador.OPEN_FINANCE,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
+                )
+                for nombre in respaldos
             ]
-        except Exception:
+            if cache is not None:
+                await cache.guardar(fuente, sujeto_cache, datos, consentimiento_id)
+            return atributos
+        except Exception as exc:
             # Ancho deliberado (igual que ms-cotizacion/app/application/casos_uso_cotizaciones.py):
             # el Gherkin de HU-56 exige degradar igual si el adaptador "excede su tiempo
-            # límite o falla", sin distinguir TimeoutError de cualquier otra excepción.
-            cacheada = await _cacheada(
-                "OPEN_FINANCE",
-                (NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO),
-                OrigenAdaptador.OPEN_FINANCE,
-            )
-            if cacheada is not None:
-                return cacheada
+            # límite o falla". La causa solo se registra para auditar cómo respondió.
+            causa = CausaDegradacion.TIMEOUT if isinstance(exc, TimeoutError) else CausaDegradacion.FALLO
+            entrada = await cache.obtener(fuente, sujeto_cache) if cache is not None else None
+            if entrada is not None:
+                return [
+                    AtributoPerfil(
+                        nombre=nombre,
+                        valor=entrada.atributos[nombre],
+                        origen=origen,
+                        estado=EstadoAdaptador.EXITO,
+                        degradado=False,
+                        modo="CACHE",
+                        causa=causa,
+                    )
+                    for nombre in respaldos
+                ]
+            _log.warning("adaptador %s degradado por %s", origen.value, causa.value)
             return [
                 AtributoPerfil(
-                    nombre=NIVEL_INGRESOS_ESTIMADO,
-                    valor=config.respaldo_nivel_ingresos_estimado,
-                    origen=OrigenAdaptador.OPEN_FINANCE,
+                    nombre=nombre,
+                    valor=respaldo,
+                    origen=origen,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
                     modo="DEFAULT",
-                ),
-                AtributoPerfil(
-                    nombre=SCORE_COMPORTAMIENTO,
-                    valor=config.respaldo_score_comportamiento,
-                    origen=OrigenAdaptador.OPEN_FINANCE,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                    modo="DEFAULT",
-                ),
-            ]
-
-    async def _invocar_open_data() -> list[AtributoPerfil]:
-        try:
-            datos = await asyncio.wait_for(
-                adaptador_open_data.obtener_atributos(sujeto_cache),
-                timeout=config.timeout_open_data_ms / 1000,
-            )
-            if cache is not None:
-                await cache.guardar("OPEN_DATA", sujeto_cache, datos, consentimiento_id)
-            return [
-                AtributoPerfil(
-                    nombre=ZONA_RIESGO,
-                    valor=datos[ZONA_RIESGO],
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
-                AtributoPerfil(
-                    nombre=ANTIGUEDAD_DOCUMENTO,
-                    valor=datos[ANTIGUEDAD_DOCUMENTO],
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
-            ]
-        except Exception:
-            cacheada = await _cacheada("OPEN_DATA", (ZONA_RIESGO, ANTIGUEDAD_DOCUMENTO), OrigenAdaptador.OPEN_DATA)
-            if cacheada is not None:
-                return cacheada
-            return [
-                AtributoPerfil(
-                    nombre=ZONA_RIESGO,
-                    valor=config.respaldo_zona_riesgo,
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                    modo="DEFAULT",
-                ),
-                AtributoPerfil(
-                    nombre=ANTIGUEDAD_DOCUMENTO,
-                    valor=config.respaldo_antiguedad_documento,
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                    modo="DEFAULT",
-                ),
+                    causa=causa,
+                )
+                for nombre, respaldo in respaldos.items()
             ]
 
     atributos_open_finance, atributos_open_data = await asyncio.gather(
-        _invocar_open_finance(), _invocar_open_data()
+        _invocar(
+            adaptador_open_finance,
+            OrigenAdaptador.OPEN_FINANCE,
+            "OPEN_FINANCE",
+            config.timeout_open_finance_ms,
+            {
+                NIVEL_INGRESOS_ESTIMADO: config.respaldo_nivel_ingresos_estimado,
+                SCORE_COMPORTAMIENTO: config.respaldo_score_comportamiento,
+            },
+        ),
+        _invocar(
+            adaptador_open_data,
+            OrigenAdaptador.OPEN_DATA,
+            "OPEN_DATA",
+            config.timeout_open_data_ms,
+            {
+                ZONA_RIESGO: config.respaldo_zona_riesgo,
+                ANTIGUEDAD_DOCUMENTO: config.respaldo_antiguedad_documento,
+            },
+        ),
     )
     return [*atributos_open_finance, *atributos_open_data]
 

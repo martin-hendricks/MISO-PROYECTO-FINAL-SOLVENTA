@@ -34,6 +34,8 @@ class CacheEnMemoria:
             consentimiento_id=consentimiento_id,
         )
 
-    async def invalidar(self, numero_documento: str) -> None:
-        for clave in [clave for clave in self._datos if clave[1] == numero_documento]:
+    async def invalidar_consentimiento(self, consentimiento_id: str) -> None:
+        """Descarta lo capturado bajo un consentimiento. Las entradas se indexan por
+        cédula, que quien revoca no conoce; el consentimiento sí viaja en cada una."""
+        for clave in [c for c, entrada in self._datos.items() if entrada.consentimiento_id == consentimiento_id]:
             del self._datos[clave]

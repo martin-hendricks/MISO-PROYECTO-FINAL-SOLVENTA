@@ -48,12 +48,18 @@ class EstadoAdaptador(StrEnum):
     ERROR = "error"
 
 
+class CausaDegradacion(StrEnum):
+    TIMEOUT = "timeout"
+    FALLO = "fallo"
+
+
 @dataclass(frozen=True)
 class AtributoPerfil:
     """Un atributo propio de Solventa devuelto por UN adaptador (HU-54). `valor` ya es
     el atributo inventado por Solventa (p.ej. "nivel_ingresos_estimado"), nunca el
     payload crudo del proveedor real. `degradado` indica si este atributo en particular
-    vino del valor de respaldo (timeout o fallo del adaptador, HU-56)."""
+    vino del valor de respaldo (timeout o fallo del adaptador, HU-56); `causa` dice
+    cuál de los dos ocurrió, aunque luego se haya servido desde caché."""
 
     nombre: str
     valor: Decimal
@@ -61,6 +67,7 @@ class AtributoPerfil:
     estado: EstadoAdaptador
     degradado: bool
     modo: str = "LIVE"
+    causa: CausaDegradacion | None = None
 
 
 @dataclass(frozen=True)
@@ -163,6 +170,22 @@ def consentimiento_revocado(consentimiento: Consentimiento) -> EventoDominio:
     )
 
 
+def _fuentes(atributos: tuple[AtributoPerfil, ...]) -> list[dict]:
+    """Una entrada por adaptador: qué fuente respondió y cómo (HU-54)."""
+    por_origen: dict[OrigenAdaptador, AtributoPerfil] = {}
+    for atributo in atributos:
+        por_origen.setdefault(atributo.origen, atributo)
+    return [
+        {
+            "origen": atributo.origen.value,
+            "estado": atributo.estado.value,
+            "modo": atributo.modo,
+            "causa": atributo.causa.value if atributo.causa else None,
+        }
+        for atributo in por_origen.values()
+    ]
+
+
 def oferta_emitida(oferta: Oferta) -> EventoDominio:
     return EventoDominio(
         tipo="OfertaHipotecarioEmitida",
@@ -172,5 +195,6 @@ def oferta_emitida(oferta: Oferta) -> EventoDominio:
             "cliente_id": oferta.cliente_id,
             "precio": str(oferta.precio),
             "degradado": oferta.degradado,
+            "fuentes": _fuentes(oferta.snapshot_atributos),
         },
     )

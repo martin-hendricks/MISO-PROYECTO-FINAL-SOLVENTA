@@ -31,6 +31,51 @@ async def test_si_open_finance_cae_devuelve_la_respuesta_cacheada_de_la_misma_ce
 
 
 @pytest.mark.asyncio
+async def test_revocar_el_consentimiento_descarta_lo_cacheado_bajo_la_cedula(uow, config, adaptador_open_data):
+    from app.application import casos_uso
+
+    cache = CacheEnMemoria()
+    cedula = "1012345678"
+    vivo = AdaptadorConfigurable(
+        {NIVEL_INGRESOS_ESTIMADO: Decimal("0.800"), SCORE_COMPORTAMIENTO: Decimal("0.700")}
+    )
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+    await casos_uso.perfilar_y_ofertar(
+        uow, vivo, adaptador_open_data, config, "clave-rev-1", "cliente-1", cache, cedula
+    )
+    await casos_uso.revocar_consentimiento(uow, "cliente-1", cache)
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow, AdaptadorConfigurable({}, fallar=True), adaptador_open_data, config, "clave-rev-2", "cliente-1", cache, cedula
+    )
+
+    ingresos = next(a for a in resultado.oferta.snapshot_atributos if a.nombre == NIVEL_INGRESOS_ESTIMADO)
+    assert ingresos.modo == "DEFAULT"
+    assert ingresos.degradado is True
+
+
+@pytest.mark.asyncio
+async def test_revocar_no_toca_lo_cacheado_para_otro_consentimiento(uow, config, adaptador_open_data):
+    from app.application import casos_uso
+
+    cache = CacheEnMemoria()
+    vivo = AdaptadorConfigurable(
+        {NIVEL_INGRESOS_ESTIMADO: Decimal("0.800"), SCORE_COMPORTAMIENTO: Decimal("0.700")}
+    )
+    for cliente, cedula in (("cliente-1", "111"), ("cliente-2", "222")):
+        await casos_uso.otorgar_consentimiento(uow, cliente)
+        await casos_uso.perfilar_y_ofertar(
+            uow, vivo, adaptador_open_data, config, f"clave-{cliente}", cliente, cache, cedula
+        )
+
+    await casos_uso.revocar_consentimiento(uow, "cliente-1", cache)
+
+    assert await cache.obtener("OPEN_FINANCE", "111") is None
+    assert await cache.obtener("OPEN_FINANCE", "222") is not None
+
+
+@pytest.mark.asyncio
 async def test_sin_cache_el_fallo_usa_el_valor_de_respaldo(uow, config, adaptador_open_data):
     from app.application import casos_uso
 

@@ -4,7 +4,7 @@ import pytest
 
 from app.application import casos_uso
 from app.domain.errores import ConsentimientoNoOtorgado, NoEncontrado
-from app.domain.modelos import Oferta, Perfil
+from app.domain.modelos import CausaDegradacion, Oferta, Perfil
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO
 from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
 
@@ -187,6 +187,43 @@ async def test_doble_de_open_finance_con_demora_forzada_degrada(uow, config):
 
     degradados = {a.origen.value for a in resultado.oferta.snapshot_atributos if a.degradado}
     assert degradados == {"open_finance"}
+
+
+async def test_la_oferta_registra_que_adaptador_respondio_y_como(uow, almacen, config, adaptador_open_finance):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow,
+        adaptador_open_finance,
+        AdaptadorConfigurable({}, lento=True),
+        config,
+        "clave-auditoria",
+        "cliente-1",
+    )
+
+    causas = {a.origen.value: (a.modo, a.causa) for a in resultado.oferta.snapshot_atributos}
+    assert causas == {"open_finance": ("LIVE", None), "open_data": ("DEFAULT", CausaDegradacion.TIMEOUT)}
+    evento = next(e for e in almacen.eventos if e.tipo == "OfertaHipotecarioEmitida")
+    assert evento.payload["fuentes"] == [
+        {"origen": "open_finance", "estado": "exito", "modo": "LIVE", "causa": None},
+        {"origen": "open_data", "estado": "degradado", "modo": "DEFAULT", "causa": "timeout"},
+    ]
+
+
+async def test_adaptador_con_atributos_incompletos_degrada_como_fallo(uow, config, adaptador_open_finance):
+    await casos_uso.otorgar_consentimiento(uow, "cliente-1")
+
+    resultado = await casos_uso.perfilar_y_ofertar(
+        uow,
+        adaptador_open_finance,
+        AdaptadorConfigurable({ZONA_RIESGO: Decimal("0.3")}),
+        config,
+        "clave-incompleta",
+        "cliente-1",
+    )
+
+    open_data = [a for a in resultado.oferta.snapshot_atributos if a.origen.value == "open_data"]
+    assert all(a.degradado and a.causa is CausaDegradacion.FALLO for a in open_data)
 
 
 async def test_doble_de_open_data_con_fallo_forzado_degrada(uow, config):
