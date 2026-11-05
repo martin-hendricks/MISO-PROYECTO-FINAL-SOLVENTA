@@ -499,10 +499,12 @@ def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
     assert response.status_code == 404
 
 
-def test_un_nucleo_lento_no_agota_el_presupuesto_del_inicio():
+def test_un_nucleo_lento_no_agota_el_presupuesto_del_inicio(monkeypatch):
+    monkeypatch.setattr("app.routers.cliente.CORTE_INICIO_S", 0.05)
+
     async def correr():
         async def lenta():
-            await asyncio.sleep(2)
+            await asyncio.Event().wait()
             return {"items": [{"cotizacion_id": "COT-lenta"}]}
 
         async def rapida():
@@ -515,7 +517,7 @@ def test_un_nucleo_lento_no_agota_el_presupuesto_del_inicio():
     elapsed, pagina, filas = asyncio.run(correr())
     assert pagina is None
     assert filas == [{"numero": "POL-1", "estado": "VIGENTE"}]
-    assert elapsed < 1.2
+    assert elapsed < 0.5
 
 
 def test_inicio(client):
