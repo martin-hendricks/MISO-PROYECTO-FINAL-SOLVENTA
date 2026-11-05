@@ -380,6 +380,16 @@ def test_reconsulta_v1(client, doble):
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
 
 
+def test_aceptar_cotizacion_rechaza_datos_de_tarjeta(client):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    respuesta = client.post(
+        "/v1/cliente/cotizaciones/COT-9/aceptacion",
+        headers=headers,
+        json={"numeroTarjeta": "4242424242424242"},
+    )
+    assert respuesta.status_code == 422
+
+
 def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
     headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
     doble.respuestas["aceptar_oferta"] = {**ACEPTADA, "moneda": "COP"}

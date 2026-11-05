@@ -13,6 +13,7 @@ export interface PolizaResumen {
   finVigencia: string;
   moneda: string;
   primaTotal: number;
+  referenciaPago?: string;
 }
 
 export interface Cobertura {
@@ -47,5 +48,15 @@ export class PolizasGateway {
             : throwError(() => error),
         ),
       );
+  }
+
+  preference(
+    numero: string,
+    renovacionAutomatica: boolean,
+  ): Observable<{ numero: string; renovacionAutomatica: boolean }> {
+    return this.http.patch<{ numero: string; renovacionAutomatica: boolean }>(
+      `${this.baseUrl}/cliente/polizas/${encodeURIComponent(numero)}/preferencias`,
+      { renovacionAutomatica },
+    );
   }
 }

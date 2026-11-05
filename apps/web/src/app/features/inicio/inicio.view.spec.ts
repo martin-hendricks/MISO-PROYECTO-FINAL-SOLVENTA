@@ -49,7 +49,9 @@ describe('InicioView', () => {
     expect(element('inicio-offer')?.textContent).toContain('Protección de dispositivo');
     expect(element('inicio-offer')?.textContent).toContain('12 meses');
     expect(element('inicio-accept')?.textContent).toContain('Aceptar y emitir');
-    expect(element('inicio-accept')?.getAttribute('href')).toBe('/emision?cotizacion=COT-1042');
+    expect(element('inicio-accept')?.getAttribute('href')).toBe(
+      '/confirmacion-tarjeta?cotizacion=COT-1042',
+    );
     expect(element('inicio-offer-detail')?.textContent).toContain('Ver detalle');
     expect(element('inicio-offer-detail')?.getAttribute('href')).toBe('/cotizaciones/COT-1042');
     expect(element('inicio-policy')?.textContent).toContain('Póliza vigente');

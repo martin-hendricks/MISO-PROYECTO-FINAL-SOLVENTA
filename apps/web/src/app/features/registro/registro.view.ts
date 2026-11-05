@@ -2,10 +2,12 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { RegistroDraft } from './registro.draft';
-import { RegistroField, RegistroViewModel } from './registro.viewmodel';
+import { RegistroViewModel } from './registro.viewmodel';
+
+type IdentityField = 'nombre' | 'apellidos' | 'documento' | 'correo' | 'contrasena';
 
 interface Field {
-  name: RegistroField;
+  name: IdentityField;
   type: 'text' | 'email' | 'password';
   autocomplete: string;
 }

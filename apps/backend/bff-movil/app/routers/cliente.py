@@ -56,6 +56,12 @@ class Aceptar(BaseModel):
     cotizacionId: str
 
 
+class ConfirmacionVacia(BaseModel):
+    """Acceptance carries no card data. Any extra field is rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class PreferenciaRenovacion(BaseModel):
     renovacionAutomatica: bool
 
@@ -295,6 +301,7 @@ def aceptar_cotizacion(
     cotizacion_id: str,
     request: Request,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+    _confirmacion: ConfirmacionVacia | None = None,
     usuario: dict = Depends(require_customer),
 ) -> dict:
     if not es_v1(request):

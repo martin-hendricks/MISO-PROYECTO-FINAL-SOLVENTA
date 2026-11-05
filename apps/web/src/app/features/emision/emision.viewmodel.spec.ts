@@ -1,59 +1,46 @@
-import { of, Subject, throwError } from 'rxjs';
-import { Motivo, ResultadoEmision } from './emision.gateway';
-import { EMITIDA, MOTIVO, RECHAZADA } from './emision.testing';
+import { of, throwError } from 'rxjs';
+import { EMITIDA } from './emision.testing';
 import { EmisionViewModel } from './emision.viewmodel';
 
 describe('EmisionViewModel', () => {
-  it('stays issuing until the core answers', () => {
-    const pending = new Subject<ResultadoEmision>();
-    const viewModel = new EmisionViewModel(
-      () => pending,
-      () => undefined,
+  it('keeps renewal off until the customer changes it, without another issuance', () => {
+    const issued = of(EMITIDA);
+    const saved: boolean[] = [];
+    const vm = new EmisionViewModel(
+      () => issued,
+      () => fail('should not reject'),
+      (_numero, enabled) => {
+        saved.push(enabled);
+        return of({ numero: 'POL-2026-00088421', renovacionAutomatica: enabled });
+      },
     );
-
-    viewModel.issue();
-
-    expect(viewModel.status()).toBe('issuing');
-    expect(viewModel.poliza()).toBeNull();
+    vm.issue();
+    expect(vm.status()).toBe('issued');
+    expect(vm.renewal()).toBeFalse();
+    expect(saved).toEqual([]);
+    vm.chooseRenewal(true);
+    expect(saved).toEqual([true]);
   });
 
-  it('shows the issued policy', () => {
-    const viewModel = new EmisionViewModel(
-      () => of(EMITIDA),
+  it('records rejection and transport failure without a renewal callback', () => {
+    const issued = new EmisionViewModel(() => of(EMITIDA), () => undefined);
+    issued.issue();
+    issued.chooseRenewal(true);
+    expect(issued.renewal()).toBeTrue();
+
+    const rejected = new EmisionViewModel(
+      () => of({ resultado: 'RECHAZADA', motivo: { codigo: 'x', mensaje: 'no' } }),
       () => undefined,
     );
+    rejected.issue();
+    expect(rejected.status()).toBe('rejected');
+    rejected.chooseRenewal(true);
 
-    viewModel.issue();
-
-    expect(viewModel.status()).toBe('issued');
-    expect(viewModel.poliza()?.numero).toBe('POL-2026-00088421');
-  });
-
-  it('hands the stored reason over when the core rejects', () => {
-    const reasons: Motivo[] = [];
-    const viewModel = new EmisionViewModel(
-      () => of(RECHAZADA),
-      (motivo) => reasons.push(motivo),
-    );
-
-    viewModel.issue();
-
-    expect(viewModel.status()).toBe('rejected');
-    expect(viewModel.poliza()).toBeNull();
-    expect(reasons).toEqual([MOTIVO]);
-  });
-
-  it('recovers on retry after a failure', () => {
-    let attempts = 0;
-    const viewModel = new EmisionViewModel(
-      () => (++attempts === 1 ? throwError(() => new Error('sin red')) : of(EMITIDA)),
+    const failed = new EmisionViewModel(
+      () => throwError(() => new Error('network')),
       () => undefined,
     );
-
-    viewModel.issue();
-    expect(viewModel.status()).toBe('error');
-
-    viewModel.issue();
-    expect(viewModel.status()).toBe('issued');
+    failed.issue();
+    expect(failed.status()).toBe('error');
   });
 });

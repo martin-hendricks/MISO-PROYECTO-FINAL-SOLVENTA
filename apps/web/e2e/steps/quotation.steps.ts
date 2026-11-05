@@ -104,7 +104,7 @@ Then('consulting it again does not recalculate', async function (this: PortalWor
 Then('"Aceptar" starts the issuance', async function (this: PortalWorld) {
   assert.equal(
     await this.cotizacion.acceptHref(),
-    `/emision?cotizacion=${this.offer.cotizacionId}`,
+    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}`,
   );
 });
 

@@ -34,7 +34,10 @@ Then(
   async function (this: PortalWorld) {
     const offer = this.home.ofertaVigente!;
     await this.inicio.expectCard('offer', offer.ramo);
-    await this.inicio.expectLink('inicio-accept', `/emision?cotizacion=${offer.cotizacionId}`);
+    await this.inicio.expectLink(
+      'inicio-accept',
+      `/confirmacion-tarjeta?cotizacion=${offer.cotizacionId}`,
+    );
   },
 );
 
@@ -69,7 +72,10 @@ Then('"Nueva cotización" stays in the page head', async function (this: PortalW
 });
 
 Then('accepting starts the issuance, not a recalculation', async function (this: PortalWorld) {
+  await this.bff.serveCustomerIssuance();
   await this.inicio.accept();
+  await this.cotizacion.fillCard();
+  await this.cotizacion.confirmCard();
   await this.inicio.expectIssuance(this.home.ofertaVigente!.cotizacionId);
   assert.equal(this.bff.quotesRequested(), 0);
 });
@@ -153,8 +159,11 @@ Given('the customer accepted a valid offer', async function (this: PortalWorld) 
   await this.shell.expectInicio();
   this.home = fullHome();
   await this.bff.serveHome(this.home);
+  await this.bff.serveCustomerIssuance();
   await this.inicio.open();
   await this.inicio.accept();
+  await this.cotizacion.fillCard();
+  await this.cotizacion.confirmCard();
 });
 
 When('the customer is on Emitiendo or Póliza emitida', async function (this: PortalWorld) {

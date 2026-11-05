@@ -69,7 +69,9 @@ describe('VerOfertaView', () => {
     http.expectOne(URL).flush(VIGENTE);
     fixture.detectChanges();
 
-    expect(element('oferta-aceptar')?.getAttribute('href')).toBe('/emision?cotizacion=COT-4471');
+    expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
+      '/confirmacion-tarjeta?cotizacion=COT-4471&prima=128500',
+    );
   });
 
   it('keeps the original price of an expired offer and does not let it be accepted', () => {

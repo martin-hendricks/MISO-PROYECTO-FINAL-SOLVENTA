@@ -100,6 +100,14 @@ def test_alta_con_identidad_rechazada_por_kyc_es_422_y_no_cuenta_duplicada(clien
     assert response.json()["detail"] == "No fue posible verificar la identidad"
 
 
+def test_alta_sin_ingreso_no_crea_cuenta(client, nucleo_identidad):
+    response = client.post("/v1/registro", json={**BODY, "ingresos_mensuales": "0.00"})
+    assert response.status_code == 422
+    assert nucleo_identidad.peticiones == []
+    assert "4500000.00" not in response.text
+    assert "contrasena" not in response.text
+
+
 def test_alta_con_kyc_caido_en_ms_identidad_no_esta_disponible(client, nucleo_identidad):
     nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
         503, json={"codigo": "dependencia_no_disponible", "mensaje": "No fue posible consultar el verificador KYC"}

@@ -56,6 +56,8 @@ describe('RegistroView', () => {
       'registro-documento',
       'registro-correo',
       'registro-contrasena',
+      'registro-ingresos',
+      'registro-gastos',
     ]);
     expect(inputs.some((input) => input.type === 'file')).toBeFalse();
     expect(element('registro-contrasena')?.getAttribute('type')).toBe('password');
@@ -67,6 +69,8 @@ describe('RegistroView', () => {
     type('registro-documento', '1012345678');
     type('registro-correo', 'camila@correo.com');
     type('registro-contrasena', 'secreto123');
+    type('registro-ingresos', '4500000');
+    type('registro-gastos', '1200000');
 
     submit();
 
@@ -77,6 +81,8 @@ describe('RegistroView', () => {
       documento: '1012345678',
       correo: 'camila@correo.com',
       contrasena: 'secreto123',
+      ingresos_mensuales: '4500000.00',
+      gastos_mensuales: '1200000.00',
     });
     expect(navigate).toHaveBeenCalledOnceWith('/consentimiento');
   });

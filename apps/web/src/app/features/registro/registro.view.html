@@ -41,6 +41,47 @@
         </div>
       }
 
+      <div class="field">
+        <label for="registro-ingresos">{{ 'registro.field.ingresos' | translate }}</label>
+        <input
+          id="registro-ingresos"
+          data-testid="registro-ingresos"
+          inputmode="decimal"
+          [value]="vm.incomeDisplay()"
+          [attr.aria-invalid]="vm.issues().ingresos_mensuales ? 'true' : null"
+          [attr.aria-describedby]="
+            vm.issues().ingresos_mensuales ? 'registro-ingresos-error' : null
+          "
+          (input)="vm.setIncome(ingresos.value)"
+          #ingresos
+        />
+        <p>{{ 'registro.field.ingresosHint' | translate }}</p>
+        @if (vm.issues().ingresos_mensuales; as issue) {
+          <p class="field-error" id="registro-ingresos-error" data-testid="registro-ingresos-error">
+            {{ 'registro.error.' + issue | translate }}
+          </p>
+        }
+      </div>
+      <div class="field">
+        <label for="registro-gastos">{{ 'registro.field.gastos' | translate }}</label>
+        <input
+          id="registro-gastos"
+          data-testid="registro-gastos"
+          inputmode="decimal"
+          [value]="vm.spendingDisplay()"
+          [attr.aria-invalid]="vm.issues().gastos_mensuales ? 'true' : null"
+          [attr.aria-describedby]="vm.issues().gastos_mensuales ? 'registro-gastos-error' : null"
+          (input)="vm.setSpending(gastos.value)"
+          #gastos
+        />
+        <p>{{ 'registro.field.gastosHint' | translate }}</p>
+        @if (vm.issues().gastos_mensuales; as issue) {
+          <p class="field-error" id="registro-gastos-error" data-testid="registro-gastos-error">
+            {{ 'registro.error.' + issue | translate }}
+          </p>
+        }
+      </div>
+
       <button type="submit" class="filled" data-testid="registro-submit">
         {{ 'registro.submit' | translate }}
       </button>
