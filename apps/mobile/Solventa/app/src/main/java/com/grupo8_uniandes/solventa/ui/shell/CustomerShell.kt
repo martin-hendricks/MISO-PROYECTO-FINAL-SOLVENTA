@@ -259,7 +259,14 @@ private fun OnboardingHost(
     val signup = remember {
         GlobalContext.get().get<SignupRepository>()
     }
-    val viewModel = remember(context, region, session, signup) {
+    val priorHabeasData = remember(context) {
+        when (SharedPrefsConsentRepository(context.applicationContext).read().state) {
+            ConsentState.Granted -> true
+            ConsentState.Revoked -> false
+            ConsentState.NotGranted -> null
+        }
+    }
+    val viewModel = remember(context, region, session, signup, priorHabeasData) {
         OnboardingViewModel(
             RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
             region,
@@ -280,6 +287,7 @@ private fun OnboardingHost(
                     ),
                 ) is StandInAnswer.Ready
             },
+            priorHabeasData = priorHabeasData,
         )
     }
     val state by viewModel.state.collectAsState()

@@ -100,6 +100,8 @@ externalSecrets:
       nombreLocal: ms-cotizacion-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-cotizacion-token
 
 serviceAccount:
   crear: true

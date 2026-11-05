@@ -37,6 +37,8 @@ PRODUCTO = {
                 "maximo": match.regex("1800", regex=DECIMAL),
             },
             {"nombre": match.str("ciudad_circulacion"), "tipo": "valores", "valores": match.each_like("bogota")},
+            {"nombre": match.str("destino"), "tipo": "texto"},
+            {"nombre": match.str("masDe12Meses"), "tipo": "booleano"},
         ]
     ),
 }
@@ -83,7 +85,7 @@ async def test_consulta_de_un_producto_por_codigo(nucleo_url):
 
     vista = ProductoVista.desde_nucleo(producto)
     assert vista.coberturas[0].limite.valor == Decimal("800")
-    assert {d.tipo for d in vista.datos_riesgo} == {"rango", "valores"}
+    assert {d.tipo for d in vista.datos_riesgo} == {"rango", "valores", "texto", "booleano"}
 
 
 async def test_consulta_de_un_producto_inexistente(nucleo_url):

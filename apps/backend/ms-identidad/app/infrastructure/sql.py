@@ -34,6 +34,7 @@ class UsuarioFila(Base):
     estado: Mapped[str] = mapped_column(String)
     nombre: Mapped[str] = mapped_column(String, default="")
     apellidos: Mapped[str] = mapped_column(String, default="")
+    rol: Mapped[str] = mapped_column(String, default="cliente")
 
 
 def _fila(usuario: Usuario) -> UsuarioFila:
@@ -46,6 +47,7 @@ def _fila(usuario: Usuario) -> UsuarioFila:
         estado=usuario.estado.value,
         nombre=usuario.nombre,
         apellidos=usuario.apellidos,
+        rol=usuario.rol,
     )
 
 
@@ -59,6 +61,7 @@ def _a_dominio(fila: UsuarioFila) -> Usuario:
         estado=EstadoUsuario(fila.estado),
         nombre=fila.nombre or "",
         apellidos=fila.apellidos or "",
+        rol=getattr(fila, "rol", None) or "cliente",
     )
 
 

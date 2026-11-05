@@ -84,6 +84,33 @@ def test_rechazo_de_negocio_del_nucleo_se_propaga(client, nucleo):
     assert respuesta.json() == {"codigo": "producto_suspendido", "mensaje": "Producto suspendido"}
 
 
+def test_catalogo_con_texto_y_booleano_no_revienta(client, nucleo):
+    viaje = {
+        "producto": "viaje",
+        "nombre": "Viaje",
+        "moneda": "COP",
+        "coberturas": [
+            {"codigo": "viaje", "nombre": "Viaje cubierto", "limite": "10000000", "unidad_limite": "MONEDA"}
+        ],
+        "datos_riesgo": [
+            {"nombre": "destino", "tipo": "texto", "minimo": None, "maximo": None, "valores": None},
+            {"nombre": "masDe12Meses", "tipo": "booleano", "minimo": None, "maximo": None, "valores": None},
+            {"nombre": "duracion", "tipo": "rango", "minimo": "1", "maximo": "365", "valores": None},
+        ],
+    }
+    nucleo.respuestas[("GET", "/v1/productos")] = lambda _: httpx.Response(200, json=[PRODUCTO, viaje])
+
+    respuesta = client.get("/v1/catalogo")
+
+    assert respuesta.status_code == 200
+    datos = respuesta.json()["productos"][1]["datosRiesgo"]
+    assert datos == [
+        {"nombre": "destino", "tipo": "texto"},
+        {"nombre": "masDe12Meses", "tipo": "booleano"},
+        {"nombre": "duracion", "tipo": "rango", "minimo": "1", "maximo": "365"},
+    ]
+
+
 def test_solo_lectura(client):
     assert client.post("/v1/catalogo", json={}).status_code == 405
     assert client.put("/v1/catalogo/soat-motocicleta", json={}).status_code == 405

@@ -78,6 +78,8 @@ externalSecrets:
       nombreLocal: ms-siniestros-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-siniestros-token
 
 serviceAccount:
   crear: true

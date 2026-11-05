@@ -15,6 +15,8 @@ from app.dependencies import (
 from app.ports.firma import FirmaElectronica
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
+from app.seguridad import LlamanteDep, alcance
+from app.domain.errores import NoEncontrado
 
 from .schemas import (
     CancelarPolizaEntrada,
@@ -48,7 +50,10 @@ async def emitir(
     suscripciones: Suscripciones,
     cobros: Cobros,
     firma: Firma,
+    llamante: LlamanteDep,
 ):
+    if llamante.rol == "cliente" and entrada.usuario_id != llamante.uid:
+        raise NoEncontrado("La póliza no existe")
     solicitud = casos_uso.SolicitudEmision(
         solicitud_id=entrada.solicitud_id,
         oferta_id=entrada.oferta_id,
@@ -63,8 +68,10 @@ async def emitir(
 
 
 @router.get("", response_model=list[PolizaSalida], responses=ERRORES)
-async def listar(uow: UowLectura, usuario_id: UUID, limite: Annotated[int, Query(ge=1, le=100)] = 20):
-    polizas = await casos_uso.listar_polizas_de_usuario(uow, usuario_id, limite)
+async def listar(
+    uow: UowLectura, llamante: LlamanteDep, usuario_id: UUID, limite: Annotated[int, Query(ge=1, le=100)] = 20
+):
+    polizas = await casos_uso.listar_polizas_de_usuario(uow, alcance(llamante, usuario_id), limite)
     return [PolizaSalida.desde(poliza) for poliza in polizas]
 
 
@@ -74,8 +81,12 @@ async def listar(uow: UowLectura, usuario_id: UUID, limite: Annotated[int, Query
 # intentaría parsear "numero" como UUID y fallaría con 422 en vez de llegar
 # aquí).
 @router.get("/numero/{numero}", response_model=PolizaSalida, responses=ERRORES)
-async def consultar_por_numero(numero: str, uow: UowLectura, usuario_id: UUID | None = None):
-    return PolizaSalida.desde(await casos_uso.consultar_poliza_por_numero(uow, numero, usuario_id))
+async def consultar_por_numero(
+    numero: str, uow: UowLectura, llamante: LlamanteDep, usuario_id: UUID | None = None
+):
+    return PolizaSalida.desde(
+        await casos_uso.consultar_poliza_por_numero(uow, numero, alcance(llamante, usuario_id))
+    )
 
 
 # Igual que "/numero/": el prefijo literal "/firmas/" va antes de "/{poliza_id}".
@@ -102,8 +113,11 @@ async def ofertas_con_poliza(uow: UowLectura, oferta_ids: Annotated[str, Query(m
 
 
 @router.get("/{poliza_id}", response_model=PolizaSalida, responses=ERRORES)
-async def consultar(poliza_id: UUID, uow: UowLectura):
-    return PolizaSalida.desde(await casos_uso.consultar_poliza(uow, poliza_id))
+async def consultar(poliza_id: UUID, uow: UowLectura, llamante: LlamanteDep):
+    poliza = await casos_uso.consultar_poliza(uow, poliza_id)
+    if llamante.rol == "cliente" and poliza.usuario_id != llamante.uid:
+        raise NoEncontrado(f"La póliza {poliza_id} no existe")
+    return PolizaSalida.desde(poliza)
 
 
 @router.post("/{poliza_id}/renovacion", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)

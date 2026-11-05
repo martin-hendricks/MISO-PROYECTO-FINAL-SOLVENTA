@@ -16,8 +16,14 @@ import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -218,6 +224,62 @@ class SessionHeaderTest {
     }
 
     @Test
+    fun givenTwoRequestsLoseTheirAccessToken_whenTheyRefresh_thenOnlyOneRotationHappens() {
+        tokens.save(SessionTokens("expired", "refresh-me", 1))
+        val refreshes = AtomicInteger(0)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.path.orEmpty()
+                if (path.contains("sesion/refresh")) {
+                    refreshes.incrementAndGet()
+                    Thread.sleep(150)
+                    return json(
+                        """{"accessToken":"rotated","refreshToken":"rotated-refresh","expiraEn":900}""",
+                    )
+                }
+                val authorization = request.getHeader("Authorization")
+                if (authorization == "Bearer rotated") return json(PublishedSamples.OFFER_OUT)
+                if (authorization == "Bearer expired") return MockResponse().setResponseCode(401)
+                return MockResponse().setResponseCode(500)
+            }
+        }
+        val repository = RemoteOfferRepository(api(), gate())
+        val start = CountDownLatch(1)
+        val done = CountDownLatch(2)
+        val failures = AtomicInteger(0)
+        repeat(2) {
+            thread {
+                start.await()
+                val answer = runBlocking { repository.requote("COT-1042") }
+                if (answer !is StandInAnswer.Ready) failures.incrementAndGet()
+                done.countDown()
+            }
+        }
+        start.countDown()
+        assertTrue(done.await(10, TimeUnit.SECONDS))
+        assertEquals(0, failures.get())
+        assertEquals(1, refreshes.get())
+        assertEquals("rotated", tokens.read()?.accessToken)
+    }
+
+    @Test
+    fun givenEncryptedReadFails_whenRead_thenTheStoreRecoversEmpty() {
+        val broken = java.lang.reflect.Proxy.newProxyInstance(
+            android.content.SharedPreferences::class.java.classLoader,
+            arrayOf(android.content.SharedPreferences::class.java),
+        ) { _, method, _ ->
+            if (method.name == "getString" || method.name == "edit") throw SecurityException("corrupt")
+            null
+        } as android.content.SharedPreferences
+        val field = TokenStore::class.java.getDeclaredField("prefs")
+        field.isAccessible = true
+        field.set(tokens, broken)
+        assertNull(tokens.read())
+        tokens.save(SessionTokens("fresh", "fresh-refresh", 30))
+        assertEquals("fresh", tokens.read()?.accessToken)
+    }
+
+    @Test
     fun givenABlankToken_whenRead_thenTheSessionIsAbsent() {
         tokens.save(SessionTokens(" ", "refresh", 1))
         assertNull(tokens.read())
@@ -258,6 +320,11 @@ class SessionHeaderTest {
         contrasena = "secreto12",
         tipoDocumento = "CC",
     )
+
+    private fun json(body: String) = MockResponse()
+        .setResponseCode(200)
+        .setHeader("Content-Type", "application/json")
+        .setBody(body.trim())
 
     private fun enqueue(body: String) {
         server.enqueue(

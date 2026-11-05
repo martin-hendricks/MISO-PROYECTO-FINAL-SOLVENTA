@@ -96,6 +96,15 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun givenConsentAlreadyRecorded_whenShown_thenDataTreatmentStaysOffTheForm() {
+        show(OnboardingUiState(habeasData = true, showDataTreatment = false))
+
+        rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
+    }
+
+    @Test
     fun givenAReturnVisit_whenShown_thenTheStepLineIsHidden() {
         show(OnboardingUiState(), showStep = false)
 

@@ -96,6 +96,18 @@ class StandInHomeRepositoryTest {
     }
 
     @Test
+    fun givenAClosedOrUnknownClaim_whenLoaded_thenItIsNotInProgress() {
+        for (estado in listOf("decidido", "pagado", "DESCONOCIDO")) {
+            val situation = load(
+                """
+                {"ofertaVigente":null,"poliza":null,"siniestroEnCurso":{"siniestroId":"SIN-1","estado":"$estado"},"hipotecario":null}
+                """,
+            )
+            assertFalse(situation.claims.single().inProgress)
+        }
+    }
+
+    @Test
     fun givenAReceivedClaim_whenLoaded_thenInicioKeepsIt() {
         val situation = load(
             """

@@ -40,16 +40,6 @@
               }
             </div>
           }
-          <div class="field">
-            <label for="asesor-vigencia">{{
-              'backoffice.cotizacion.campo.vigencia' | translate
-            }}</label>
-            <input
-              id="asesor-vigencia"
-              readonly
-              [value]="'backoffice.cotizacion.vigencia' | translate"
-            />
-          </div>
         </fieldset>
 
         <fieldset>
@@ -106,8 +96,6 @@
                 {{ oferta.expedicion | svMoney: oferta.moneda }}
               </dd>
             }
-            <dt>{{ 'backoffice.cotizacion.campo.vigencia' | translate }}</dt>
-            <dd>{{ 'backoffice.cotizacion.vigencia' | translate }}</dd>
             <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>
             <dd data-testid="oferta-vence">{{ oferta.venceEn | svDateTime }}</dd>
             <dt>{{ 'backoffice.cotizacion.oferta.id' | translate }}</dt>

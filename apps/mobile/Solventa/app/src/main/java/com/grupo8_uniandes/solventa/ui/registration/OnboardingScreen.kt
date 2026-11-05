@@ -381,30 +381,32 @@ fun OnboardingScreen(
                     }
                 }
             }
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
-            ) {
-                Row(
+            if (state.showDataTreatment) {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
                 ) {
-                    Checkbox(
-                        checked = state.habeasData,
-                        onCheckedChange = onHabeasData,
-                        modifier = Modifier.testTag("field_habeas_data"),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = state.habeasData,
+                            onCheckedChange = onHabeasData,
+                            modifier = Modifier.testTag("field_habeas_data"),
+                        )
+                        Text(
+                            text = stringResource(R.string.consent_heading),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                     Text(
-                        text = stringResource(R.string.consent_heading),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        text = stringResource(R.string.consent_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = stringResource(R.string.consent_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
         Column(

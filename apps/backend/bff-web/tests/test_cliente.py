@@ -1,5 +1,10 @@
+import asyncio
+import time
+
 import httpx
 import pytest
+
+from app.routers.cliente import _tarjeta
 
 from tests.conftest import token
 
@@ -494,6 +499,25 @@ def test_catalogo_producto_inexistente_es_404(client, nucleo_cotizacion):
     assert response.status_code == 404
 
 
+def test_un_nucleo_lento_no_agota_el_presupuesto_del_inicio():
+    async def correr():
+        async def lenta():
+            await asyncio.sleep(2)
+            return {"items": [{"cotizacion_id": "COT-lenta"}]}
+
+        async def rapida():
+            return [{"numero": "POL-1", "estado": "VIGENTE"}]
+
+        inicio = time.monotonic()
+        pagina, filas = await asyncio.gather(_tarjeta(lenta()), _tarjeta(rapida()))
+        return time.monotonic() - inicio, pagina, filas
+
+    elapsed, pagina, filas = asyncio.run(correr())
+    assert pagina is None
+    assert filas == [{"numero": "POL-1", "estado": "VIGENTE"}]
+    assert elapsed < 1.2
+
+
 def test_inicio(client):
     body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
     assert body["hipotecario"] is None
@@ -506,7 +530,16 @@ def test_inicio_proyecta_cotizacion_poliza_y_siniestro(
     client, nucleo_cotizacion, nucleo_polizas, nucleo_siniestros
 ):
     nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-usuario/{UID}")] = lambda _: httpx.Response(
-        200, json={"items": [{"cotizacion_id": "COT-1", "producto": "proteccion-dispositivo"}]}
+        200,
+        json={
+            "items": [
+                {
+                    "cotizacion_id": "COT-1",
+                    "producto": "proteccion-dispositivo",
+                    "vence_en": "2999-06-01T12:00:00Z",
+                }
+            ]
+        },
     )
     nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
         200,
@@ -531,6 +564,7 @@ def test_inicio_proyecta_cotizacion_poliza_y_siniestro(
         "cotizacionId": "COT-1",
         "ramo": "Protección de dispositivo",
         "estado": "oferta_vigente",
+        "venceEn": "2999-06-01T12:00:00Z",
     }
     assert body["poliza"] == {"numero": "POL-1", "ramo": "SOAT motocicleta", "estado": "vigente"}
     assert body["siniestroEnCurso"] == {"siniestroId": "SIN-1", "estado": "recibido"}
