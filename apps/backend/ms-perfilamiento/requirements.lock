@@ -60,6 +60,8 @@ pydantic-settings==2.16.1
     # via ms-perfilamiento (pyproject.toml)
 pygments==2.21.0
     # via pytest
+pyjwt==2.15.1
+    # via redis
 pytest==9.1.1
     # via
     #   ms-perfilamiento (pyproject.toml)
@@ -78,6 +80,8 @@ python-dotenv==1.2.4
     #   uvicorn
 pyyaml==6.0.3
     # via uvicorn
+redis==5.3.1
+    # via ms-perfilamiento (pyproject.toml)
 sqlalchemy==2.0.55
     # via ms-perfilamiento (pyproject.toml)
 starlette==1.9.0

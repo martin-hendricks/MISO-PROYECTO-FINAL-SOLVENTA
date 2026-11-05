@@ -95,6 +95,10 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `TIMEOUT_OPEN_FINANCE_MS` / `TIMEOUT_OPEN_DATA_MS` | `400` | Timeout por adaptador (HU-54/HU-56) |
 | `RESPALDO_*` | ver `.env.example` | Valor de respaldo por atributo (HU-56) |
 | `TARIFA_BASE`, `PESO_*` | ver `.env.example` | Fórmula de oferta (HU-55) |
+| `REDIS_CACHE_OD_HOST` | vacío | Host de `:CacheOD`/`:CacheOF` (HA-03/HA-04). Vacío desactiva la caché |
+| `REDIS_CACHE_OD_PORT` | `6379` | Puerto de la caché |
+| `REDIS_CACHE_OD_TTL_SECONDS` | `600` | Vigencia de los atributos OF/OD en caché |
+| `TIMEOUT_CACHE_MS` | `50` | Tiempo máximo de lectura/escritura en caché; si se excede o falla, se consulta al proveedor |
 
 ## Pruebas
 
