@@ -398,7 +398,7 @@ COTIZACION_VIDA_SALIDA = {
 CREDITO = {"valor": 180000000, "plazoMeses": 180}
 
 
-def _usuario_id(correo: str = "persona@solventa.com") -> str:
+def _usuario_id(correo: str = "persona@correo.com") -> str:
     return str(ContextoUsuario(correo).usuario_id)
 
 
