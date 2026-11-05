@@ -3,14 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { IdiomaRegionView } from '../idioma-region/idioma-region.view';
 
-export type Destino =
-  | 'cotizacion'
-  | 'emision'
-  | 'poliza'
-  | 'siniestro'
-  | 'siniestros'
-  | 'perfil'
-  | 'vidaCrediticia';
+export type Destino = 'cotizacion' | 'emision' | 'poliza' | 'siniestro' | 'siniestros' | 'perfil';
 
 /** Customer destination Inicio links to whose content belongs to a later
  * story. Perfil (HU-108) is the one exception: it already hosts the

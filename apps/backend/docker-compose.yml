@@ -146,6 +146,7 @@ services:
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       DOBLE_PERFIL_RIESGO_LATENCIA_MS: ${DOBLE_PERFIL_RIESGO_LATENCIA_MS:-0}
       DOBLE_PERFIL_RIESGO_FALLAR: ${DOBLE_PERFIL_RIESGO_FALLAR:-false}
+      MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
     ports:
       - "8009:8000"
     depends_on:

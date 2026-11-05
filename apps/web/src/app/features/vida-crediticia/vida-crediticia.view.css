@@ -1,0 +1,67 @@
+.back {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--sv-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.subtitle {
+  margin-bottom: 24px;
+}
+
+.grant {
+  margin: 0;
+  max-width: none;
+  line-height: 24px;
+}
+
+.text {
+  padding: 14px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--sv-primary);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actions {
+  align-items: center;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.columns .card {
+  max-width: none;
+  margin: 0;
+}
+
+h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.filled {
+  text-align: center;
+}
+
+.degradada {
+  margin-bottom: 24px;
+  background: var(--sv-surface-container);
+  color: var(--sv-on-surface);
+}
+
+@media (max-width: 960px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}

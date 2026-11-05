@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .modelos import FactorInterno, Oferta, Perfil
+from .modelos import FactorInterno, Oferta, Perfil, ajuste_por_factores
 
 # Nombres de los atributos propios de Solventa (HU-54), usados como claves canónicas
 # tanto para armar el Perfil como para calcular la Oferta y sus factores internos.
@@ -25,16 +25,13 @@ def calcular_oferta(cliente_id: str, perfil: Perfil, pesos: dict[str, Decimal], 
     fórmula inventada para fines del proyecto académico, documentada en el README del
     servicio. Cada atributo aporta un FactorInterno en lenguaje de negocio, nunca el
     valor crudo del proveedor."""
-    ajuste = Decimal("1")
-    factores: list[FactorInterno] = []
-    for nombre, peso in pesos.items():
-        atributo = perfil.atributo(nombre)
-        if atributo is None:
-            continue
-        ajuste += peso * atributo.valor
-        factores.append(FactorInterno(factor=nombre, impacto=_impacto(peso), peso=peso))
+    factores = [
+        FactorInterno(factor=nombre, impacto=_impacto(peso), peso=peso)
+        for nombre, peso in pesos.items()
+        if perfil.atributo(nombre) is not None
+    ]
 
-    precio = tarifa_base * ajuste
+    precio = tarifa_base * ajuste_por_factores(tuple(factores), perfil.atributos)
     if precio <= 0:
         # Guardia de negocio: ningún combo de pesos/atributos deja la oferta en un
         # precio inválido; se acota a un mínimo simbólico antes de construir la Oferta.

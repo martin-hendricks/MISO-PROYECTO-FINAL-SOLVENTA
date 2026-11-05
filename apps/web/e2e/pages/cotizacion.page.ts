@@ -70,6 +70,17 @@ export class CotizacionPage {
     await this.page.getByTestId('riesgo-ciudad_circulacion').selectOption('cali');
   }
 
+  /** Mortgage life (HU-58): its fields render once the `Vida hipotecario` catalog answers. */
+  async fillMortgage(valor = '180000000', plazoMeses = '240'): Promise<void> {
+    await this.page.getByTestId('riesgo-valorCredito').fill(valor);
+    await this.page.getByTestId('riesgo-plazoMeses').fill(plazoMeses);
+    await this.page.locator('.hint', { hasText: 'Entre 6 y 360' }).waitFor({ state: 'visible' });
+  }
+
+  async consentProfiling(checked = true): Promise<void> {
+    await this.page.getByTestId('asesor-consentimiento').setChecked(checked);
+  }
+
   async typeEngine(cilindraje: string): Promise<void> {
     await this.page.getByTestId('riesgo-cilindraje_cc').fill(cilindraje);
   }

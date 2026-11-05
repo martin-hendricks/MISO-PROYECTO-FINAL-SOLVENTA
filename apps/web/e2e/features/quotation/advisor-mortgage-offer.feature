@@ -1,4 +1,4 @@
-@quotation @pendiente @HU-58 @SOLV-151
+@quotation @HU-58 @SOLV-151
 Feature: Advisor mortgage offer
 
   Scenario: Same internal offer

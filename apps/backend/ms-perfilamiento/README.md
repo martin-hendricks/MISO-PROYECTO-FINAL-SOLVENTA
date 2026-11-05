@@ -20,7 +20,8 @@ app/
 ├── config.py            pydantic-settings: timeouts, valores de respaldo y pesos de la fórmula de oferta
 ├── dependencies.py      raíz de composición: qué implementación cumple cada puerto
 ├── observabilidad.py    /health, /metrics (Prometheus), X-Correlation-Id
-├── api/v1/              POST /v1/consentimientos, GET/DELETE /v1/consentimientos/{cliente_id}, POST /v1/ofertas-hipotecario
+├── api/v1/              POST /v1/consentimientos, GET/DELETE /v1/consentimientos/{cliente_id}, POST /v1/ofertas-hipotecario,
+│                        GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima
 ├── domain/               Consentimiento, AtributoPerfil, Perfil, Oferta, FactorInterno + fórmula de precio
 ├── application/         casos de uso: otorgar/revocar/consultar consentimiento, perfilar_y_ofertar
 ├── ports/               persistencia.py (repos + UoW) y adaptadores.py (AdaptadorOpenFinance/AdaptadorOpenData)
@@ -63,6 +64,10 @@ Pesos y tarifa base por defecto (configurables en `app/config.py` / `.env`):
 | `antiguedad_documento` | `-0.05` | `reduce_prima` |
 
 `tarifa_base = 50000` (COP). Cada atributo usado produce un `FactorInterno` `{"factor": "<atributo>", "impacto": "reduce_prima"|"aumenta_prima", "peso": <peso>}` que acompaña la oferta — nunca se expone el valor crudo de ningún proveedor, solo el nombre del atributo propio de Solventa y su efecto cualitativo.
+
+### Perfil de riesgo para ms-cotizacion (`IPerfilRiesgo`)
+
+La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde los factores y el snapshot persistidos). `GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima` devuelve la oferta más reciente del cliente sin volver a llamar a los adaptadores; ms-cotizacion la lee para cotizar `vida-crediticia` con este mismo perfil, de modo que la prima cotizada y cobrada en la emisión sale del perfil que el cliente vio explicado. Exige consentimiento vigente (`403` si se revocó) y responde `404` si el cliente aún no tiene ofertas.
 
 ## Degradación (HU-56)
 

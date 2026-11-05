@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # degradación de HU-5 en el ambiente de integración.
     doble_perfil_riesgo_latencia_ms: int = 0
     doble_perfil_riesgo_fallar: bool = False
+    # IPerfilRiesgo real (HU-162): estos productos toman el factor del perfil que arma
+    # ms-perfilamiento; los demás siguen con el adaptador stub.
+    ms_perfilamiento_url: str = "http://ms-perfilamiento:8080"
+    productos_perfil_perfilamiento: list[str] = ["vida-crediticia"]
 
     # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
     # default razonable a confirmar con negocio.

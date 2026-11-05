@@ -223,6 +223,20 @@ async def perfilar_y_ofertar(
     return RegistroOferta(ganador, creada=False)
 
 
+async def consultar_ultima_oferta(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> Oferta:
+    """La oferta más reciente del cliente, sin volver a invocar los adaptadores. Es lo
+    que ms-cotizacion lee por IPerfilRiesgo para cotizar vida crediticia con el mismo
+    perfil. Revocar el consentimiento corta también esta lectura (HU-53): el perfil
+    deja de estar disponible aunque la oferta siga persistida para auditoría."""
+    async with uow() as tx:
+        if await tx.consentimientos.obtener_vigente(cliente_id) is None:
+            raise ConsentimientoNoOtorgado(cliente_id)
+        oferta = await tx.ofertas.obtener_ultima_por_cliente(cliente_id)
+    if oferta is None:
+        raise NoEncontrado(f"El cliente {cliente_id} no tiene ofertas de vida hipotecario")
+    return oferta
+
+
 __all__ = [
     "RegistroConsentimiento",
     "RegistroOferta",
@@ -230,4 +244,5 @@ __all__ = [
     "revocar_consentimiento",
     "consultar_consentimiento_vigente",
     "perfilar_y_ofertar",
+    "consultar_ultima_oferta",
 ]
