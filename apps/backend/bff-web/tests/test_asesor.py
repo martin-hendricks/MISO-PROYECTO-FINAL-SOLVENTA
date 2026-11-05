@@ -606,12 +606,12 @@ def test_oferta_hipotecaria_asistida_solo_para_asesor(client):
     assert respuesta.status_code == 403
 
 
-def test_catalogo_de_vida_hipotecario_es_el_producto_vida_crediticia(client, nucleo_cotizacion):
-    nucleo_cotizacion.respuestas[("GET", "/v1/productos/vida-crediticia")] = lambda _: httpx.Response(
+def test_catalogo_de_vida_hipotecario_es_el_producto_vida_hipotecario(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", "/v1/productos/vida-hipotecario")] = lambda _: httpx.Response(
         200,
         json={
-            "codigo": "vida-crediticia",
-            "nombre": "Vida crediticia",
+            "codigo": "vida-hipotecario",
+            "nombre": "Vida hipotecario",
             "moneda": "COP",
             "coberturas": [],
             "datos_riesgo": [{"nombre": "plazoMeses", "tipo": "rango", "minimo": "6", "maximo": "360"}],

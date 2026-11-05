@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.dependencies import issue_pair
-from app.routers.cliente import ContextoUsuario
+from app.routers.cliente import contexto_canonico
 from tests.conftest import token
 
 COTIZACION_ID = "11111111-1111-1111-1111-111111111111"
@@ -410,8 +410,11 @@ COTIZACION_VIDA_SALIDA = {
 CREDITO = {"valor": 180000000, "plazoMeses": 180}
 
 
-def _usuario_id(correo: str = "persona@correo.com") -> str:
-    return str(ContextoUsuario(correo).usuario_id)
+UID_SESION = "11111111-1111-1111-1111-111111111111"
+
+
+def _usuario_id(uid: str = UID_SESION) -> str:
+    return str(contexto_canonico({"uid": uid}).usuario_id)
 
 
 def _perfilamiento_responde(nucleo_perfilamiento, oferta: dict = OFERTA_HIPOTECARIA_SALIDA) -> None:
@@ -483,14 +486,15 @@ def test_hipoteca_usa_la_identidad_de_cada_sesion(client, nucleo_perfilamiento, 
     _perfilamiento_responde(nucleo_perfilamiento)
     _cotizacion_vida_responde(nucleo_cotizacion)
 
-    for correo in ("ana@correo.com", "beto@correo.com"):
-        acceso = issue_pair(correo, "cliente")["accessToken"]
+    sesiones = (("ana@correo.com", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), ("beto@correo.com", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"))
+    for correo, uid in sesiones:
+        acceso = issue_pair(correo, "cliente", uid)["accessToken"]
         _pedir_oferta(client, headers={"Authorization": f"Bearer {acceso}"})
 
     consentimientos = nucleo_perfilamiento.peticiones[::2]
     assert [json.loads(p.read())["cliente_id"] for p in consentimientos] == [
-        _usuario_id("ana@correo.com"),
-        _usuario_id("beto@correo.com"),
+        _usuario_id("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        _usuario_id("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
     ]
 
 
