@@ -146,6 +146,7 @@ services:
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       DOBLE_PERFIL_RIESGO_LATENCIA_MS: ${DOBLE_PERFIL_RIESGO_LATENCIA_MS:-0}
       DOBLE_PERFIL_RIESGO_FALLAR: ${DOBLE_PERFIL_RIESGO_FALLAR:-false}
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8009:8000"
     depends_on:
@@ -191,6 +192,7 @@ services:
       DATABASE_URL_READ: postgresql+asyncpg://postgres:postgres@db-polizas:5432/solventa
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       MS_PAGOS_URL: http://ms-pagos:8080
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8003:8080"
     depends_on:
@@ -221,6 +223,7 @@ services:
     environment:
       SERVICE_NAME: ms-siniestros
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-siniestros:5432/solventa
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8005:8080"
     depends_on:
@@ -237,6 +240,7 @@ services:
       DOBLE_KYC_LATENCIA_MS: ${DOBLE_KYC_LATENCIA_MS:-0}
       DOBLE_KYC_FALLAR: ${DOBLE_KYC_FALLAR:-false}
       DOBLE_KYC_DOCUMENTOS_RECHAZADOS: ${DOBLE_KYC_DOCUMENTOS_RECHAZADOS:-}
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8010:8080"
     depends_on:

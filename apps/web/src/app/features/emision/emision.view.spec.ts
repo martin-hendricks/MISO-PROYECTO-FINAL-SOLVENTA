@@ -82,6 +82,16 @@ describe('EmisionView', () => {
     expect(element('poliza-emitida')).toBeNull();
   });
 
+  it('offers a new quotation when the offer expires during acceptance', () => {
+    const { fixture, http, element } = render();
+
+    http.expectOne(URL).flush({ codigo: 'oferta_vencida' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(element('emision-expired')?.textContent).toContain('La oferta venció.');
+    expect(element('emision-new-quote')?.getAttribute('href')).toBe('/cotizacion');
+  });
+
   it('offers to retry in the same view when the request fails', () => {
     const { fixture, http, element } = render();
     http.expectOne(URL).error(new ProgressEvent('error'));

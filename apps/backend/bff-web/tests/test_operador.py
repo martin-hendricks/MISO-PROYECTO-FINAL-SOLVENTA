@@ -219,7 +219,7 @@ def test_cancelar_con_poliza_id_y_motivo_cambia_estado(client, nucleo_polizas, n
 
     enviado = _json.loads(peticion.read())
     assert enviado["motivo"] == "El cliente lo pidió"
-    assert enviado["operador"] == "persona@solventa.com"
+    assert enviado["operador"] == "operador@solventa.com"
 
 
 def test_cancelar_consulta_siniestros_abiertos_sin_bloquear(client, nucleo_polizas, nucleo_siniestros):
@@ -238,6 +238,24 @@ def test_cancelar_consulta_siniestros_abiertos_sin_bloquear(client, nucleo_poliz
 
     assert response.status_code == 200
     assert response.json()["siniestrosAbiertos"] == 2
+
+
+def test_cancelar_sigue_cuando_siniestros_no_responde(client, nucleo_polizas, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(503, json={})
+    nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
+        200, json=POLIZA_CANCELADA
+    )
+
+    response = client.post(
+        "/v1/operador/polizas/ciclo",
+        headers=_auth(client),
+        json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar", "motivo": "El cliente lo pidió"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["estado"] == "cancelada"
+    assert response.json()["siniestrosAbiertos"] is None
+    assert nucleo_polizas.peticiones[-1].url.path.endswith("/cancelacion")
 
 
 def test_renovar_con_poliza_id_cambia_vigencia(client, nucleo_polizas):

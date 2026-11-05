@@ -175,7 +175,7 @@ private class RecordingOfferRepository : OfferRepository {
     }
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
-        quote("", DeviceRisk(1, "x", false))
+        quote("", DeviceRisk(1, "x", false, "modelo"))
 
     override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
 }

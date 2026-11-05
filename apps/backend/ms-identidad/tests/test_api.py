@@ -126,20 +126,28 @@ def test_autenticacion_es_insensible_a_mayusculas_en_el_email(client):
 
 
 def test_consultar_y_actualizar_perfil(client):
+    from tests.conftest import token_de
+
     creado = _crear(client, nombre="Camila", apellidos="Restrepo").json()
     usuario_id = creado["usuario_id"]
+    propio = {"Authorization": f"Bearer {token_de(usuario_id, 'cliente')}"}
 
-    consulta = client.get(f"/v1/usuarios/{usuario_id}")
+    consulta = client.get(f"/v1/usuarios/{usuario_id}", headers=propio)
     assert consulta.status_code == 200
     assert consulta.json()["nombre"] == "Camila"
 
     perfil = client.patch(
-        f"/v1/usuarios/{usuario_id}/perfil", json={"nombre": "Ana", "apellidos": "Lopez"}
+        f"/v1/usuarios/{usuario_id}/perfil",
+        json={"nombre": "Ana", "apellidos": "Lopez"},
+        headers=propio,
     )
     assert perfil.status_code == 200
     assert perfil.json()["apellidos"] == "Lopez"
-    assert client.get(f"/v1/usuarios/{usuario_id}").json()["nombre"] == "Ana"
+    assert perfil.json()["rol"] == "cliente"
+    assert client.get(f"/v1/usuarios/{usuario_id}", headers=propio).json()["nombre"] == "Ana"
 
+    ajeno = {"Authorization": f"Bearer {token_de(str(uuid4()), 'cliente')}"}
+    assert client.get(f"/v1/usuarios/{usuario_id}", headers=ajeno).status_code == 404
     assert client.get(f"/v1/usuarios/{uuid4()}").status_code == 404
     assert (
         client.patch(

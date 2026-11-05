@@ -7,6 +7,7 @@ import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.runBlocking
 
 class ProfileViewModel(
     private val load: LoadProfile,
@@ -20,7 +21,7 @@ class ProfileViewModel(
 
     fun confirmSignOut() {
         if (_signedOut.value) return
-        signOut()
+        runBlocking { signOut.complete() }
         _signedOut.value = true
     }
 

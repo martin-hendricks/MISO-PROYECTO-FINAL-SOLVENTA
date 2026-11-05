@@ -2,11 +2,13 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="registration_prefs.xml" />
+        <exclude domain="sharedpref" path="solventa.tokens.xml" />
         <exclude domain="sharedpref" path="consent_prefs.xml" />
         <exclude domain="file" path="registration/document.jpg" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="registration_prefs.xml" />
+        <exclude domain="sharedpref" path="solventa.tokens.xml" />
         <exclude domain="sharedpref" path="consent_prefs.xml" />
         <exclude domain="file" path="registration/document.jpg" />
     </device-transfer>

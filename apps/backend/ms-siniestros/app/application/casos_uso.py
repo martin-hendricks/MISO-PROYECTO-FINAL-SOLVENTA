@@ -67,16 +67,24 @@ async def listar_siniestros(
 
 
 async def registrar_siniestro(
-    uow: FabricaUnidadDeTrabajo, *, usuario_id: UUID, poliza: str
-) -> Siniestro:
-    siniestro = Siniestro.recibir(evento_id=f"{usuario_id}|{poliza}", origen="cliente", usuario_id=usuario_id)
+    uow: FabricaUnidadDeTrabajo,
+    *,
+    usuario_id: UUID,
+    poliza: str,
+    poliza_id: UUID | None,
+    idempotency_key: str,
+) -> tuple[Siniestro, bool]:
+    evento_id = f"cliente:{usuario_id}:{idempotency_key}"
+    siniestro = Siniestro.recibir(
+        evento_id=evento_id, origen="cliente", usuario_id=usuario_id, poliza_id=poliza_id
+    )
     async with uow() as tx:
         existente = await tx.siniestros.obtener_por_evento(siniestro.evento_id)
         if existente is not None:
-            return existente
+            return existente, False
         await tx.siniestros.agregar(siniestro)
         await tx.confirmar()
-    return siniestro
+    return siniestro, True
 
 
 async def listar_siniestros_abiertos_de_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> list[Siniestro]:

@@ -73,11 +73,8 @@ class OnboardingTest {
         rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Tratamiento de datos").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText(
-            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
-        ).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("field_habeas_data").performScrollTo().assertIsOff()
+        rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
         listOf(
             "field_nombre",
             "field_apellidos",
@@ -192,7 +189,6 @@ class OnboardingTest {
         rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
         rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
         rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
-        rule.onNodeWithTag("field_habeas_data").performScrollTo().performClick()
     }
 
     private fun confirmRegion(tag: String) {

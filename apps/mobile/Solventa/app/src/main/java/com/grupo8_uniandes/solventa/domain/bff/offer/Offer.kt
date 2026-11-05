@@ -10,7 +10,7 @@ data class DeviceRisk(
     val valorDispositivo: Long,
     val marca: String,
     val masDe12Meses: Boolean,
-    val modelo: String = "",
+    val modelo: String,
 ) : LineRisk
 
 data class FirmOffer(

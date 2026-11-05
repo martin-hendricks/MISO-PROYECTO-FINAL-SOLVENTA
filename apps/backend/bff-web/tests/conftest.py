@@ -98,16 +98,24 @@ def nucleo_identidad() -> NucleoSimulado:
     # sobrescribe la respuesta explicitamente, igual que con los demas.
     def cuenta(request: httpx.Request, status: int) -> httpx.Response:
         cuerpo = json.loads(request.content or b"{}")
+        email = str(cuerpo.get("email", "")).strip().lower()
+        if email.startswith("operador"):
+            rol = "operador"
+        elif email.endswith("@solventa.co") or email.endswith("@solventa.com"):
+            rol = "asesor"
+        else:
+            rol = "cliente"
         return httpx.Response(
             status,
             json={
                 "usuario_id": "11111111-1111-1111-1111-111111111111",
                 "tipo_documento": cuerpo.get("tipo_documento", "CC"),
                 "numero_documento": cuerpo.get("numero_documento", "0"),
-                "email": str(cuerpo.get("email", "")).strip().lower(),
+                "email": email,
                 "estado": "ACTIVO",
                 "nombre": cuerpo.get("nombre", ""),
                 "apellidos": cuerpo.get("apellidos", ""),
+                "rol": rol,
             },
         )
 
@@ -167,7 +175,12 @@ def token(client: TestClient, rol: str) -> str:
     # rol asesor/operador, y viceversa) -- antes este fixture usaba el mismo
     # correo @solventa.com para cualquier rol, lo que ahora el propio BFF
     # rechazaría para rol="cliente".
-    correo = "persona@solventa.com" if rol in ("asesor", "operador") else "persona@correo.com"
+    if rol == "operador":
+        correo = "operador@solventa.com"
+    elif rol == "asesor":
+        correo = "persona@solventa.com"
+    else:
+        correo = "persona@correo.com"
     response = client.post(
         "/v1/sesion/ingreso",
         json={"correo": correo, "contrasena": "secreto", "rol": rol},

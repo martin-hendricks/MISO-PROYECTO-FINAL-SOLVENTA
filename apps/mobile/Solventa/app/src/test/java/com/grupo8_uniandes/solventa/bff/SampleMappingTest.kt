@@ -357,7 +357,7 @@ class SampleMappingTest {
         val signup = SignupDto("Camila", "Restrepo", "1012345678", "camila@correo.com", LivenessDto.ok, true)
         assertEquals(LivenessDto.no, signup.copy(pruebaDeVida = LivenessDto.no).pruebaDeVida)
         assertEquals(false, RevokeDto(false).habeasData)
-        val risk = DeviceRiskDto(2_400_000L, "Pixel", false)
+        val risk = DeviceRiskDto(2_400_000L, "Pixel", false, "Pixel 8")
         assertEquals("Protección de dispositivo", OfferInDto("Protección de dispositivo", risk).ramo)
         assertEquals("oferta_vigente", OfferOutDto("COT-1042", "Protección de dispositivo", "oferta_vigente", 89_000L, "COP", "2026-10-01").estado)
         assertEquals("COT-1042", IdDto("COT-1042").cotizacionId)

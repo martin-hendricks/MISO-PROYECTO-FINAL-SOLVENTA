@@ -12,7 +12,7 @@ import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
  */
 class TokenStore(context: Context) {
     private val appContext = context.applicationContext
-    private var prefs = encrypted(appContext)
+    private var prefs = openOrRecover()
 
     @Suppress("DEPRECATION")
     private fun encrypted(context: Context): SharedPreferences {
@@ -29,18 +29,41 @@ class TokenStore(context: Context) {
     }
 
     fun read(): SessionTokens? {
-        val access = prefs.getString(ACCESS, null) ?: return null
-        val refresh = prefs.getString(REFRESH, null) ?: return null
-        if (access.isBlank() || refresh.isBlank()) return null
-        return SessionTokens(access, refresh, prefs.getInt(EXPIRES, 0))
+        return try {
+            val access = prefs.getString(ACCESS, null) ?: return null
+            val refresh = prefs.getString(REFRESH, null) ?: return null
+            if (access.isBlank() || refresh.isBlank()) return null
+            SessionTokens(access, refresh, prefs.getInt(EXPIRES, 0))
+        } catch (_: SecurityException) {
+            recover()
+            null
+        }
+    }
+
+    private fun openOrRecover(): SharedPreferences {
+        return try {
+            encrypted(appContext)
+        } catch (_: SecurityException) {
+            appContext.deleteSharedPreferences(FILE)
+            encrypted(appContext)
+        }
+    }
+
+    private fun recover() {
+        appContext.deleteSharedPreferences(FILE)
+        prefs = encrypted(appContext)
     }
 
     fun save(tokens: SessionTokens) {
-        prefs.edit()
-            .putString(ACCESS, tokens.accessToken)
-            .putString(REFRESH, tokens.refreshToken)
-            .putInt(EXPIRES, tokens.expiraEn)
-            .commit()
+        try {
+            prefs.edit()
+                .putString(ACCESS, tokens.accessToken)
+                .putString(REFRESH, tokens.refreshToken)
+                .putInt(EXPIRES, tokens.expiraEn)
+                .commit()
+        } catch (_: SecurityException) {
+            recover()
+        }
     }
 
     fun clear() {
