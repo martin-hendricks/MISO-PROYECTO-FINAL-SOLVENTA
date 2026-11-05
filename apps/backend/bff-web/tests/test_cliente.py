@@ -278,6 +278,26 @@ def test_emision_rechazo_de_aceptacion_se_propaga(client, nucleo_cotizacion, nuc
     assert nucleo_polizas.peticiones == []
 
 
+def test_emision_con_consentimiento_revocado_se_propaga_sin_cobrar(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    cuerpo = {"codigo": "consentimiento_revocado", "mensaje": "El consentimiento ya no está vigente; vuelva a cotizar"}
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        422, json=cuerpo
+    )
+
+    response = client.post(
+        "/v1/cliente/polizas",
+        headers=_auth(client),
+        json={"cotizacionId": COTIZACION_ID},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == cuerpo
+    assert nucleo_pagos.peticiones == []
+    assert nucleo_polizas.peticiones == []
+
+
 def test_billetera_devuelve_las_polizas_del_usuario(client, nucleo_polizas, nucleo_cotizacion):
     nucleo_polizas.respuestas[("GET", "/v1/polizas")] = lambda _: httpx.Response(
         200, json=[POLIZA_SALIDA]
