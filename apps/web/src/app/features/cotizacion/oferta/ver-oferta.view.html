@@ -51,7 +51,7 @@
             </dd>
           }
           <dt>{{ 'cotizacion.oferta.vigencia' | translate }}</dt>
-          <dd data-testid="oferta-vigencia">{{ 'cotizacion.oferta.vigenciaValor' | translate }}</dd>
+          <dd data-testid="oferta-vigencia">{{ oferta.venceEn | svDateTime }}</dd>
           <dt>{{ 'cotizacion.oferta.moneda' | translate }}</dt>
           <dd data-testid="oferta-moneda">{{ oferta.moneda }}</dd>
           <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>

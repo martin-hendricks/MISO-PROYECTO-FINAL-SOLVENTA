@@ -10,6 +10,7 @@ from app import main
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
 from app.dependencies import obtener_suscripciones, obtener_uow
+from app.seguridad import Llamante, exigir_llamante
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 
 from ..dobles import (
@@ -122,6 +123,13 @@ def proveedor_url(monkeypatch, estado):
     app = main.crear_app()
     app.dependency_overrides[obtener_uow] = lambda: estado.uow()
     app.dependency_overrides[obtener_suscripciones] = lambda: estado.suscripciones
+    # Los pactos describen el cuerpo de la cotización. La verificación entra como
+    # operador para que el filtro de titular no reescriba el usuario_id del pacto.
+    app.dependency_overrides[exigir_llamante] = lambda: Llamante(
+        uid=UUID("00000000-0000-4000-8000-000000000001"),
+        rol="operador",
+        sub="pacto@solventa.com",
+    )
 
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
     hilo = threading.Thread(target=servidor.run, daemon=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from .base import ClienteServicio
+from .base import ClienteServicio, RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 
 
 class ClienteMsSiniestros(ClienteServicio):
@@ -22,8 +22,10 @@ class ClienteMsSiniestros(ClienteServicio):
             json={"estado": estado, "origen": origen},
         )
 
-    async def abiertos_por_poliza(self, poliza_id: UUID) -> int:
-        """HU-61: dato informativo para el operador antes de cancelar -- no
-        bloquea la cancelación, ver operador.py."""
-        cuerpo = await self._pedir("GET", "/v1/siniestros/abiertos", params={"poliza_id": str(poliza_id)})
-        return int(cuerpo["abiertos"])
+    async def abiertos_por_poliza(self, poliza_id: UUID) -> int | None:
+        """HU-61: dato informativo. Si el servicio no responde, la cancelación sigue."""
+        try:
+            cuerpo = await self._pedir("GET", "/v1/siniestros/abiertos", params={"poliza_id": str(poliza_id)})
+            return int(cuerpo["abiertos"])
+        except (ServicioNoDisponible, RecursoNoEncontrado, RechazoDelNucleo, KeyError, TypeError, ValueError):
+            return None

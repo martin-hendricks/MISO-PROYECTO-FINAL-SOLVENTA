@@ -7,6 +7,7 @@ from app.application import casos_uso
 from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
+from app.seguridad import LlamanteDep, alcance
 
 from .schemas import AutenticarEntrada, CrearUsuarioEntrada, ErrorSalida, PerfilEntrada, UsuarioSalida
 
@@ -50,12 +51,21 @@ async def autenticacion(entrada: AutenticarEntrada, uow: Uow):
 
 
 @router.get("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)
-async def consultar(usuario_id: UUID, uow: Uow):
+async def consultar(usuario_id: UUID, uow: Uow, llamante: LlamanteDep):
+    alcance(llamante, usuario_id)
+    if llamante.rol == "cliente" and llamante.uid != usuario_id:
+        from app.domain.errores import NoEncontrado
+
+        raise NoEncontrado()
     return UsuarioSalida.desde(await casos_uso.consultar_usuario(uow, usuario_id))
 
 
 @router.patch("/{usuario_id}/perfil", response_model=UsuarioSalida, responses=ERRORES)
-async def actualizar_perfil(usuario_id: UUID, entrada: PerfilEntrada, uow: Uow):
+async def actualizar_perfil(usuario_id: UUID, entrada: PerfilEntrada, uow: Uow, llamante: LlamanteDep):
+    if llamante.rol != "cliente" or llamante.uid != usuario_id:
+        from app.domain.errores import NoEncontrado
+
+        raise NoEncontrado()
     usuario = await casos_uso.actualizar_perfil(
         uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos
     )

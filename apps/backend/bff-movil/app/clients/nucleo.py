@@ -1,6 +1,9 @@
 import os
+from contextvars import ContextVar
 
 import httpx
+
+token_saliente: ContextVar[str | None] = ContextVar("token_saliente", default=None)
 from fastapi import HTTPException
 
 DETALLE_INCOMPLETA = "Respuesta del nucleo incompleta"
@@ -24,6 +27,7 @@ class ClienteNucleo:
         if urls is None:
             urls = {nombre: os.environ.get(variable) for nombre, variable in SERVICIOS.items()}
         self._urls = urls
+        self._clientes: dict[str, httpx.Client] = {}
 
     def autenticar(self, *, correo: str, contrasena: str) -> dict:
         return self._pedir(
@@ -200,12 +204,15 @@ class ClienteNucleo:
         cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
         return cuerpo if isinstance(cuerpo, list) else []
 
-    def crear_siniestro(self, *, usuario_id: str, poliza: str) -> dict:
+    def crear_siniestro(
+        self, *, usuario_id: str, poliza: str, poliza_id: str, idempotency_key: str
+    ) -> dict:
         return self._pedir(
             "ms-siniestros",
             "POST",
             "/v1/siniestros",
-            json={"usuario_id": usuario_id, "poliza": poliza},
+            json={"usuario_id": usuario_id, "poliza": poliza, "poliza_id": poliza_id},
+            cabeceras={"Idempotency-Key": idempotency_key},
         )
 
     def otorgar_consentimiento(self, cliente_id: str) -> dict:
@@ -242,10 +249,15 @@ class ClienteNucleo:
         cabeceras: dict | None = None,
     ):
         try:
-            with httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S) as http:
-                respuesta = http.request(
-                    metodo, ruta, json=json, params=params, headers=cabeceras or {}
-                )
+            headers = dict(cabeceras or {})
+            token = token_saliente.get()
+            if token and "Authorization" not in headers:
+                headers["Authorization"] = f"Bearer {token}"
+            http = self._clientes.get(servicio)
+            if http is None:
+                http = httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S)
+                self._clientes[servicio] = http
+            respuesta = http.request(metodo, ruta, json=json, params=params, headers=headers)
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible") from exc
         try:
@@ -254,7 +266,7 @@ class ClienteNucleo:
             cuerpo = None
         if respuesta.status_code == 404:
             raise HTTPException(status_code=404, detail="No existe")
-        if respuesta.status_code in (401, 409, 422):
+        if respuesta.status_code in (401, 403, 409, 422):
             if isinstance(cuerpo, dict) and "mensaje" in cuerpo:
                 detalle = cuerpo["mensaje"]
             elif cuerpo is None:

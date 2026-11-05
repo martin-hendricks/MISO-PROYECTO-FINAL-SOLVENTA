@@ -41,6 +41,36 @@ class OnboardingViewModelTest {
         assertNull(state.effect)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenConsentAlreadyGranted_whenContinuar_thenTheStoredChoiceIsSent() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var sent: Boolean? = null
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ -> true },
+                registerRemote = { _, granted ->
+                    sent = granted
+                    true
+                },
+                priorHabeasData = true,
+            )
+            fill(remote, includeHabeas = false)
+            remote.attachPhoto(byteArrayOf(1))
+
+            assertFalse(remote.state.value.showDataTreatment)
+            assertTrue(remote.state.value.habeasData)
+            assertTrue(remote.state.value.continuarEnabled)
+            remote.onHabeasData(false)
+            assertTrue(remote.state.value.habeasData)
+            remote.continuar()
+            assertEquals(true, sent)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun givenEveryFieldAndPhoto_whenHabeasDataIsOff_thenContinuarStaysDisabled() {
         viewModel.onGivenName("Camila")
@@ -389,7 +419,7 @@ class OnboardingViewModelTest {
 
     @Test
     fun givenPriorDataTreatment_whenTheFormOpens_thenThatChoiceStaysAndTheControlIsClosed() {
-        val granted = OnboardingViewModel(register, priorDataTreatment = true)
+        val granted = OnboardingViewModel(register, priorHabeasData = true)
         assertTrue(granted.state.value.habeasData)
         assertFalse(granted.state.value.showDataTreatment)
         granted.onHabeasData(false)
@@ -399,7 +429,7 @@ class OnboardingViewModelTest {
         granted.attachPhoto(byteArrayOf(7, 8))
         assertTrue(granted.state.value.continuarEnabled)
 
-        val revoked = OnboardingViewModel(register, priorDataTreatment = false)
+        val revoked = OnboardingViewModel(register, priorHabeasData = false)
         assertFalse(revoked.state.value.habeasData)
         assertFalse(revoked.state.value.showDataTreatment)
         revoked.onHabeasData(true)
@@ -436,7 +466,7 @@ class OnboardingViewModelTest {
         fill(viewModel)
     }
 
-    private fun fill(target: OnboardingViewModel) {
+    private fun fill(target: OnboardingViewModel, includeHabeas: Boolean = true) {
         target.onGivenName("Camila")
         target.onSurnames("Restrepo")
         target.onEmail("camila@correo.com")
@@ -446,7 +476,7 @@ class OnboardingViewModelTest {
         target.onPasswordConfirm("secret12")
         target.onIncome("4500000.00")
         target.onSpending("1200000.00")
-        target.onHabeasData(true)
+        if (includeHabeas) target.onHabeasData(true)
     }
 }
 

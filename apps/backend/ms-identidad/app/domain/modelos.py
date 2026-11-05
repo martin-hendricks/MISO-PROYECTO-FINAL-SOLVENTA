@@ -54,6 +54,7 @@ class Usuario:
     apellidos: str = ""
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
+    rol: str = "cliente"
 
     @classmethod
     def crear(
@@ -83,6 +84,7 @@ class Usuario:
             apellidos=apellidos.strip(),
             ingresos_mensuales=ingresos_mensuales,
             gastos_mensuales=gastos_mensuales,
+            rol="cliente",
         )
 
     def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:

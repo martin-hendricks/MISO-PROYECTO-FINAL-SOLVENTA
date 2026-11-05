@@ -35,9 +35,8 @@
       "accept": "Aceptar y emitir",
       "detail": "Ver detalle",
       "readyTitle": "Paso 2 de 4 · Cotización lista: acéptala para emitir",
-      "readyBody": "{{ramo}} · prima neta y gastos de expedición incluidos. Cobertura 12 meses.",
-      "vigencia": "Vigencia",
-      "vigenciaValor": "12 meses"
+      "readyBody": "{{ramo}} · prima neta y gastos de expedición incluidos.",
+      "vigencia": "Vigencia"
     },
     "policy": {
       "label": "Póliza vigente",
@@ -143,6 +142,7 @@
       "motivo": "Motivo"
     },
     "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
+    "expired": { "body": "La oferta venció.", "action": "Nueva cotización" },
     "invalid": {
       "title": "No hay una oferta para emitir",
       "body": "Vuelve a la oferta y acéptala de nuevo."
@@ -403,7 +403,6 @@
         "vigencia": "Vigencia",
         "placa": "Placa"
       },
-      "vigencia": "1 año",
       "error": {
         "nombre": {
           "required": "Campo obligatorio"
@@ -557,7 +556,6 @@
       "primaNeta": "Prima neta",
       "expedicion": "Expedición",
       "vigencia": "Vigencia",
-      "vigenciaValor": "1 año",
       "aceptar": "Aceptar",
       "vencida": "Esta oferta venció. Su precio no cambia, pero ya no se puede aceptar.",
       "nueva": "Cotizar de nuevo",

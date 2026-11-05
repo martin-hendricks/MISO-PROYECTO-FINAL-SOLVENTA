@@ -7,3 +7,8 @@ Feature: View offer
     Then the customer sees premium, currency and expiry
     And consulting it again does not recalculate
     And "Aceptar" starts the issuance
+
+  Scenario: Already expired offer
+    Given an expired quote
+    When the customer opens the offer
+    Then the customer cannot accept it

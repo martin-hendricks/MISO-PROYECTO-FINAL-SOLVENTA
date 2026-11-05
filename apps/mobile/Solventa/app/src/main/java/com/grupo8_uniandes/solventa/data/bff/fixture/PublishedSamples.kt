@@ -22,7 +22,7 @@ object PublishedSamples {
     """
 
     const val OFFER_IN = """
-        {"ramo":"Protección de dispositivo","datosRiesgo":{"valorDispositivo":2400000,"marca":"Pixel","masDe12Meses":false}}
+        {"ramo":"Protección de dispositivo","datosRiesgo":{"valorDispositivo":2400000,"marca":"Pixel","masDe12Meses":false,"modelo":"Pixel 8"}}
     """
 
     const val OFFER_OUT = """

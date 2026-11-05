@@ -37,6 +37,7 @@ class UsuarioFila(Base):
     apellidos: Mapped[str] = mapped_column(String, default="")
     ingresos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     gastos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    rol: Mapped[str] = mapped_column(String, default="cliente")
 
 
 def _fila(usuario: Usuario) -> UsuarioFila:
@@ -51,6 +52,7 @@ def _fila(usuario: Usuario) -> UsuarioFila:
         apellidos=usuario.apellidos,
         ingresos_mensuales=usuario.ingresos_mensuales,
         gastos_mensuales=usuario.gastos_mensuales,
+        rol=usuario.rol,
     )
 
 
@@ -66,6 +68,7 @@ def _a_dominio(fila: UsuarioFila) -> Usuario:
         apellidos=fila.apellidos or "",
         ingresos_mensuales=fila.ingresos_mensuales,
         gastos_mensuales=fila.gastos_mensuales,
+        rol=getattr(fila, "rol", None) or "cliente",
     )
 
 

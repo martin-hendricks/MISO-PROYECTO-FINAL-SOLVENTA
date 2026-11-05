@@ -1,9 +1,10 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { PolizaResumen } from '../polizas/polizas.gateway';
 import { Motivo, ResultadoEmision } from './emision.gateway';
 
-export type EmisionStatus = 'issuing' | 'issued' | 'rejected' | 'error';
+export type EmisionStatus = 'issuing' | 'issued' | 'rejected' | 'expired' | 'error';
 
 export class EmisionViewModel {
   private readonly statusState = signal<EmisionStatus>('issuing');
@@ -32,7 +33,11 @@ export class EmisionViewModel {
           this.onRejected(resultado.motivo);
         }
       },
-      error: () => this.statusState.set('error'),
+      error: (error: unknown) => {
+        const cuerpo = error instanceof HttpErrorResponse ? error.error : null;
+        const codigo = cuerpo && typeof cuerpo === 'object' ? String((cuerpo as { codigo?: string }).codigo ?? '') : '';
+        this.statusState.set(error instanceof HttpErrorResponse && error.status === 409 && codigo === 'oferta_vencida' ? 'expired' : 'error');
+      },
     });
   }
 

@@ -101,7 +101,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single { RequestFirmOffer(get()) }
     single { ShowFirmOffer(get()) }
     single { SignIn(get()) }
-    single { SignOut(get()) }
+    single { SignOut(get<SessionRepository>(), get<MobileSessionRepository>()) }
     factory { (originationActive: Boolean) ->
         LoadProfile(get(), get(), get(), get(), get(), originationActive)
     }

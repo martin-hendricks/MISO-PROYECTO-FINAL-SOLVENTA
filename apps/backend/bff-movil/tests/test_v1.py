@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo
+from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo, token_saliente
 from app.dependencies import secret
 from app.main import app
 from app.routers.cliente import _contexto
@@ -55,9 +55,11 @@ ACEPTADA = {
 class DobleNucleo:
     def __init__(self) -> None:
         self.llamadas: list[dict] = []
+        self.tokens: list[str | None] = []
         self.respuestas: dict = {}
 
     def _llamar(self, nombre: str, **kwargs):
+        self.tokens.append(token_saliente.get())
         self.llamadas.append({"metodo": nombre, **kwargs})
         valor = self.respuestas.get(nombre, {})
         if isinstance(valor, Exception):
@@ -140,7 +142,10 @@ class DobleNucleo:
         return self._llamar("listar_polizas", **kwargs)
 
     def obtener_por_numero(self, numero, usuario_id=None):
-        return self._llamar("obtener_por_numero", numero=numero, usuario_id=usuario_id)
+        valor = self._llamar("obtener_por_numero", numero=numero, usuario_id=usuario_id)
+        if valor == {}:
+            return {"id": "11111111-1111-1111-1111-111111111111", "numero": numero, "usuario_id": usuario_id}
+        return valor
 
     def guardar_preferencia(self, poliza_id, renovacion_automatica, usuario_id):
         return self._llamar(
@@ -153,8 +158,14 @@ class DobleNucleo:
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
 
-    def crear_siniestro(self, *, usuario_id, poliza):
-        return self._llamar("crear_siniestro", usuario_id=usuario_id, poliza=poliza) or {
+    def crear_siniestro(self, *, usuario_id, poliza, poliza_id, idempotency_key):
+        return self._llamar(
+            "crear_siniestro",
+            usuario_id=usuario_id,
+            poliza=poliza,
+            poliza_id=poliza_id,
+            idempotency_key=idempotency_key,
+        ) or {
             "id": "66666666-6666-6666-6666-666666666666",
             "estado": "recibido",
         }
@@ -646,13 +657,13 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     assert inicio["ofertaVigente"] == pendiente
     assert inicio["siniestroEnCurso"] is None
     assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "vigente"}
-    assert doble.llamadas[0] == {
-        "metodo": "listar_cotizaciones_usuario",
-        "usuario_id": _dueno()["usuario_id"],
-        "tamano": 20,
-    }
-    assert doble.llamadas[1]["metodo"] == "listar_polizas"
-    assert doble.llamadas[1]["limite"] == 20
+    cotizaciones = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_cotizaciones_usuario")
+    polizas = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_polizas")
+    assert cotizaciones["usuario_id"] == _dueno()["usuario_id"]
+    assert cotizaciones["tamano"] == 20
+    assert polizas["limite"] == 20
+    assert doble.tokens
+    assert set(doble.tokens) == {headers["Authorization"].removeprefix("Bearer ")}
 
     doble.llamadas.clear()
     doble.respuestas["listar_cotizaciones_usuario"] = {"items": []}
@@ -661,13 +672,13 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     assert vacio["poliza"] is None
     assert vacio["ofertaVigente"] is None
     assert vacio["cotizacionesPendientes"] == []
-    assert doble.llamadas[0]["metodo"] == "listar_cotizaciones_usuario"
-    assert doble.llamadas[1]["metodo"] == "listar_polizas"
+    assert any(llamada["metodo"] == "listar_cotizaciones_usuario" for llamada in doble.llamadas)
+    assert any(llamada["metodo"] == "listar_polizas" for llamada in doble.llamadas)
 
     doble.respuestas["listar_cotizaciones_usuario"] = {}
-    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
+    assert client.get("/v1/cliente/inicio", headers=headers).json()["ofertaVigente"] is None
     doble.respuestas["listar_cotizaciones_usuario"] = {"items": [{"cotizacion_id": "COT-9"}]}
-    assert client.get("/v1/cliente/inicio", headers=headers).status_code == 502
+    assert client.get("/v1/cliente/inicio", headers=headers).json()["ofertaVigente"] is None
 
 
 def test_hipoteca_v1(client, doble):
@@ -844,8 +855,9 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
     assert client.post("/v1/registro/consentimiento", json={"habeasData": False}).json() == {
         "habeasData": False
     }
-    primero = client.post("/v1/cliente/siniestros", headers=headers, json=AVISO)
-    segundo = client.post("/v1/cliente/siniestros", headers=headers, json=AVISO)
+    aviso_headers = {**headers, "Idempotency-Key": "aviso-estable-01"}
+    primero = client.post("/v1/cliente/siniestros", headers=aviso_headers, json=AVISO)
+    segundo = client.post("/v1/cliente/siniestros", headers=aviso_headers, json=AVISO)
     assert primero.json()["siniestroId"] == "66666666-6666-6666-6666-666666666666"
     assert segundo.json()["siniestroId"] == "66666666-6666-6666-6666-666666666666"
     assert client.get("/v1/cliente/siniestros", headers=headers).status_code == 200
@@ -871,7 +883,9 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
     )
     assert asistencia.json()["estado"] == "registrada"
     assert [llamada["metodo"] for llamada in doble.llamadas] == [
+        "obtener_por_numero",
         "crear_siniestro",
+        "obtener_por_numero",
         "crear_siniestro",
         "listar_siniestros",
     ]
@@ -958,7 +972,9 @@ def test_cliente_http_traduce_exito_y_errores(monkeypatch):
     Falso.respuesta = _Respuesta(200, {"no": "lista"})
     assert cliente.listar_siniestros(usuario_id="u") == []
     Falso.respuesta = _Respuesta(201, {"id": "s"})
-    assert cliente.crear_siniestro(usuario_id="u", poliza="POL-1")["id"] == "s"
+    assert cliente.crear_siniestro(
+        usuario_id="u", poliza="POL-1", poliza_id="p", idempotency_key="clave-aviso"
+    )["id"] == "s"
     Falso.respuesta = _Respuesta(200, {"numero": "POL-1"})
     assert cliente.obtener_por_numero("POL-1", "u")["numero"] == "POL-1"
 

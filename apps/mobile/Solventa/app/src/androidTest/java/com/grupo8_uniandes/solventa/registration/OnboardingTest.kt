@@ -72,8 +72,8 @@ class OnboardingTest {
         rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
-        rule.onAllNodesWithText("Tratamiento de datos").assertCountEquals(0)
-        rule.onAllNodesWithTag("field_habeas_data").assertCountEquals(0)
+        rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
         listOf(
             "field_nombre",
             "field_apellidos",

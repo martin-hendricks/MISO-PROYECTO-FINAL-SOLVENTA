@@ -532,8 +532,14 @@ async def hipoteca(
     return _oferta_hipotecaria_salida(oferta)
 
 
-def _vacio(exc: Exception) -> bool:
-    return isinstance(exc, (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo))
+CORTE_INICIO_S = 0.7
+
+
+async def _tarjeta(coro):
+    try:
+        return await asyncio.wait_for(coro, CORTE_INICIO_S)
+    except (TimeoutError, RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
+        return None
 
 
 @router.get("/inicio")
@@ -544,35 +550,31 @@ async def inicio(
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     contexto = contexto_canonico(usuario)
+    pagina, filas, abiertos = await asyncio.gather(
+        _tarjeta(cliente_cotizacion.listar_por_usuario(contexto.usuario_id)),
+        _tarjeta(cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=1)),
+        _tarjeta(cliente_siniestros.listar(usuario_id=contexto.usuario_id)),
+    )
     pendientes: list[dict] = []
-    try:
-        pagina = await cliente_cotizacion.listar_por_usuario(contexto.usuario_id)
-        for item in pagina.get("items") or []:
-            ramo, _ = presentar(item.get("producto"))
-            pendientes.append(
-                {"cotizacionId": item.get("cotizacion_id"), "ramo": ramo, "estado": "oferta_vigente"}
-            )
-    except Exception as exc:
-        if not _vacio(exc):
-            raise
+    for item in (pagina or {}).get("items") or []:
+        ramo, _ = presentar(item.get("producto"))
+        pendientes.append(
+            {
+                "cotizacionId": item.get("cotizacion_id"),
+                "ramo": ramo,
+                "estado": "oferta_vigente",
+                "venceEn": item.get("vence_en"),
+            }
+        )
     poliza = None
-    try:
-        filas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=1)
-        if filas:
-            ramo, _ = presentar((await _cotizacion_de_poliza(cliente_cotizacion, filas[0])).get("producto"))
-            poliza = {"numero": filas[0]["numero"], "ramo": ramo, "estado": str(filas[0]["estado"]).lower()}
-    except Exception as exc:
-        if not _vacio(exc):
-            raise
+    if filas:
+        producto = await _tarjeta(_cotizacion_de_poliza(cliente_cotizacion, filas[0]))
+        ramo, _ = presentar((producto or {}).get("producto"))
+        poliza = {"numero": filas[0]["numero"], "ramo": ramo, "estado": str(filas[0]["estado"]).lower()}
     siniestro = None
-    try:
-        abiertos = await cliente_siniestros.listar(usuario_id=contexto.usuario_id)
-        if abiertos:
-            primero = abiertos[0]
-            siniestro = {"siniestroId": str(primero["id"]), "estado": primero["estado"]}
-    except Exception as exc:
-        if not _vacio(exc):
-            raise
+    if abiertos:
+        primero = abiertos[0]
+        siniestro = {"siniestroId": str(primero["id"]), "estado": primero["estado"]}
     return {
         "ofertaVigente": pendientes[0] if pendientes else None,
         "cotizacionesPendientes": pendientes,

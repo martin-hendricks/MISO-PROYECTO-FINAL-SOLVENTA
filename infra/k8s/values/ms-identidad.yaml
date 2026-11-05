@@ -81,6 +81,8 @@ externalSecrets:
       nombreLocal: ms-identidad-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-identidad-token
 
 serviceAccount:
   crear: true

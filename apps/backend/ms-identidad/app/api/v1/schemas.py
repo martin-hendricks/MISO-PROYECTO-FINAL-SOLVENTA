@@ -37,6 +37,7 @@ class UsuarioSalida(BaseModel):
     apellidos: str = ""
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
+    rol: str = "cliente"
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -50,6 +51,7 @@ class UsuarioSalida(BaseModel):
             apellidos=usuario.apellidos,
             ingresos_mensuales=usuario.ingresos_mensuales,
             gastos_mensuales=usuario.gastos_mensuales,
+            rol=usuario.rol,
         )
 
 

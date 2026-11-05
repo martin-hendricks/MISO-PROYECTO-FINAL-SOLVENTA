@@ -9,6 +9,7 @@ export interface OfertaVigente {
   ramo: string;
   estado: string;
   prima?: number;
+  venceEn: string;
 }
 
 export interface Poliza {

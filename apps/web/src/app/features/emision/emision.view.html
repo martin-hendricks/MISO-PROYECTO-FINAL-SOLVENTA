@@ -54,6 +54,14 @@
           </div>
         </div>
       }
+      @case ('expired') {
+        <div class="empty-state" role="alert" data-testid="emision-expired">
+          <p>{{ 'emision.expired.body' | translate }}</p>
+          <a class="filled" routerLink="/cotizacion" data-testid="emision-new-quote">{{
+            'emision.expired.action' | translate
+          }}</a>
+        </div>
+      }
       @case ('error') {
         <div class="empty-state" role="alert" data-testid="emision-error">
           <p>{{ 'emision.error.body' | translate }}</p>

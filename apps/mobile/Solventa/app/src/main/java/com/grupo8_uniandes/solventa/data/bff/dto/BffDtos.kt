@@ -54,7 +54,7 @@ data class DeviceRiskDto(
     val valorDispositivo: Long,
     val marca: String,
     val masDe12Meses: Boolean,
-    val modelo: String = "",
+    val modelo: String,
 )
 
 @Serializable

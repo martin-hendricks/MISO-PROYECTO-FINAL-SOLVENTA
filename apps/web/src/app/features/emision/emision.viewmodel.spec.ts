@@ -1,8 +1,35 @@
-import { of, throwError } from 'rxjs';
-import { EMITIDA } from './emision.testing';
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, Subject, throwError } from 'rxjs';
+import { Motivo, ResultadoEmision } from './emision.gateway';
+import { EMITIDA, MOTIVO, RECHAZADA } from './emision.testing';
 import { EmisionViewModel } from './emision.viewmodel';
 
 describe('EmisionViewModel', () => {
+  it('stays issuing until the core answers', () => {
+    const pending = new Subject<ResultadoEmision>();
+    const viewModel = new EmisionViewModel(
+      () => pending,
+      () => undefined,
+    );
+
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('issuing');
+    expect(viewModel.poliza()).toBeNull();
+  });
+
+  it('shows the issued policy', () => {
+    const viewModel = new EmisionViewModel(
+      () => of(EMITIDA),
+      () => undefined,
+    );
+
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('issued');
+    expect(viewModel.poliza()?.numero).toBe('POL-2026-00088421');
+  });
+
   it('keeps renewal off until the customer changes it, without another issuance', () => {
     const issued = of(EMITIDA);
     const saved: boolean[] = [];
@@ -22,25 +49,48 @@ describe('EmisionViewModel', () => {
     expect(saved).toEqual([true]);
   });
 
-  it('records rejection and transport failure without a renewal callback', () => {
-    const issued = new EmisionViewModel(() => of(EMITIDA), () => undefined);
-    issued.issue();
-    issued.chooseRenewal(true);
-    expect(issued.renewal()).toBeTrue();
+  it('hands the stored reason over when the core rejects', () => {
+    const reasons: Motivo[] = [];
+    const viewModel = new EmisionViewModel(
+      () => of(RECHAZADA),
+      (motivo) => reasons.push(motivo),
+    );
 
-    const rejected = new EmisionViewModel(
-      () => of({ resultado: 'RECHAZADA', motivo: { codigo: 'x', mensaje: 'no' } }),
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('rejected');
+    expect(viewModel.poliza()).toBeNull();
+    expect(reasons).toEqual([MOTIVO]);
+    viewModel.chooseRenewal(true);
+    expect(viewModel.renewal()).toBeFalse();
+  });
+
+  it('maps a race-time expired offer to a new quotation', () => {
+    const viewModel = new EmisionViewModel(
+      () =>
+        throwError(
+          () => new HttpErrorResponse({ status: 409, error: { codigo: 'oferta_vencida' } }),
+        ),
       () => undefined,
     );
-    rejected.issue();
-    expect(rejected.status()).toBe('rejected');
-    rejected.chooseRenewal(true);
 
-    const failed = new EmisionViewModel(
-      () => throwError(() => new Error('network')),
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('expired');
+    expect(viewModel.poliza()).toBeNull();
+  });
+
+  it('recovers on retry after a failure', () => {
+    let attempts = 0;
+    const viewModel = new EmisionViewModel(
+      () => (++attempts === 1 ? throwError(() => new Error('sin red')) : of(EMITIDA)),
       () => undefined,
     );
-    failed.issue();
-    expect(failed.status()).toBe('error');
+
+    viewModel.issue();
+    expect(viewModel.status()).toBe('error');
+
+    viewModel.issue();
+    expect(viewModel.status()).toBe('issued');
   });
 });

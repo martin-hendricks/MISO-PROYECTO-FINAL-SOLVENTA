@@ -97,15 +97,15 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun givenPriorDataTreatment_whenShown_thenTheConsentBlockIsHidden() {
+    fun givenConsentAlreadyRecorded_whenShown_thenDataTreatmentStaysOffTheForm() {
         show(OnboardingUiState(habeasData = true, showDataTreatment = false))
 
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onAllNodesWithText("Tratamiento de datos").assertCountEquals(0)
-        rule.onAllNodesWithText(
+        rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithText(
             "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
-        ).assertCountEquals(0)
-        rule.onAllNodesWithTag("field_habeas_data").assertCountEquals(0)
+        ).assertDoesNotExist()
+        rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
     }
 
     @Test

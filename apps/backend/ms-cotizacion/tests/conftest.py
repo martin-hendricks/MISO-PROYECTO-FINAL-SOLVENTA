@@ -1,7 +1,12 @@
+import os
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("SOLVENTA_TOKEN_SECRET", "test-secret")
 
 from app.config import Settings
 from app.dependencies import (
@@ -64,4 +69,31 @@ def client(uow, catalogo, adaptador_riesgo, config, suscripciones) -> TestClient
     app.dependency_overrides[obtener_adaptador_perfil_riesgo] = lambda: adaptador_riesgo
     app.dependency_overrides[obtener_config] = lambda: config
     app.dependency_overrides[obtener_suscripciones] = lambda: suscripciones
-    return TestClient(app)
+    return _cliente(app)
+
+
+def _token() -> str:
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {
+            "sub": "operador@solventa.co",
+            "uid": "00000000-0000-0000-0000-000000000001",
+            "rol": "operador",
+            "typ": "access",
+            "exp": now + timedelta(minutes=5),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+
+class _Cliente(TestClient):
+    def request(self, method, url, **kwargs):
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers.setdefault("Authorization", f"Bearer {_token()}")
+        kwargs["headers"] = headers
+        return super().request(method, url, **kwargs)
+
+
+def _cliente(app) -> TestClient:
+    return _Cliente(app)
