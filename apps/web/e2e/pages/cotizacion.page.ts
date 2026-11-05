@@ -72,7 +72,7 @@ export class CotizacionPage {
 
   /** Mortgage life (HU-58): its fields render once the `Vida hipotecario` catalog answers. */
   async fillMortgage(valor = '180000000', plazoMeses = '240'): Promise<void> {
-    await this.page.getByTestId('riesgo-valorCredito').fill(valor);
+    await this.page.getByTestId('riesgo-valor').fill(valor);
     await this.page.getByTestId('riesgo-plazoMeses').fill(plazoMeses);
     await this.page.locator('.hint', { hasText: 'Entre 6 y 360' }).waitFor({ state: 'visible' });
   }

@@ -103,6 +103,15 @@ export const CATALOGO_VIDA_WIRE = {
   ],
 };
 
+export const CATALOGO_VIDA_HIPOTECARIO_WIRE = {
+  ...CATALOGO_VIDA_WIRE,
+  ramo: 'Vida hipotecario',
+  datosRiesgo: [
+    { nombre: 'valor', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+    { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+  ],
+};
+
 /** `/v1/{cliente,asesor}/oferta-hipotecaria`: a firm quote priced with the profile (HU-162). */
 export const OFERTA_HIPOTECARIA_WIRE = {
   cotizacionId: 'COT-7001',

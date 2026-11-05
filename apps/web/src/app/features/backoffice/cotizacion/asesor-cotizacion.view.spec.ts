@@ -7,7 +7,7 @@ import { Role } from '../../../core/session/session.service';
 import {
   CATALOGO_DISPOSITIVO_WIRE,
   CATALOGO_SOAT_WIRE,
-  CATALOGO_VIDA_WIRE,
+  CATALOGO_VIDA_HIPOTECARIO_WIRE,
   OFERTA_HIPOTECARIA_WIRE,
   FUERA_DE_RANGO,
   OFERTA_DESGLOSE_WIRE,
@@ -299,9 +299,9 @@ describe('AsesorCotizacionView', () => {
       const view = render();
       view.cliente();
       view.choose('cotizacion-ramo', 'hipotecario');
-      view.http.expectOne('/web/asesor/catalogo/Vida%20hipotecario').flush(CATALOGO_VIDA_WIRE);
+      view.http.expectOne('/web/asesor/catalogo/Vida%20hipotecario').flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
       view.fixture.detectChanges();
-      view.type('riesgo-valorCredito', '180000000');
+      view.type('riesgo-valor', '180000000');
       view.type('riesgo-plazoMeses', '240');
       const consentir = () => {
         const check = view.element<HTMLInputElement>('asesor-consentimiento')!;

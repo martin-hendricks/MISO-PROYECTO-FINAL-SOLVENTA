@@ -71,7 +71,7 @@ export class AsesorCotizacionViewModel {
       (ramo, datos) => {
         if (this.esHipotecario()) {
           const credito = {
-            valor: Number(datos['valorCredito']),
+            valor: Number(datos['valor']),
             plazoMeses: Number(datos['plazoMeses']),
           };
           return hipotecarioSource(this.clienteRef(), credito);

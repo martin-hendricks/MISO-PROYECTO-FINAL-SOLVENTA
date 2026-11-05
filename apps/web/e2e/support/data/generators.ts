@@ -218,7 +218,14 @@ export const CATALOGS: Record<string, Catalog> = {
     ],
   },
   'Vida crediticia': VIDA_CREDITICIA,
-  'Vida hipotecario': { ...VIDA_CREDITICIA, ramo: 'Vida hipotecario' },
+  'Vida hipotecario': {
+    ...VIDA_CREDITICIA,
+    ramo: 'Vida hipotecario',
+    datosRiesgo: [
+      { nombre: 'valor', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+      { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+    ],
+  },
 };
 
 export interface Offer {
