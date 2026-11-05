@@ -86,7 +86,7 @@ class _RepoOfertas:
 
     async def obtener_ultima_por_cliente(self, cliente_id: str) -> Oferta | None:
         candidatas = [o for o in self._vista().values() if o.cliente_id == cliente_id]
-        return deepcopy(max(candidatas, key=lambda o: o.creado_en)) if candidatas else None
+        return deepcopy(max(reversed(candidatas), key=lambda o: o.creado_en)) if candidatas else None
 
     async def agregar(self, idempotency_key: str, oferta: Oferta) -> None:
         self._uow.ofertas_pendientes[oferta.id] = oferta
