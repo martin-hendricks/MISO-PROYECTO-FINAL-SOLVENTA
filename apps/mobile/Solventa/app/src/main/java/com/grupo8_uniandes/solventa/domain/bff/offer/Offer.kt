@@ -20,6 +20,7 @@ data class FirmOffer(
     val prima: Long,
     val moneda: String,
     val venceEn: String,
+    val descripcion: String = "",
 )
 
 data class AcceptedQuote(

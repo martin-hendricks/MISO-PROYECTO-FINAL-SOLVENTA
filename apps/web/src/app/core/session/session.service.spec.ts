@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { asyncScheduler, Subscription } from 'rxjs';
 import { SESSION_STORAGE_KEY, SessionService } from './session.service';
 import { fakeTokenPair } from './session.testing';
 
@@ -137,4 +138,87 @@ describe('SessionService', () => {
     http.expectNone('/web/sesion/salida');
     expect(session.isActive()).toBeFalse();
   });
+
+  it('stores one rotated pair when two callers refresh together', () => {
+    const { session, http } = setup();
+    const current = fakeTokenPair();
+    const rotated = fakeTokenPair('asesor');
+    session.start(current);
+    let firstDone = false;
+    let secondDone = false;
+
+    session.refresh().subscribe(() => (firstDone = true));
+    session.refresh().subscribe(() => (secondDone = true));
+    const request = http.expectOne('/web/sesion/refresh');
+    request.flush(rotated);
+
+    expect(request.request.body).toEqual({ refreshToken: current.refreshToken });
+    expect(firstDone).toBeTrue();
+    expect(secondDone).toBeTrue();
+    expect(session.accessToken()).toBe(rotated.accessToken);
+    expect(session.role()).toBe('asesor');
+    expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBe(JSON.stringify(rotated));
+    http.expectNone('/web/sesion/refresh');
+  });
+
+  it('clears the session when refresh is rejected and does not sign out remotely', () => {
+    const { session, http } = setup();
+    session.start(fakeTokenPair());
+    let failed = false;
+
+    session.refresh().subscribe({ error: () => (failed = true) });
+    http.expectOne('/web/sesion/refresh').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(failed).toBeTrue();
+    expect(session.isActive()).toBeFalse();
+    expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    http.expectNone('/web/sesion/salida');
+  });
+
+  it('refreshes a restored session one minute before the access token expires', () => {
+    spyOn(Date, 'now').and.returnValue(1_700_000_000_000);
+    const scheduled = captureSchedule();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fakeTokenPair('cliente', 120)));
+    const { session, http } = setup();
+
+    expect(scheduled[0].delay).toBe(60_000);
+    http.expectNone('/web/sesion/refresh');
+    scheduled[0].run();
+    http.expectOne('/web/sesion/refresh').flush(fakeTokenPair('cliente', 900));
+
+    expect(scheduled[1].delay).toBe(840_000);
+    session.signOut();
+    http.expectOne('/web/sesion/salida').flush({});
+  });
+
+  it('does not refresh an access token that is already expired', () => {
+    const schedule = spyOn(asyncScheduler, 'schedule');
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fakeTokenPair('cliente', -1)));
+    const { http } = setup();
+
+    expect(schedule).not.toHaveBeenCalled();
+    http.expectNone('/web/sesion/refresh');
+  });
+
+  it('cancels the scheduled refresh on sign out', () => {
+    const scheduled = captureSchedule();
+    const { session, http } = setup();
+    session.start(fakeTokenPair('cliente', 120));
+
+    session.signOut();
+    http.expectOne('/web/sesion/salida').flush({});
+
+    expect(scheduled[0].handle.closed).toBeTrue();
+    http.expectNone('/web/sesion/refresh');
+  });
 });
+
+function captureSchedule(): Array<{ delay: number; run: () => void; handle: Subscription }> {
+  const scheduled: Array<{ delay: number; run: () => void; handle: Subscription }> = [];
+  spyOn(asyncScheduler, 'schedule').and.callFake(((work: () => void, delay = 0) => {
+    const handle = new Subscription();
+    scheduled.push({ delay, run: () => work(), handle });
+    return handle;
+  }) as typeof asyncScheduler.schedule);
+  return scheduled;
+}

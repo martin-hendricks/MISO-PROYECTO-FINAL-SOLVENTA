@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.profile
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -12,6 +13,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -27,7 +29,9 @@ class PerfilHubTest {
 
     @Before
     fun openSignedInShell() {
-        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        val intent = Intent(context, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
         scenario = ActivityScenario.launch(intent)
         rule.waitUntil(timeoutMillis = 30_000) {

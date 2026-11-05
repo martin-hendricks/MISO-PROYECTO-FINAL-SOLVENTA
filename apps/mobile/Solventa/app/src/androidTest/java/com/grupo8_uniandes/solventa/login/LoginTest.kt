@@ -15,7 +15,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -95,20 +94,16 @@ class LoginTest {
     }
 
     @Test
-    fun givenWrongPair_whenIngresar_thenBannerStaysUntilAMatch() {
+    fun givenWrongPair_whenTheStandInSessionOpens_thenHomeWithoutTheLocalBanner() {
         saveAccount()
         grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "other")
             rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
-            rule.onNodeWithText("Correo o contraseña incorrectos. Reintenta en esta vista.").assertIsDisplayed()
-            rule.onNodeWithText("Revisa tu contraseña").assertIsDisplayed()
-            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
-            rule.assertValue("field_login_correo", "camila@correo.com")
-            rule.onNodeWithTag("field_login_contrasena").performTextReplacement("secret")
-            rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
             rule.waitForTag("screen_inicio")
+            rule.onAllNodesWithText("Correo o contraseña incorrectos. Reintenta en esta vista.").assertCountEquals(0)
+            rule.onAllNodesWithText("Revisa tu contraseña").assertCountEquals(0)
             rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         }
     }

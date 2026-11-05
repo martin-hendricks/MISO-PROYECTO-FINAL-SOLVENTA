@@ -1,6 +1,16 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpBackend, HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import {
+  catchError,
+  finalize,
+  map,
+  Observable,
+  shareReplay,
+  Subscription,
+  tap,
+  throwError,
+  timer,
+} from 'rxjs';
 import { API_BASE_URL } from '../api/api-base-url';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
@@ -25,6 +35,9 @@ interface Claims {
 }
 
 export const SESSION_STORAGE_KEY = 'solventa.session';
+
+/** Rotate while the refresh token is still valid. Both tokens expire together. */
+const REFRESH_LEAD_MS = 60_000;
 
 function readClaims(token: string): Claims | null {
   try {
@@ -60,16 +73,25 @@ function persist(pair: TokenPair | null): void {
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   private readonly http = inject(HttpClient);
+  /** Bypasses interceptors so a refresh cannot recurse into itself. */
+  private readonly raw = new HttpClient(inject(HttpBackend));
   private readonly baseUrl = inject(API_BASE_URL);
   private readonly pair = signal<TokenPair | null>(restore());
   private readonly claims = computed(() => {
     const pair = this.pair();
     return pair ? readClaims(pair.accessToken) : null;
   });
+  private refreshInFlight: Observable<void> | null = null;
+  private refreshTimer: Subscription | null = null;
+  private generation = 0;
 
   readonly accessToken = computed(() => this.pair()?.accessToken ?? null);
   readonly role = computed(() => this.claims()?.rol ?? null);
   readonly subject = computed(() => this.claims()?.sub ?? null);
+
+  constructor() {
+    if (this.isActive()) this.scheduleRefresh();
+  }
 
   isActive(): boolean {
     const claims = this.claims();
@@ -99,10 +121,44 @@ export class SessionService {
     }
     this.pair.set(pair);
     persist(pair);
+    this.scheduleRefresh();
+  }
+
+  /**
+   * Rotates the stored pair. Callers share one request. A rejected refresh
+   * ends the local session and does not call /sesion/salida.
+   */
+  refresh(): Observable<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const refreshToken = this.pair()?.refreshToken;
+    if (!refreshToken) {
+      this.clearLocal();
+      return throwError(() => new Error('Sin sesión'));
+    }
+    const generation = this.generation;
+    const shared = this.raw
+      .post<TokenPair>(`${this.baseUrl}/sesion/refresh`, { refreshToken })
+      .pipe(
+        tap((pair) => {
+          if (generation === this.generation) this.start(pair);
+        }),
+        map(() => undefined),
+        catchError((error) => {
+          if (generation === this.generation) this.clearLocal();
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          this.refreshInFlight = null;
+        }),
+        shareReplay(1),
+      );
+    this.refreshInFlight = shared;
+    return shared;
   }
 
   signOut(): void {
     const token = this.accessToken();
+    this.clearLocal();
     if (token) {
       // Best effort: the local session ends even if the BFF cannot be reached.
       this.http
@@ -111,6 +167,23 @@ export class SessionService {
         })
         .subscribe({ error: () => undefined });
     }
+  }
+
+  private scheduleRefresh(): void {
+    this.refreshTimer?.unsubscribe();
+    this.refreshTimer = null;
+    const claims = this.claims();
+    if (!claims || claims.exp * 1000 <= Date.now()) return;
+    const delay = Math.max(0, claims.exp * 1000 - Date.now() - REFRESH_LEAD_MS);
+    this.refreshTimer = timer(delay).subscribe(() => {
+      this.refresh().subscribe({ error: () => undefined });
+    });
+  }
+
+  private clearLocal(): void {
+    this.generation += 1;
+    this.refreshTimer?.unsubscribe();
+    this.refreshTimer = null;
     this.pair.set(null);
     persist(null);
   }

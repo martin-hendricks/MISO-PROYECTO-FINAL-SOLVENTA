@@ -236,6 +236,7 @@ data class HomeDto(
     val poliza: HomePolicyDto? = null,
     val siniestroEnCurso: HomeClaimDto? = null,
     val hipotecario: String? = null,
+    val cotizacionesPendientes: List<HomeOfferDto> = emptyList(),
 )
 
 @Serializable

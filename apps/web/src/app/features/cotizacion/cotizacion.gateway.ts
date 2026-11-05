@@ -8,6 +8,7 @@ import { DatosRiesgo } from './ramos';
 export interface Oferta {
   cotizacionId: string;
   ramo: string;
+  descripcion?: string;
   estado: string;
   prima: number;
   moneda: string;
@@ -36,6 +37,7 @@ export interface Cobertura {
 
 export interface Catalogo {
   ramo: string;
+  descripcion?: string;
   nombre: string;
   moneda: string;
   coberturas: Cobertura[];

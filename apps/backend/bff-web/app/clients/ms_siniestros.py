@@ -9,8 +9,11 @@ from .base import ClienteServicio
 class ClienteMsSiniestros(ClienteServicio):
     nombre = "ms-siniestros"
 
-    async def listar(self, limite: int = 20) -> list[dict[str, Any]]:
-        return await self._pedir("GET", "/v1/siniestros", params={"limite": limite})
+    async def listar(self, limite: int = 20, usuario_id: UUID | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limite": limite}
+        if usuario_id is not None:
+            params["usuario_id"] = str(usuario_id)
+        return await self._pedir("GET", "/v1/siniestros", params=params)
 
     async def cambiar_estado(self, siniestro_id: UUID, estado: str, origen: str) -> dict[str, Any]:
         return await self._pedir(

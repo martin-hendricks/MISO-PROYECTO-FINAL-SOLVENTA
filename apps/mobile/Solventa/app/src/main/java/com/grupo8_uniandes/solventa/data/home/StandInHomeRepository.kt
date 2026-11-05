@@ -25,16 +25,14 @@ class StandInHomeRepository(
         val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return null
         val sample = ready.value
         return HomeSituation(
-            quotes = sample.ofertaVigente?.let { offer ->
-                listOf(
+            quotes = sample.cotizacionesPendientes.ifEmpty { listOfNotNull(sample.ofertaVigente) }.map { offer ->
                 Quote(
                     id = offer.cotizacionId,
                     consultable = offer.estado == IN_FORCE,
                     becameCurrentAt = becameCurrentAt,
                     ramo = offer.ramo,
-                ),
                 )
-            }.orEmpty(),
+            },
             policies = sample.poliza?.let { policy ->
                 listOf(
                     PolicyCandidate(
@@ -48,7 +46,7 @@ class StandInHomeRepository(
                 listOf(
                     ClaimCandidate(
                         id = claim.siniestroId,
-                        inProgress = claim.estado == CLAIM_IN_PROGRESS,
+                        inProgress = !claim.estado.equals(CLAIM_CLOSED, ignoreCase = true),
                         openedAt = becameCurrentAt,
                     ),
                 )
@@ -61,6 +59,6 @@ class StandInHomeRepository(
         val SAMPLE_AT: Instant = Instant.parse("2026-10-01T00:00:00Z")
         const val IN_FORCE = "oferta_vigente"
         const val POLICY_IN_FORCE = "vigente"
-        const val CLAIM_IN_PROGRESS = "en_evaluacion"
+        const val CLAIM_CLOSED = "pagado"
     }
 }

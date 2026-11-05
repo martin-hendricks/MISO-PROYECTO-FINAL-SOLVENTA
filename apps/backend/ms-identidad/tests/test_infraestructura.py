@@ -32,6 +32,9 @@ class SesionFalsa:
     async def scalar(self, _consulta):
         return self.fila
 
+    async def get(self, _modelo, _identificador):
+        return self.fila
+
     async def commit(self) -> None:
         self.commits += 1
         if self.error_commit is not None:
@@ -97,6 +100,46 @@ async def test_obtener_por_email_mapea_la_fila_al_dominio():
 async def test_obtener_por_email_sin_fila_devuelve_none():
     async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
         assert await tx.usuarios.obtener_por_email("nadie@correo.com") is None
+
+
+async def test_obtener_por_id_mapea_la_fila_y_sin_fila_devuelve_none():
+    fila = UsuarioFila(
+        usuario_id=uuid4(),
+        tipo_documento="CC",
+        numero_documento="123",
+        email="camila@correo.com",
+        password_hash="hash",
+        estado="ACTIVO",
+        nombre="Camila",
+        apellidos="Restrepo",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        usuario = await tx.usuarios.obtener_por_id(fila.usuario_id)
+
+    assert usuario.nombre == "Camila"
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        assert await tx.usuarios.obtener_por_id(uuid4()) is None
+
+
+async def test_actualizar_escribe_el_perfil_y_no_falla_si_la_fila_no_esta():
+    usuario = _usuario()
+    usuario.actualizar_perfil(nombre="Ana", apellidos="Lopez")
+    fila = UsuarioFila(
+        usuario_id=usuario.id,
+        tipo_documento="CC",
+        numero_documento="1012345678",
+        email="viejo@correo.com",
+        password_hash="hash",
+        estado="ACTIVO",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        await tx.usuarios.actualizar(usuario)
+
+    assert (fila.nombre, fila.apellidos, fila.email, fila.estado) == ("Ana", "Lopez", usuario.email, "ACTIVO")
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        await tx.usuarios.actualizar(usuario)
 
 
 async def test_obtener_por_documento_sin_fila_devuelve_none():

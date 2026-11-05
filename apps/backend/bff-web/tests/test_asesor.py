@@ -256,7 +256,7 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     cuerpo = respuesta.json()
     assert cuerpo["resultado"] == "EMITIDA"
     assert cuerpo["poliza"]["numero"] == "POL-88219-CO"
-    assert cuerpo["poliza"]["ramo"] == COTIZACION_SALIDA["producto"]
+    assert cuerpo["poliza"]["ramo"] == "Protección de dispositivo"
     assert cuerpo["poliza"]["inicioVigencia"] == POLIZA_SALIDA["inicio_vigencia"]
     assert cuerpo["poliza"]["finVigencia"] == POLIZA_SALIDA["fin_vigencia"]
     assert cuerpo["poliza"]["expedidaEn"] == POLIZA_SALIDA["inicio_vigencia"]
@@ -437,7 +437,12 @@ def test_venta_conserva_la_respuesta_previa(client, nucleo_cotizacion):
     )
     from app.routers.cliente import _cotizacion_salida
 
-    assert respuesta.json() == _cotizacion_salida(COTIZACION_SALIDA, "Protección de dispositivo")
+    from app.ramos import presentar
+
+    _, descripcion = presentar("proteccion-dispositivo")
+    assert respuesta.json() == _cotizacion_salida(
+        COTIZACION_SALIDA, "Protección de dispositivo", descripcion
+    )
     enviado = json.loads(nucleo_cotizacion.peticiones[-1].content)
     assert enviado["canal"] == "asesor"
     assert enviado["producto"] == "proteccion-dispositivo"
@@ -480,6 +485,7 @@ def test_pendientes_traduce_campos_y_descarta_aceptadas_con_poliza(client, nucle
         "cotizacionId": "c0000000-0000-0000-0000-000000000002",
         "ofertaId": OFERTA_SIN_POLIZA,
         "ramo": "Protección de dispositivo",
+        "descripcion": "Cubre robo, daño accidental y reposición del equipo asegurado.",
         "estado": "aceptada",
         "prima": "89000.00",
         "moneda": "COP",

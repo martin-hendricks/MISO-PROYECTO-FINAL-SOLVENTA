@@ -23,11 +23,12 @@ export class InicioPage {
     assert.equal(await this.page.getByTestId(testId).getAttribute('href'), href);
   }
 
-  async expectQuoteBelowAccept(): Promise<void> {
+  async expectQuoteInHead(): Promise<void> {
     const accept = await this.page.getByTestId('inicio-accept').boundingBox();
     const quote = await this.page.getByTestId('inicio-new-quote').boundingBox();
     assert.ok(accept && quote, 'both actions should be on screen');
-    assert.ok(quote.y >= accept.y + accept.height, '"Nueva cotización" should be below Aceptar');
+    assert.ok(quote.y + quote.height <= accept.y, '"Nueva cotización" stays in the page head');
+    assert.equal(await this.page.getByTestId('inicio-new-quote').getAttribute('href'), '/cotizacion');
   }
 
   async accept(): Promise<void> {

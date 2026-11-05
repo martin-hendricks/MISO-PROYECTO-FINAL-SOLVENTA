@@ -37,8 +37,11 @@ class _RepoSiniestros:
     async def obtener_por_evento(self, evento_id):
         return next((deepcopy(s) for s in self._vista().values() if s.evento_id == evento_id), None)
 
-    async def listar(self, limite):
-        return sorted(self._vista().values(), key=lambda s: s.creado_en, reverse=True)[:limite]
+    async def listar(self, limite, usuario_id=None):
+        filas = self._vista().values()
+        if usuario_id is not None:
+            filas = [s for s in filas if s.usuario_id == usuario_id]
+        return sorted(filas, key=lambda s: s.creado_en, reverse=True)[:limite]
 
     async def listar_abiertos_por_poliza(self, poliza_id):
         return [

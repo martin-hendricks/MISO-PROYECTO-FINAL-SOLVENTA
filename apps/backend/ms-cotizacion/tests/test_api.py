@@ -27,6 +27,7 @@ def test_consultar_producto_por_codigo(client):
         "minimo": None,
         "maximo": None,
         "valores": ["bogota", "medellin", "cali", "barranquilla", "bucaramanga"],
+        "obligatorio": True,
     }
 
 

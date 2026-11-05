@@ -17,6 +17,22 @@ class CuentaDuplicada(ErrorDominio):
         super().__init__(mensaje)
 
 
+class CuentaInactiva(ErrorDominio):
+    """La contraseña coincide, pero la cuenta no puede abrir sesión."""
+
+    codigo = "cuenta_inactiva"
+
+    def __init__(self, mensaje: str = "La cuenta no está activa") -> None:
+        super().__init__(mensaje)
+
+
+class NoEncontrado(ErrorDominio):
+    codigo = "no_encontrado"
+
+    def __init__(self, mensaje: str = "Usuario no encontrado") -> None:
+        super().__init__(mensaje)
+
+
 class CredencialesInvalidas(ErrorDominio):
     """Correo inexistente o contraseña incorrecta. Un solo error para ambos
     casos: no se revela cuál de las dos cosas falló (evita enumeración de

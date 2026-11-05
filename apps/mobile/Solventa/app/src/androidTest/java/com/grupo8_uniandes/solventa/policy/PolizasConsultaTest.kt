@@ -52,9 +52,28 @@ class PolizasConsultaTest {
         rule.onAllNodesWithTag("tab_Avisos").assertCountEquals(0)
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("Robo y Pantalla").assertIsDisplayed()
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithText("Protección de dispositivo · Robo y Pantalla")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        rule.onNodeWithText("Protección de dispositivo · Robo y Pantalla").assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
     }
+
+    private fun openShell() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
+        scenario = ActivityScenario.launch(intent)
+        rule.waitUntil(timeoutMillis = 30_000) {
+            rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+}
+
+class PolizasListContentTest {
+    @get:Rule
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun givenNoPolicies_whenTheListIsShown_thenTheEmptyPromptReplacesTheCards() {
@@ -98,7 +117,10 @@ class PolizasConsultaTest {
         rule.onNodeWithText("POL-88219-CO").assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
+    }
 
+    @Test
+    fun givenASavedDetail_whenItRecovers_thenTheNoticeStaysOnTheDetail() {
         rule.setContent {
             SolventaTheme {
                 PolizaDetalleScreen(
@@ -119,14 +141,5 @@ class PolizasConsultaTest {
         rule.onNodeWithTag("policy_numero").assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
-    }
-
-    private fun openShell() {
-        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
-        scenario = ActivityScenario.launch(intent)
-        rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithTag("bottom_bar").fetchSemanticsNodes().isNotEmpty()
-        }
     }
 }

@@ -9,6 +9,7 @@ from app.ports.pagos import AdaptadorDesembolso
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 
 from .schemas import (
+    AvisoEntrada,
     CambiarEstadoEntrada,
     ErrorSalida,
     EventoParametricoEntrada,
@@ -50,8 +51,19 @@ async def ingerir_evento_parametrico(
 
 
 @router.get("/siniestros", response_model=list[SiniestroSalida])
-async def listar_siniestros(uow: Uow, limite: Annotated[int, Query(ge=1, le=100)] = 20):
-    return [SiniestroSalida.desde(s) for s in await casos_uso.listar_siniestros(uow, limite)]
+async def listar_siniestros(
+    uow: Uow,
+    limite: Annotated[int, Query(ge=1, le=100)] = 20,
+    usuario_id: UUID | None = None,
+):
+    return [SiniestroSalida.desde(s) for s in await casos_uso.listar_siniestros(uow, limite, usuario_id)]
+
+
+@router.post("/siniestros", response_model=SiniestroSalida, status_code=status.HTTP_201_CREATED, responses=ERRORES)
+async def registrar_siniestro(entrada: AvisoEntrada, uow: Uow):
+    return SiniestroSalida.desde(
+        await casos_uso.registrar_siniestro(uow, usuario_id=entrada.usuario_id, poliza=entrada.poliza)
+    )
 
 
 # Prefijo literal antes de "/siniestros/{siniestro_id}": mismo motivo que
@@ -66,10 +78,10 @@ async def listar_siniestros_abiertos(uow: Uow, poliza_id: UUID):
 
 
 @router.get("/siniestros/{siniestro_id}", response_model=SiniestroSalida, responses=ERRORES)
-async def consultar_siniestro(siniestro_id: UUID, uow: Uow):
+async def consultar_siniestro(siniestro_id: UUID, uow: Uow, usuario_id: UUID | None = None):
     """HU-30: lectura del estado único del siniestro, la misma fuente que leerían todos
     los canales (cola del operador, decisión, pago, lista del cliente)."""
-    return SiniestroSalida.desde(await casos_uso.consultar_siniestro(uow, siniestro_id))
+    return SiniestroSalida.desde(await casos_uso.consultar_siniestro(uow, siniestro_id, usuario_id))
 
 
 @router.post("/siniestros/{siniestro_id}/estado", response_model=SiniestroSalida, responses=ERRORES)

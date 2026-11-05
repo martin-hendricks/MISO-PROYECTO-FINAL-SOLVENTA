@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
+
+from .sesion import _sesion_de
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/registro", tags=["registro"])
@@ -40,17 +42,19 @@ def alta(body: Alta, request: Request) -> dict:
     if not tiene_cuenta:
         return _publico(body)
     try:
-        request.app.state.nucleo.crear_usuario(
+        usuario = request.app.state.nucleo.crear_usuario(
             tipo_documento=body.tipoDocumento.strip(),
             numero_documento=body.documento,
             email=body.correo,
             password=body.contrasena,
+            nombre=body.nombre,
+            apellidos=body.apellidos,
         )
     except HTTPException as exc:
         if exc.status_code == 409:
             raise HTTPException(status_code=409, detail="La cuenta ya existe") from exc
         raise
-    return {**_publico(body), "tipoDocumento": body.tipoDocumento}
+    return {**_publico(body), "tipoDocumento": body.tipoDocumento, **_sesion_de(usuario, body.correo)}
 
 
 @router.post("/consentimiento")

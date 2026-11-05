@@ -11,7 +11,8 @@ import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
  * Values in [FILE] are ciphertext. A plain open of that file does not yield the access credential.
  */
 class TokenStore(context: Context) {
-    private val prefs = encrypted(context.applicationContext)
+    private val appContext = context.applicationContext
+    private var prefs = encrypted(appContext)
 
     @Suppress("DEPRECATION")
     private fun encrypted(context: Context): SharedPreferences {
@@ -43,7 +44,12 @@ class TokenStore(context: Context) {
     }
 
     fun clear() {
-        prefs.edit().clear().commit()
+        try {
+            prefs.edit().clear().commit()
+        } catch (_: SecurityException) {
+            appContext.deleteSharedPreferences(FILE)
+            prefs = encrypted(appContext)
+        }
     }
 
     private companion object {

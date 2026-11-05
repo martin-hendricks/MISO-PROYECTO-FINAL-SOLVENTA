@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
@@ -7,7 +8,7 @@ from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 
-from .schemas import AutenticarEntrada, CrearUsuarioEntrada, ErrorSalida, UsuarioSalida
+from .schemas import AutenticarEntrada, CrearUsuarioEntrada, ErrorSalida, PerfilEntrada, UsuarioSalida
 
 router = APIRouter(prefix="/v1/usuarios", tags=["usuarios"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
@@ -31,6 +32,8 @@ async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
         numero_documento=entrada.numero_documento,
         email=entrada.email,
         password_plano=entrada.password,
+        nombre=entrada.nombre,
+        apellidos=entrada.apellidos,
     )
     return UsuarioSalida.desde(usuario)
 
@@ -41,4 +44,17 @@ async def autenticacion(entrada: AutenticarEntrada, uow: Uow):
     existe o si la contraseña no coincide. No emite JWT: eso es
     responsabilidad de bff-web (issue_pair) una vez recibe este 200."""
     usuario = await casos_uso.autenticar_usuario(uow, email=entrada.email, password_plano=entrada.password)
+    return UsuarioSalida.desde(usuario)
+
+
+@router.get("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)
+async def consultar(usuario_id: UUID, uow: Uow):
+    return UsuarioSalida.desde(await casos_uso.consultar_usuario(uow, usuario_id))
+
+
+@router.patch("/{usuario_id}/perfil", response_model=UsuarioSalida, responses=ERRORES)
+async def actualizar_perfil(usuario_id: UUID, entrada: PerfilEntrada, uow: Uow):
+    usuario = await casos_uso.actualizar_perfil(
+        uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos
+    )
     return UsuarioSalida.desde(usuario)

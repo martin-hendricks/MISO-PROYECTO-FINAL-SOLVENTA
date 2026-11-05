@@ -38,16 +38,14 @@ async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
     if not body.habeasData:
         raise HTTPException(status_code=422, detail="Consentimiento de datos requerido")
 
-    # ms-identidad persiste documento/correo/contrasena; nombre y apellidos
-    # no tienen todavia una tabla de perfil en el nucleo (el schema oficial
-    # de ms_identidad.usuario no los contempla), asi que bff-web los sigue
-    # devolviendo tal cual los recibio, sin persistirlos en ningun lado.
     try:
-        await cliente_identidad.crear_usuario(
+        usuario = await cliente_identidad.crear_usuario(
             tipo_documento=TIPO_DOCUMENTO_DEFECTO,
             numero_documento=body.documento,
             email=body.correo,
             password=body.contrasena,
+            nombre=body.nombre,
+            apellidos=body.apellidos,
         )
     except RechazoDelNucleo as exc:
         if exc.status == 409:
@@ -56,8 +54,10 @@ async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
         # su estado y mensaje: no es una cuenta duplicada.
         raise HTTPException(status_code=exc.status, detail=exc.mensaje) from exc
 
+    if usuario.get("estado") != "ACTIVO" or not usuario.get("usuario_id"):
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
     return {
-        **issue_pair(body.correo, "cliente"),
+        **issue_pair(usuario.get("email") or body.correo, "cliente", str(usuario["usuario_id"])),
         "cliente": body.model_dump(include={"nombre", "apellidos", "documento", "correo"}),
         "consentimiento": {
             "habeasData": True,

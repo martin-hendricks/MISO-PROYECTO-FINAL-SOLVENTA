@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Callable
 
@@ -95,27 +96,24 @@ def nucleo_identidad() -> NucleoSimulado:
     # autenticacion exitosas son el caso feliz mas comun en los tests de
     # registro.py/sesion.py -- cada test que necesite un rechazo (409/401)
     # sobrescribe la respuesta explicitamente, igual que con los demas.
+    def cuenta(request: httpx.Request, status: int) -> httpx.Response:
+        cuerpo = json.loads(request.content or b"{}")
+        return httpx.Response(
+            status,
+            json={
+                "usuario_id": "11111111-1111-1111-1111-111111111111",
+                "tipo_documento": cuerpo.get("tipo_documento", "CC"),
+                "numero_documento": cuerpo.get("numero_documento", "0"),
+                "email": str(cuerpo.get("email", "")).strip().lower(),
+                "estado": "ACTIVO",
+                "nombre": cuerpo.get("nombre", ""),
+                "apellidos": cuerpo.get("apellidos", ""),
+            },
+        )
+
     doble = NucleoSimulado()
-    doble.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
-        201,
-        json={
-            "usuario_id": "11111111-1111-1111-1111-111111111111",
-            "tipo_documento": "CC",
-            "numero_documento": "0",
-            "email": "sin-email@solventa.com",
-            "estado": "ACTIVO",
-        },
-    )
-    doble.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
-        200,
-        json={
-            "usuario_id": "11111111-1111-1111-1111-111111111111",
-            "tipo_documento": "CC",
-            "numero_documento": "0",
-            "email": "sin-email@solventa.com",
-            "estado": "ACTIVO",
-        },
-    )
+    doble.respuestas[("POST", "/v1/usuarios")] = lambda request: cuenta(request, 201)
+    doble.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: cuenta(request, 200)
     return doble
 
 

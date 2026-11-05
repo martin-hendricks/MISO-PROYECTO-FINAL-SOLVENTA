@@ -155,6 +155,19 @@ def test_consultar_poliza_por_numero_devuelve_detalle(client, nucleo_polizas):
     assert cuerpo["renovable"] is True
 
 
+def test_consultar_poliza_sin_oferta_no_reconsulta_la_cotizacion(client, nucleo_polizas, nucleo_cotizacion):
+    sin_oferta = {clave: valor for clave, valor in POLIZA_VIGENTE.items() if clave != "oferta_id"}
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=sin_oferta
+    )
+
+    response = client.get("/v1/operador/polizas/POL-88219-CO", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json()["ramo"] == "Sin clasificar"
+    assert nucleo_cotizacion.peticiones == []
+
+
 def test_consultar_poliza_inexistente_responde_404(client, nucleo_polizas):
     response = client.get("/v1/operador/polizas/POL-NO-EXISTE", headers=_auth(client))
     assert response.status_code == 404

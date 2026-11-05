@@ -27,10 +27,11 @@ def secret() -> str:
     return value
 
 
-def _encode(subject: str, rol: str, token_type: str) -> str:
+def _encode(subject: str, rol: str, token_type: str, uid: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
+        "uid": uid,
         "rol": rol,
         "typ": token_type,
         "exp": now + timedelta(seconds=EXPIRA_EN),
@@ -38,10 +39,11 @@ def _encode(subject: str, rol: str, token_type: str) -> str:
     return jwt.encode(payload, secret(), algorithm=ALGORITHM)
 
 
-def issue_pair(correo: str, rol: str) -> dict:
+def issue_pair(correo: str, rol: str, uid: str) -> dict:
+    correo_normalizado = correo.strip().lower()
     return {
-        "accessToken": _encode(correo, rol, "access"),
-        "refreshToken": _encode(correo, rol, "refresh"),
+        "accessToken": _encode(correo_normalizado, rol, "access", uid),
+        "refreshToken": _encode(correo_normalizado, rol, "refresh", uid),
         "expiraEn": EXPIRA_EN,
     }
 
@@ -71,9 +73,9 @@ def require_roles(*allowed: str):
 
 def refresh_session(refresh_token: str) -> dict:
     payload = _decode(refresh_token)
-    if payload.get("typ") != "refresh" or payload.get("rol") not in ROLES:
+    if payload.get("typ") != "refresh" or payload.get("rol") not in ROLES or not payload.get("uid"):
         raise HTTPException(status_code=401, detail="Token invalido")
-    return issue_pair(payload["sub"], payload["rol"])
+    return issue_pair(payload["sub"], payload["rol"], payload["uid"])
 
 
 def obtener_cliente_cotizacion(request: Request) -> ClienteMsCotizacion:

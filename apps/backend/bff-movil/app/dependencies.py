@@ -19,10 +19,11 @@ def secret() -> str:
     return value
 
 
-def _encode(subject: str, token_type: str) -> str:
+def _encode(subject: str, token_type: str, uid: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
+        "uid": uid,
         "rol": CUSTOMER,
         "typ": token_type,
         "exp": now + timedelta(seconds=EXPIRA_EN),
@@ -30,10 +31,11 @@ def _encode(subject: str, token_type: str) -> str:
     return jwt.encode(payload, secret(), algorithm=ALGORITHM)
 
 
-def issue_pair(correo: str) -> dict:
+def issue_pair(correo: str, uid: str) -> dict:
+    correo_normalizado = correo.strip().lower()
     return {
-        "accessToken": _encode(correo, "access"),
-        "refreshToken": _encode(correo, "refresh"),
+        "accessToken": _encode(correo_normalizado, "access", uid),
+        "refreshToken": _encode(correo_normalizado, "refresh", uid),
         "expiraEn": EXPIRA_EN,
     }
 
@@ -60,6 +62,6 @@ async def require_customer(
 
 def refresh_session(refresh_token: str) -> dict:
     payload = _decode(refresh_token)
-    if payload.get("typ") != "refresh" or payload.get("rol") != CUSTOMER:
+    if payload.get("typ") != "refresh" or payload.get("rol") != CUSTOMER or not payload.get("uid"):
         raise HTTPException(status_code=401, detail="Token invalido")
-    return issue_pair(payload["sub"])
+    return issue_pair(payload["sub"], payload["uid"])

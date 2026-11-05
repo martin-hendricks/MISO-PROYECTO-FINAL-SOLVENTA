@@ -5,9 +5,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_siniestros import ClienteMsSiniestros
 from ..clients.ms_polizas import ClienteMsPolizas
-from ..dependencies import obtener_cliente_polizas, obtener_cliente_siniestros, require_roles
+from ..dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_polizas,
+    obtener_cliente_siniestros,
+    require_roles,
+)
+from ..ramos import presentar
+from ..clients.ms_cotizacion import ClienteMsCotizacion
 
 router = APIRouter(
     prefix="/operador",
@@ -130,15 +138,19 @@ async def decidir(
     }
 
 
-def _poliza_salida(numero: str, poliza: dict, siniestros_abiertos: int | None = None) -> dict:
-    # TODO: `ramo` no existe en la salida de ms-polizas (Poliza no tiene
-    # concepto de ramo, ver app/domain/modelos.py de ms-polizas) -- mismo
-    # faltante documentado en cliente.py (emitir()/detalle()/billetera()).
-    # Se usa el numero que ya conocía el canal en vez del que devuelve
-    # ms-polizas por si llegaran a divergir alguna vez.
+def _poliza_salida(
+    numero: str,
+    poliza: dict,
+    siniestros_abiertos: int | None = None,
+    cotizacion: dict | None = None,
+) -> dict:
+    ramo, descripcion = presentar((cotizacion or {}).get("producto"))
+    datos = (cotizacion or {}).get("datos_riesgo") or {}
     return {
         "numero": numero,
-        "ramo": "Protección de dispositivo",
+        "ramo": ramo,
+        "descripcion": descripcion,
+        "datosRiesgo": datos,
         "estado": poliza["estado"].lower(),
         "venceEn": poliza.get("fin_vigencia", ""),
         "prima": poliza["prima"],
@@ -158,15 +170,26 @@ async def _resolver_poliza_id(body: Ciclo, cliente_polizas: ClienteMsPolizas) ->
     return UUID(encontrada["id"])
 
 
+async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza: dict) -> dict:
+    oferta_id = poliza.get("oferta_id")
+    if not oferta_id:
+        return {}
+    try:
+        return await cliente_cotizacion.reconsultar_por_oferta(UUID(str(oferta_id)))
+    except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo, ValueError):
+        return {}
+
+
 @router.get("/polizas/{numero}")
 async def consultar_poliza(
     numero: str,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
 ) -> dict:
     """Detalle de una póliza por número visible, para que el operador decida
     si renovar o cancelar antes de ejecutar el comando (ver ciclo())."""
     poliza = await cliente_polizas.obtener_por_numero(numero)
-    return _poliza_salida(numero, poliza)
+    return _poliza_salida(numero, poliza, cotizacion=await _cotizacion_de_poliza(cliente_cotizacion, poliza))
 
 
 @router.post("/polizas/ciclo")

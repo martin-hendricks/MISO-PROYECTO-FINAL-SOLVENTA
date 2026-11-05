@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from app.dependencies import obtener_verificador_kyc
 from app.infrastructure.kyc import VerificadorKYCStub
 
@@ -121,6 +123,30 @@ def test_autenticacion_es_insensible_a_mayusculas_en_el_email(client):
     )
 
     assert respuesta.status_code == 200
+
+
+def test_consultar_y_actualizar_perfil(client):
+    creado = _crear(client, nombre="Camila", apellidos="Restrepo").json()
+    usuario_id = creado["usuario_id"]
+
+    consulta = client.get(f"/v1/usuarios/{usuario_id}")
+    assert consulta.status_code == 200
+    assert consulta.json()["nombre"] == "Camila"
+
+    perfil = client.patch(
+        f"/v1/usuarios/{usuario_id}/perfil", json={"nombre": "Ana", "apellidos": "Lopez"}
+    )
+    assert perfil.status_code == 200
+    assert perfil.json()["apellidos"] == "Lopez"
+    assert client.get(f"/v1/usuarios/{usuario_id}").json()["nombre"] == "Ana"
+
+    assert client.get(f"/v1/usuarios/{uuid4()}").status_code == 404
+    assert (
+        client.patch(
+            f"/v1/usuarios/{uuid4()}/perfil", json={"nombre": "Ana", "apellidos": "Lopez"}
+        ).status_code
+        == 404
+    )
 
 
 def test_health_ready_sin_base_de_datos_devuelve_503(client):

@@ -77,11 +77,20 @@ class BffCache(context: Context) {
         prefs.edit().clear().commit()
     }
 
+    /** Drops wallet, claim and detail snapshots when another customer signs in. */
+    fun retainOwner(uid: String?) {
+        if (uid.isNullOrBlank()) return
+        val previous = prefs.getString(OWNER, null)
+        if (previous != null && previous != uid) clear()
+        prefs.edit().putString(OWNER, uid).commit()
+    }
+
     private companion object {
         const val FILE = "solventa.bff"
         const val WALLET = "wallet"
         const val CLAIM = "claim"
         const val DETAILS = "details"
+        const val OWNER = "owner"
     }
 }
 

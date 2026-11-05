@@ -57,15 +57,15 @@ Then(
 );
 
 Then(
-  'the customer sees the Vida Crediticia card when there is an origination',
+  'the customer sees the Vida hipotecario card when there is an origination',
   async function (this: PortalWorld) {
-    await this.inicio.expectCard('vida-crediticia', 'Vida Crediticia');
+    await this.inicio.expectCard('vida-crediticia', 'Vida hipotecario');
     await this.inicio.expectLink('inicio-vida-link', '/vida-crediticia');
   },
 );
 
-Then('"Nueva cotización" is below "Aceptar oferta"', async function (this: PortalWorld) {
-  await this.inicio.expectQuoteBelowAccept();
+Then('"Nueva cotización" stays in the page head', async function (this: PortalWorld) {
+  await this.inicio.expectQuoteInHead();
 });
 
 Then('accepting starts the issuance, not a recalculation', async function (this: PortalWorld) {

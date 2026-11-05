@@ -49,17 +49,34 @@ async def cambiar_estado_siniestro(
     return siniestro
 
 
-async def consultar_siniestro(uow: FabricaUnidadDeTrabajo, siniestro_id: UUID) -> Siniestro:
+async def consultar_siniestro(
+    uow: FabricaUnidadDeTrabajo, siniestro_id: UUID, usuario_id: UUID | None = None
+) -> Siniestro:
     async with uow() as tx:
         siniestro = await tx.siniestros.obtener(siniestro_id)
-    if siniestro is None:
+    if siniestro is None or (usuario_id is not None and siniestro.usuario_id != usuario_id):
         raise NoEncontrado(f"Siniestro {siniestro_id} no existe")
     return siniestro
 
 
-async def listar_siniestros(uow: FabricaUnidadDeTrabajo, limite: int) -> list[Siniestro]:
+async def listar_siniestros(
+    uow: FabricaUnidadDeTrabajo, limite: int, usuario_id: UUID | None = None
+) -> list[Siniestro]:
     async with uow() as tx:
-        return await tx.siniestros.listar(limite)
+        return await tx.siniestros.listar(limite, usuario_id)
+
+
+async def registrar_siniestro(
+    uow: FabricaUnidadDeTrabajo, *, usuario_id: UUID, poliza: str
+) -> Siniestro:
+    siniestro = Siniestro.recibir(evento_id=f"{usuario_id}|{poliza}", origen="cliente", usuario_id=usuario_id)
+    async with uow() as tx:
+        existente = await tx.siniestros.obtener_por_evento(siniestro.evento_id)
+        if existente is not None:
+            return existente
+        await tx.siniestros.agregar(siniestro)
+        await tx.confirmar()
+    return siniestro
 
 
 async def listar_siniestros_abiertos_de_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> list[Siniestro]:

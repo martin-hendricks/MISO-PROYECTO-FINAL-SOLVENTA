@@ -9,6 +9,24 @@ os.environ["SOLVENTA_TOKEN_SECRET"] = "test-secret"
 
 from app.main import app
 
+UID = "11111111-1111-1111-1111-111111111111"
+
+
+class IdentidadDePrueba:
+    """Cubre el ingreso cuando el test no instala su propio doble del núcleo."""
+
+    def autenticar(self, *, correo, contrasena):
+        return {"usuario_id": UID, "email": correo.strip().lower(), "estado": "ACTIVO"}
+
+
+@pytest.fixture(autouse=True)
+def identidad_de_prueba():
+    anterior = app.state.nucleo
+    if type(anterior).__name__ == "ClienteNucleo":
+        app.state.nucleo = IdentidadDePrueba()
+    yield
+    app.state.nucleo = anterior
+
 
 @pytest.fixture
 def client() -> TestClient:

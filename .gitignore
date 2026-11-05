@@ -45,6 +45,7 @@ captures/
 Thumbs.db
 *.tmp
 *.swp
+*.log
 .vscode/
 
 # Kotlin / JVM build leftovers
@@ -56,5 +57,7 @@ out/
 
 # Cursor y especificaciones locales (Spec Kit)
 .cursor/
-specs/
 .specify/
+.specs/
+apps/mobile/.specify/
+specs/
