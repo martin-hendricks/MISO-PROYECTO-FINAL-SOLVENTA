@@ -114,10 +114,12 @@ async def consultar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> Poli
     return poliza
 
 
-async def consultar_poliza_por_numero(uow: FabricaUnidadDeTrabajo, numero: str) -> Poliza:
+async def consultar_poliza_por_numero(
+    uow: FabricaUnidadDeTrabajo, numero: str, usuario_id: UUID | None = None
+) -> Poliza:
     async with uow() as tx:
         poliza = await tx.polizas.obtener_por_numero(numero)
-    if poliza is None:
+    if poliza is None or (usuario_id is not None and poliza.usuario_id != usuario_id):
         raise NoEncontrado(f"La póliza {numero} no existe")
     return poliza
 

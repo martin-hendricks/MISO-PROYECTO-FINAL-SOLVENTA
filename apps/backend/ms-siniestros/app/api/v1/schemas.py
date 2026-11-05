@@ -34,6 +34,7 @@ class SiniestroSalida(BaseModel):
     creado_en: datetime
     historial: list[TransicionSalida]
     poliza_id: UUID | None = None
+    usuario_id: UUID | None = None
 
     @classmethod
     def desde(cls, siniestro: Siniestro) -> "SiniestroSalida":
@@ -47,7 +48,13 @@ class SiniestroSalida(BaseModel):
                 for t in siniestro.historial
             ],
             poliza_id=siniestro.poliza_id,
+            usuario_id=siniestro.usuario_id,
         )
+
+
+class AvisoEntrada(BaseModel):
+    usuario_id: UUID
+    poliza: str = Field(min_length=1, max_length=80)
 
 
 class EvaluacionSalida(BaseModel):

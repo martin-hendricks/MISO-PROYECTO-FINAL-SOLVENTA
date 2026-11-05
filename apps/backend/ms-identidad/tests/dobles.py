@@ -33,7 +33,15 @@ class _Usuarios:
             None,
         )
 
+    async def obtener_por_id(self, usuario_id: UUID):
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        usuario = vista.get(usuario_id)
+        return deepcopy(usuario) if usuario else None
+
     async def agregar(self, usuario: Usuario) -> None:
+        self._uow.pendientes[usuario.id] = usuario
+
+    async def actualizar(self, usuario: Usuario) -> None:
         self._uow.pendientes[usuario.id] = usuario
 
 

@@ -127,13 +127,24 @@ class RepositorioPolizasSQL:
     async def _con_coberturas(self, fila: PolizaFila | None) -> Poliza | None:
         if fila is None:
             return None
-        coberturas = await self._s.scalars(
-            select(CoberturaFila).where(CoberturaFila.poliza_id == fila.poliza_id).order_by(CoberturaFila.nombre)
+        coberturas = list(
+            await self._s.scalars(
+                select(CoberturaFila).where(CoberturaFila.poliza_id == fila.poliza_id).order_by(CoberturaFila.nombre)
+            )
         )
         prima = await self._s.scalar(select(PrimaFila).where(PrimaFila.poliza_id == fila.poliza_id))
         if prima is None:
-            raise ValueError(f"No existe la fila de prima de la póliza {fila.poliza_id}")
-        return _a_dominio(fila, list(coberturas), prima)
+            # Pólizas emitidas antes de persistir ms_polizas.prima. Misma
+            # heurística que Poliza.emitir: la prima es la suma de las sumas
+            # aseguradas. Sin esto, GET /v1/polizas responde 500 y bff-movil
+            # lo traduce a "ms-polizas no disponible".
+            prima = PrimaFila(
+                prima_id=fila.poliza_id,
+                poliza_id=fila.poliza_id,
+                valor=sum((c.suma_asegurada for c in coberturas), Decimal("0")),
+                periodicidad="ANUAL",
+            )
+        return _a_dominio(fila, coberturas, prima)
 
     async def obtener(self, poliza_id: UUID) -> Poliza | None:
         return await self._con_coberturas(await self._s.scalar(select(PolizaFila).where(PolizaFila.poliza_id == poliza_id)))

@@ -177,6 +177,19 @@ def test_siniestros_abiertos_sin_siniestros_devuelve_cero(client):
     assert respuesta.json() == {"abiertos": 0, "siniestros": []}
 
 
+def test_registrar_aviso_es_idempotente_por_usuario_y_poliza(client):
+    cuerpo = {"usuario_id": str(uuid4()), "poliza": "POL-1"}
+
+    primero = client.post("/v1/siniestros", json=cuerpo)
+    segundo = client.post("/v1/siniestros", json=cuerpo)
+
+    assert primero.status_code == 201
+    assert segundo.status_code == 201
+    assert segundo.json()["id"] == primero.json()["id"]
+    assert primero.json()["usuario_id"] == cuerpo["usuario_id"]
+    assert primero.json()["estado"] == "recibido"
+
+
 def test_siniestros_abiertos_requiere_poliza_id(client):
     respuesta = client.get("/v1/siniestros/abiertos")
 

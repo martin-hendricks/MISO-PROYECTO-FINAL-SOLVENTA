@@ -76,6 +76,13 @@ import retrofit2.HttpException
 import java.io.IOException
 
 class BffGate(private val api: MobileBffApi, private val cache: BffCache) {
+    fun remember(accessToken: String) {
+        cache.retainOwner(customerUid(accessToken))
+    }
+
+    fun forget() {
+        cache.clear()
+    }
     suspend fun <T> call(block: suspend () -> T): StandInAnswer<T> {
         flush()
         return try {
@@ -121,7 +128,10 @@ class RemoteSessionRepository(
         } catch (_: SerializationException) {
             StandInAnswer.Failed
         }
-        if (answer is StandInAnswer.Ready) tokens.save(answer.value)
+        if (answer is StandInAnswer.Ready) {
+            tokens.save(answer.value)
+            gate.remember(answer.value.accessToken)
+        }
         return answer
     }
 
@@ -141,8 +151,19 @@ class RemoteSessionRepository(
             StandInAnswer.Failed
         }
         tokens.clear()
+        gate.forget()
         return answer
     }
+}
+
+internal fun customerUid(accessToken: String): String? {
+    val parts = accessToken.split('.')
+    if (parts.size < 2) return null
+    val payload = android.util.Base64.decode(
+        parts[1],
+        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+    )
+    return org.json.JSONObject(String(payload)).optString("uid").ifBlank { null }
 }
 
 class RemoteSignupRepository(

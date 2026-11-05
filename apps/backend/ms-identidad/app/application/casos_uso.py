@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.domain.errores import CuentaDuplicada, IdentidadNoVerificada
+from app.domain.errores import CuentaDuplicada, IdentidadNoVerificada, NoEncontrado
 from app.domain.modelos import Usuario, autenticar
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import CuentaYaExiste, FabricaUnidadDeTrabajo
@@ -14,6 +14,8 @@ async def crear_usuario(
     numero_documento: str,
     email: str,
     password_plano: str,
+    nombre: str = "",
+    apellidos: str = "",
 ) -> Usuario:
     """Alta de cuenta (SOLV-215). La verificación previa de duplicados es
     una optimización para responder rápido en el caso común; la garantía
@@ -28,6 +30,8 @@ async def crear_usuario(
         numero_documento=numero_documento,
         email=email,
         password_plano=password_plano,
+        nombre=nombre,
+        apellidos=apellidos,
     )
     if not await kyc.verificar(usuario.tipo_documento, usuario.numero_documento):
         raise IdentidadNoVerificada()
@@ -54,3 +58,24 @@ async def autenticar_usuario(uow: FabricaUnidadDeTrabajo, *, email: str, passwor
         usuario = await tx.usuarios.obtener_por_email(email.strip().lower())
 
     return autenticar(usuario, password_plano)
+
+
+async def consultar_usuario(uow: FabricaUnidadDeTrabajo, usuario_id) -> Usuario:
+    async with uow() as tx:
+        usuario = await tx.usuarios.obtener_por_id(usuario_id)
+    if usuario is None:
+        raise NoEncontrado()
+    return usuario
+
+
+async def actualizar_perfil(
+    uow: FabricaUnidadDeTrabajo, usuario_id, *, nombre: str, apellidos: str
+) -> Usuario:
+    async with uow() as tx:
+        usuario = await tx.usuarios.obtener_por_id(usuario_id)
+        if usuario is None:
+            raise NoEncontrado()
+        usuario.actualizar_perfil(nombre=nombre, apellidos=apellidos)
+        await tx.usuarios.actualizar(usuario)
+        await tx.confirmar()
+    return usuario

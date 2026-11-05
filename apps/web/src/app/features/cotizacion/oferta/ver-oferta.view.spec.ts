@@ -41,9 +41,10 @@ describe('VerOfertaView', () => {
     expect(element('oferta-loading')).not.toBeNull();
     const request = http.expectOne(URL);
     expect(request.request.method).toBe('GET');
-    request.flush(VIGENTE);
+    request.flush({ ...VIGENTE, descripcion: 'Cubre robo del equipo.' });
     fixture.detectChanges();
 
+    expect(element('oferta-descripcion')?.textContent).toContain('Cubre robo');
     expect(element('oferta-prima')?.textContent).toContain('128.500');
     expect(element('oferta-moneda')?.textContent).toContain('COP');
     expect(element('oferta-vence')?.textContent).toContain('2999');

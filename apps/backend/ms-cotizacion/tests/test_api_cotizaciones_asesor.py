@@ -165,7 +165,7 @@ def test_post_sin_asesor_conserva_la_respuesta_y_no_guarda_asesor(client, almace
 
     assert respuesta.status_code == 201
     assert set(respuesta.json()) == {
-        "cotizacion_id", "estado", "producto", "creada_en", "prima", "prima_neta",
+        "cotizacion_id", "usuario_id", "estado", "producto", "creada_en", "prima", "prima_neta",
         "gastos_expedicion", "moneda", "vence_en", "factor_riesgo_origen", "vencida",
     }
     solicitud = next(iter(almacen.solicitudes.values()))

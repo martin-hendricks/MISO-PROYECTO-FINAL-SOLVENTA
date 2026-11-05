@@ -19,6 +19,7 @@ from ..dependencies import (
     obtener_cliente_suscripcion,
     require_roles,
 )
+from ..ramos import presentar
 from .cliente import (
     FIRMA_NO_EXITOSA,
     RAMO_A_PRODUCTO,
@@ -130,7 +131,8 @@ async def venta(
         asesor_id=_asesor_id(sesion),
         cliente_ref=body.clienteId,
     )
-    return _cotizacion_salida(datos, body.ramo)
+    _, descripcion = presentar(producto)
+    return _cotizacion_salida(datos, body.ramo, descripcion)
 
 
 @router.post("/oferta-hipotecaria")
@@ -165,10 +167,12 @@ _PRODUCTO_A_RAMO = {producto: ramo for ramo, producto in RAMO_A_PRODUCTO.items()
 
 
 def _pendiente_salida(item: dict) -> dict:
+    ramo, descripcion = presentar(item.get("producto"))
     return {
         "cotizacionId": item["cotizacion_id"],
         "ofertaId": item["oferta_id"],
-        "ramo": _PRODUCTO_A_RAMO.get(item["producto"], item["producto"]),
+        "ramo": ramo,
+        "descripcion": descripcion,
         "estado": item["estado"],
         "prima": item["prima"],
         "moneda": item["moneda"],
@@ -430,7 +434,7 @@ async def firmar_y_emitir(
 
     constancia = await cliente_polizas.consultar_firma(oferta_id)
     cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
-    ramo = cotizacion.get("producto", "")
+    ramo, descripcion = presentar(cotizacion.get("producto"))
 
     inicio = poliza.get("inicio_vigencia", "")
     return {
@@ -445,6 +449,7 @@ async def firmar_y_emitir(
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "descripcion": descripcion,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
             "expedidaEn": inicio,

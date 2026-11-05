@@ -32,6 +32,21 @@ class UsuarioFila(Base):
     email: Mapped[str] = mapped_column(String)
     password_hash: Mapped[str] = mapped_column(String)
     estado: Mapped[str] = mapped_column(String)
+    nombre: Mapped[str] = mapped_column(String, default="")
+    apellidos: Mapped[str] = mapped_column(String, default="")
+
+
+def _fila(usuario: Usuario) -> UsuarioFila:
+    return UsuarioFila(
+        usuario_id=usuario.id,
+        tipo_documento=usuario.tipo_documento,
+        numero_documento=usuario.numero_documento,
+        email=usuario.email,
+        password_hash=usuario.password_hash,
+        estado=usuario.estado.value,
+        nombre=usuario.nombre,
+        apellidos=usuario.apellidos,
+    )
 
 
 def _a_dominio(fila: UsuarioFila) -> Usuario:
@@ -42,6 +57,8 @@ def _a_dominio(fila: UsuarioFila) -> Usuario:
         email=fila.email,
         password_hash=fila.password_hash,
         estado=EstadoUsuario(fila.estado),
+        nombre=fila.nombre or "",
+        apellidos=fila.apellidos or "",
     )
 
 
@@ -62,17 +79,21 @@ class RepositorioUsuariosSQL:
         )
         return _a_dominio(fila) if fila else None
 
+    async def obtener_por_id(self, usuario_id: UUID) -> Usuario | None:
+        fila = await self._s.get(UsuarioFila, usuario_id)
+        return _a_dominio(fila) if fila else None
+
     async def agregar(self, usuario: Usuario) -> None:
-        self._s.add(
-            UsuarioFila(
-                usuario_id=usuario.id,
-                tipo_documento=usuario.tipo_documento,
-                numero_documento=usuario.numero_documento,
-                email=usuario.email,
-                password_hash=usuario.password_hash,
-                estado=usuario.estado.value,
-            )
-        )
+        self._s.add(_fila(usuario))
+
+    async def actualizar(self, usuario: Usuario) -> None:
+        fila = await self._s.get(UsuarioFila, usuario.id)
+        if fila is None:
+            return
+        fila.nombre = usuario.nombre
+        fila.apellidos = usuario.apellidos
+        fila.email = usuario.email
+        fila.estado = usuario.estado.value
 
 
 class UnidadDeTrabajoSQL:

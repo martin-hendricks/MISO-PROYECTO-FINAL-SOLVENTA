@@ -10,6 +10,13 @@ class CrearUsuarioEntrada(BaseModel):
     numero_documento: str = Field(min_length=1, max_length=50)
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=8, max_length=72)
+    nombre: str = ""
+    apellidos: str = ""
+
+
+class PerfilEntrada(BaseModel):
+    nombre: str = Field(min_length=1, max_length=80)
+    apellidos: str = Field(min_length=1, max_length=80)
 
 
 class AutenticarEntrada(BaseModel):
@@ -23,6 +30,8 @@ class UsuarioSalida(BaseModel):
     numero_documento: str
     email: str
     estado: str
+    nombre: str = ""
+    apellidos: str = ""
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -32,6 +41,8 @@ class UsuarioSalida(BaseModel):
             numero_documento=usuario.numero_documento,
             email=usuario.email,
             estado=usuario.estado.value,
+            nombre=usuario.nombre,
+            apellidos=usuario.apellidos,
         )
 
 

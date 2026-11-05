@@ -54,29 +54,28 @@ export const RAMOS: readonly Ramo[] = [
   {
     id: 'vida',
     ramo: 'Microseguro de vida',
-    disponible: false,
+    disponible: true,
     campos: [moneda('sumaAsegurada'), numero('edad')],
   },
   {
     id: 'clima',
     ramo: 'Clima y vuelos',
-    disponible: false,
+    disponible: true,
     campos: [texto('evento'), texto('referencia'), numero('umbral')],
   },
   {
     id: 'hipotecario',
     ramo: 'Vida hipotecario',
-    disponible: false,
-    // Same keys as the `vida-crediticia` catalog, so its ranges validate the form.
-    campos: [moneda('valorCredito'), numero('plazoMeses')],
+    disponible: true,
+    campos: [moneda('valor'), numero('plazoMeses')],
   },
   {
     id: 'pagos',
     ramo: 'Pagos',
-    disponible: false,
+    disponible: true,
     campos: [moneda('cuota'), numero('plazoMeses')],
   },
-  { id: 'viaje', ramo: 'Viaje', disponible: false, campos: [texto('destino'), numero('duracion')] },
+  { id: 'viaje', ramo: 'Viaje', disponible: true, campos: [texto('destino'), numero('duracion')] },
 ];
 
 /**

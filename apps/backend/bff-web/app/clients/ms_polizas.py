@@ -53,8 +53,9 @@ class ClienteMsPolizas(ClienteServicio):
             "GET", "/v1/polizas", params={"usuario_id": str(usuario_id), "limite": limite}
         )
 
-    async def obtener_por_numero(self, numero: str) -> dict[str, Any]:
-        return await self._pedir("GET", f"/v1/polizas/numero/{numero}")
+    async def obtener_por_numero(self, numero: str, usuario_id: UUID | None = None) -> dict[str, Any]:
+        params = {"usuario_id": str(usuario_id)} if usuario_id is not None else None
+        return await self._pedir("GET", f"/v1/polizas/numero/{numero}", params=params)
 
     async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
         """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),

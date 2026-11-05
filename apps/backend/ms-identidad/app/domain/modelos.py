@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from .errores import CredencialesInvalidas
+from .errores import CredencialesInvalidas, CuentaInactiva
 
 # Costo de bcrypt: 12 es el default moderno recomendado (ni tan barato que
 # sea crackeable en GPU, ni tan caro que convierta el login en un cuello de
@@ -37,12 +37,11 @@ def _verificar_password(password_plano: str, password_hash: str) -> bool:
 
 @dataclass
 class Usuario:
-    """Identidad y credenciales. Nombre/apellidos NO se persisten aquí: el
-    schema oficial (db/schema/01_ms_identidad.sql) no tiene esas columnas --
-    hoy solo bff-web los recibe en el alta y los devuelve en la respuesta de
-    registro sin guardarlos en ningún microservicio (ninguna tabla oficial
-    del dominio los tiene todavía); ms-identidad es responsable únicamente
-    de documento, correo y contraseña."""
+    """Identidad, credenciales y el perfil compartido por web y móvil.
+
+    Nombre y apellidos viven en la misma cuenta: los dos canales leen y
+    escriben este agregado. Biometría y permisos del dispositivo no entran
+    aquí."""
 
     id: UUID
     tipo_documento: str
@@ -50,6 +49,8 @@ class Usuario:
     email: str
     password_hash: str
     estado: EstadoUsuario
+    nombre: str = ""
+    apellidos: str = ""
 
     @classmethod
     def crear(
@@ -59,6 +60,8 @@ class Usuario:
         numero_documento: str,
         email: str,
         password_plano: str,
+        nombre: str = "",
+        apellidos: str = "",
     ) -> Usuario:
         return cls(
             id=uuid4(),
@@ -67,7 +70,13 @@ class Usuario:
             email=email.strip().lower(),
             password_hash=_hash_password(password_plano),
             estado=EstadoUsuario.ACTIVO,
+            nombre=nombre.strip(),
+            apellidos=apellidos.strip(),
         )
+
+    def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:
+        self.nombre = nombre.strip()
+        self.apellidos = apellidos.strip()
 
     def verificar_password(self, password_plano: str) -> bool:
         return _verificar_password(password_plano, self.password_hash)
@@ -84,6 +93,8 @@ def autenticar(usuario: Usuario | None, password_plano: str) -> Usuario:
 
     if usuario is None or not coincide:
         raise CredencialesInvalidas()
+    if usuario.estado is not EstadoUsuario.ACTIVO:
+        raise CuentaInactiva()
     return usuario
 
 

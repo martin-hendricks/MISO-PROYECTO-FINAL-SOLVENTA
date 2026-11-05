@@ -51,6 +51,12 @@ class RequestFirmOffer(
             val term = positive(answers.term, QuoteInput.Term) ?: return null
             PaymentsRisk(installment, term)
         }
+        QuoteLine.Soat -> {
+            val displacement = positive(answers.displacement, QuoteInput.Displacement) ?: return null
+            val year = positive(answers.modelYear, QuoteInput.ModelYear) ?: return null
+            val city = text(answers.city, QuoteInput.City) ?: return null
+            SoatRisk(displacement, year, city)
+        }
         QuoteLine.Travel -> {
             val destination = text(answers.destination, QuoteInput.Destination) ?: return null
             val duration = positive(answers.duration, QuoteInput.Duration) ?: return null

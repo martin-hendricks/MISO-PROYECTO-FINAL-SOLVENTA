@@ -32,6 +32,9 @@ data class QuoteUiState(
     val term: String = "",
     val destination: String = "",
     val duration: String = "",
+    val displacement: String = "",
+    val modelYear: String = "",
+    val city: String = "",
     val gap: QuoteInput? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
@@ -78,6 +81,9 @@ class QuoteViewModel(
                 QuoteInput.Term -> state.copy(term = text)
                 QuoteInput.Destination -> state.copy(destination = text)
                 QuoteInput.Duration -> state.copy(duration = text)
+                QuoteInput.Displacement -> state.copy(displacement = text)
+                QuoteInput.ModelYear -> state.copy(modelYear = text)
+                QuoteInput.City -> state.copy(city = text)
                 QuoteInput.Age -> state
             }
             updated.copy(gap = null, failed = false)
@@ -112,6 +118,9 @@ class QuoteViewModel(
             term = current.term,
             destination = current.destination,
             duration = current.duration,
+            displacement = current.displacement,
+            modelYear = current.modelYear,
+            city = current.city,
         )
         _state.update { it.copy(pending = true, failed = false, gap = null, readyId = null) }
         when (val attempt = request.submit(current.line, answers)) {

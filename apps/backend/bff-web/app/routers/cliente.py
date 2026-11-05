@@ -11,12 +11,17 @@ from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisp
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
+from ..clients.ms_identidad import ClienteMsIdentidad
 from ..clients.ms_polizas import ClienteMsPolizas
+from ..clients.ms_siniestros import ClienteMsSiniestros
+from ..ramos import PRODUCTOS, presentar, producto_de
 from ..dependencies import (
     obtener_cliente_cotizacion,
+    obtener_cliente_identidad,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
+    obtener_cliente_siniestros,
     require_roles,
 )
 
@@ -53,17 +58,7 @@ PAYMENT = {
     "estado": "pagado",
 }
 
-# Mapeo de "ramo" (vocabulario del canal web) a "producto" (catálogo real de
-# ms-cotizacion, ver apps/backend/ms-cotizacion/app/domain/catalogo.py). Si
-# llega un ramo no mapeado se usa un slug derivado de su texto -- ms-cotizacion
-# responderá 404/422 si ese producto no existe en su catálogo, y ese error ya
-# se propaga tipificado por los exception handlers de main.py.
-RAMO_A_PRODUCTO = {
-    "Protección de dispositivo": "proteccion-dispositivo",
-    "Vida crediticia": "vida-crediticia",
-    # Así nombra el back-office el mismo producto (ramos.ts del portal).
-    "Vida hipotecario": "vida-crediticia",
-}
+RAMO_A_PRODUCTO = {nombre: codigo for codigo, (nombre, _) in PRODUCTOS.items()}
 
 RAMO_VIDA_CREDITICIA = "Vida crediticia"
 PRODUCTO_VIDA_CREDITICIA = RAMO_A_PRODUCTO[RAMO_VIDA_CREDITICIA]
@@ -78,11 +73,29 @@ _NAMESPACE_SOLVENTA = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
 
 
 def _producto_de(ramo: str) -> str:
-    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
+    codigo = producto_de(ramo)
+    if codigo is None:
+        raise HTTPException(status_code=404, detail="ramo_no_disponible")
+    return codigo
 
 
 def _uuid_desde(*partes: str) -> UUID:
     return uuid.uuid5(_NAMESPACE_SOLVENTA, "|".join(partes))
+
+
+def _exigir_dueno(recurso: dict, uid: UUID) -> None:
+    dueno = recurso.get("usuario_id")
+    if dueno is not None and str(dueno) != str(uid):
+        raise HTTPException(status_code=404, detail="No existe")
+
+
+def contexto_canonico(usuario: dict) -> "ContextoUsuario":
+    """El uid del JWT es el usuario_id de ms-identidad. Los ids de apoyo
+    salen de ese uid, nunca del correo."""
+    uid = str(usuario.get("uid") or "")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Token invalido")
+    return ContextoUsuario(uid, canonico=True)
 
 
 class ContextoUsuario:
@@ -98,11 +111,16 @@ class ContextoUsuario:
     resolución de identidad real ni debe tratarse como tal en producción.
     """
 
-    def __init__(self, correo: str) -> None:
-        self.usuario_id = _uuid_desde("usuario", correo)
-        self.socio_id = _uuid_desde("socio", correo)
-        self.consentimiento_id = _uuid_desde("consentimiento", correo)
-        self.perfil_id = _uuid_desde("perfil", correo)
+    def __init__(self, correo: str, *, canonico: bool = False) -> None:
+        if canonico:
+            self.usuario_id = UUID(correo)
+            semilla = str(self.usuario_id)
+        else:
+            self.usuario_id = _uuid_desde("usuario", correo)
+            semilla = correo
+        self.socio_id = _uuid_desde("socio", semilla)
+        self.consentimiento_id = _uuid_desde("consentimiento", semilla)
+        self.perfil_id = _uuid_desde("perfil", semilla)
 
 
 def _idempotency_key() -> str:
@@ -135,7 +153,7 @@ def _offer(cotizacion_id: str) -> dict:
     return body
 
 
-def _cotizacion_salida(datos: dict, ramo: str) -> dict:
+def _cotizacion_salida(datos: dict, ramo: str, descripcion: str = "") -> dict:
     """Traduce la salida real de ms-cotizacion al shape que el canal web ya
     espera, para no romper el contrato existente del frontend.
 
@@ -145,6 +163,7 @@ def _cotizacion_salida(datos: dict, ramo: str) -> dict:
     return {
         "cotizacionId": datos["cotizacion_id"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "estado": datos["estado"],
         "prima": datos["prima"],
         "primaNeta": datos["prima_neta"],
@@ -170,8 +189,12 @@ def _catalogo_salida(producto: dict, ramo: str) -> dict:
     """Traduce ProductoSalida (ms-cotizacion, HU-1/HU-2) al shape propuesto
     para SOLV-245: el frontend bloquea "Continuar" con estos rangos antes de
     cotizar, en vez de esperar al 422 de dato fuera de rango."""
+    codigo = _producto_de(ramo)
+    _, descripcion = presentar(codigo)
     return {
         "ramo": ramo,
+        "descripcion": producto.get("descripcion") or descripcion,
+        "disponible": producto.get("disponible", True),
         "nombre": producto["nombre"],
         "moneda": producto["moneda"],
         "coberturas": [
@@ -202,13 +225,13 @@ async def catalogo(
 @router.post("/cotizaciones")
 async def cotizar(
     body: Cotizacion,
-    sesion: Sesion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     if body.clienteId:
         raise HTTPException(status_code=400, detail="La venta asistida no es de este canal")
 
-    contexto = ContextoUsuario(sesion["sub"])
+    contexto = contexto_canonico(usuario)
     producto = _producto_de(body.ramo)
 
     datos = await cliente_cotizacion.cotizar(
@@ -220,28 +243,28 @@ async def cotizar(
         canal="web",
         datos_riesgo=body.datosRiesgo,
     )
-    return _cotizacion_salida(datos, body.ramo)
+    _, descripcion = presentar(producto)
+    return _cotizacion_salida(datos, body.ramo, descripcion)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
 async def reconsultar(
     cotizacion_id: str,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    datos = await cliente_cotizacion.reconsultar(cotizacion_id)
-    # No existe mapeo inverso producto->ramo (RAMO_A_PRODUCTO es de solo
-    # ida): se devuelve el código de producto del núcleo tal cual mientras
-    # no haya un catálogo de vocabulario web que lo traduzca de regreso.
-    return _cotizacion_salida(datos, datos.get("producto", ""))
+    datos = await cliente_cotizacion.reconsultar(cotizacion_id, contexto_canonico(usuario).usuario_id)
+    ramo, descripcion = presentar(datos.get("producto"))
+    return _cotizacion_salida(datos, ramo, descripcion)
 
 
 @router.post("/polizas")
 async def emitir(
     body: Aceptar,
-    sesion: Sesion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     """Aceptar la oferta y emitir la póliza. Flujo real:
 
@@ -265,7 +288,9 @@ async def emitir(
     propaga sin capturar y los exception handlers de main.py la traducen a
     503/404/409/422. Si el paso de pago falla, la emisión nunca se ejecuta.
     """
-    contexto = ContextoUsuario(sesion["sub"])
+    # TODO: mismo placeholder de identidad que en cotizar() -- no hay
+    # ms-identidad real para resolver el correo de la sesión a un contexto.
+    contexto = contexto_canonico(usuario)
 
     # TODO: `score` es un stub fijo documentado: no hay ms-perfilamiento
     # conectado aún que calcule un score real de riesgo/crédito para el
@@ -278,6 +303,7 @@ async def emitir(
         idempotency_key=_idempotency_key(),
         perfil_id=contexto.perfil_id,
         score=score_stub,
+        usuario_id=contexto.usuario_id,
     )
 
     if aceptacion["decision"].upper() != "ACEPTADA":
@@ -323,13 +349,14 @@ async def emitir(
         return {"resultado": "RECHAZADA", "motivo": {"codigo": rechazo.codigo, "mensaje": rechazo.mensaje}}
 
     cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
-    ramo = cotizacion.get("producto", "")
+    ramo, descripcion = presentar(cotizacion.get("producto"))
 
     return {
         "resultado": "EMITIDA",
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "descripcion": descripcion,
             "producto": ramo,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
@@ -358,10 +385,11 @@ async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza:
 
 
 def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
-    ramo = cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
+    ramo, descripcion = presentar(cotizacion.get("producto"))
     return {
         "numero": poliza["numero"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "producto": ramo,
         "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
         "estado": poliza["estado"].upper(),
@@ -375,11 +403,14 @@ def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
 
 @router.get("/polizas")
 async def billetera(
-    sesion: Sesion,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    contexto = ContextoUsuario(sesion["sub"])
+    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no
+    # hay ms-identidad real para resolver el correo de la sesión a un
+    # usuario_id. El usuario_id derivado es estable dentro de este proceso.
+    contexto = contexto_canonico(usuario)
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
     cotizaciones = await asyncio.gather(*(_cotizacion_de_poliza(cliente_cotizacion, p) for p in polizas))
@@ -400,8 +431,10 @@ async def detalle(
     numero: str,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    poliza = await cliente_polizas.obtener_por_numero(numero)
+    poliza = await cliente_polizas.obtener_por_numero(numero, contexto_canonico(usuario).usuario_id)
+    _exigir_dueno(poliza, contexto_canonico(usuario).usuario_id)
     salida = _poliza_billetera(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
     salida["coberturas"] = [
         {
@@ -485,9 +518,9 @@ async def ofertar_vida_crediticia(
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,
-    sesion: Sesion,
     cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     """Oferta de vida hipotecario del cliente (HU-105).
 
@@ -498,30 +531,90 @@ async def hipoteca(
         return {"ramo": RAMO_VIDA_CREDITICIA, "estado": SIN_CONSENTIMIENTO}
 
     return await ofertar_vida_crediticia(
-        ContextoUsuario(sesion["sub"]), body.credito, "web", cliente_perfilamiento, cliente_cotizacion
+        contexto_canonico(usuario), body.credito, "web", cliente_perfilamiento, cliente_cotizacion
     )
 
 
-# TODO: este resumen agrega datos de varios microservicios (cotización
-# vigente, póliza, siniestro en curso) que hoy no tienen todos equivalente
-# real conectado (ms-siniestros no está integrado) -- requiere componer varias
-# llamadas reales, no solo una.
+def _vacio(exc: Exception) -> bool:
+    return isinstance(exc, (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo))
+
+
 @router.get("/inicio")
-def inicio() -> dict:
+async def inicio(
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    contexto = contexto_canonico(usuario)
+    pendientes: list[dict] = []
+    try:
+        pagina = await cliente_cotizacion.listar_por_usuario(contexto.usuario_id)
+        for item in pagina.get("items") or []:
+            ramo, _ = presentar(item.get("producto"))
+            pendientes.append(
+                {"cotizacionId": item.get("cotizacion_id"), "ramo": ramo, "estado": "oferta_vigente"}
+            )
+    except Exception as exc:
+        if not _vacio(exc):
+            raise
+    poliza = None
+    try:
+        filas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=1)
+        if filas:
+            ramo, _ = presentar((await _cotizacion_de_poliza(cliente_cotizacion, filas[0])).get("producto"))
+            poliza = {"numero": filas[0]["numero"], "ramo": ramo, "estado": str(filas[0]["estado"]).lower()}
+    except Exception as exc:
+        if not _vacio(exc):
+            raise
+    siniestro = None
+    try:
+        abiertos = await cliente_siniestros.listar(usuario_id=contexto.usuario_id)
+        if abiertos:
+            primero = abiertos[0]
+            siniestro = {"siniestroId": str(primero["id"]), "estado": primero["estado"]}
+    except Exception as exc:
+        if not _vacio(exc):
+            raise
     return {
-        "ofertaVigente": {
-            "cotizacionId": "COT-1042",
-            "ramo": "Protección de dispositivo",
-            "estado": "oferta_vigente",
-        },
-        "poliza": {
-            "numero": "POL-88219-CO",
-            "ramo": "Protección de dispositivo",
-            "estado": "vigente",
-        },
-        "siniestroEnCurso": {"siniestroId": "SIN-441", "estado": "en_evaluacion"},
-        # HU-105: la card Vida Crediticia siempre se ofrece. No hay todavía una
-        # fuente de "originación activa" (crédito del banco aliado); el flujo
-        # pide el consentimiento y los datos del crédito al entrar.
+        "ofertaVigente": pendientes[0] if pendientes else None,
+        "cotizacionesPendientes": pendientes,
+        "poliza": poliza,
+        "siniestroEnCurso": siniestro,
         "hipotecario": {"estado": "disponible"},
     }
+
+
+class PerfilEntrada(BaseModel):
+    nombre: str
+    apellidos: str
+
+
+def _perfil_salida(usuario: dict) -> dict:
+    return {
+        "usuarioId": str(usuario["usuario_id"]),
+        "correo": usuario["email"],
+        "nombre": usuario.get("nombre") or "",
+        "apellidos": usuario.get("apellidos") or "",
+        "documento": usuario.get("numero_documento") or "",
+    }
+
+
+@router.get("/perfil")
+async def leer_perfil(
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    return _perfil_salida(await cliente_identidad.obtener(str(contexto_canonico(usuario).usuario_id)))
+
+
+@router.patch("/perfil")
+async def guardar_perfil(
+    body: PerfilEntrada,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    actualizado = await cliente_identidad.actualizar_perfil(
+        str(contexto_canonico(usuario).usuario_id), nombre=body.nombre, apellidos=body.apellidos
+    )
+    return _perfil_salida(actualizado)

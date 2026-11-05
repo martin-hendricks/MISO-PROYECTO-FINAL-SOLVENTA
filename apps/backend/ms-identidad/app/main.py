@@ -9,9 +9,11 @@ from app.config import Settings
 from app.domain.errores import (
     CredencialesInvalidas,
     CuentaDuplicada,
+    CuentaInactiva,
     DependenciaNoDisponible,
     ErrorDominio,
     IdentidadNoVerificada,
+    NoEncontrado,
 )
 from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
@@ -20,6 +22,8 @@ from app.observabilidad import instrumentar
 ESTADO_HTTP = {
     CuentaDuplicada: 409,
     CredencialesInvalidas: 401,
+    CuentaInactiva: 403,
+    NoEncontrado: 404,
     IdentidadNoVerificada: 422,
     DependenciaNoDisponible: 503,
 }

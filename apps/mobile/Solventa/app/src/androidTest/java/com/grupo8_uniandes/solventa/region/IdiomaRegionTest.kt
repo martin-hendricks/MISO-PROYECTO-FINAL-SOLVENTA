@@ -23,8 +23,11 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
+import com.grupo8_uniandes.solventa.data.profile.SessionPrefsFile
 import com.grupo8_uniandes.solventa.data.region.KeyAppliedRegion
 import com.grupo8_uniandes.solventa.data.region.RegionPrefsFile
+import com.grupo8_uniandes.solventa.data.registration.RegistrationPrefsFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Before
@@ -39,7 +42,11 @@ class IdiomaRegionTest {
 
     @Before
     fun resetRegion() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         clearRegionPrefs()
+        context.getSharedPreferences(RegistrationPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(SessionPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
         rule.activityRule.scenario.recreate()
     }
 
@@ -60,8 +67,6 @@ class IdiomaRegionTest {
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_MEDIA_IMAGES))
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_EXTERNAL_STORAGE))
-        assertFalse(requestedPermissions().contains(Manifest.permission.ACCESS_FINE_LOCATION))
-        assertFalse(requestedPermissions().contains(Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
     @Test

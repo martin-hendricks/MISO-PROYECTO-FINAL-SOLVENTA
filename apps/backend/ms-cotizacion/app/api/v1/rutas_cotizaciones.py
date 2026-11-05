@@ -112,8 +112,8 @@ async def listar_cotizaciones_usuario(
 
 
 @router.get("/{cotizacion_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}})
-async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow):
-    resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id)
+async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow, usuario_id: UUID | None = None):
+    resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id, usuario_id)
     return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
 
 
@@ -147,9 +147,17 @@ async def aceptar_oferta(
     suscripciones: Suscripciones,
     consentimientos: Consentimientos,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+    usuario_id: UUID | None = None,
 ):
     resultado = await casos_uso.aceptar_oferta(
-        uow, suscripciones, consentimientos, cotizacion_id, idempotency_key, entrada.perfil_id, entrada.score
+        uow,
+        suscripciones,
+        consentimientos,
+        cotizacion_id,
+        idempotency_key,
+        entrada.perfil_id,
+        entrada.score,
+        usuario_id,
     )
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK

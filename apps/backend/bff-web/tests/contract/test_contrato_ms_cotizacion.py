@@ -172,7 +172,7 @@ def _llamar(nucleo_url: str, operacion):
 def test_catalogo_de_un_ramo(nucleo_url):
     producto = _llamar(nucleo_url, lambda c: c.obtener_producto("soat-motocicleta"))
 
-    vista = _catalogo_salida(producto, "SOAT")
+    vista = _catalogo_salida(producto, "SOAT motocicleta")
     assert vista["moneda"] == "COP"
     assert {d["tipo"] for d in vista["datosRiesgo"]} == {"rango", "valores"}
 

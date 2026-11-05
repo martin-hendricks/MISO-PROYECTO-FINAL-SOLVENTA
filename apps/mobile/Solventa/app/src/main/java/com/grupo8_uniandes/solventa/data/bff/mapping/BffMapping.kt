@@ -64,6 +64,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.LifeRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.MortgageRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.PaymentsRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.SoatRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.TravelRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
@@ -140,6 +141,11 @@ internal fun LineRisk.toRequestElement(): JsonElement = when (this) {
     is TravelRisk -> buildJsonObject {
         put("destino", destination)
         put("duracion", duration)
+    }
+    is SoatRisk -> buildJsonObject {
+        put("cilindraje_cc", displacement)
+        put("modelo_anio", modelYear)
+        put("ciudad_circulacion", city)
     }
 }
 
@@ -222,6 +228,7 @@ internal fun HomeDto.toHome() = BffHome(
     poliza?.let { HomePolicySlot(it.numero, it.ramo, it.estado) },
     siniestroEnCurso?.let { HomeClaimSlot(it.siniestroId, it.estado) },
     hipotecario,
+    cotizacionesPendientes.map { HomeOfferSlot(it.cotizacionId, it.ramo, it.estado) },
 )
 
 internal fun PushRegistrationDto.toRegistration() = PushRegistration(token, plataforma)

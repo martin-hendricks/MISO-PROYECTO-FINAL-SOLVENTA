@@ -11,7 +11,7 @@ import { RiesgoFields } from '../riesgo-fields';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [TranslatePipe, RouterLink, RiesgoFields],
   templateUrl: './nueva-cotizacion.view.html',
-  styleUrls: ['../../polizas/polizas.page.css', '../cotizacion-form.css'],
+  styleUrls: ['../cotizacion-form.css', './nueva-cotizacion.view.css'],
 })
 export class NuevaCotizacionView {
   private readonly gateway = inject(CotizacionGateway);

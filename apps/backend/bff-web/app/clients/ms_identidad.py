@@ -17,7 +17,14 @@ class ClienteMsIdentidad(ClienteServicio):
     nombre = "ms-identidad"
 
     async def crear_usuario(
-        self, *, tipo_documento: str, numero_documento: str, email: str, password: str
+        self,
+        *,
+        tipo_documento: str,
+        numero_documento: str,
+        email: str,
+        password: str,
+        nombre: str = "",
+        apellidos: str = "",
     ) -> dict[str, Any]:
         """POST /v1/usuarios. ms-identidad responde 409 (RechazoDelNucleo)
         si el correo o el documento ya existen -- el router lo propaga como
@@ -30,7 +37,19 @@ class ClienteMsIdentidad(ClienteServicio):
                 "numero_documento": numero_documento,
                 "email": email,
                 "password": password,
+                "nombre": nombre,
+                "apellidos": apellidos,
             },
+        )
+
+    async def obtener(self, usuario_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/usuarios/{usuario_id}")
+
+    async def actualizar_perfil(self, usuario_id: str, *, nombre: str, apellidos: str) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/perfil",
+            json={"nombre": nombre, "apellidos": apellidos},
         )
 
     async def autenticar(self, *, email: str, password: str) -> dict[str, Any]:

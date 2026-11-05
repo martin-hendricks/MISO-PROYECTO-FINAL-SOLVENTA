@@ -41,6 +41,20 @@ def test_alta_deja_marca_de_consentimiento_auditable(client):
     assert datetime.fromisoformat(marca["otorgadoEn"]).tzinfo is not None
 
 
+def test_alta_con_cuenta_que_no_puede_entrar_es_401(client, nucleo_identidad):
+    def cuenta(estado: str, usuario_id: str):
+        return lambda _: httpx.Response(
+            201,
+            json={"usuario_id": usuario_id, "email": "camila@correo.com", "estado": estado},
+        )
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = cuenta("INACTIVO", "11111111-1111-1111-1111-111111111111")
+    assert client.post("/v1/registro", json=BODY).status_code == 401
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = cuenta("ACTIVO", "")
+    assert client.post("/v1/registro", json=BODY).status_code == 401
+
+
 def test_alta_sin_consentimiento_se_rechaza(client):
     response = client.post("/v1/registro", json={**BODY, "habeasData": False})
     assert response.status_code == 422

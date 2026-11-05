@@ -1,37 +1,74 @@
 <section data-testid="nueva-cotizacion" [attr.data-state]="vm.status()">
-  <div class="page-head">
-    <div>
-      <h1>{{ 'cotizacion.nueva.title' | translate }}</h1>
-      <p class="subtitle">{{ 'cotizacion.nueva.subtitle' | translate }}</p>
-    </div>
-  </div>
-
-  <form class="form" novalidate (submit)="submit($event)">
-    <fieldset>
-      <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
-      <sv-riesgo-fields [vm]="vm" prefix="nueva" />
-    </fieldset>
-
-    @switch (vm.status()) {
-      @case ('rejected') {
-        <p class="banner" role="alert" data-testid="cotizacion-rechazo">
-          {{ vm.rechazo()!.mensaje }}
-        </p>
+  <header class="page-head">
+    <a class="back" routerLink="/inicio" data-testid="cancelar">
+      <span aria-hidden="true">←</span>
+      {{ 'cotizacion.nueva.volver' | translate }}
+    </a>
+    <h1>{{ 'cotizacion.nueva.title' | translate }}</h1>
+    <p class="subtitle" data-testid="cotizacion-subtitulo">
+      @if (vm.ramo().id === 'soat') {
+        {{ 'cotizacion.campo.descripcion.soat' | translate }}
+      } @else {
+        {{ 'cotizacion.nueva.subtitulo.' + vm.ramo().id | translate }}
       }
-      @case ('error') {
-        <p class="banner" role="alert" data-testid="cotizacion-error">
-          {{ 'cotizacion.error.servicio' | translate }}
-        </p>
-      }
+    </p>
+  </header>
+
+  @switch (vm.status()) {
+    @case ('rejected') {
+      <p class="banner" role="alert" data-testid="cotizacion-rechazo">
+        {{ vm.rechazo()!.mensaje }}
+      </p>
     }
+    @case ('error') {
+      <p class="banner" role="alert" data-testid="cotizacion-error">
+        {{ 'cotizacion.error.servicio' | translate }}
+      </p>
+    }
+  }
 
-    <div class="actions">
+  <div class="columns">
+    <form class="card form" novalidate (submit)="submit($event)">
+      <h2 data-testid="cotizacion-leyenda">
+        {{ 'cotizacion.nueva.leyenda.' + vm.ramo().id | translate }}
+      </h2>
+      <div class="field ramo-picker">
+        <label for="nueva-ramo">{{ 'cotizacion.campo.ramo' | translate }}</label>
+        <select
+          #ramoSelect
+          id="nueva-ramo"
+          data-testid="cotizacion-ramo"
+          (change)="vm.select(ramoSelect.value)"
+        >
+          @for (opcion of vm.ramos; track opcion.id) {
+            <option
+              [value]="opcion.id"
+              [selected]="opcion.id === vm.ramo().id"
+              [disabled]="!opcion.disponible"
+            >
+              {{ 'cotizacion.nueva.picker.' + opcion.id | translate }}
+              @if (!opcion.disponible) {
+                · {{ 'cotizacion.proximamente' | translate }}
+              }
+            </option>
+          }
+        </select>
+      </div>
+      <sv-riesgo-fields [vm]="vm" prefix="nueva" [portal]="true" />
       <button type="submit" class="filled" data-testid="cotizar" [disabled]="!vm.canQuote()">
         {{ 'cotizacion.nueva.cotizar' | translate }}
       </button>
-      <a class="outlined" routerLink="/inicio" data-testid="cancelar">{{
-        'cotizacion.nueva.cancelar' | translate
-      }}</a>
-    </div>
-  </form>
+    </form>
+
+    <aside class="card">
+      <h2>{{ 'cotizacion.nueva.recibiras' | translate }}</h2>
+      <p data-testid="cotizacion-recibiras">
+        @if (vm.ramo().id === 'soat') {
+          {{ 'cotizacion.campo.descripcion.soat' | translate }}
+        } @else {
+          {{ 'cotizacion.nueva.recibirasCuerpo.' + vm.ramo().id | translate }}
+        }
+      </p>
+    </aside>
+  </div>
 </section>

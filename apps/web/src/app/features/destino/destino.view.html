@@ -4,6 +4,13 @@
     <p class="subtitle">{{ id }}</p>
   }
 
+  @if (nombre()) {
+    <p data-testid="perfil-nombre">{{ nombre() }}</p>
+  }
+  @if (siniestro()) {
+    <p data-testid="siniestro-id">{{ siniestro() }}</p>
+  }
+
   @if (destino === 'perfil') {
     <button
       type="button"

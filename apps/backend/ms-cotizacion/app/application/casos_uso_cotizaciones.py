@@ -182,7 +182,14 @@ class ReconsultaOferta:
     consulta: ConsultaOferta
 
 
-async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -> ReconsultaOferta:
+def _exigir_dueno(solicitud: SolicitudCotizacion, usuario_id: UUID | None) -> None:
+    if usuario_id is not None and solicitud.usuario_id != usuario_id:
+        raise NoEncontrado(f"Cotización {solicitud.id} no existe")
+
+
+async def reconsultar_oferta(
+    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, usuario_id: UUID | None = None
+) -> ReconsultaOferta:
     """Lectura pura: no invoca calcular_prima_solicitud ni combinar_factor_riesgo ni el
     adaptador de perfil. 404 genérico sin distinguir el motivo (solicitud inexistente vs.
     sin oferta), para no filtrar si la cotización perteneció a otro cliente/socio."""
@@ -191,6 +198,7 @@ async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -
         oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
     if solicitud is None or oferta is None:
         raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+    _exigir_dueno(solicitud, usuario_id)
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
 
 
@@ -277,13 +285,17 @@ class Aceptacion:
 
 
 async def _registrar_aceptacion(
-    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, aceptacion_key: str
+    uow: FabricaUnidadDeTrabajo,
+    cotizacion_id: UUID,
+    aceptacion_key: str,
+    usuario_id: UUID | None = None,
 ) -> tuple[SolicitudCotizacion, Oferta, bool]:
     async with uow() as tx:
         solicitud = await tx.solicitudes.obtener(cotizacion_id)
         oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
         if solicitud is None or oferta is None:
             raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+        _exigir_dueno(solicitud, usuario_id)
         if solicitud.aceptacion_key == aceptacion_key:
             return solicitud, oferta, False
 
@@ -327,12 +339,15 @@ async def aceptar_oferta(
     aceptacion_key: str,
     perfil_id: UUID,
     score: Decimal,
+    usuario_id: UUID | None = None,
 ) -> Aceptacion:
     """HU-12: idempotente por cotizacionId + Idempotency-Key. La misma clave devuelve la
     aceptación original; otra clave sobre una cotización aceptada es oferta_ya_usada.
     La aceptación se confirma antes de encadenar HU-13: si ms-suscripcion falla, el
     reintento con la misma clave retoma la decisión sin volver a aceptar."""
     await _exigir_consentimiento_vigente(uow, consentimientos, cotizacion_id, aceptacion_key)
-    solicitud, oferta, creada = await _registrar_aceptacion(uow, cotizacion_id, aceptacion_key)
+    solicitud, oferta, creada = await _registrar_aceptacion(
+        uow, cotizacion_id, aceptacion_key, usuario_id
+    )
     decision = await suscripciones.evaluar(solicitud.id, perfil_id, score)
     return Aceptacion(solicitud, oferta, decision, creada)

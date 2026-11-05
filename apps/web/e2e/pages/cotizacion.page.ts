@@ -35,9 +35,9 @@ export class CotizacionPage {
       .getByTestId('cotizacion-ramo')
       .locator('option')
       .evaluateAll((options) =>
-        (options as HTMLOptionElement[]).map((o) => ({
-          label: o.textContent!.replace(/\s+/g, ' ').trim(),
-          disabled: o.disabled,
+        (options as HTMLOptionElement[]).map((option) => ({
+          label: option.textContent!.replace(/\s+/g, ' ').trim(),
+          disabled: option.disabled,
         })),
       );
   }
