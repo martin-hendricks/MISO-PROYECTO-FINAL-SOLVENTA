@@ -8,6 +8,7 @@ from app.dependencies import (
     obtener_adaptador_perfil_riesgo,
     obtener_catalogo,
     obtener_config,
+    obtener_consentimientos,
     obtener_suscripciones,
     obtener_uow,
 )
@@ -17,6 +18,7 @@ from app.main import crear_app
 from .dobles import (
     AlmacenEnMemoria,
     CatalogoEnMemoria,
+    ConsentimientosFalsos,
     SuscripcionesFalsas,
     UnidadDeTrabajoEnMemoria,
     regla_rating_soat_motocicleta,
@@ -57,11 +59,17 @@ def suscripciones() -> SuscripcionesFalsas:
 
 
 @pytest.fixture
-def client(uow, catalogo, adaptador_riesgo, config, suscripciones) -> TestClient:
+def consentimientos() -> ConsentimientosFalsos:
+    return ConsentimientosFalsos()
+
+
+@pytest.fixture
+def client(uow, catalogo, adaptador_riesgo, config, suscripciones, consentimientos) -> TestClient:
     app = crear_app()
     app.dependency_overrides[obtener_uow] = lambda: uow
     app.dependency_overrides[obtener_catalogo] = lambda: catalogo
     app.dependency_overrides[obtener_adaptador_perfil_riesgo] = lambda: adaptador_riesgo
     app.dependency_overrides[obtener_config] = lambda: config
     app.dependency_overrides[obtener_suscripciones] = lambda: suscripciones
+    app.dependency_overrides[obtener_consentimientos] = lambda: consentimientos
     return TestClient(app)

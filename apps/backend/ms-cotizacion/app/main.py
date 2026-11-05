@@ -21,6 +21,7 @@ from app.infrastructure.adaptador_perfil_perfilamiento import (
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
+from app.infrastructure.consentimiento_perfilamiento import ConsentimientoPerfilamientoHTTP
 from app.infrastructure.suscripciones import SuscripcionesHTTP
 from app.observabilidad import instrumentar
 
@@ -57,6 +58,9 @@ def crear_app(config: Settings | None = None) -> FastAPI:
             ),
         )
         app.state.suscripciones = SuscripcionesHTTP(http)
+        app.state.consentimientos = ConsentimientoPerfilamientoHTTP(
+            http_perfilamiento, config.productos_perfil_perfilamiento
+        )
         app.state.config = config
         yield
         await http_perfilamiento.aclose()

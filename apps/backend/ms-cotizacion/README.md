@@ -66,6 +66,7 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `MS_SUSCRIPCION_URL` | `http://ms-suscripcion:8080` | Decisión de suscripción que encadena la aceptación (HU-12 → HU-13) |
 | `MS_PERFILAMIENTO_URL` | `http://ms-perfilamiento:8080` | Perfil de riesgo de los productos de `PRODUCTOS_PERFIL_PERFILAMIENTO` (HU-162) |
 | `PRODUCTOS_PERFIL_PERFILAMIENTO` | `["vida-crediticia"]` | Productos cuyo factor de riesgo sale de `ms-perfilamiento` (lista JSON) |
+| — | — | Al aceptar, si el producto está en `PRODUCTOS_PERFIL_PERFILAMIENTO` y la oferta usó el perfil, se verifica `GET /v1/consentimientos/{usuario_id}`; revocado responde 422 `consentimiento_revocado` (N18, HA-21) |
 | `TIMEOUT_DEPENDENCIAS` | `2.0` | Segundos por llamada a otro servicio |
 
 ## Pruebas (HU-85)
