@@ -8,6 +8,7 @@ export interface OfertaVigente {
   cotizacionId: string;
   ramo: string;
   estado: string;
+  venceEn: string;
 }
 
 export interface Poliza {

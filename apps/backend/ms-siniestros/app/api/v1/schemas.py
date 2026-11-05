@@ -55,6 +55,7 @@ class SiniestroSalida(BaseModel):
 class AvisoEntrada(BaseModel):
     usuario_id: UUID
     poliza: str = Field(min_length=1, max_length=80)
+    poliza_id: UUID
 
 
 class EvaluacionSalida(BaseModel):

@@ -80,6 +80,8 @@ externalSecrets:
       nombreLocal: ms-polizas-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-polizas-token
 
 serviceAccount:
   crear: true

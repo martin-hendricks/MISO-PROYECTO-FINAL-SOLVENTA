@@ -101,6 +101,18 @@ Then('consulting it again does not recalculate', async function (this: PortalWor
   assert.equal(this.bff.quotesRequested(), 0);
 });
 
+Given('an expired quote', async function (this: PortalWorld) {
+  this.offer = { ...offer(), venceEn: '2000-01-01T00:00:00Z' };
+  await this.bff.serveQuote('cliente', this.offer);
+  await signInCustomer(this);
+});
+
+Then('the customer cannot accept it', async function (this: PortalWorld) {
+  await this.page.getByTestId('oferta-vencida').waitFor({ state: 'visible' });
+  assert.equal(await this.page.getByTestId('oferta-aceptar').count(), 0);
+  assert.equal(await this.page.getByTestId('oferta-nueva').getAttribute('href'), '/cotizacion');
+});
+
 Then('"Aceptar" starts the issuance', async function (this: PortalWorld) {
   assert.equal(
     await this.cotizacion.acceptHref(),

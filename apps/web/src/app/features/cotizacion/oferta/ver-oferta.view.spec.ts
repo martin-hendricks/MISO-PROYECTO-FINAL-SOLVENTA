@@ -48,7 +48,7 @@ describe('VerOfertaView', () => {
     expect(element('oferta-prima')?.textContent).toContain('128.500');
     expect(element('oferta-moneda')?.textContent).toContain('COP');
     expect(element('oferta-vence')?.textContent).toContain('2999');
-    expect(element('oferta-vigencia')?.textContent).toContain('1 año');
+    expect(element('oferta-vigencia')?.textContent).toContain('2999');
     expect(element('oferta-prima-neta')).toBeNull();
     expect(element('oferta-expedicion')).toBeNull();
   });

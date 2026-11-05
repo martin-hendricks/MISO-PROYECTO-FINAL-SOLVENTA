@@ -18,6 +18,7 @@ dependencies = [
   # "ModuleNotFoundError: No module named 'httpx'" al arrancar main.py,
   # confirmado con docker-compose contra una imagen runtime real.
   "httpx>=0.27,<1.0",
+  "pyjwt>=2.9,<3",
 ]
 
 [project.optional-dependencies]

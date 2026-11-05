@@ -32,21 +32,27 @@ class CoberturaVista(ModeloVista):
 
 class DatoRiesgoVista(ModeloVista):
     nombre: str
-    tipo: Literal["rango", "valores"]
+    tipo: Literal["rango", "valores", "texto", "booleano"]
     minimo: Decimal | None = None
     maximo: Decimal | None = None
     valores: list[str] | None = None
 
     @classmethod
     def desde_nucleo(cls, dato: dict) -> DatoRiesgoVista:
-        if dato["tipo"] == "rango":
+        tipo = dato["tipo"]
+        nombre = dato["nombre"]
+        if tipo == "rango":
             return cls(
-                nombre=dato["nombre"],
+                nombre=nombre,
                 tipo="rango",
                 minimo=Decimal(str(dato["minimo"])),
                 maximo=Decimal(str(dato["maximo"])),
             )
-        return cls(nombre=dato["nombre"], tipo="valores", valores=list(dato["valores"]))
+        if tipo == "valores":
+            return cls(nombre=nombre, tipo="valores", valores=list(dato["valores"]))
+        if tipo in ("texto", "booleano"):
+            return cls(nombre=nombre, tipo=tipo)
+        raise ValueError(f"Tipo de dato de riesgo desconocido '{tipo}'")
 
 
 class ProductoVista(ModeloVista):

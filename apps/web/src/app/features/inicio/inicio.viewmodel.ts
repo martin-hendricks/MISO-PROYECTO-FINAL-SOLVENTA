@@ -1,5 +1,6 @@
 import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
+import { offerExpired } from '../cotizacion/oferta-expiration';
 import { Inicio } from './inicio.gateway';
 
 export type InicioStatus = 'loading' | 'ready' | 'empty' | 'error';
@@ -26,14 +27,20 @@ export class InicioViewModel {
       return NO_CARDS;
     }
     return {
-      offer: inicio.ofertaVigente?.cotizacionId ? inicio.ofertaVigente : null,
+      offer:
+        inicio.ofertaVigente?.cotizacionId && !offerExpired(inicio.ofertaVigente.venceEn, this.now())
+          ? inicio.ofertaVigente
+          : null,
       policy: inicio.poliza?.estado === 'vigente' ? inicio.poliza : null,
       claim: inicio.siniestroEnCurso ?? null,
       vidaCrediticia: inicio.hipotecario != null,
     };
   });
 
-  constructor(private readonly source: () => Observable<Inicio>) {}
+  constructor(
+    private readonly source: () => Observable<Inicio>,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
 
   load(): void {
     this.statusState.set('loading');

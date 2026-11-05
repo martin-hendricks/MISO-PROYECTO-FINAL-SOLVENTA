@@ -15,6 +15,21 @@ def test_ingreso_cliente_conserva_el_uid_canonico(client):
     assert renovados["uid"] == claims["uid"]
 
 
+def test_cuenta_inactiva_del_nucleo_se_propaga_403(client, nucleo_identidad):
+    import httpx
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
+        403, json={"codigo": "cuenta_inactiva", "mensaje": "Cuenta inactiva"}
+    )
+    response = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto", "rol": "cliente"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Cuenta inactiva"
+    assert "accessToken" not in response.json()
+
+
 def test_cuenta_inactiva_no_abre_sesion(client, nucleo_identidad):
     import httpx
 
