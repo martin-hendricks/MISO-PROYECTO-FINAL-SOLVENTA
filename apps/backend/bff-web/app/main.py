@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
 from .routers import asesor, cliente, operador, registro, sesion
 
@@ -53,6 +53,17 @@ app.state.config = config
 # puestos (confirmado contra el API Gateway real). CORSMiddleware es quien
 # debe responder el OPTIONS -- el navegador habla con este servicio, no con
 # el API Gateway, en lo que a CORS respecta.
+@app.middleware("http")
+async def reenviar_token(request: Request, call_next):
+    autorizacion = request.headers.get("authorization", "")
+    token = autorizacion.removeprefix("Bearer ").strip() if autorizacion.lower().startswith("bearer ") else None
+    marca = token_saliente.set(token)
+    try:
+        return await call_next(request)
+    finally:
+        token_saliente.reset(marca)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

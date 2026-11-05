@@ -40,6 +40,36 @@ class OnboardingViewModelTest {
         assertNull(state.effect)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenConsentAlreadyGranted_whenContinuar_thenTheStoredChoiceIsSent() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var sent: Boolean? = null
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ -> true },
+                registerRemote = { _, granted ->
+                    sent = granted
+                    true
+                },
+                priorHabeasData = true,
+            )
+            fill(remote, includeHabeas = false)
+            remote.attachPhoto(byteArrayOf(1))
+
+            assertFalse(remote.state.value.showDataTreatment)
+            assertTrue(remote.state.value.habeasData)
+            assertTrue(remote.state.value.continuarEnabled)
+            remote.onHabeasData(false)
+            assertTrue(remote.state.value.habeasData)
+            remote.continuar()
+            assertEquals(true, sent)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test
     fun givenEveryFieldAndPhoto_whenHabeasDataIsOff_thenContinuarStaysDisabled() {
         viewModel.onGivenName("Camila")
@@ -390,7 +420,7 @@ class OnboardingViewModelTest {
         fill(viewModel)
     }
 
-    private fun fill(target: OnboardingViewModel) {
+    private fun fill(target: OnboardingViewModel, includeHabeas: Boolean = true) {
         target.onGivenName("Camila")
         target.onSurnames("Restrepo")
         target.onEmail("camila@correo.com")
@@ -398,7 +428,7 @@ class OnboardingViewModelTest {
         target.onDocumentNumber("1023456789")
         target.onPassword("secret12")
         target.onPasswordConfirm("secret12")
-        target.onHabeasData(true)
+        if (includeHabeas) target.onHabeasData(true)
     }
 }
 

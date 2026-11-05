@@ -177,17 +177,47 @@ def test_siniestros_abiertos_sin_siniestros_devuelve_cero(client):
     assert respuesta.json() == {"abiertos": 0, "siniestros": []}
 
 
-def test_registrar_aviso_es_idempotente_por_usuario_y_poliza(client):
-    cuerpo = {"usuario_id": str(uuid4()), "poliza": "POL-1"}
+def _cliente(uid: str) -> dict:
+    from datetime import datetime, timedelta, timezone
 
-    primero = client.post("/v1/siniestros", json=cuerpo)
-    segundo = client.post("/v1/siniestros", json=cuerpo)
+    import jwt
+
+    token = jwt.encode(
+        {
+            "sub": "cliente@correo.com",
+            "uid": uid,
+            "rol": "cliente",
+            "typ": "access",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_registrar_aviso_repite_la_clave_y_permite_otro_aviso(client):
+    usuario_id = str(uuid4())
+    poliza_id = str(uuid4())
+    cuerpo = {"usuario_id": usuario_id, "poliza": "POL-1", "poliza_id": poliza_id}
+    headers = {**_cliente(usuario_id), "Idempotency-Key": "aviso-001-clave"}
+
+    primero = client.post("/v1/siniestros", json=cuerpo, headers=headers)
+    segundo = client.post("/v1/siniestros", json=cuerpo, headers=headers)
+    otro = client.post(
+        "/v1/siniestros",
+        json=cuerpo,
+        headers={**_cliente(usuario_id), "Idempotency-Key": "aviso-002-clave"},
+    )
 
     assert primero.status_code == 201
-    assert segundo.status_code == 201
+    assert segundo.status_code == 200
     assert segundo.json()["id"] == primero.json()["id"]
-    assert primero.json()["usuario_id"] == cuerpo["usuario_id"]
-    assert primero.json()["estado"] == "recibido"
+    assert primero.json()["poliza_id"] == poliza_id
+    assert otro.status_code == 201
+    assert otro.json()["id"] != primero.json()["id"]
+    abiertos = client.get("/v1/siniestros/abiertos", params={"poliza_id": poliza_id})
+    assert abiertos.json()["abiertos"] == 2
 
 
 def test_siniestros_abiertos_requiere_poliza_id(client):

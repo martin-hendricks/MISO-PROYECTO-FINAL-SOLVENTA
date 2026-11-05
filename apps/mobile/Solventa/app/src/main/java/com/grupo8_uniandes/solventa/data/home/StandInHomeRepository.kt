@@ -46,7 +46,7 @@ class StandInHomeRepository(
                 listOf(
                     ClaimCandidate(
                         id = claim.siniestroId,
-                        inProgress = !claim.estado.equals(CLAIM_CLOSED, ignoreCase = true),
+                        inProgress = claim.estado.lowercase() in CLAIMS_OPEN,
                         openedAt = becameCurrentAt,
                     ),
                 )
@@ -59,6 +59,6 @@ class StandInHomeRepository(
         val SAMPLE_AT: Instant = Instant.parse("2026-10-01T00:00:00Z")
         const val IN_FORCE = "oferta_vigente"
         const val POLICY_IN_FORCE = "vigente"
-        const val CLAIM_CLOSED = "pagado"
+        val CLAIMS_OPEN = setOf("recibido", "en_evaluacion", "enrutado")
     }
 }

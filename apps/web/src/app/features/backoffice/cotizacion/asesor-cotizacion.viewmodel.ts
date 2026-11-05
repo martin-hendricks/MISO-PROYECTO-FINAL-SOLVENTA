@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { CotizacionFormViewModel } from '../../cotizacion/cotizacion-form.viewmodel';
 import { Catalogo, Oferta } from '../../cotizacion/cotizacion.gateway';
 import { DatosRiesgo, RAMOS_ASESOR } from '../../cotizacion/ramos';
+import { offerExpired } from '../../cotizacion/oferta-expiration';
 import { Credito } from '../../vida-crediticia/vida-crediticia.gateway';
 
 /** Motorcycle plate as Colombia issues it: three letters, two digits, one letter (ABC12D). */
@@ -57,7 +58,7 @@ export class AsesorCotizacionViewModel {
   /** "Continuar a emisión" needs a firm offer that has not expired. */
   readonly canContinue = computed(() => {
     const oferta = this.form.oferta();
-    return !!oferta && new Date(oferta.venceEn) > this.now();
+    return !!oferta && !offerExpired(oferta.venceEn, this.now());
   });
 
   constructor(

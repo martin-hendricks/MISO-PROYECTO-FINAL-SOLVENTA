@@ -37,6 +37,7 @@ data class OnboardingUiState(
     val awaitingPhoto: Boolean = false,
     val unavailable: Boolean = false,
     val habeasData: Boolean = false,
+    val showDataTreatment: Boolean = true,
     val effect: OnboardingEffect? = null,
 )
 
@@ -45,11 +46,18 @@ class OnboardingViewModel(
     private val region: Region = Region.Colombia,
     private val openRemoteSession: (suspend (String, String) -> Boolean)? = null,
     private val registerRemote: (suspend (AccountDraft, Boolean) -> Boolean)? = null,
+    priorHabeasData: Boolean? = null,
 ) : ViewModel() {
     private var photo: ByteArray? = null
     private var submitting = false
     private val _state = MutableStateFlow(
-        OnboardingUiState(documentTypeOptions = documentTypes(region)),
+        present(
+            OnboardingUiState(
+                documentTypeOptions = documentTypes(region),
+                habeasData = priorHabeasData == true,
+                showDataTreatment = priorHabeasData == null,
+            ),
+        ),
     )
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
@@ -77,7 +85,10 @@ class OnboardingViewModel(
         edit { it }
     }
 
-    fun onHabeasData(value: Boolean) = edit { it.copy(habeasData = value) }
+    fun onHabeasData(value: Boolean) {
+        if (!_state.value.showDataTreatment) return
+        edit { it.copy(habeasData = value) }
+    }
 
     fun continuar() {
         val current = _state.value

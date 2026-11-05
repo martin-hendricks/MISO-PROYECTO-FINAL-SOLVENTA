@@ -1,11 +1,12 @@
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from ..clients.nucleo import DETALLE_INCOMPLETA
+from ..clients.nucleo import DETALLE_INCOMPLETA, token_saliente
 from ..dependencies import require_customer
 from ..ramos import SIN_CLASIFICAR, presentar, producto_de
 
@@ -439,11 +440,25 @@ def _siniestro_movil(fila: dict) -> dict:
 
 
 @router.post("/siniestros")
-def avisar(body: Aviso, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+def avisar(
+    body: Aviso,
+    request: Request,
+    usuario: dict = Depends(require_customer),
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> dict:
     if not es_v1(request):
         return {"siniestroId": "SIN-441", "estado": "recibido"}
+    if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
+        raise HTTPException(status_code=422, detail="Idempotency-Key requerida")
+    uid = _contexto(usuario)["usuario_id"]
+    poliza = request.app.state.nucleo.obtener_por_numero(body.poliza, usuario_id=uid)
+    if _ajeno(poliza, uid):
+        raise HTTPException(status_code=404, detail="No existe")
+    poliza_id = str(poliza.get("poliza_id") or poliza.get("id") or "")
+    if not poliza_id:
+        raise HTTPException(status_code=404, detail="No existe")
     creado = request.app.state.nucleo.crear_siniestro(
-        usuario_id=_contexto(usuario)["usuario_id"], poliza=body.poliza
+        usuario_id=uid, poliza=body.poliza, poliza_id=poliza_id, idempotency_key=idempotency_key
     )
     creado = _exigir(creado, "id", "estado")
     return {"siniestroId": str(creado["id"]), "estado": creado["estado"]}
@@ -549,10 +564,26 @@ def inicio(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
         return cuerpo
     nucleo = request.app.state.nucleo
-    pendientes = _cotizaciones_pendientes(nucleo, usuario)
+    token = token_saliente.get()
+
+    def _leer(funcion):
+        token_saliente.set(token)
+        try:
+            return funcion()
+        except HTTPException:
+            return None
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        pendientes_fut = pool.submit(_leer, lambda: _cotizaciones_pendientes(nucleo, usuario))
+        polizas_fut = pool.submit(_leer, lambda: _polizas_proyectadas(nucleo, usuario))
+        siniestros_fut = pool.submit(
+            _leer, lambda: nucleo.listar_siniestros(usuario_id=_contexto(usuario)["usuario_id"])
+        )
+        pendientes = pendientes_fut.result() or []
+        filas = polizas_fut.result() or []
+        siniestros = siniestros_fut.result() or []
     cuerpo["cotizacionesPendientes"] = pendientes
     cuerpo["ofertaVigente"] = pendientes[0] if pendientes else None
-    filas = _polizas_proyectadas(nucleo, usuario)
     if not filas:
         cuerpo["poliza"] = None
     else:
@@ -562,10 +593,6 @@ def inicio(request: Request, usuario: dict = Depends(require_customer)) -> dict:
             "ramo": primera["ramo"],
             "estado": primera["estado"],
         }
-    try:
-        siniestros = nucleo.listar_siniestros(usuario_id=_contexto(usuario)["usuario_id"])
-    except HTTPException:
-        siniestros = []
     if isinstance(siniestros, list) and siniestros:
         primero = _exigir(siniestros[0], "id", "estado")
         cuerpo["siniestroEnCurso"] = {"siniestroId": str(primero["id"]), "estado": primero["estado"]}

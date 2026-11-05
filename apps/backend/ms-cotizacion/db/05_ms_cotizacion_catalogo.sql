@@ -3,7 +3,6 @@ CREATE TABLE ms_cotizacion.producto (
     codigo       TEXT NOT NULL,
     nombre       TEXT NOT NULL,
     ramo         TEXT NOT NULL,
-    descripcion  TEXT NOT NULL DEFAULT '',
     moneda       TEXT NOT NULL CHECK (moneda ~ '^[A-Z]{3}$'),
     CONSTRAINT uq_producto_codigo UNIQUE (codigo)
 );
@@ -23,16 +22,14 @@ CREATE TABLE ms_cotizacion.dato_riesgo_producto (
     dato_riesgo_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     producto_id    UUID          NOT NULL REFERENCES ms_cotizacion.producto(producto_id),
     nombre         TEXT          NOT NULL,
-    tipo           TEXT          NOT NULL CHECK (tipo IN ('rango', 'valores', 'texto', 'booleano')),
+    tipo           TEXT          NOT NULL CHECK (tipo IN ('rango', 'valores')),
     minimo         NUMERIC(14,2),
     maximo         NUMERIC(14,2),
     valores        TEXT[],
-    orden          SMALLINT      NOT NULL DEFAULT 0,
     CONSTRAINT uq_dato_riesgo_producto_nombre UNIQUE (producto_id, nombre),
     CONSTRAINT ck_dato_riesgo_forma CHECK (
         (tipo = 'rango' AND minimo IS NOT NULL AND maximo IS NOT NULL AND minimo <= maximo AND valores IS NULL)
         OR (tipo = 'valores' AND valores IS NOT NULL AND cardinality(valores) > 0 AND minimo IS NULL AND maximo IS NULL)
-        OR (tipo IN ('texto', 'booleano') AND minimo IS NULL AND maximo IS NULL AND valores IS NULL)
     )
 );
 

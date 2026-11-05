@@ -1,9 +1,21 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
-from .clients.nucleo import ClienteNucleo
+from .clients.nucleo import ClienteNucleo, token_saliente
 from .routers import cliente, registro, sesion
 
 app = FastAPI(title="bff-movil")
+
+
+@app.middleware("http")
+async def reenviar_token(request: Request, call_next):
+    autorizacion = request.headers.get("authorization", "")
+    token = autorizacion.removeprefix("Bearer ").strip() if autorizacion.lower().startswith("bearer ") else None
+    marca = token_saliente.set(token)
+    try:
+        return await call_next(request)
+    finally:
+        token_saliente.reset(marca)
+
 app.state.nucleo = ClienteNucleo()
 app.include_router(sesion.router)
 app.include_router(registro.router)

@@ -22,52 +22,26 @@ class Refresh(BaseModel):
     refreshToken: str = Field(min_length=1)
 
 
-_DOMINIOS_CORPORATIVOS = ("@solventa.co", "@solventa.com")
-
-
-def _es_cuenta_corporativa(correo: str) -> bool:
-    return correo.lower().endswith(_DOMINIOS_CORPORATIVOS)
-
-
-def _rol_asignado(correo: str) -> str:
-    # Stub hasta que ms-identidad asigne el rol de la cuenta corporativa.
-    return "operador" if correo.lower().startswith("operador") else "asesor"
+def _rol_de_identidad(usuario: dict) -> str:
+    rol = str(usuario.get("rol") or "cliente")
+    return rol if rol in ROLES else "cliente"
 
 
 @router.post("/ingreso")
 async def ingreso(body: Ingreso, cliente_identidad: ClienteIdentidad) -> dict:
-    corporativa = _es_cuenta_corporativa(body.correo)
-    rol = body.rol if body.rol is not None else (_rol_asignado(body.correo) if corporativa else "cliente")
-    if rol not in ROLES:
+    if body.rol is not None and body.rol not in ROLES:
         raise HTTPException(status_code=400, detail="Rol no permitido")
-
-    # El canal (/login vs /cms/login) pide un rol explicito segun a cual
-    # portal pertenece -- cliente para el canal cliente, asesor/operador
-    # para el back-office. ms-identidad no conoce roles todavia (ninguna
-    # cuenta tiene rol propio persistido, ver comentario de _rol_asignado),
-    # asi que esta es la unica barrera real contra que una cuenta
-    # corporativa entre como cliente (o un cliente entre al back-office
-    # pidiendo rol=asesor): se exige que lo pedido sea consistente con el
-    # dominio del correo. Sin esto, cualquiera que entrara por /login con
-    # una cuenta de asesor/operador quedaba autenticado como "cliente" sin
-    # que nada lo rechazara -- la identidad era real, pero el rol no tenia
-    # ninguna relacion con la cuenta.
-    si_cliente_pedido_es_corporativa = rol == "cliente" and corporativa
-    si_corporativo_pedido_no_es_corporativa = rol != "cliente" and not corporativa
-    if si_cliente_pedido_es_corporativa or si_corporativo_pedido_no_es_corporativa:
-        raise HTTPException(status_code=401, detail="Credenciales invalidas")
-
-    # ms-identidad confirma identidad (correo/contrasena); el rol sigue
-    # siendo un concepto de aplicacion que ms-identidad no conoce. Si
-    # ms-identidad rechaza (correo inexistente o contrasena incorrecta),
-    # responde 401 igual que el stub anterior.
     try:
         usuario = await cliente_identidad.autenticar(email=body.correo, password=body.contrasena)
     except RechazoDelNucleo as exc:
+        if exc.status == 403:
+            raise HTTPException(status_code=403, detail=exc.mensaje) from exc
         raise HTTPException(status_code=401, detail="Credenciales invalidas") from exc
     if usuario.get("estado") != "ACTIVO" or not usuario.get("usuario_id") or not usuario.get("email"):
         raise HTTPException(status_code=401, detail="Credenciales invalidas")
-
+    rol = _rol_de_identidad(usuario)
+    if body.rol is not None and body.rol != rol:
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
     return issue_pair(usuario["email"], rol, str(usuario["usuario_id"]))
 
 

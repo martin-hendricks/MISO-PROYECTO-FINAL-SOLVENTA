@@ -51,6 +51,7 @@ class Usuario:
     estado: EstadoUsuario
     nombre: str = ""
     apellidos: str = ""
+    rol: str = "cliente"
 
     @classmethod
     def crear(
@@ -72,6 +73,7 @@ class Usuario:
             estado=EstadoUsuario.ACTIVO,
             nombre=nombre.strip(),
             apellidos=apellidos.strip(),
+            rol="cliente",
         )
 
     def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:

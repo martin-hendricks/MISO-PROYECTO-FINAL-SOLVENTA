@@ -17,7 +17,7 @@ export interface Client {
 }
 
 export interface Home {
-  ofertaVigente: { cotizacionId: string; ramo: string; estado: string } | null;
+  ofertaVigente: { cotizacionId: string; ramo: string; estado: string; venceEn: string } | null;
   poliza: { numero: string; ramo: string; estado: string } | null;
   siniestroEnCurso: { siniestroId: string; estado: string } | null;
   hipotecario: { estado: string } | null;
@@ -79,6 +79,7 @@ export function fullHome(): Home {
       cotizacionId: `COT-${faker.string.numeric(4)}`,
       ramo,
       estado: 'oferta_vigente',
+      venceEn: '2999-06-01T12:00:00Z',
     },
     poliza: { numero: `POL-${faker.string.numeric(5)}-CO`, ramo, estado: 'vigente' },
     siniestroEnCurso: { siniestroId: `SIN-${faker.string.numeric(3)}`, estado: 'en_evaluacion' },

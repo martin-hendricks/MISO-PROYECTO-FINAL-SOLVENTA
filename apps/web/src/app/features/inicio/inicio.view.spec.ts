@@ -47,7 +47,7 @@ describe('InicioView', () => {
       'Paso 2 de 4 · Cotización lista: acéptala para emitir',
     );
     expect(element('inicio-offer')?.textContent).toContain('Protección de dispositivo');
-    expect(element('inicio-offer')?.textContent).toContain('12 meses');
+    expect(element('inicio-offer')?.textContent).toContain('2999');
     expect(element('inicio-accept')?.textContent).toContain('Aceptar y emitir');
     expect(element('inicio-accept')?.getAttribute('href')).toBe('/emision?cotizacion=COT-1042');
     expect(element('inicio-offer-detail')?.textContent).toContain('Ver detalle');

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any
 
 import httpx
+
+token_saliente: ContextVar[str | None] = ContextVar("token_saliente", default=None)
 
 
 class ServicioNoDisponible(Exception):
@@ -49,7 +52,7 @@ class ClienteServicio:
                 ruta,
                 json=json,
                 params=params,
-                headers={**self._cabeceras, **(cabeceras or {})},
+                headers={**self._cabeceras, **_autorizacion(), **(cabeceras or {})},
                 timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
             )
         except httpx.HTTPError as exc:
@@ -57,7 +60,7 @@ class ClienteServicio:
 
         if respuesta.status_code == 404:
             raise RecursoNoEncontrado(ruta)
-        if respuesta.status_code in (401, 409, 422):
+        if respuesta.status_code in (401, 403, 409, 422):
             cuerpo = _json_o_vacio(respuesta)
             raise RechazoDelNucleo(
                 respuesta.status_code,
@@ -67,6 +70,11 @@ class ClienteServicio:
         if respuesta.status_code >= 400:
             raise ServicioNoDisponible(self.nombre)
         return respuesta
+
+
+def _autorizacion() -> dict[str, str]:
+    token = token_saliente.get()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 
 def _json_o_vacio(respuesta: httpx.Response) -> dict:

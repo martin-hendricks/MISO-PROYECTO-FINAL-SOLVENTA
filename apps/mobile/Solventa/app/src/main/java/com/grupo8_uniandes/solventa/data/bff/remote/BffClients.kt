@@ -103,26 +103,34 @@ private class RefreshAuthenticator(
             tokens.clear()
             return null
         }
-        val current = tokens.read() ?: return null
-        val refreshed = synchronized(this) {
-            runBlocking {
+        return synchronized(this) {
+            val current = tokens.read() ?: return null
+            val presented = response.request.header("Authorization")?.removePrefix("Bearer ")
+            val latest = current.accessToken
+            if (presented != null && presented != latest) {
+                return response.request.newBuilder()
+                    .header("Authorization", "Bearer $latest")
+                    .header(RETRY, "1")
+                    .build()
+            }
+            val refreshed = runBlocking {
                 try {
                     refreshApi.refreshCall(RefreshInDto(current.refreshToken)).execute()
                 } catch (_: IOException) {
                     null
                 }
             }
+            val body = refreshed?.body()
+            if (refreshed == null || !refreshed.isSuccessful || body == null) {
+                tokens.clear()
+                return null
+            }
+            tokens.save(body.toTokens())
+            response.request.newBuilder()
+                .header("Authorization", "Bearer ${body.accessToken}")
+                .header(RETRY, "1")
+                .build()
         }
-        val body = refreshed?.body()
-        if (refreshed == null || !refreshed.isSuccessful || body == null) {
-            tokens.clear()
-            return null
-        }
-        tokens.save(body.toTokens())
-        return response.request.newBuilder()
-            .header("Authorization", "Bearer ${body.accessToken}")
-            .header(RETRY, "1")
-            .build()
     }
 
     private companion object {

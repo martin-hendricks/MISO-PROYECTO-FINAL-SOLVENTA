@@ -32,6 +32,7 @@ class UsuarioSalida(BaseModel):
     estado: str
     nombre: str = ""
     apellidos: str = ""
+    rol: str = "cliente"
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -43,6 +44,7 @@ class UsuarioSalida(BaseModel):
             estado=usuario.estado.value,
             nombre=usuario.nombre,
             apellidos=usuario.apellidos,
+            rol=usuario.rol,
         )
 
 

@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
@@ -20,6 +20,7 @@ from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 from app.ports.suscripcion import MotorSuscripcion
+from app.seguridad import LlamanteDep, alcance
 
 from .schemas_cotizaciones import (
     AceptacionSalida,
@@ -50,14 +51,16 @@ async def solicitar_cotizacion(
     adaptador_riesgo: AdaptadorRiesgo,
     config: Config,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+    llamante: LlamanteDep,
 ):
+    usuario_id = alcance(llamante, entrada.usuario_id)
     resultado = await casos_uso.cotizar(
         uow,
         catalogo,
         adaptador_riesgo,
         config,
         idempotency_key,
-        entrada.usuario_id,
+        usuario_id,
         entrada.socio_id,
         entrada.consentimiento_id,
         entrada.producto,
@@ -81,6 +84,7 @@ def _estados(valor: str) -> frozenset[EstadoSolicitud]:
 @router.get("", response_model=PaginaCotizacionesAsesorSalida, responses={422: {"model": ErrorSalida}})
 async def listar_cotizaciones_asesor(
     uow: Uow,
+    llamante: LlamanteDep,
     asesor_id: UUID,
     estados: str = "cotizada,aceptada",
     incluir_vencidas: bool = False,
@@ -89,6 +93,8 @@ async def listar_cotizaciones_asesor(
 ):
     """HU-163: cotizaciones que creó el asesor desde el back-office. Las creadas sin
     asesor_id (canal socio o anteriores a HU-163) nunca se listan."""
+    if llamante.rol == "cliente":
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
     resultado = await casos_uso.listar_cotizaciones_asesor(
         uow, asesor_id, _estados(estados), incluir_vencidas, pagina, tamano
     )
@@ -103,17 +109,20 @@ async def listar_cotizaciones_asesor(
 async def listar_cotizaciones_usuario(
     usuario_id: UUID,
     uow: Uow,
+    llamante: LlamanteDep,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamano: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     """Cotizaciones del usuario que siguen en estado cotizada y con oferta vigente."""
-    resultado = await casos_uso.listar_cotizaciones_usuario(uow, usuario_id, pagina, tamano)
+    resultado = await casos_uso.listar_cotizaciones_usuario(uow, alcance(llamante, usuario_id), pagina, tamano)
     return PaginaCotizacionesSalida.desde(resultado)
 
 
 @router.get("/{cotizacion_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}})
-async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow, usuario_id: UUID | None = None):
-    resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id, usuario_id)
+async def reconsultar_oferta(
+    cotizacion_id: UUID, uow: Uow, llamante: LlamanteDep, usuario_id: UUID | None = None
+):
+    resultado = await casos_uso.reconsultar_oferta(uow, cotizacion_id, alcance(llamante, usuario_id))
     return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
 
 
@@ -124,12 +133,13 @@ async def reconsultar_oferta(cotizacion_id: UUID, uow: Uow, usuario_id: UUID | N
 @router.get(
     "/por-oferta/{oferta_id}", response_model=CotizacionSalida, responses={404: {"model": ErrorSalida}}
 )
-async def reconsultar_oferta_por_id(oferta_id: UUID, uow: Uow):
+async def reconsultar_oferta_por_id(oferta_id: UUID, uow: Uow, llamante: LlamanteDep):
     """Resuelve el producto real de una oferta ya aceptada/emitida a partir
     de su oferta_id -- lo único que ms-polizas guarda de la cotización
     original (no guarda cotizacion_id). Usado por bff-web en billetera()/
     detalle() para no mostrar un placeholder de ramo."""
-    resultado = await casos_uso.reconsultar_oferta_por_id(uow, oferta_id)
+    dueno = llamante.uid if llamante.rol == "cliente" else None
+    resultado = await casos_uso.reconsultar_oferta_por_id(uow, oferta_id, dueno)
     return CotizacionSalida.desde_consulta(resultado.solicitud, resultado.consulta)
 
 
@@ -147,6 +157,7 @@ async def aceptar_oferta(
     suscripciones: Suscripciones,
     consentimientos: Consentimientos,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+    llamante: LlamanteDep,
     usuario_id: UUID | None = None,
 ):
     resultado = await casos_uso.aceptar_oferta(
@@ -157,7 +168,7 @@ async def aceptar_oferta(
         idempotency_key,
         entrada.perfil_id,
         entrada.score,
-        usuario_id,
+        alcance(llamante, usuario_id),
     )
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { Motivo, ResultadoEmision } from './emision.gateway';
 import { EMITIDA, MOTIVO, RECHAZADA } from './emision.testing';
@@ -41,6 +42,21 @@ describe('EmisionViewModel', () => {
     expect(viewModel.status()).toBe('rejected');
     expect(viewModel.poliza()).toBeNull();
     expect(reasons).toEqual([MOTIVO]);
+  });
+
+  it('maps a race-time expired offer to a new quotation', () => {
+    const viewModel = new EmisionViewModel(
+      () =>
+        throwError(
+          () => new HttpErrorResponse({ status: 409, error: { codigo: 'oferta_vencida' } }),
+        ),
+      () => undefined,
+    );
+
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('expired');
+    expect(viewModel.poliza()).toBeNull();
   });
 
   it('recovers on retry after a failure', () => {
