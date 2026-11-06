@@ -55,6 +55,10 @@ export class VidaCrediticiaViewModel {
   private readonly rechazoState = signal<RechazoCotizacion | null>(null);
   readonly rechazo = this.rechazoState.asReadonly();
 
+  private readonly bloqueadoState = signal(false);
+  /** The mortgage came from the origination: the customer reviews it, but cannot change it. */
+  readonly bloqueado = this.bloqueadoState.asReadonly();
+
   private readonly etapaState = signal(0);
   private avance: Subscription | null = null;
 
@@ -98,6 +102,7 @@ export class VidaCrediticiaViewModel {
   /** Fills the mortgage data the customer or the partner already entered. */
   prefill(credito: Credito): void {
     this.valoresState.set({ valor: String(credito.valor), plazoMeses: String(credito.plazoMeses) });
+    this.bloqueadoState.set(true);
   }
 
   valor(clave: string): string {
@@ -120,6 +125,9 @@ export class VidaCrediticiaViewModel {
 
   /** Editing the mortgage data drops a rejection about the previous values. */
   edit(clave: string, value: string): void {
+    if (this.bloqueadoState()) {
+      return;
+    }
     this.valoresState.update((valores) => ({ ...valores, [clave]: value }));
     if (this.statusState() === 'rejected' || this.statusState() === 'error') {
       this.rechazoState.set(null);

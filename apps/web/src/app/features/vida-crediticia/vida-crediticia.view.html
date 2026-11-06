@@ -98,6 +98,8 @@
               [id]="fieldId"
               [attr.data-testid]="'vida-' + clave"
               [value]="vm.valor(clave)"
+              [readOnly]="vm.bloqueado()"
+              [attr.aria-readonly]="vm.bloqueado() ? 'true' : null"
               [attr.aria-invalid]="issue ? 'true' : null"
               [attr.aria-describedby]="fieldId + '-hint'"
               (input)="vm.edit(clave, field.value)"

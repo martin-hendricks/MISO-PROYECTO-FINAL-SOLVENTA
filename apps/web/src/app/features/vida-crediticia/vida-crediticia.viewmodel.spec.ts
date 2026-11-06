@@ -76,4 +76,13 @@ describe('VidaCrediticiaViewModel', () => {
 
     expect(vm.status()).toBe('consent');
   });
+
+  it('ignores edits to a prefilled mortgage', () => {
+    const vm = listo(() => of(OFERTA), 0);
+
+    vm.edit('valor', '1');
+
+    expect(vm.bloqueado()).toBeTrue();
+    expect(vm.valor('valor')).toBe('180000000');
+  });
 });

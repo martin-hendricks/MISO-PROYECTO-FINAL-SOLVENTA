@@ -203,12 +203,37 @@ describe('VidaCrediticiaView', () => {
     expect(element<HTMLButtonElement>('vida-autorizar')!.disabled).toBeFalse();
   });
 
+  it('does not let the customer change a pending mortgage', () => {
+    const { http, element, type, catalogo, autorizar } = render({
+      originacion: { valor: 250000000, plazoMeses: 300 },
+    });
+    catalogo();
+
+    expect(element<HTMLInputElement>('vida-valor')!.readOnly).toBeTrue();
+    expect(element<HTMLInputElement>('vida-plazoMeses')!.readOnly).toBeTrue();
+    type('vida-plazoMeses', '120');
+    autorizar();
+
+    expect(http.expectOne(URL).request.body).toEqual({
+      credito: { valor: 250000000, plazoMeses: 300 },
+      consentimientoPerfil: true,
+    });
+  });
+
+  it('keeps the mortgage editable when nothing is pending', () => {
+    const { element, catalogo } = render();
+    catalogo();
+
+    expect(element<HTMLInputElement>('vida-valor')!.readOnly).toBeFalse();
+  });
+
   it('fills the mortgage sent by Nueva cotización without asking the core again', () => {
     const { http, element, catalogo } = render({ query: { valor: '180000000', plazoMeses: '240' } });
     catalogo();
 
     expect(element<HTMLInputElement>('vida-valor')!.value).toBe('180000000');
     expect(element<HTMLInputElement>('vida-plazoMeses')!.value).toBe('240');
+    expect(element<HTMLInputElement>('vida-valor')!.readOnly).toBeTrue();
     http.expectNone(ORIGINACION_URL);
   });
 

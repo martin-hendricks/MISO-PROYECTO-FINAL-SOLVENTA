@@ -17,8 +17,10 @@ export class VidaCrediticiaPage {
   }
 
   async authorize(valor = '180000000', plazoMeses = '240'): Promise<void> {
-    await this.page.getByTestId('vida-valor').fill(valor);
-    await this.page.getByTestId('vida-plazoMeses').fill(plazoMeses);
+    if (await this.page.getByTestId('vida-valor').isEditable()) {
+      await this.page.getByTestId('vida-valor').fill(valor);
+      await this.page.getByTestId('vida-plazoMeses').fill(plazoMeses);
+    }
     await this.page.getByTestId('vida-autorizar').click();
     await this.page.getByTestId('vida-factores').waitFor({ state: 'visible' });
   }
