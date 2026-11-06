@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.shell
 
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -29,6 +30,7 @@ class ConsentimientoRevocadoScreenTest {
                 ConsentimientoRevocadoScreen(
                     onNewQuote = { newQuote += 1 },
                     onHome = { home += 1 },
+                    modifier = Modifier,
                 )
             }
         }
