@@ -1,12 +1,1167 @@
 {
   "info": {
     "name": "Solventa",
-    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue validado contra el cluster real (solventa-minimo-eks) antes de agregarse aquí -- ver infra/k8s/README.md para el contexto de despliegue.\n\nCada carpeta (api-socios, ms-cotizacion) usa su propia variable de base URL (baseUrlApiSocios, baseUrlMsCotizacion), resuelta distinto según el environment activo:\n\n- **Solventa - API Gateway** (recomendado): ambas variables apuntan al mismo endpoint público del API Gateway (terraform output api_gateway_endpoint) -- el path distingue el servicio. Prueba la cadena real: API Gateway -> VPC Link -> ALB (infra/terraform/modules/alb, TargetGroupBinding en infra/k8s/platform/) -> pods. No requiere kubectl ni VPN.\n- **Solventa - cluster interno**: cada variable apunta a un puerto local distinto vía `kubectl port-forward` (dos port-forwards separados, sin dominio compartido), para depurar un servicio directo sin pasar por el API Gateway/ALB.",
+    "description": "Colección de pruebas manuales contra los microservicios desplegados en EKS. Cada endpoint fue construido a partir de un inventario verificado contra el código real de cada servicio -- ver infra/k8s/README.md para el contexto de despliegue.\n\nCada carpeta usa su propia variable de base URL (baseUrl<Servicio>), resuelta distinto según el environment activo:\n\n- **Solventa - API Gateway** (recomendado para api-socios, bff-web, bff-movil): esas tres variables apuntan al mismo endpoint público del API Gateway (terraform output api_gateway_endpoint) -- el path distingue el servicio. Prueba la cadena real: API Gateway -> VPC Link -> ALB (infra/terraform/modules/alb, TargetGroupBinding en infra/k8s/platform/) -> pods. No requiere kubectl ni VPN.\n- **Solventa - cluster interno**: cada variable apunta a un puerto local distinto vía `kubectl port-forward`, para depurar un servicio directo sin pasar por el API Gateway/ALB. Es el ÚNICO environment que sirve para los ms-* internos (ms-cotizacion, ms-identidad, ms-pagos, ms-perfilamiento, ms-polizas, ms-siniestros, ms-suscripcion): ninguno tiene Listener Rule propia en el ALB (infra/terraform/environments/minimo/variables.tf, var.alb_routes) -- a propósito, para que el canal web/móvil solo entre por los BFF y nunca salte directo al núcleo.\n\nbff-movil es un caso particular: su pod registra cada router tres veces (sin prefijo, con /v1, y con /bff-movil/v1), pero solo /bff-movil/v1/* ejecuta la lógica real contra el núcleo -- las otras dos variantes devuelven datos stub o 404 según el path. Todas las requests de esta colección usan el path completo /bff-movil/v1/... literal, lo que funciona igual contra el ALB real (único prefijo que enruta) y contra el pod vía port-forward (mismo registro triple expone ese prefijo también)."
+    ,
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
+      "name": "bff-web",
+      "description": "BFF del canal web (cliente, asesor, operador). Único punto de entrada real del canal web -- nunca saltar directo a ms-cotizacion/ms-polizas/etc. JWT propio (HS256, SOLVENTA_TOKEN_SECRET), expira a los 15 min (EXPIRA_EN=900 en app/dependencies.py). require_roles(*roles) exige un rol exacto por endpoint: cliente, asesor u operador.",
+      "item": [
+        {
+          "name": "Sesión y registro",
+          "item": [
+            {
+              "name": "Ingreso cliente",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"correo\": \"{{correoCliente}}\",\n  \"contrasena\": \"{{contrasenaCliente}}\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/sesion/ingreso",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "sesion", "ingreso"]
+                },
+                "description": "Login real contra ms-identidad. El rol que devuelve el token lo decide el usuario registrado, no el body -- 'rol' en el body es opcional y solo aplica si ms-identidad distingue login por rol. Guarda accessTokenCliente/refreshTokenCliente para las requests de /v1/cliente/*."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('trae accessToken', () => pm.expect(body.accessToken).to.be.a('string'));",
+                "pm.collectionVariables.set('accessTokenCliente', body.accessToken);",
+                "pm.collectionVariables.set('refreshTokenCliente', body.refreshToken);"
+              ]}}]
+            },
+            {
+              "name": "Ingreso asesor",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"correo\": \"{{correoAsesor}}\",\n  \"contrasena\": \"{{contrasenaAsesor}}\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/sesion/ingreso",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "sesion", "ingreso"]
+                },
+                "description": "El usuario correoAsesor debe existir en ms-identidad con rol asesor -- el token que emite bff-web refleja el rol real del usuario autenticado, no se puede elegir libremente desde esta request."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.collectionVariables.set('accessTokenAsesor', body.accessToken);",
+                "pm.collectionVariables.set('refreshTokenAsesor', body.refreshToken);"
+              ]}}]
+            },
+            {
+              "name": "Ingreso operador",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"correo\": \"{{correoOperador}}\",\n  \"contrasena\": \"{{contrasenaOperador}}\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/sesion/ingreso",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "sesion", "ingreso"]
+                },
+                "description": "El usuario correoOperador debe existir en ms-identidad con rol operador."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.collectionVariables.set('accessTokenOperador', body.accessToken);",
+                "pm.collectionVariables.set('refreshTokenOperador', body.refreshToken);"
+              ]}}]
+            },
+            {
+              "name": "Refrescar sesión cliente",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refreshToken\": \"{{refreshTokenCliente}}\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/sesion/refresh",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "sesion", "refresh"]
+                },
+                "description": "El accessToken expira a los 15 min. Si una request autenticada da 401 'Token invalido' con un token que antes funcionaba, correr esta request primero para renovarlo -- no hay refresh automático en el frontend hoy (auth.interceptor.ts solo adjunta el token guardado, nunca lo renueva)."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.collectionVariables.set('accessTokenCliente', body.accessToken);",
+                "pm.collectionVariables.set('refreshTokenCliente', body.refreshToken);"
+              ]}}]
+            },
+            {
+              "name": "Registro cliente",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez\",\n  \"documento\": \"{{$randomInt}}\",\n  \"correo\": \"camila.{{$timestamp}}@solventa.com\",\n  \"contrasena\": \"secreto123\",\n  \"habeasData\": true,\n  \"ingresos_mensuales\": 3500000,\n  \"gastos_mensuales\": 1200000\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/registro",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "registro"]
+                },
+                "description": "Alta de cliente nuevo + sesión inmediata. habeasData debe ser true -- en false responde 422 (no se puede registrar sin aceptar el tratamiento de datos). 409 si el correo/documento ya existe en ms-identidad. ingresos_mensuales debe ser > 0, gastos_mensuales >= 0."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.collectionVariables.set('accessTokenCliente', body.accessToken);",
+                "pm.collectionVariables.set('refreshTokenCliente', body.refreshToken);"
+              ]}}]
+            },
+            {
+              "name": "Salida de sesión",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/sesion/salida",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "sesion", "salida"]
+                },
+                "description": "Sin body. Requiere Bearer de cualquier rol -- el header de ejemplo usa accessTokenCliente, pero funciona igual con accessTokenAsesor/accessTokenOperador."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "pm.test(\"estado aceptada\", () => pm.expect(pm.response.json().estado).to.eql('aceptada'));"
+              ]}}]
+            }
+          ]
+        },
+        {
+          "name": "Cliente",
+          "item": [
+            {
+              "name": "Catálogo por ramo",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/catalogo/{{ramoProducto}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "catalogo", "{{ramoProducto}}"]
+                },
+                "description": "Rol cliente. Mismo catálogo que api-socios, traducido a camelCase."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Solicitar cotización",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ramo\": \"{{ramoProducto}}\",\n  \"datosRiesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  },\n  \"clienteId\": null\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/cotizaciones",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "cotizaciones"]
+                },
+                "description": "Rol cliente. clienteId debe ser null -- el canal cliente resuelve el usuario de su propia sesión, no acepta suplantar a otro (si se manda un valor, 400). datosRiesgo debe calzar con los datoRiesgo del producto del ramo elegido."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                "const body = pm.response.json();",
+                "if (body.cotizacionId) pm.collectionVariables.set('cotizacionIdCliente', body.cotizacionId);"
+              ]}}]
+            },
+            {
+              "name": "Reconsultar cotización",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/cotizaciones/{{cotizacionIdCliente}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "cotizaciones", "{{cotizacionIdCliente}}"]
+                },
+                "description": "Rol cliente. Requiere haber corrido 'Solicitar cotización' antes (llena cotizacionIdCliente)."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Emitir póliza",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cotizacionId\": \"{{cotizacionIdCliente}}\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/polizas",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "polizas"]
+                },
+                "description": "Rol cliente. Body estricto (extra=forbid) -- solo acepta cotizacionId, cualquier campo extra da 422. Orquesta ms-cotizacion (aceptación) -> ms-pagos (cobro) -> ms-polizas (emisión) por debajo. Si la suscripción rechaza, responde 200 con resultado:'RECHAZADA' y motivo (no es un error HTTP). Si cualquier paso técnico falla, responde 503 'servicio_no_disponible' -- ese mensaje puede venir de un microservicio dos niveles más adentro de la dependencia directa (bff-web colapsa cualquier ≥400 de ms-cotizacion en el mismo mensaje genérico), así que ante un 503 real conviene revisar logs de ms-cotizacion/ms-pagos/ms-polizas directamente, no asumir que el problema está en bff-web."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "pm.test('resultado EMITIDA o RECHAZADA', () => pm.expect(['EMITIDA', 'RECHAZADA']).to.include(body.resultado));",
+                "if (body.poliza && body.poliza.numero) pm.collectionVariables.set('numeroPolizaCliente', body.poliza.numero);"
+              ]}}]
+            },
+            {
+              "name": "Billetera de pólizas",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/polizas",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "polizas"]
+                },
+                "description": "Rol cliente. Lista todas las pólizas del cliente de la sesión."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Detalle de póliza",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/polizas/{{numeroPolizaCliente}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "polizas", "{{numeroPolizaCliente}}"]
+                },
+                "description": "Rol cliente. Requiere haber corrido 'Emitir póliza' antes (llena numeroPolizaCliente). Incluye coberturas y el bloque 'queHacer'."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Actualizar preferencia de renovación",
+              "request": {
+                "method": "PATCH",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"renovacionAutomatica\": true\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/polizas/{{numeroPolizaCliente}}/preferencias",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "polizas", "{{numeroPolizaCliente}}", "preferencias"]
+                },
+                "description": "Rol cliente."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Pagos automáticos",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/pagos-automaticos",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "pagos-automaticos"]
+                },
+                "description": "Rol cliente. Stub fijo (devuelve siempre PAYMENT) -- no hay integración real con medio de pago todavía, es solo para que la UI tenga algo que mostrar."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Oferta hipotecaria",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"credito\": {\n    \"valor\": 200000000,\n    \"plazoMeses\": 180\n  },\n  \"consentimientoPerfil\": true\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/oferta-hipotecaria",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "oferta-hipotecaria"]
+                },
+                "description": "Rol cliente. consentimientoPerfil debe ser true para que ms-perfilamiento procese la oferta (ver ms-perfilamiento / POST /v1/consentimientos)."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Inicio (dashboard)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/inicio",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "inicio"]
+                },
+                "description": "Rol cliente. Agrega varias llamadas internas (pólizas, siniestros, etc.) en un solo payload para el home de la app."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Ver perfil",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/perfil",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "perfil"]
+                },
+                "description": "Rol cliente."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Actualizar perfil",
+              "request": {
+                "method": "PATCH",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez Gómez\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/cliente/perfil",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "cliente", "perfil"]
+                },
+                "description": "Rol cliente."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            }
+          ]
+        },
+        {
+          "name": "Asesor",
+          "item": [
+            {
+              "name": "Solicitar cotización (asesor)",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"clienteId\": \"{{$guid}}\",\n  \"ramo\": \"{{ramoProducto}}\",\n  \"datosRiesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/cotizaciones",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "cotizaciones"]
+                },
+                "description": "Rol asesor. A diferencia del canal cliente, clienteId es obligatorio -- el asesor cotiza en nombre de un cliente."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                "const body = pm.response.json();",
+                "if (body.cotizacionId) pm.collectionVariables.set('cotizacionIdAsesor', body.cotizacionId);"
+              ]}}]
+            },
+            {
+              "name": "Cotizaciones pendientes",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/cotizaciones?incluirVencidas=false&pagina=1&tamano=20",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "cotizaciones"],
+                  "query": [
+                    {"key": "incluirVencidas", "value": "false"},
+                    {"key": "pagina", "value": "1"},
+                    {"key": "tamano", "value": "20"}
+                  ]
+                },
+                "description": "Rol asesor. Cotizaciones pendientes del asesor de la sesión actual."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Catálogo por ramo (asesor)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/catalogo/{{ramoProducto}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "catalogo", "{{ramoProducto}}"]
+                },
+                "description": "Rol asesor."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Consultar decisión de emisión",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"cotizacionId\": \"{{cotizacionIdAsesor}}\",\n  \"clienteId\": null\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/emisiones",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "emisiones"]
+                },
+                "description": "Rol asesor. HU-149: evalúa la decisión de suscripción SIN emitir todavía (no cobra, no crea la póliza) -- separa 'ver si calificaría' de 'emitir de verdad'. Guarda solicitudId para firmar/emitir después."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "const body = pm.response.json();",
+                "if (body.solicitudId) pm.collectionVariables.set('solicitudIdAsesor', body.solicitudId);"
+              ]}}]
+            },
+            {
+              "name": "Firmar y emitir póliza (asesor)",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/emisiones/{{solicitudIdAsesor}}/poliza",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "emisiones", "{{solicitudIdAsesor}}", "poliza"]
+                },
+                "description": "Rol asesor. Sin body -- reutiliza la decisión ya evaluada por 'Consultar decisión de emisión'. Mismo flujo real que POST /v1/cliente/polizas (cobra la prima y emite). Igual que esa request, un 503 'servicio_no_disponible' puede venir de ms-cotizacion/ms-pagos/ms-polizas, no necesariamente de bff-web -- revisar logs de esos servicios antes de asumir que el bug está en el BFF."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Cartera (stub)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/cartera",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "cartera"]
+                },
+                "description": "Rol asesor. Stub fijo: KPIs hardcodeados, no hay agregación real todavía."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Clientes (stub, listar)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "clientes"]
+                },
+                "description": "Rol asesor. Stub fijo: lista hardcodeada en memoria, no persiste en ningún microservicio todavía."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Clientes (stub, crear)",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Cliente de prueba\",\n  \"documento\": \"{{$randomInt}}\",\n  \"correo\": \"prospecto.{{$timestamp}}@solventa.com\",\n  \"habeasData\": true,\n  \"estado\": \"activo\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "clientes"]
+                },
+                "description": "Rol asesor. Stub: no persiste en ms-identidad, solo responde con el payload hardcodeado del stub."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));"
+              ]}}]
+            },
+            {
+              "name": "Clientes (stub, cambiar estado)",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"clienteId\": \"{{$guid}}\",\n  \"estado\": \"inactivo\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes/estado",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "asesor", "clientes", "estado"]
+                },
+                "description": "Rol asesor. Stub."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            }
+          ]
+        },
+        {
+          "name": "Operador",
+          "item": [
+            {
+              "name": "Listar avisos de siniestros",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/avisos",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "avisos"]
+                },
+                "description": "Rol operador. A diferencia de los stubs de /v1/asesor/*, esto consulta ms-siniestros real."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Decidir aviso de siniestro",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"siniestroId\": \"{{siniestroIdOperador}}\",\n  \"decision\": \"aprobar\",\n  \"motivo\": null\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/avisos/decision",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "avisos", "decision"]
+                },
+                "description": "Rol operador. motivo es obligatorio cuando decision es 'rechazar' -- con 'aprobar' puede ir null."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Detalle de póliza (operador)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/polizas/{{numeroPolizaCliente}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "polizas", "{{numeroPolizaCliente}}"]
+                },
+                "description": "Rol operador. Detalle completo (prima, renovable, devoluciónEstimada, canceladaPor, etc.) -- más campos que el detalle del canal cliente."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Renovar póliza",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero\": \"{{numeroPolizaCliente}}\",\n  \"polizaId\": null,\n  \"verbo\": \"renovar\",\n  \"motivo\": null,\n  \"coberturas\": null,\n  \"nuevaFinVigencia\": \"2027-01-01\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/polizas/ciclo",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "polizas", "ciclo"]
+                },
+                "description": "Rol operador. SOLV-152: renovar solo funciona si la póliza está vigente o dentro de la ventana de gracia (ver ms-polizas / dominio Poliza.renovar). 409 si no es renovable."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Cancelar póliza",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero\": \"{{numeroPolizaCliente}}\",\n  \"polizaId\": null,\n  \"verbo\": \"cancelar\",\n  \"motivo\": \"Solicitud del cliente\",\n  \"coberturas\": null,\n  \"nuevaFinVigencia\": null\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/polizas/ciclo",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "polizas", "ciclo"]
+                },
+                "description": "Rol operador. SOLV-154: motivo es obligatorio para cancelar. Cancelar es terminal e irreversible -- el detalle de la póliza después queda con canceladaPor, canceladaEn y devolucionEstimada. Consulta siniestros abiertos de forma informativa, pero NO bloquea la cancelación aunque haya siniestros en curso."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Modificar coberturas",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero\": \"{{numeroPolizaCliente}}\",\n  \"polizaId\": null,\n  \"verbo\": \"modificar\",\n  \"motivo\": null,\n  \"coberturas\": [\n    {\n      \"nombre\": \"Responsabilidad civil\",\n      \"suma_asegurada\": 50000000,\n      \"deducible\": 500000\n    }\n  ],\n  \"nuevaFinVigencia\": null\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/polizas/ciclo",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "polizas", "ciclo"]
+                },
+                "description": "Rol operador. coberturas es obligatorio cuando verbo es 'modificar'. Exige vigencia estricta (no aplica la ventana de gracia de renovar)."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Detalle de asistencia (stub)",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/asistencias/{{$guid}}",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "asistencias", "{{$guid}}"]
+                },
+                "description": "Rol operador. Stub fijo."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bff-movil",
+      "description": "BFF del canal app Android. JWT propio, independiente del de bff-web (sin campo 'rol' -- bff-movil es cliente-only). IMPORTANTE: el pod registra cada router tres veces (sin prefijo, con /v1, con /bff-movil/v1); solo /bff-movil/v1/* ejecuta la lógica real y es el único prefijo que el ALB enruta -- todas las requests de esta carpeta usan ese prefijo completo de forma literal, funciona igual en ambos environments.",
+      "item": [
+        {
+          "name": "Ingreso",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"correo\": \"{{correoCliente}}\",\n  \"contrasena\": \"{{contrasenaCliente}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/sesion/ingreso",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "sesion", "ingreso"]
+            },
+            "description": "Login real contra ms-identidad, igual flujo que bff-web pero con su propio JWT (secreto de firma independiente)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('accessTokenBffMovil', body.accessToken);",
+            "pm.collectionVariables.set('refreshTokenBffMovil', body.refreshToken);"
+          ]}}]
+        },
+        {
+          "name": "Refrescar sesión",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshTokenBffMovil}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/sesion/refresh",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "sesion", "refresh"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('accessTokenBffMovil', body.accessToken);",
+            "pm.collectionVariables.set('refreshTokenBffMovil', body.refreshToken);"
+          ]}}]
+        },
+        {
+          "name": "Salida de sesión",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/sesion/salida",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "sesion", "salida"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Registro",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez\",\n  \"documento\": \"{{$randomInt}}\",\n  \"correo\": \"camila.movil.{{$timestamp}}@solventa.com\",\n  \"pruebaDeVida\": \"ok\",\n  \"habeasData\": true,\n  \"contrasena\": \"secreto123\",\n  \"tipoDocumento\": \"CC\",\n  \"ingresos_mensuales\": 3500000,\n  \"gastos_mensuales\": 1200000\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/registro",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "registro"]
+            },
+            "description": "Bajo el prefijo /bff-movil/v1 (el único real), contrasena y tipoDocumento son obligatorios -- 422 si faltan. pruebaDeVida simula la validación biométrica de la app ('ok' o 'no')."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('accessTokenBffMovil', body.accessToken);",
+            "pm.collectionVariables.set('refreshTokenBffMovil', body.refreshToken);"
+          ]}}]
+        },
+        {
+          "name": "Registrar consentimiento",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"habeasData\": false\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/registro/consentimiento",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "registro", "consentimiento"]
+            },
+            "description": "habeasData debe ser false aquí -- es el flujo de revocación/registro posterior del consentimiento, no la aceptación inicial (eso ya pasó en 'Registro'). Con true responde 400."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Solicitar cotización",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ramo\": \"{{ramoProducto}}\",\n  \"datosRiesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  },\n  \"rol\": null\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/cotizaciones",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "cotizaciones"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "if (body.cotizacionId) pm.collectionVariables.set('cotizacionIdBffMovil', body.cotizacionId);"
+          ]}}]
+        },
+        {
+          "name": "Reconsultar cotización",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/cotizaciones/{{cotizacionIdBffMovil}}",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "cotizaciones", "{{cotizacionIdBffMovil}}"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Aceptar cotización",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}", "description": "Obligatoria, 8-128 caracteres."}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/cotizaciones/{{cotizacionIdBffMovil}}/aceptacion",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "cotizaciones", "{{cotizacionIdBffMovil}}", "aceptacion"]
+            },
+            "description": "Body vacío pero con extra=forbid -- cualquier campo no reconocido da 422."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Emitir póliza",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cotizacionId\": \"{{cotizacionIdBffMovil}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/polizas",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "polizas"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "if (body.poliza && body.poliza.numero) pm.collectionVariables.set('numeroPolizaBffMovil', body.poliza.numero);"
+          ]}}]
+        },
+        {
+          "name": "Billetera de pólizas",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/polizas",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "polizas"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Detalle de póliza",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/polizas/{{numeroPolizaBffMovil}}",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "polizas", "{{numeroPolizaBffMovil}}"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Actualizar preferencia de renovación",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"renovacionAutomatica\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/polizas/{{numeroPolizaBffMovil}}/preferencias",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "polizas", "{{numeroPolizaBffMovil}}", "preferencias"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Reportar siniestro",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}", "description": "Obligatoria, 8-128 caracteres."}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poliza\": \"{{numeroPolizaBffMovil}}\",\n  \"fechaHecho\": \"2026-10-01\",\n  \"geo\": {\n    \"lat\": 4.711,\n    \"lng\": -74.0721,\n    \"precisionM\": 15\n  },\n  \"adjuntos\": [\n    {\n      \"tipo\": \"foto\",\n      \"nombre\": \"evidencia-1.jpg\"\n    }\n  ],\n  \"rol\": null\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/siniestros",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "siniestros"]
+            },
+            "description": "geo es opcional (puede ir null); adjuntos es una lista de metadatos, no sube archivos binarios por esta ruta."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "if (body.id) pm.collectionVariables.set('siniestroIdBffMovil', body.id);"
+          ]}}]
+        },
+        {
+          "name": "Listar siniestros",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/siniestros",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "siniestros"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Pagos automáticos (stub)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/pagos-automaticos",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "pagos-automaticos"]
+            },
+            "description": "Stub fijo, igual que su equivalente en bff-web."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Oferta hipotecaria",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credito\": {\n    \"valor\": 200000000,\n    \"plazoMeses\": 180\n  },\n  \"consentimientoPerfil\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/oferta-hipotecaria",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "oferta-hipotecaria"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Avisos (stub)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/avisos",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "avisos"]
+            },
+            "description": "Stub fijo con contenido estático -- confirmado en el código que el router aplica require_customer a nivel de router aunque este endpoint puntual no declare Bearer explícito en su firma; si da 401 sin token, mandar el Authorization igual que las demás requests de esta carpeta."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Inicio (dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/inicio",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "inicio"]
+            },
+            "description": "Agrega varias llamadas internas de forma concurrente (ThreadPoolExecutor) en un solo payload."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Ver perfil",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/perfil",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "perfil"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Actualizar perfil",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez Gómez\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/perfil",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "perfil"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Registrar token de notificaciones push",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"token-push-de-prueba\",\n  \"plataforma\": \"android\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/avisos/token",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "avisos", "token"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Avisos push (stub)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/avisos/push",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "avisos", "push"]
+            },
+            "description": "Stub fijo."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Prestadores (stub)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/prestadores",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "prestadores"]
+            },
+            "description": "Stub fijo: lista de talleres hardcodeada."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Solicitar asistencia",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prestadorId\": \"prestador-1\",\n  \"geo\": {\n    \"lat\": 4.711,\n    \"lng\": -74.0721,\n    \"precisionM\": 15\n  },\n  \"poliza\": \"{{numeroPolizaBffMovil}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/asistencias",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "asistencias"]
+            },
+            "description": "prestadorId es obligatorio -- 400 si falta."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));"
+          ]}}]
+        }
+      ]
+    },
+    {
       "name": "api-socios",
+      "description": "API embebida para socios externos (no es parte del canal web/móvil). Sin autenticación en ningún endpoint. Único ms-* además de los BFF expuesto en el ALB (solo /v1/catalogo).",
       "item": [
         {
           "name": "Health",
@@ -22,7 +1177,7 @@
                 "health"
               ]
             },
-            "description": "Liveness/readiness único (sin distinguir /live y /ready -- ver apps/backend/api-socios/app/observabilidad.py).\n\n⚠️ Solo funciona con el environment 'Solventa - cluster interno'. El ALB (infra/terraform/modules/alb, var.alb_routes) no tiene Listener Rule para /health -- solo para /v1/catalogo, /v1/productos, /v1/cotizaciones -- así que vía 'Solventa - API Gateway' esta request cae en la regla default del ALB (target group genérico vacío) y da 503, no un error claro de ruta inexistente."
+            "description": "Liveness/readiness único (sin distinguir /live y /ready -- ver apps/backend/api-socios/app/observabilidad.py).\n\n⚠️ Solo funciona con el environment 'Solventa - cluster interno'. El ALB (infra/terraform/modules/alb, var.alb_routes) no tiene Listener Rule para /health -- solo para /v1/catalogo -- así que vía 'Solventa - API Gateway' esta request cae en la regla default del ALB (target group genérico vacío) y da 503, no un error claro de ruta inexistente."
           },
           "event": [
             {
@@ -97,6 +1252,7 @@
     },
     {
       "name": "ms-cotizacion",
+      "description": "NO expuesto en el ALB a propósito (ver variables.tf): el canal web/móvil solo debe entrar por bff-web/bff-movil. Solo accesible vía kubectl port-forward (environment 'Solventa - cluster interno'). GET /v1/productos* no requiere auth; el resto exige Bearer JWT con uid+rol -- usa aquí el mismo accessTokenCliente/accessTokenAsesor que ya emitió bff-web (ms-cotizacion valida el mismo secreto de firma que usa el BFF web para este fin).",
       "item": [
         {
           "name": "Health",
@@ -112,7 +1268,7 @@
                 "health"
               ]
             },
-            "description": "⚠️ Solo funciona con el environment 'Solventa - cluster interno'. El ALB (infra/terraform/modules/alb, var.alb_routes) no tiene Listener Rule para /health -- solo para /v1/catalogo, /v1/productos, /v1/cotizaciones -- así que vía 'Solventa - API Gateway' esta request cae en la regla default del ALB (target group genérico vacío) y da 503, no un error claro de ruta inexistente."
+            "description": "⚠️ Solo funciona con el environment 'Solventa - cluster interno'. Ningún ms-* interno tiene Listener Rule en el ALB."
           },
           "event": [
             {
@@ -141,7 +1297,7 @@
                 "productos"
               ]
             },
-            "description": "Datos semilla cargados por la migración apps/backend/ms-cotizacion/db/05_ms_cotizacion_catalogo.sql (ver infra/k8s/platform/run-migrations.sh)."
+            "description": "Datos semilla cargados por la migración apps/backend/ms-cotizacion/db/05_ms_cotizacion_catalogo.sql (ver infra/k8s/platform/run-migrations.sh). Sin auth."
           },
           "event": [
             {
@@ -172,7 +1328,8 @@
                 "productos",
                 "{{productoCodigo}}"
               ]
-            }
+            },
+            "description": "Sin auth. 404 si el producto no existe."
           },
           "event": [
             {
@@ -198,11 +1355,15 @@
                 "key": "Idempotency-Key",
                 "value": "{{$guid}}",
                 "description": "Obligatoria, entre 8 y 128 caracteres. Reenviar la misma clave con el mismo body devuelve la cotización ya creada (200) en vez de duplicarla (201)."
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessTokenCliente}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuario_id\": \"{{$guid}}\",\n  \"socio_id\": \"{{$guid}}\",\n  \"consentimiento_id\": \"{{$guid}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  }\n}",
+              "raw": "{\n  \"usuario_id\": \"{{$guid}}\",\n  \"socio_id\": \"{{$guid}}\",\n  \"consentimiento_id\": \"{{$guid}}\",\n  \"producto\": \"{{productoCodigo}}\",\n  \"canal\": \"app_movil\",\n  \"datos_riesgo\": {\n    \"cilindraje_cc\": 150,\n    \"ciudad_circulacion\": \"bogota\",\n    \"modelo_anio\": 2022\n  },\n  \"asesor_id\": null,\n  \"cliente_ref\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -219,7 +1380,7 @@
                 "cotizaciones"
               ]
             },
-            "description": "datos_riesgo debe calzar con los datoRiesgo del producto (ver 'Listar productos'). Para soat-motocicleta: cilindraje_cc (50-1800), ciudad_circulacion (bogota/medellin/cali/barranquilla/bucaramanga), modelo_anio (2000-2026)."
+            "description": "Requiere Bearer. datos_riesgo debe calzar con los datoRiesgo del producto (ver 'Listar productos'). Para soat-motocicleta: cilindraje_cc (50-1800), ciudad_circulacion (bogota/medellin/cali/barranquilla/bucaramanga), modelo_anio (2000-2026)."
           },
           "event": [
             {
@@ -241,9 +1402,9 @@
           "name": "Reconsultar oferta",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
             "url": {
-              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/{{cotizacionId}}",
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/{{cotizacionId}}?usuario_id={{$guid}}",
               "host": [
                 "{{baseUrlMsCotizacion}}"
               ],
@@ -251,9 +1412,12 @@
                 "v1",
                 "cotizaciones",
                 "{{cotizacionId}}"
+              ],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"}
               ]
             },
-            "description": "Requiere haber corrido 'Solicitar cotización' antes en la misma sesión de Postman (llena {{cotizacionId}} automáticamente)."
+            "description": "Requiere haber corrido 'Solicitar cotización' antes en la misma sesión de Postman (llena {{cotizacionId}} automáticamente). usuario_id debe coincidir con el usado al crear la cotización para que la consulta la encuentre."
           },
           "event": [
             {
@@ -265,18 +1429,726 @@
               }
             }
           ]
+        },
+        {
+          "name": "Cotizaciones por oferta",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/por-oferta/{{ofertaId}}",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones", "por-oferta", "{{ofertaId}}"]
+            },
+            "description": "ofertaId sale de 'Aceptar cotización' (campo oferta_id de AceptacionSalida)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Cotizaciones por usuario",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/por-usuario/{{$guid}}?pagina=1&tamano=20",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones", "por-usuario", "{{$guid}}"],
+              "query": [
+                {"key": "pagina", "value": "1"},
+                {"key": "tamano", "value": "20"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Cotizaciones pendientes (asesor)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones?asesor_id={{$guid}}&estados=cotizada,aceptada&incluir_vencidas=false&pagina=1&tamano=20",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones"],
+              "query": [
+                {"key": "asesor_id", "value": "{{$guid}}"},
+                {"key": "estados", "value": "cotizada,aceptada"},
+                {"key": "incluir_vencidas", "value": "false"},
+                {"key": "pagina", "value": "1"},
+                {"key": "tamano", "value": "20"}
+              ]
+            },
+            "description": "Solo asesor/operador -- 403 si el token es de rol cliente."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Aceptar oferta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}", "description": "Obligatoria, 8-128 caracteres."},
+              {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"perfil_id\": \"{{$guid}}\",\n  \"score\": 0.5\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsCotizacion}}/v1/cotizaciones/{{cotizacionId}}/aceptacion?usuario_id={{$guid}}",
+              "host": ["{{baseUrlMsCotizacion}}"],
+              "path": ["v1", "cotizaciones", "{{cotizacionId}}", "aceptacion"],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"}
+              ]
+            },
+            "description": "Orquesta la decisión de suscripción internamente -- no es necesario llamar a ms-suscripcion por separado antes. score va entre 0 y 1, hasta 4 decimales."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "if (body.oferta_id) pm.collectionVariables.set('ofertaId', body.oferta_id);"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-identidad",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Alta y autenticación de usuarios -- la fuente real de verdad de credenciales/rol detrás de los BFF.",
+      "item": [
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo_documento\": \"CC\",\n  \"numero_documento\": \"{{$randomInt}}\",\n  \"email\": \"usuario.{{$timestamp}}@solventa.com\",\n  \"password\": \"secreto123\",\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez\",\n  \"ingresos_mensuales\": 3500000,\n  \"gastos_mensuales\": 1200000\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsIdentidad}}/v1/usuarios",
+              "host": ["{{baseUrlMsIdentidad}}"],
+              "path": ["v1", "usuarios"]
+            },
+            "description": "Sin auth (es el endpoint de alta en sí). 409 si el correo/documento ya existe. 422 si el chequeo KYC rechaza al usuario; 503 si el proveedor KYC no responde."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('usuarioIdIdentidad', body.usuario_id);"
+          ]}}]
+        },
+        {
+          "name": "Autenticar usuario",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"usuario@solventa.com\",\n  \"password\": \"secreto123\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsIdentidad}}/v1/usuarios/autenticacion",
+              "host": ["{{baseUrlMsIdentidad}}"],
+              "path": ["v1", "usuarios", "autenticacion"]
+            },
+            "description": "Sin auth. Devuelve el usuario (sin emitir JWT -- eso lo hace el BFF que llama a este endpoint). 401 si no coincide (mensaje indistinguible entre correo inexistente y contraseña incorrecta, a propósito)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Consultar usuario",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsIdentidad}}/v1/usuarios/{{usuarioIdIdentidad}}",
+              "host": ["{{baseUrlMsIdentidad}}"],
+              "path": ["v1", "usuarios", "{{usuarioIdIdentidad}}"]
+            },
+            "description": "Requiere Bearer. Un cliente solo puede consultar su propio usuario_id."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Actualizar perfil",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Camila\",\n  \"apellidos\": \"Pérez Gómez\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsIdentidad}}/v1/usuarios/{{usuarioIdIdentidad}}/perfil",
+              "host": ["{{baseUrlMsIdentidad}}"],
+              "path": ["v1", "usuarios", "{{usuarioIdIdentidad}}", "perfil"]
+            },
+            "description": "Requiere Bearer. Solo el propio cliente puede actualizar su perfil."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-pagos",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Sin autenticación en ninguna ruta (cobro de primas, llamado internamente por bff-web/bff-movil durante la emisión).",
+      "item": [
+        {
+          "name": "Cobrar prima",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"solicitud_id\": \"{{$guid}}\",\n  \"oferta_id\": \"{{ofertaId}}\",\n  \"usuario_id\": \"{{$guid}}\",\n  \"monto\": 150000,\n  \"token_medio_pago\": \"tok_prueba_visa\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPagos}}/v1/pagos/primas",
+              "host": ["{{baseUrlMsPagos}}"],
+              "path": ["v1", "pagos", "primas"]
+            },
+            "description": "token_medio_pago es un placeholder -- no hay tokenización real con una pasarela todavía."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('pagoId', body.id);"
+          ]}}]
+        },
+        {
+          "name": "Consultar pago",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsPagos}}/v1/pagos/{{pagoId}}",
+              "host": ["{{baseUrlMsPagos}}"],
+              "path": ["v1", "pagos", "{{pagoId}}"]
+            },
+            "description": "Requiere haber corrido 'Cobrar prima' antes (llena pagoId)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-perfilamiento",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Sin autenticación en ninguna ruta. Consentimientos Open Finance/Open Data y ofertas hipotecarias.",
+      "item": [
+        {
+          "name": "Otorgar consentimiento",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"cliente-prueba-{{$timestamp}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPerfilamiento}}/v1/consentimientos",
+              "host": ["{{baseUrlMsPerfilamiento}}"],
+              "path": ["v1", "consentimientos"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('clienteIdPerfilamiento', body.cliente_id);"
+          ]}}]
+        },
+        {
+          "name": "Consultar consentimiento vigente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsPerfilamiento}}/v1/consentimientos/{{clienteIdPerfilamiento}}",
+              "host": ["{{baseUrlMsPerfilamiento}}"],
+              "path": ["v1", "consentimientos", "{{clienteIdPerfilamiento}}"]
+            },
+            "description": "404 si no hay consentimiento vigente (por ejemplo, tras revocarlo)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Solicitar oferta hipotecaria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}", "description": "Obligatoria, 8-128 caracteres."}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cliente_id\": \"{{clienteIdPerfilamiento}}\",\n  \"numero_documento\": null\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPerfilamiento}}/v1/ofertas-hipotecario",
+              "host": ["{{baseUrlMsPerfilamiento}}"],
+              "path": ["v1", "ofertas-hipotecario"]
+            },
+            "description": "Requiere consentimiento vigente para cliente_id. El resultado puede venir 'degradado' (snapshot_atributos lo detalla) si alguna fuente de datos no respondió a tiempo -- no es un error, es una oferta con menos información."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));"
+          ]}}]
+        },
+        {
+          "name": "Revocar consentimiento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsPerfilamiento}}/v1/consentimientos/{{clienteIdPerfilamiento}}",
+              "host": ["{{baseUrlMsPerfilamiento}}"],
+              "path": ["v1", "consentimientos", "{{clienteIdPerfilamiento}}"]
+            },
+            "description": "Corre esta request al final del flujo (después de 'Solicitar oferta hipotecaria'), para no invalidar el consentimiento a mitad de las pruebas."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-polizas",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Bearer en todas las rutas. Ciclo de vida completo de la póliza: emisión, renovación (con ventana de gracia), cancelación, modificación de coberturas.",
+      "item": [
+        {
+          "name": "Emitir póliza",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"solicitud_id\": \"{{$guid}}\",\n  \"oferta_id\": \"{{ofertaId}}\",\n  \"usuario_id\": \"{{$guid}}\",\n  \"token_pago_confirmado\": \"{{pagoId}}\",\n  \"coberturas\": [\n    {\n      \"nombre\": \"Responsabilidad civil\",\n      \"suma_asegurada\": 50000000,\n      \"deducible\": 500000\n    }\n  ]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas"]
+            },
+            "description": "token_pago_confirmado debe ser un UUID -- en este flujo manual puede no coincidir con un pago real de ms-pagos si se corre fuera de orden; para una emisión end-to-end real, usar la request 'Emitir póliza' de bff-web/bff-movil, que sí encadena los tres servicios correctamente. coberturas requiere al menos 1 elemento."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('polizaId', body.id);",
+            "pm.collectionVariables.set('numeroPoliza', body.numero);"
+          ]}}]
+        },
+        {
+          "name": "Listar pólizas por usuario",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas?usuario_id={{$guid}}&limite=20",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas"],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"},
+                {"key": "limite", "value": "20"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Consultar póliza por número",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/numero/{{numeroPoliza}}?usuario_id={{$guid}}",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "numero", "{{numeroPoliza}}"],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Consultar póliza por id",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/{{polizaId}}",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "{{polizaId}}"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Constancia de firma por oferta",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/firmas/{{ofertaId}}",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "firmas", "{{ofertaId}}"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Pólizas existentes por oferta",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/por-ofertas?oferta_ids={{ofertaId}}",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "por-ofertas"],
+              "query": [
+                {"key": "oferta_ids", "value": "{{ofertaId}}"}
+              ]
+            },
+            "description": "oferta_ids es una lista separada por comas, máximo 100 UUIDs."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Renovar póliza",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nueva_fin_vigencia\": \"2027-01-01\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/{{polizaId}}/renovacion",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "{{polizaId}}", "renovacion"]
+            },
+            "description": "409 si la póliza no es renovable (cancelada, o vigencia vencida hace más que la ventana de gracia). Ver también bff-web / Operador / Renovar póliza, que es como llega esta operación desde la UI real."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Modificar coberturas",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"coberturas\": [\n    {\n      \"nombre\": \"Responsabilidad civil\",\n      \"suma_asegurada\": 60000000,\n      \"deducible\": 500000\n    }\n  ]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/{{polizaId}}/coberturas",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "{{polizaId}}", "coberturas"]
+            },
+            "description": "Exige vigencia estricta (a diferencia de renovar, no aplica la ventana de gracia). coberturas requiere al menos 1 elemento."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Actualizar preferencia de renovación",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"renovacion_automatica\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/{{polizaId}}/preferencias?usuario_id={{$guid}}",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "{{polizaId}}", "preferencias"],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Cancelar póliza",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Solicitud del cliente\",\n  \"operador\": \"operador-prueba\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsPolizas}}/v1/polizas/{{polizaId}}/cancelacion",
+              "host": ["{{baseUrlMsPolizas}}"],
+              "path": ["v1", "polizas", "{{polizaId}}", "cancelacion"]
+            },
+            "description": "Terminal e irreversible. motivo y operador son obligatorios -- 'operador' queda registrado en el detalle (canceladaPor) para auditoría. Correr al final del flujo manual: después de cancelar, renovar/modificar sobre esta misma póliza vuelve a dar 409."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-siniestros",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Bearer en todas las rutas. Eventos paramétricos, reporte de siniestros por el cliente, y gestión del ciclo de vida por operador.",
+      "item": [
+        {
+          "name": "Ingerir evento paramétrico",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento_id\": \"sismo-{{$timestamp}}\",\n  \"valor\": 6.5,\n  \"umbral\": 6.0,\n  \"poliza_vigente\": true,\n  \"monto_pago\": 500000,\n  \"poliza_id\": \"{{polizaId}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/eventos-parametricos",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "eventos-parametricos"]
+            },
+            "description": "Rechaza rol cliente (403) -- esta ruta es para la ingesta automática de eventos (ej. sensores sísmicos), no para que el cliente la dispare. valor/umbral deciden si el evento activa el pago paramétrico."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "if (body.siniestro && body.siniestro.id) pm.collectionVariables.set('siniestroId', body.siniestro.id);"
+          ]}}]
+        },
+        {
+          "name": "Reportar siniestro (cliente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}", "description": "Obligatoria, 8-128 caracteres."},
+              {"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario_id\": \"{{$guid}}\",\n  \"poliza\": \"{{numeroPoliza}}\",\n  \"poliza_id\": \"{{polizaId}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/siniestros",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "siniestros"]
+            },
+            "description": "Solo el propio cliente puede reportar sobre su usuario_id -- 404 si no coincide."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('siniestroId', body.id);"
+          ]}}]
+        },
+        {
+          "name": "Listar siniestros",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/siniestros?limite=20&usuario_id={{$guid}}",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "siniestros"],
+              "query": [
+                {"key": "limite", "value": "20"},
+                {"key": "usuario_id", "value": "{{$guid}}"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Siniestros abiertos por póliza",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/siniestros/abiertos?poliza_id={{polizaId}}",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "siniestros", "abiertos"],
+              "query": [
+                {"key": "poliza_id", "value": "{{polizaId}}"}
+              ]
+            },
+            "description": "Rechaza rol cliente (403). 'Abierto' es cualquier estado distinto de 'pagado' (el único estado terminal). Usado por bff-web antes de cancelar una póliza, solo como dato informativo -- no bloquea la cancelación."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Consultar siniestro",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/siniestros/{{siniestroId}}?usuario_id={{$guid}}",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "siniestros", "{{siniestroId}}"],
+              "query": [
+                {"key": "usuario_id", "value": "{{$guid}}"}
+              ]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        },
+        {
+          "name": "Cambiar estado de siniestro",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"en_evaluacion\",\n  \"origen\": \"revision-manual-operador\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsSiniestros}}/v1/siniestros/{{siniestroId}}/estado",
+              "host": ["{{baseUrlMsSiniestros}}"],
+              "path": ["v1", "siniestros", "{{siniestroId}}", "estado"]
+            },
+            "description": "Rechaza rol cliente (403). estado debe ser uno de: recibido, en_evaluacion, decidido, enrutado, pagado -- el orden importa, 409 si la transición no es válida desde el estado actual (ver historial del siniestro)."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "ms-suscripcion",
+      "description": "NO expuesto en el ALB. Solo accesible vía port-forward. Sin autenticación en ninguna ruta. Motor de decisión de suscripción, llamado internamente por ms-cotizacion durante 'Aceptar oferta' -- normalmente no hace falta llamarlo aparte, esta carpeta es para depurar la decisión de forma aislada.",
+      "item": [
+        {
+          "name": "Evaluar suscripción",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"solicitud_id\": \"{{$guid}}\",\n  \"perfil_id\": \"{{$guid}}\",\n  \"score\": 0.5\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{baseUrlMsSuscripcion}}/v1/suscripciones",
+              "host": ["{{baseUrlMsSuscripcion}}"],
+              "path": ["v1", "suscripciones"]
+            },
+            "description": "Idempotente por solicitud_id: repetir la misma solicitud_id devuelve la misma decisión ya evaluada, en vez de recalcularla."
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('solicitudIdSuscripcion', body.solicitud_id);"
+          ]}}]
+        },
+        {
+          "name": "Consultar decisión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrlMsSuscripcion}}/v1/suscripciones/{{solicitudIdSuscripcion}}",
+              "host": ["{{baseUrlMsSuscripcion}}"],
+              "path": ["v1", "suscripciones", "{{solicitudIdSuscripcion}}"]
+            }
+          },
+          "event": [{"listen": "test", "script": {"exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+          ]}}]
         }
       ]
     }
   ],
   "variable": [
-    {
-      "key": "productoCodigo",
-      "value": "soat-motocicleta"
-    },
-    {
-      "key": "cotizacionId",
-      "value": ""
-    }
+    {"key": "productoCodigo", "value": "soat-motocicleta"},
+    {"key": "ramoProducto", "value": "soat-motocicleta"},
+    {"key": "cotizacionId", "value": ""},
+    {"key": "cotizacionIdCliente", "value": ""},
+    {"key": "cotizacionIdAsesor", "value": ""},
+    {"key": "cotizacionIdBffMovil", "value": ""},
+    {"key": "solicitudIdAsesor", "value": ""},
+    {"key": "solicitudIdSuscripcion", "value": ""},
+    {"key": "ofertaId", "value": ""},
+    {"key": "polizaId", "value": ""},
+    {"key": "numeroPoliza", "value": ""},
+    {"key": "numeroPolizaCliente", "value": ""},
+    {"key": "numeroPolizaBffMovil", "value": ""},
+    {"key": "pagoId", "value": ""},
+    {"key": "usuarioIdIdentidad", "value": ""},
+    {"key": "clienteIdPerfilamiento", "value": ""},
+    {"key": "siniestroId", "value": ""},
+    {"key": "siniestroIdOperador", "value": ""},
+    {"key": "siniestroIdBffMovil", "value": ""},
+    {"key": "correoCliente", "value": "cliente@solventa.com"},
+    {"key": "contrasenaCliente", "value": "secreto123"},
+    {"key": "correoAsesor", "value": "asesor@solventa.com"},
+    {"key": "contrasenaAsesor", "value": "secreto123"},
+    {"key": "correoOperador", "value": "operador@solventa.com"},
+    {"key": "contrasenaOperador", "value": "secreto123"},
+    {"key": "accessTokenCliente", "value": ""},
+    {"key": "refreshTokenCliente", "value": ""},
+    {"key": "accessTokenAsesor", "value": ""},
+    {"key": "refreshTokenAsesor", "value": ""},
+    {"key": "accessTokenOperador", "value": ""},
+    {"key": "refreshTokenOperador", "value": ""},
+    {"key": "accessTokenBffMovil", "value": ""},
+    {"key": "refreshTokenBffMovil", "value": ""}
   ]
 }
