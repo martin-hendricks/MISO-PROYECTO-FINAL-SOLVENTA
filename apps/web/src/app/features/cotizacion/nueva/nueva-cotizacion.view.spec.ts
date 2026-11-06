@@ -6,6 +6,7 @@ import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import {
   CATALOGO_DISPOSITIVO_WIRE,
   CATALOGO_SOAT_WIRE,
+  CATALOGO_VIDA_HIPOTECARIO_WIRE,
   FUERA_DE_RANGO,
   OFERTA_WIRE,
 } from '../cotizacion.testing';
@@ -259,5 +260,46 @@ describe('NuevaCotizacionView', () => {
 
     const marcas = Array.from(element<HTMLSelectElement>('riesgo-marca')!.options);
     expect(marcas.map((o) => o.textContent!.trim())).toEqual(['Selecciona una opción', 'huawei']);
+  });
+
+  describe('mortgage life', () => {
+    const ORIGINACION_URL = '/web/cliente/originacion-hipotecaria';
+    const CATALOGO_HIPOTECARIO_URL = '/web/cliente/catalogo/Vida%20hipotecario';
+
+    function hipotecario() {
+      const vista = render();
+      vista.choose('cotizacion-ramo', 'hipotecario');
+      vista.http.expectOne(CATALOGO_HIPOTECARIO_URL).flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
+      vista.fixture.detectChanges();
+      vista.type('riesgo-valor', '180000000');
+      vista.type('riesgo-plazoMeses', '240');
+      return vista;
+    }
+
+    it('saves the mortgage and continues in /vida-crediticia instead of quoting', () => {
+      const { http, navigate, cotizar } = hipotecario();
+
+      cotizar();
+
+      const guardada = http.expectOne(ORIGINACION_URL);
+      expect(guardada.request.method).toBe('POST');
+      expect(guardada.request.body).toEqual({ valor: 180000000, plazoMeses: 240 });
+      guardada.flush({ valor: 180000000, plazoMeses: 240, origen: 'cliente' });
+      http.expectNone(URL);
+      expect(navigate).toHaveBeenCalledWith(['/vida-crediticia'], {
+        queryParams: { valor: 180000000, plazoMeses: 240 },
+      });
+    });
+
+    it('still continues with the typed mortgage when saving it fails', () => {
+      const { http, navigate, cotizar } = hipotecario();
+
+      cotizar();
+      http.expectOne(ORIGINACION_URL).flush(null, { status: 503, statusText: 'Unavailable' });
+
+      expect(navigate).toHaveBeenCalledWith(['/vida-crediticia'], {
+        queryParams: { valor: 180000000, plazoMeses: 240 },
+      });
+    });
   });
 });
