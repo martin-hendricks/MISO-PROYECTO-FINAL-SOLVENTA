@@ -68,7 +68,13 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    # Mismo SOLVENTA_TOKEN_SECRET que bff-web y ms-identidad: con él firma el
+    # token de servicio `socio` que ms-identidad valida.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: api-socios-token
 
 serviceAccount:
   crear: true
@@ -100,3 +106,5 @@ variablesEntorno:
     valor: "http://ms-cotizacion.solventa.svc.cluster.local:8000"
   - nombre: RATE_LIMIT_POR_SOCIO_RPM
     valor: "600"
+  - nombre: MS_PERFILAMIENTO_URL
+    valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
