@@ -151,6 +151,9 @@ externalSecrets:
 serviceAccount:
   crear: true
   nombre: ""
+  # true = el componente tiene rol en modules/irsa_aplicacion: el workflow de
+  # CD rellena roleArn por convención (solventa-minimo-<servicio>-irsa).
+  irsa: false
   roleArn: ""
 
 # PodDisruptionBudget: protege la disponibilidad mínima durante

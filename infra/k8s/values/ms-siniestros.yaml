@@ -80,11 +80,20 @@ externalSecrets:
         - database_url
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: ms-siniestros-token
+    # S3_EVIDENCIAS_BUCKET: lo publica Terraform (modules/secrets,
+    # siniestros_config) porque el nombre del bucket lleva sufijo aleatorio.
+    - nombreRemoto: solventa-minimo-siniestros-config
+      nombreLocal: ms-siniestros-config
 
 serviceAccount:
   crear: true
   nombre: ms-siniestros
-  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."ms-siniestros"'
+  # El workflow de CD arma el ARN por convención
+  # (arn:aws:iam::<cuenta>:role/solventa-minimo-ms-siniestros-irsa, ver
+  # modules/irsa_aplicacion) cuando irsa es true. Para un helm manual:
+  # terraform output -json irsa_role_arns | jq -r '."ms-siniestros"'
+  irsa: true
+  roleArn: ""
 
 podDisruptionBudget:
   habilitado: true

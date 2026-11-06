@@ -206,13 +206,29 @@ jobs:
       # tabla que su readiness probe necesita aún no existe -- "helm upgrade
       # --wait" esperaría ahí hasta hacer timeout, sin llegar nunca al paso
       # de migraciones. El rollout se verifica después, ya con la BD al día.
+      #
+      # IRSA: el state de Terraform no es accesible desde aquí (ver
+      # register-target-groups), así que el ARN del rol se arma por la
+      # convención de infra/terraform/modules/irsa_aplicacion
+      # ("${project_name}-${environment}-<servicio>-irsa") solo para los
+      # servicios que lo declaran con serviceAccount.irsa: true en su values.
+      # Un roleArn explícito en el values tiene prioridad.
       - name: Desplegar con Helm
         run: |
+          irsa_args=()
+          irsa=$(yq '.serviceAccount.irsa // false' "${{ matrix.values }}")
+          role_arn=$(yq '.serviceAccount.roleArn // ""' "${{ matrix.values }}")
+          if [[ "$irsa" == "true" && -z "$role_arn" ]]; then
+            irsa_args=(--set "serviceAccount.roleArn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/solventa-minimo-${{ matrix.service }}-irsa")
+            echo "IRSA: rol solventa-minimo-${{ matrix.service }}-irsa"
+          fi
+
           helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
             --namespace solventa \
             --values ${{ matrix.values }} \
             --set imagen.repositorio="$IMAGE" \
             --set imagen.tag=${{ github.sha }} \
+            "${irsa_args[@]}" \
             --timeout 3m
 
       # Corre después del helm upgrade (que ya creó el ExternalSecret con
