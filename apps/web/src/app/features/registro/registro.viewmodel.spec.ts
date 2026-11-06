@@ -8,6 +8,8 @@ describe('RegistroViewModel', () => {
     viewModel.documento.set(alta.documento ?? '1012345678');
     viewModel.correo.set(alta.correo ?? 'camila@correo.com');
     viewModel.contrasena.set(alta.contrasena ?? 'secreto123');
+    viewModel.setIncome('4500000');
+    viewModel.setSpending('1200000');
   }
 
   it('shows no issue before the first attempt', () => {
@@ -30,6 +32,8 @@ describe('RegistroViewModel', () => {
       documento: '1012345678',
       correo: 'camila@correo.com',
       contrasena: 'secreto123',
+      ingresos_mensuales: '4500000.00',
+      gastos_mensuales: '1200000.00',
     });
   });
 
@@ -45,6 +49,8 @@ describe('RegistroViewModel', () => {
       documento: 'required',
       correo: 'required',
       contrasena: 'required',
+      ingresos_mensuales: 'required',
+      gastos_mensuales: 'required',
     });
     expect(onContinue).not.toHaveBeenCalled();
   });
@@ -58,6 +64,25 @@ describe('RegistroViewModel', () => {
 
     expect(viewModel.issues()).toEqual({ correo: 'format', contrasena: 'length' });
     expect(onContinue).not.toHaveBeenCalled();
+  });
+
+  it('groups COP amounts and blocks income that is not greater than zero', () => {
+    const onContinue = jasmine.createSpy('onContinue');
+    const viewModel = new RegistroViewModel(onContinue);
+    fill(viewModel);
+    viewModel.setIncome('$4.500.000');
+    viewModel.setSpending('0');
+
+    expect(viewModel.incomeDisplay()).toBe('$4.500.000');
+    expect(viewModel.spendingDisplay()).toBe('$0');
+    viewModel.submit();
+    expect(onContinue).toHaveBeenCalledOnceWith(
+      jasmine.objectContaining({ ingresos_mensuales: '4500000.00', gastos_mensuales: '0.00' }),
+    );
+
+    viewModel.setIncome('0');
+    viewModel.submit();
+    expect(viewModel.issues().ingresos_mensuales).toBe('amount');
   });
 
   it('clears the issue once the field is fixed', () => {

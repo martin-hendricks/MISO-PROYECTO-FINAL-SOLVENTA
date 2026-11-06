@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -65,6 +66,9 @@ fun PolizaEmitidaScreen(
     policyId: String,
     onGoHome: () -> Unit,
     onGoPolicy: () -> Unit,
+    renewalChecked: Boolean = false,
+    renewalMissing: Boolean = false,
+    onRenewal: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -102,6 +106,15 @@ fun PolizaEmitidaScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        IssuedRow(stringResource(R.string.issued_prima), stringResource(R.string.issued_prima_value))
+        IssuedRow(stringResource(R.string.issued_currency), stringResource(R.string.issued_currency_value))
+        IssuedRow(stringResource(R.string.issued_reference), stringResource(R.string.issued_reference_value))
+        RenewalChoice(
+            checked = renewalChecked,
+            helper = stringResource(R.string.renewal_off_issued),
+            missing = renewalMissing,
+            onChecked = onRenewal,
+        )
         SolventaButton(
             text = stringResource(R.string.action_go_policy),
             style = SolventaButtonStyle.Filled,
@@ -115,6 +128,24 @@ fun PolizaEmitidaScreen(
             onClick = onGoHome,
             modifier = Modifier.fillMaxWidth(),
             testTag = "action_issued_home",
+        )
+    }
+}
+
+@Composable
+private fun IssuedRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

@@ -12,10 +12,13 @@ export class EmisionViewModel {
 
   private readonly polizaState = signal<PolizaResumen | null>(null);
   readonly poliza = this.polizaState.asReadonly();
+  readonly renewal = signal(false);
 
   constructor(
     private readonly source: () => Observable<ResultadoEmision>,
     private readonly onRejected: (motivo: Motivo) => void,
+    private readonly onRenewal: (numero: string, enabled: boolean) => Observable<unknown> = () =>
+      new Observable((subscriber) => subscriber.complete()),
   ) {}
 
   issue(): void {
@@ -43,5 +46,14 @@ export class EmisionViewModel {
         }
       },
     });
+  }
+
+  chooseRenewal(enabled: boolean): void {
+    const poliza = this.polizaState();
+    if (!poliza) {
+      return;
+    }
+    this.renewal.set(enabled);
+    this.onRenewal(poliza.numero, enabled).subscribe();
   }
 }

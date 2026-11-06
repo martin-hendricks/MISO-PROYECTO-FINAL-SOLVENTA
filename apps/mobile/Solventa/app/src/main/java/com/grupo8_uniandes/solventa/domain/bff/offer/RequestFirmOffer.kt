@@ -6,6 +6,8 @@ sealed interface QuoteAttempt {
     data class Gap(val field: QuoteInput) : QuoteAttempt
 
     data class Answer(val answer: StandInAnswer<FirmOffer>) : QuoteAttempt
+
+    data class Refused(val detail: String) : QuoteAttempt
 }
 
 /**
@@ -17,7 +19,11 @@ class RequestFirmOffer(
 ) {
     suspend fun submit(line: QuoteLine, answers: QuoteAnswers): QuoteAttempt {
         val risk = riskOf(line, answers) ?: return QuoteAttempt.Gap(missing)
-        return QuoteAttempt.Answer(repository.quote(line.ramo, risk))
+        return try {
+            QuoteAttempt.Answer(repository.quote(line.ramo, risk))
+        } catch (explained: QuoteExplained) {
+            QuoteAttempt.Refused(explained.detail)
+        }
     }
 
     private var missing: QuoteInput = QuoteInput.Value

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -12,6 +13,8 @@ class CrearUsuarioEntrada(BaseModel):
     password: str = Field(min_length=8, max_length=72)
     nombre: str = ""
     apellidos: str = ""
+    ingresos_mensuales: Decimal | None = Field(default=None, gt=0)
+    gastos_mensuales: Decimal | None = Field(default=None, ge=0)
 
 
 class PerfilEntrada(BaseModel):
@@ -32,6 +35,8 @@ class UsuarioSalida(BaseModel):
     estado: str
     nombre: str = ""
     apellidos: str = ""
+    ingresos_mensuales: Decimal | None = None
+    gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
 
     @classmethod
@@ -44,6 +49,8 @@ class UsuarioSalida(BaseModel):
             estado=usuario.estado.value,
             nombre=usuario.nombre,
             apellidos=usuario.apellidos,
+            ingresos_mensuales=usuario.ingresos_mensuales,
+            gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
         )
 

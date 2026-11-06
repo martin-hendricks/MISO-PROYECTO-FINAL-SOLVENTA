@@ -155,7 +155,21 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/cotizacion/oferta/ver-oferta.view').then((m) => m.VerOfertaView),
       },
+      {
+        path: 'confirmacion-tarjeta',
+        loadComponent: () =>
+          import('./features/emision/confirmacion-tarjeta/confirmacion-tarjeta.view').then(
+            (m) => m.ConfirmacionTarjetaView,
+          ),
+      },
       destino('emision/:id', 'emision'),
+      {
+        path: 'siniestros/parametrico',
+        loadComponent: () =>
+          import('./features/siniestros/parametrico/parametrico.view').then(
+            (m) => m.ParametricoView,
+          ),
+      },
       destino('siniestros/:id', 'siniestro'),
       destino('siniestros', 'siniestros'),
       destino('perfil', 'perfil'),

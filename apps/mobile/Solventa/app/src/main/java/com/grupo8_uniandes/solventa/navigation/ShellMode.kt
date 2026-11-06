@@ -12,7 +12,7 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
     if (route is EmisionEnCursoRoute || route is PolizaEmitidaRoute) return ShellMode.Issuance
     return when (route) {
         InicioRoute, PolizasRoute, SiniestrosRoute, MapaPrestadoresRoute, PerfilRoute -> ShellMode.Root
-        is CotizacionRoute, is VerOfertaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
+        is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
         AsistenciaSitioRoute, SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
         AvisoSiniestroRoute, EvidenciaAvisoRoute, is ConfirmacionAvisoRoute,
         ParametricoRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
@@ -22,8 +22,8 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
 }
 
 fun selectedDestination(route: Any): Destination? = when (route) {
-    InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute,
-    ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
+    InicioRoute, is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute,
+    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
     -> Destination.Inicio
     PolizasRoute, is PolizaDetalleRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
     -> Destination.Polizas

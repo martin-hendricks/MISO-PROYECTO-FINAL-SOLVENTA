@@ -25,6 +25,8 @@ ALTA = {
     "correo": "camila@correo.com",
     "habeasData": True,
     "pruebaDeVida": "ok",
+    "ingresos_mensuales": "4500000.00",
+    "gastos_mensuales": "1500000.00",
 }
 COTIZACION = {
     "cotizacion_id": "COT-9",
@@ -77,7 +79,18 @@ class DobleNucleo:
             }
         return valor
 
-    def crear_usuario(self, *, tipo_documento, numero_documento, email, password, nombre="", apellidos=""):
+    def crear_usuario(
+        self,
+        *,
+        tipo_documento,
+        numero_documento,
+        email,
+        password,
+        nombre="",
+        apellidos="",
+        ingresos_mensuales=None,
+        gastos_mensuales=None,
+    ):
         valor = self.respuestas.get("crear_usuario")
         self.llamadas.append(
             {
@@ -88,6 +101,8 @@ class DobleNucleo:
                 "password": password,
                 "nombre": nombre,
                 "apellidos": apellidos,
+                "ingresos_mensuales": ingresos_mensuales,
+                "gastos_mensuales": gastos_mensuales,
             }
         )
         if isinstance(valor, Exception):
@@ -131,6 +146,14 @@ class DobleNucleo:
         if valor == {}:
             return {"id": "11111111-1111-1111-1111-111111111111", "numero": numero, "usuario_id": usuario_id}
         return valor
+
+    def guardar_preferencia(self, poliza_id, renovacion_automatica, usuario_id):
+        return self._llamar(
+            "guardar_preferencia",
+            poliza_id=poliza_id,
+            renovacion_automatica=renovacion_automatica,
+            usuario_id=usuario_id,
+        ) or {"numero": poliza_id, "renovacion_automatica": renovacion_automatica}
 
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
@@ -311,8 +334,8 @@ def test_cotizacion_bff_movil_prefix_llama_cotizar(client, doble):
     )
     assert response.status_code == 200
     assert response.json()["cotizacionId"] == "COT-9"
-    assert doble.llamadas[0]["metodo"] == "cotizar"
-    assert doble.llamadas[0]["producto"] == "proteccion-dispositivo"
+    cotizar = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "cotizar")
+    assert cotizar["producto"] == "proteccion-dispositivo"
 
 
 def test_cotizacion_v1_llama_cotizar_sin_rol(client, doble):
@@ -325,7 +348,7 @@ def test_cotizacion_v1_llama_cotizar_sin_rol(client, doble):
     assert response.status_code == 200
     assert response.json()["cotizacionId"] == "COT-9"
     assert "producto" not in response.json()
-    llamada = doble.llamadas[0]
+    llamada = next(item for item in doble.llamadas if item["metodo"] == "cotizar")
     assert llamada["canal"] == "movil"
     assert llamada["producto"] == "proteccion-dispositivo"
     assert llamada["datos_riesgo"] == {"valor": 1}
@@ -366,6 +389,16 @@ def test_reconsulta_v1(client, doble):
     }
     doble.respuestas["reconsultar"] = {"estado": "oferta_vigente"}
     assert client.get("/v1/cliente/cotizaciones/COT-9", headers=headers).status_code == 502
+
+
+def test_aceptar_cotizacion_rechaza_datos_de_tarjeta(client):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    respuesta = client.post(
+        "/v1/cliente/cotizaciones/COT-9/aceptacion",
+        headers=headers,
+        json={"numeroTarjeta": "4242424242424242"},
+    )
+    assert respuesta.status_code == 422
 
 
 def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
@@ -767,6 +800,8 @@ def test_registro_v1_crea_el_usuario_sin_eco_de_contrasena(client, doble):
             "password": "secreto12",
             "nombre": "Camila",
             "apellidos": "Restrepo",
+            "ingresos_mensuales": "4500000.00",
+            "gastos_mensuales": "1500000.00",
         }
     ]
 
@@ -789,6 +824,8 @@ def test_registro_sin_version_con_contrasena_crea_el_usuario(client, doble):
             "password": "secreto12",
             "nombre": "Camila",
             "apellidos": "Restrepo",
+            "ingresos_mensuales": "4500000.00",
+            "gastos_mensuales": "1500000.00",
         }
     ]
 

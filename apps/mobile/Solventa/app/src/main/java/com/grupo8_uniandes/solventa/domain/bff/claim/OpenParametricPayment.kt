@@ -49,6 +49,7 @@ class OpenParametricPayment(
         const val AMOUNT = 180_000L
         const val CURRENCY = "COP"
         const val DEPOSITED = "$180.000 COP depositados"
+        const val POLICY = "POL-77310"
 
         val review = ParametricNotice(
             asunto = SUBJECT,

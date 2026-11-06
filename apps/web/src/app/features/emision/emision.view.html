@@ -24,7 +24,26 @@
               {{ 'polizas.column.vigencia' | translate }}
               {{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}
             </p>
+            @if (poliza.referenciaPago) {
+              <p data-testid="referencia-pago">{{ poliza.referenciaPago }}</p>
+            }
           </article>
+          <div class="renewal">
+            <label>
+              <input
+                type="checkbox"
+                data-testid="renovacion-automatica"
+                [checked]="vm.renewal()"
+                (change)="renovar($event)"
+              />
+              {{ 'emision.emitida.renovacion' | translate }}
+            </label>
+            @if (!vm.renewal()) {
+              <p class="renewal-helper" data-testid="renovacion-ayuda">
+                {{ 'emision.emitida.renovacionAyuda' | translate }}
+              </p>
+            }
+          </div>
           <div class="actions">
             <a class="filled" data-testid="ver-poliza" [routerLink]="['/polizas', poliza.numero]">{{
               'emision.emitida.verPoliza' | translate

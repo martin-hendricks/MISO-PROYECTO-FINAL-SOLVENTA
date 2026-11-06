@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
@@ -134,7 +134,12 @@ class Cotizacion(BaseModel):
 
 
 class Aceptar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     cotizacionId: str
+
+
+class PreferenciaRenovacion(BaseModel):
+    renovacionAutomatica: bool
 
 
 class Credito(BaseModel):
@@ -226,6 +231,7 @@ async def catalogo(
 async def cotizar(
     body: Cotizacion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     if body.clienteId:
@@ -233,6 +239,14 @@ async def cotizar(
 
     contexto = contexto_canonico(usuario)
     producto = _producto_de(body.ramo)
+    datos_riesgo = dict(body.datosRiesgo)
+    try:
+        perfil = await cliente_identidad.obtener(contexto.usuario_id)
+    except (RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible):
+        perfil = {}
+    if perfil.get("ingresos_mensuales") is not None and perfil.get("gastos_mensuales") is not None:
+        datos_riesgo["ingresos_mensuales"] = perfil["ingresos_mensuales"]
+        datos_riesgo["gastos_mensuales"] = perfil["gastos_mensuales"]
 
     datos = await cliente_cotizacion.cotizar(
         idempotency_key=_idempotency_key(),
@@ -241,7 +255,7 @@ async def cotizar(
         consentimiento_id=contexto.consentimiento_id,
         producto=producto,
         canal="web",
-        datos_riesgo=body.datosRiesgo,
+        datos_riesgo=datos_riesgo,
     )
     _, descripcion = presentar(producto)
     return _cotizacion_salida(datos, body.ramo, descripcion)
@@ -364,6 +378,7 @@ async def emitir(
             "finVigencia": poliza.get("fin_vigencia", ""),
             "moneda": aceptacion.get("moneda", ""),
             "primaTotal": float(aceptacion["prima"]),
+            "referenciaPago": pago.get("token_referencia", "stub-medio-pago"),
         },
     }
 
@@ -599,6 +614,24 @@ def _perfil_salida(usuario: dict) -> dict:
         "nombre": usuario.get("nombre") or "",
         "apellidos": usuario.get("apellidos") or "",
         "documento": usuario.get("numero_documento") or "",
+    }
+
+
+@router.patch("/polizas/{numero}/preferencias")
+async def guardar_renovacion(
+    numero: str,
+    body: PreferenciaRenovacion,
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    contexto = contexto_canonico(usuario)
+    poliza = await cliente_polizas.obtener_por_numero(numero, UUID(contexto.usuario_id))
+    actualizada = await cliente_polizas.guardar_preferencia(
+        str(poliza["id"]), body.renovacionAutomatica, contexto.usuario_id
+    )
+    return {
+        "numero": actualizada["numero"],
+        "renovacionAutomatica": actualizada["renovacion_automatica"],
     }
 
 

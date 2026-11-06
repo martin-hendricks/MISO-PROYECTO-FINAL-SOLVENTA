@@ -1,0 +1,31 @@
+<section data-testid="parametrico">
+  @if (vm.pago(); as pago) {
+    <h1>{{ 'parametrico.title' | translate }}</h1>
+    <p>{{ 'parametrico.subtitle' | translate }}</p>
+    <article>
+      <p data-testid="parametrico-evento">{{ pago.umbral }}</p>
+      <p data-testid="parametrico-monto">{{ pago.monto | svMoney: pago.moneda }}</p>
+      <p data-testid="parametrico-poliza">
+        {{ 'parametrico.poliza' | translate }} {{ pago.poliza }}
+      </p>
+    </article>
+    <p>{{ 'parametrico.explicacion' | translate }}</p>
+    <div class="renewal">
+      <label>
+        <input
+          type="checkbox"
+          data-testid="parametrico-renovacion"
+          [checked]="vm.renewal()"
+          (change)="renovar($event)"
+        />
+        {{ 'emision.emitida.renovacion' | translate }}
+      </label>
+      @if (!vm.renewal()) {
+        <p class="renewal-helper" data-testid="parametrico-renovacion-ayuda">
+          {{ 'parametrico.renovacionAyuda' | translate }}
+        </p>
+      }
+    </div>
+    <a routerLink="/siniestros" data-testid="parametrico-volver">{{ 'parametrico.volver' | translate }}</a>
+  }
+</section>

@@ -52,6 +52,8 @@ class ClienteNucleo:
         password: str,
         nombre: str = "",
         apellidos: str = "",
+        ingresos_mensuales: str | None = None,
+        gastos_mensuales: str | None = None,
     ) -> dict:
         return self._pedir(
             "ms-identidad",
@@ -64,6 +66,8 @@ class ClienteNucleo:
                 "password": password,
                 "nombre": nombre,
                 "apellidos": apellidos,
+                "ingresos_mensuales": ingresos_mensuales,
+                "gastos_mensuales": gastos_mensuales,
             },
         )
 
@@ -187,6 +191,15 @@ class ClienteNucleo:
             "GET",
             "/v1/polizas",
             params={"usuario_id": usuario_id, "limite": limite},
+        )
+
+    def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict:
+        return self._pedir(
+            "ms-polizas",
+            "PATCH",
+            f"/v1/polizas/{poliza_id}/preferencias",
+            params={"usuario_id": usuario_id},
+            json={"renovacion_automatica": renovacion_automatica},
         )
 
     def obtener_por_numero(self, numero: str, usuario_id: str | None = None) -> dict:

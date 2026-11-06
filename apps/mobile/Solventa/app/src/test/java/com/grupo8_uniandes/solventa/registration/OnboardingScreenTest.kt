@@ -27,6 +27,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -101,6 +102,9 @@ class OnboardingScreenTest {
 
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithText(
+            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
+        ).assertDoesNotExist()
         rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
     }
 
@@ -365,6 +369,15 @@ class OnboardingScreenTest {
         }
     }
 
+    @Test
+    fun givenCopDigits_whenTheAmountFieldsAreShown_thenTheyReadAsGroupedPesos() {
+        show(
+            state = OnboardingUiState(monthlyIncome = "4500000", monthlySpending = "1200000"),
+        )
+        rule.onNodeWithText("$4.500.000").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("$1.200.000").performScrollTo().assertIsDisplayed()
+    }
+
     private fun jpeg(color: Int): ByteArray {
         val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(color)
@@ -407,6 +420,8 @@ class OnboardingScreenTest {
         onDocumentNumber: (String) -> Unit = {},
         onPassword: (String) -> Unit = {},
         onPasswordConfirm: (String) -> Unit = {},
+        onIncome: (String) -> Unit = {},
+        onSpending: (String) -> Unit = {},
         onPhotoAttached: (ByteArray) -> Unit = {},
         onPhotoDeclined: () -> Unit = {},
         onHabeasData: (Boolean) -> Unit = {},
@@ -427,6 +442,8 @@ class OnboardingScreenTest {
                         onDocumentNumber = onDocumentNumber,
                         onPassword = onPassword,
                         onPasswordConfirm = onPasswordConfirm,
+                        onIncome = onIncome,
+                        onSpending = onSpending,
                         onPhotoAttached = onPhotoAttached,
                         onPhotoDeclined = onPhotoDeclined,
                         onHabeasData = onHabeasData,

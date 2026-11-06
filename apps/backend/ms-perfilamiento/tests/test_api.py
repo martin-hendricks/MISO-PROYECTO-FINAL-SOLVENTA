@@ -60,6 +60,10 @@ def test_solicitar_oferta_con_consentimiento_devuelve_precio_y_factores(client):
     assert len(cuerpo["factores"]) == 4
     assert all({"factor", "impacto", "peso"} <= f.keys() for f in cuerpo["factores"])
     assert len(cuerpo["snapshot_atributos"]) == 4
+    assert {(a["origen"], a["estado"], a["modo"], a["causa"]) for a in cuerpo["snapshot_atributos"]} == {
+        ("open_finance", "exito", "LIVE", None),
+        ("open_data", "exito", "LIVE", None),
+    }
 
 
 def test_solicitar_oferta_reintento_misma_clave_devuelve_200_mismo_id(client):

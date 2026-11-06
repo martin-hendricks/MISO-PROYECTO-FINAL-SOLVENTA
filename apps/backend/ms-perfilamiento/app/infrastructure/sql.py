@@ -18,6 +18,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from app.config import Settings
 from app.domain.modelos import (
     AtributoPerfil,
+    CausaDegradacion,
     Consentimiento,
     EstadoAdaptador,
     EventoDominio,
@@ -85,16 +86,21 @@ def _atributo_a_json(atributo: AtributoPerfil) -> dict:
         "origen": atributo.origen.value,
         "estado": atributo.estado.value,
         "degradado": atributo.degradado,
+        "modo": atributo.modo,
+        "causa": atributo.causa.value if atributo.causa else None,
     }
 
 
 def _atributo_desde_json(datos: dict) -> AtributoPerfil:
+    causa = datos.get("causa")
     return AtributoPerfil(
         nombre=datos["nombre"],
         valor=Decimal(datos["valor"]),
         origen=OrigenAdaptador(datos["origen"]),
         estado=EstadoAdaptador(datos["estado"]),
         degradado=datos["degradado"],
+        modo=datos.get("modo", "LIVE"),
+        causa=CausaDegradacion(causa) if causa else None,
     )
 
 

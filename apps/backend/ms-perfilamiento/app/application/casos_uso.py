@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
+from decimal import Decimal
 
 from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, NoEncontrado
 from app.domain.modelos import (
     AtributoPerfil,
+    CausaDegradacion,
     Consentimiento,
     EstadoAdaptador,
     OrigenAdaptador,
@@ -19,6 +22,8 @@ from app.domain.modelos import (
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO, calcular_oferta
 from app.ports.adaptadores import AdaptadorOpenData, AdaptadorOpenFinance
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -43,7 +48,7 @@ async def otorgar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -
     return RegistroConsentimiento(consentimiento, creado=True)
 
 
-async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> Consentimiento:
+async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str, cache=None) -> Consentimiento:
     """HU-53: revocar impide futuras consultas de perfil. Efectivo de inmediato: la
     siguiente llamada a consultar_consentimiento_vigente/perfilar_y_ofertar ya no
     encuentra consentimiento vigente, porque no hay caché intermedia — se lee siempre
@@ -56,6 +61,8 @@ async def revocar_consentimiento(uow: FabricaUnidadDeTrabajo, cliente_id: str) -
         await tx.consentimientos.actualizar(vigente)
         await tx.outbox.agregar(consentimiento_revocado(vigente))
         await tx.confirmar()
+    if cache is not None:
+        await cache.invalidar_consentimiento(str(vigente.id))
     return vigente
 
 
@@ -69,6 +76,9 @@ async def _atributos_con_respaldo(
     adaptador_open_data: AdaptadorOpenData,
     cliente_id: str,
     config: Settings,
+    cache=None,
+    sujeto: str | None = None,
+    consentimiento_id: str | None = None,
 ) -> list[AtributoPerfil]:
     """HU-54 + HU-56: invoca cada adaptador con su propio timeout (asyncio.wait_for).
     Si expira o el adaptador lanza cualquier excepción, sustituye por el valor de
@@ -76,92 +86,84 @@ async def _atributos_con_respaldo(
     (éxito/degradado) queda explícito en cada AtributoPerfil, que luego se persiste
     como parte del resultado del perfilamiento."""
 
-    async def _invocar_open_finance() -> list[AtributoPerfil]:
+    sujeto_cache = sujeto or cliente_id
+
+    async def _invocar(
+        adaptador: AdaptadorOpenFinance | AdaptadorOpenData,
+        origen: OrigenAdaptador,
+        fuente: str,
+        timeout_ms: int,
+        respaldos: dict[str, Decimal],
+    ) -> list[AtributoPerfil]:
         try:
-            datos = await asyncio.wait_for(
-                adaptador_open_finance.obtener_atributos(cliente_id),
-                timeout=config.timeout_open_finance_ms / 1000,
-            )
-            return [
+            datos = await asyncio.wait_for(adaptador.obtener_atributos(sujeto_cache), timeout=timeout_ms / 1000)
+            atributos = [
                 AtributoPerfil(
-                    nombre=NIVEL_INGRESOS_ESTIMADO,
-                    valor=datos[NIVEL_INGRESOS_ESTIMADO],
-                    origen=OrigenAdaptador.OPEN_FINANCE,
+                    nombre=nombre,
+                    valor=datos[nombre],
+                    origen=origen,
                     estado=EstadoAdaptador.EXITO,
                     degradado=False,
-                ),
-                AtributoPerfil(
-                    nombre=SCORE_COMPORTAMIENTO,
-                    valor=datos[SCORE_COMPORTAMIENTO],
-                    origen=OrigenAdaptador.OPEN_FINANCE,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
+                )
+                for nombre in respaldos
             ]
-        except Exception:
+            if cache is not None:
+                await cache.guardar(fuente, sujeto_cache, datos, consentimiento_id)
+            return atributos
+        except Exception as exc:
             # Ancho deliberado (igual que ms-cotizacion/app/application/casos_uso_cotizaciones.py):
             # el Gherkin de HU-56 exige degradar igual si el adaptador "excede su tiempo
-            # límite o falla", sin distinguir TimeoutError de cualquier otra excepción.
-            # El núcleo no debe acoplarse a qué excepciones lanza un proveedor real.
+            # límite o falla". La causa solo se registra para auditar cómo respondió.
+            causa = CausaDegradacion.TIMEOUT if isinstance(exc, TimeoutError) else CausaDegradacion.FALLO
+            entrada = await cache.obtener(fuente, sujeto_cache) if cache is not None else None
+            if entrada is not None:
+                return [
+                    AtributoPerfil(
+                        nombre=nombre,
+                        valor=entrada.atributos[nombre],
+                        origen=origen,
+                        estado=EstadoAdaptador.EXITO,
+                        degradado=False,
+                        modo="CACHE",
+                        causa=causa,
+                    )
+                    for nombre in respaldos
+                ]
+            _log.warning("adaptador %s degradado por %s", origen.value, causa.value)
             return [
                 AtributoPerfil(
-                    nombre=NIVEL_INGRESOS_ESTIMADO,
-                    valor=config.respaldo_nivel_ingresos_estimado,
-                    origen=OrigenAdaptador.OPEN_FINANCE,
+                    nombre=nombre,
+                    valor=respaldo,
+                    origen=origen,
                     estado=EstadoAdaptador.DEGRADADO,
                     degradado=True,
-                ),
-                AtributoPerfil(
-                    nombre=SCORE_COMPORTAMIENTO,
-                    valor=config.respaldo_score_comportamiento,
-                    origen=OrigenAdaptador.OPEN_FINANCE,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                ),
-            ]
-
-    async def _invocar_open_data() -> list[AtributoPerfil]:
-        try:
-            datos = await asyncio.wait_for(
-                adaptador_open_data.obtener_atributos(cliente_id),
-                timeout=config.timeout_open_data_ms / 1000,
-            )
-            return [
-                AtributoPerfil(
-                    nombre=ZONA_RIESGO,
-                    valor=datos[ZONA_RIESGO],
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
-                AtributoPerfil(
-                    nombre=ANTIGUEDAD_DOCUMENTO,
-                    valor=datos[ANTIGUEDAD_DOCUMENTO],
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.EXITO,
-                    degradado=False,
-                ),
-            ]
-        except Exception:
-            return [
-                AtributoPerfil(
-                    nombre=ZONA_RIESGO,
-                    valor=config.respaldo_zona_riesgo,
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                ),
-                AtributoPerfil(
-                    nombre=ANTIGUEDAD_DOCUMENTO,
-                    valor=config.respaldo_antiguedad_documento,
-                    origen=OrigenAdaptador.OPEN_DATA,
-                    estado=EstadoAdaptador.DEGRADADO,
-                    degradado=True,
-                ),
+                    modo="DEFAULT",
+                    causa=causa,
+                )
+                for nombre, respaldo in respaldos.items()
             ]
 
     atributos_open_finance, atributos_open_data = await asyncio.gather(
-        _invocar_open_finance(), _invocar_open_data()
+        _invocar(
+            adaptador_open_finance,
+            OrigenAdaptador.OPEN_FINANCE,
+            "OPEN_FINANCE",
+            config.timeout_open_finance_ms,
+            {
+                NIVEL_INGRESOS_ESTIMADO: config.respaldo_nivel_ingresos_estimado,
+                SCORE_COMPORTAMIENTO: config.respaldo_score_comportamiento,
+            },
+        ),
+        _invocar(
+            adaptador_open_data,
+            OrigenAdaptador.OPEN_DATA,
+            "OPEN_DATA",
+            config.timeout_open_data_ms,
+            {
+                ZONA_RIESGO: config.respaldo_zona_riesgo,
+                ANTIGUEDAD_DOCUMENTO: config.respaldo_antiguedad_documento,
+            },
+        ),
     )
     return [*atributos_open_finance, *atributos_open_data]
 
@@ -179,6 +181,8 @@ async def perfilar_y_ofertar(
     config: Settings,
     idempotency_key: str,
     cliente_id: str,
+    cache=None,
+    numero_documento: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-53+HU-54+HU-55+HU-56 en un único flujo (mismo endpoint/llamada):
     1) verifica consentimiento vigente (HU-53) ANTES de tocar cualquier adaptador;
@@ -197,7 +201,15 @@ async def perfilar_y_ofertar(
     if vigente is None:
         raise ConsentimientoNoOtorgado(cliente_id)
 
-    atributos = await _atributos_con_respaldo(adaptador_open_finance, adaptador_open_data, cliente_id, config)
+    atributos = await _atributos_con_respaldo(
+        adaptador_open_finance,
+        adaptador_open_data,
+        cliente_id,
+        config,
+        cache=cache,
+        sujeto=numero_documento,
+        consentimiento_id=str(vigente.id),
+    )
     perfil = Perfil.armar(cliente_id, atributos)
     pesos = {
         NIVEL_INGRESOS_ESTIMADO: config.peso_nivel_ingresos_estimado,

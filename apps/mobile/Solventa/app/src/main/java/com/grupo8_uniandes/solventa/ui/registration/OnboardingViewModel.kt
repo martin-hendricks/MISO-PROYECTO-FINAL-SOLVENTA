@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.EmailAddress
 import com.grupo8_uniandes.solventa.domain.registration.EmailStatus
+import com.grupo8_uniandes.solventa.domain.registration.MonthlyAmounts
 import com.grupo8_uniandes.solventa.domain.registration.PasswordLength
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.documentTypes
@@ -29,6 +30,8 @@ data class OnboardingUiState(
     val documentNumber: String = "",
     val password: String = "",
     val passwordConfirm: String = "",
+    val monthlyIncome: String = "",
+    val monthlySpending: String = "",
     val passwordMinMet: Boolean = false,
     val passwordMaxMet: Boolean = false,
     val hasPhoto: Boolean = false,
@@ -74,6 +77,10 @@ class OnboardingViewModel(
     fun onPassword(value: String) = edit { it.copy(password = value) }
 
     fun onPasswordConfirm(value: String) = edit { it.copy(passwordConfirm = value) }
+
+    fun onIncome(value: String) = edit { it.copy(monthlyIncome = value) }
+
+    fun onSpending(value: String) = edit { it.copy(monthlySpending = value) }
 
     fun attachPhoto(bytes: ByteArray) {
         photo = bytes.copyOf()
@@ -151,9 +158,11 @@ class OnboardingViewModel(
         val passwordMaxMet = PasswordLength.meetsMaximum(passwordText)
         val passwordReady = PasswordLength.accepted(passwordText) && passwordText == confirmText
         val typeReady = draft.documentType.trim() in documentTypes(region)
+        val amountsReady = MonthlyAmounts.pair(draft.monthlyIncome, draft.monthlySpending) != null
         val detailsReady = textsReady &&
             passwordReady &&
             typeReady &&
+            amountsReady &&
             emailStatus == EmailStatus.Valid
         return draft.copy(
             hasPhoto = photoReady,
@@ -173,5 +182,7 @@ class OnboardingViewModel(
         documentNumber = documentNumber,
         password = password,
         documentPhoto = photo,
+        monthlyIncome = MonthlyAmounts.income(monthlyIncome).orEmpty(),
+        monthlySpending = MonthlyAmounts.spending(monthlySpending).orEmpty(),
     )
 }

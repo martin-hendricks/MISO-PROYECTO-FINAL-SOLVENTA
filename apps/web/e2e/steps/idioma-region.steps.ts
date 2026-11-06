@@ -44,6 +44,7 @@ Then('the sign-up view is shown in the chosen locale', async function (this: Por
 });
 
 When('the customer opens idioma y región from Perfil', async function (this: PortalWorld) {
+  await this.bff.serveProfile(this.account.email);
   await this.idiomaRegion.openFromPerfil();
 });
 

@@ -20,8 +20,10 @@ import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
+import com.grupo8_uniandes.solventa.issuance.ConfirmacionTarjetaViewModel
 import com.grupo8_uniandes.solventa.policy.IssuanceUi
 import com.grupo8_uniandes.solventa.policy.IssuanceViewModel
+import com.grupo8_uniandes.solventa.policy.RenewalChoiceViewModel
 import com.grupo8_uniandes.solventa.policy.AvisoVigenciaViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
 import com.grupo8_uniandes.solventa.policy.PolizasViewModel
@@ -37,6 +39,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.ShowMortgageOffer
+import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionTarjetaScreen
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
 import com.grupo8_uniandes.solventa.ui.shell.OfertaHipotecarioScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
@@ -48,7 +51,7 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConsentimientoRevocadoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
 import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
@@ -58,7 +61,7 @@ import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
@@ -106,7 +109,7 @@ fun CustomerNavHost(
                 state = homeState,
                 onNewQuote = { navController.navigate(CotizacionRoute()) },
                 onOpenOffer = { offerId -> navController.navigate(VerOfertaRoute(offerId)) },
-                onAcceptOffer = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onAcceptOffer = { offerId -> navController.navigate(ConfirmacionTarjetaRoute(offerId)) },
                 onOpenPolicy = { policyId ->
                     navController.openParentThen(PolizasRoute, PolizaDetalleRoute(policyId))
                 },
@@ -124,7 +127,7 @@ fun CustomerNavHost(
             val offer = remember(region) { ShowMortgageOffer(region).show() }
             OfertaHipotecarioScreen(
                 offer = offer,
-                onAccept = { navController.navigate(EmisionEnCursoRoute()) },
+                onAccept = { navController.navigate(ConfirmacionTarjetaRoute()) },
                 onReviewLater = { navController.popBackStack() },
             )
         }
@@ -138,7 +141,7 @@ fun CustomerNavHost(
             val state by viewModel.state.collectAsState()
             VerOfertaScreen(
                 state = state,
-                onAccept = { offerId -> navController.navigate(EmisionEnCursoRoute(offerId)) },
+                onAccept = { offerId -> navController.navigate(ConfirmacionTarjetaRoute(offerId)) },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
                 onDecline = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
@@ -328,7 +331,9 @@ fun CustomerNavHost(
         }
         composable<ParametricoRoute> {
             val viewModel: ParametricoViewModel = koinViewModel()
+            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(OpenParametricPayment.POLICY) }
             val state by viewModel.state.collectAsState()
+            val renewalState by renewal.state.collectAsState()
             val context = LocalContext.current
             LaunchedEffect(Unit) { viewModel.load() }
             val notice = state.notice
@@ -336,6 +341,9 @@ fun CustomerNavHost(
                 ParametricoScreen(
                     notice = notice,
                     onBack = { navController.popBackStack() },
+                    renewalChecked = renewalState.checked,
+                    renewalMissing = renewalState.missing,
+                    onRenewal = renewal::onChecked,
                     onDownload = {
                         val receipt = viewModel.offerReceipt() ?: return@ParametricoScreen
                         val text = listOf(receipt.asunto, receipt.disparo, receipt.lineaDepositada)
@@ -360,6 +368,29 @@ fun CustomerNavHost(
             PerfilScreen(
                 originationActive = originationActive,
                 onSignedOut = onSignedOut,
+            )
+        }
+        composable<ConfirmacionTarjetaRoute> { entry ->
+            val route = entry.toRoute<ConfirmacionTarjetaRoute>()
+            val viewModel: ConfirmacionTarjetaViewModel = koinViewModel()
+            val state by viewModel.state.collectAsState()
+            ConfirmacionTarjetaScreen(
+                state = state,
+                onTitular = viewModel::onTitular,
+                onNumero = viewModel::onNumero,
+                onMes = viewModel::onMes,
+                onAnio = viewModel::onAnio,
+                onCodigo = viewModel::onCodigo,
+                onConfirm = {
+                    if (viewModel.confirm()) {
+                        navController.navigate(EmisionEnCursoRoute(route.offerId))
+                    }
+                },
+                onBackToOffer = {
+                    viewModel.discard()
+                    navController.popBackStack()
+                },
+                onLeave = viewModel::discard,
             )
         }
         composable<EmisionEnCursoRoute> { entry ->
@@ -396,8 +427,13 @@ fun CustomerNavHost(
         }
         composable<PolizaEmitidaRoute> { entry ->
             val route = entry.toRoute<PolizaEmitidaRoute>()
+            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(route.numero) }
+            val renewalState by renewal.state.collectAsState()
             PolizaEmitidaScreen(
                 policyId = route.numero,
+                renewalChecked = renewalState.checked,
+                renewalMissing = renewalState.missing,
+                onRenewal = renewal::onChecked,
                 onGoHome = { navController.leaveIssuance(InicioRoute) },
                 onGoPolicy = { navController.leaveIssuanceToPolicy(route.numero) },
             )
@@ -440,6 +476,7 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<InicioRoute>() -> InicioRoute
         destination.hasRoute<CotizacionRoute>() -> toRoute<CotizacionRoute>()
         destination.hasRoute<VerOfertaRoute>() -> toRoute<VerOfertaRoute>()
+        destination.hasRoute<ConfirmacionTarjetaRoute>() -> toRoute<ConfirmacionTarjetaRoute>()
         destination.hasRoute<PolizasRoute>() -> PolizasRoute
         destination.hasRoute<PolizaDetalleRoute>() -> toRoute<PolizaDetalleRoute>()
         destination.hasRoute<SiniestrosRoute>() -> SiniestrosRoute

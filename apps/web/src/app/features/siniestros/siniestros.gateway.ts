@@ -8,6 +8,15 @@ export interface SiniestroResumen {
   estado: string;
 }
 
+export interface PagoParametrico {
+  siniestroId: string;
+  poliza: string;
+  umbral: string;
+  monto: number;
+  moneda: string;
+  estado: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SiniestrosGateway {
   private readonly http = inject(HttpClient);
@@ -18,5 +27,10 @@ export class SiniestrosGateway {
     return this.http.get<{ siniestroEnCurso: SiniestroResumen | null }>(
       `${this.baseUrl}/cliente/inicio`,
     );
+  }
+
+  /** Stored parametric payout. The summary is a claim outcome, not a premium charge. */
+  parametric(): Observable<PagoParametrico> {
+    return this.http.get<PagoParametrico>(`${this.baseUrl}/cliente/pagos-automaticos`);
   }
 }

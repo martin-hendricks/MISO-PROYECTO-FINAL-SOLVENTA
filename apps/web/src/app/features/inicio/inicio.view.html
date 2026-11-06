@@ -63,8 +63,8 @@
               <div class="actions">
                 <a
                   class="filled"
-                  routerLink="/emision"
-                  [queryParams]="{ cotizacion: offer.cotizacionId }"
+                  routerLink="/confirmacion-tarjeta"
+                  [queryParams]="{ cotizacion: offer.cotizacionId, prima: offer.prima }"
                   data-testid="inicio-accept"
                 >
                   {{ 'inicio.offer.accept' | translate }}

@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
+import { POLIZAS } from '../polizas/polizas.testing';
 import { EMITIDA, MOTIVO, RECHAZADA } from './emision.testing';
 import { EmisionView } from './emision.view';
 
@@ -127,6 +128,29 @@ describe('EmisionView', () => {
     expect(host.querySelector('nav')).toBeNull();
     expect(element('sign-out')).toBeNull();
     http.expectOne(URL).flush(EMITIDA);
+  });
+
+  it('shows an optional payment reference and saves renewal only after the customer chooses it', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({
+      resultado: 'EMITIDA',
+      poliza: { ...POLIZAS[0], referenciaPago: 'PAY-44218' },
+    });
+    fixture.detectChanges();
+
+    expect(element('referencia-pago')?.textContent).toContain('PAY-44218');
+    expect(element('renovacion-automatica')).not.toBeNull();
+    expect(element('renovacion-ayuda')?.textContent).toContain(
+      'Apagado. Renueva la prima de esta póliza. No cobra ahora.',
+    );
+    const checkbox = element('renovacion-automatica') as HTMLInputElement;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    const preference = http.expectOne('/web/cliente/polizas/POL-2026-00088421/preferencias');
+    expect(preference.request.body).toEqual({ renovacionAutomatica: true });
+    preference.flush({ numero: 'POL-2026-00088421', renovacionAutomatica: true });
+    fixture.detectChanges();
+    expect(element('renovacion-ayuda')).toBeNull();
   });
 
   it('does not call the BFF without an offer to accept', () => {

@@ -10,6 +10,7 @@ from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
 from app.infrastructure.cache import AdaptadorConCache, CacheRedis
+from app.infrastructure.cache_fuentes import CacheEnMemoria
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
@@ -43,6 +44,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.adaptador_open_finance = open_finance
         app.state.adaptador_open_data = open_data
         app.state.config = config
+        app.state.cache_fuentes = CacheEnMemoria()
         yield
         if redis is not None:
             await redis.aclose()

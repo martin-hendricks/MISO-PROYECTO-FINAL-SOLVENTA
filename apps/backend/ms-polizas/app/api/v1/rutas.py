@@ -26,6 +26,7 @@ from .schemas import (
     ModificarCoberturasEntrada,
     OfertasConPolizaSalida,
     PolizaSalida,
+    PreferenciaPolizaEntrada,
     RenovarPolizaEntrada,
 )
 
@@ -129,6 +130,14 @@ async def renovar(poliza_id: UUID, entrada: RenovarPolizaEntrada, uow: Uow):
 @router.post("/{poliza_id}/coberturas", response_model=PolizaSalida, responses=ERRORES_CICLO_VIDA)
 async def modificar_coberturas(poliza_id: UUID, entrada: ModificarCoberturasEntrada, uow: Uow):
     poliza = await casos_uso.modificar_poliza(uow, poliza_id, [c.a_dominio() for c in entrada.coberturas])
+    return PolizaSalida.desde(poliza)
+
+
+@router.patch("/{poliza_id}/preferencias", response_model=PolizaSalida, responses=ERRORES)
+async def preferencias(poliza_id: UUID, entrada: PreferenciaPolizaEntrada, uow: Uow, usuario_id: UUID | None = None):
+    poliza = await casos_uso.guardar_renovacion_automatica(
+        uow, poliza_id, entrada.renovacion_automatica, usuario_id
+    )
     return PolizaSalida.desde(poliza)
 
 

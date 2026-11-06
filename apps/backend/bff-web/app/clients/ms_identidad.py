@@ -25,6 +25,8 @@ class ClienteMsIdentidad(ClienteServicio):
         password: str,
         nombre: str = "",
         apellidos: str = "",
+        ingresos_mensuales: str | None = None,
+        gastos_mensuales: str | None = None,
     ) -> dict[str, Any]:
         """POST /v1/usuarios. ms-identidad responde 409 (RechazoDelNucleo)
         si el correo o el documento ya existen -- el router lo propaga como
@@ -39,6 +41,8 @@ class ClienteMsIdentidad(ClienteServicio):
                 "password": password,
                 "nombre": nombre,
                 "apellidos": apellidos,
+                "ingresos_mensuales": None if ingresos_mensuales is None else str(ingresos_mensuales),
+                "gastos_mensuales": None if gastos_mensuales is None else str(gastos_mensuales),
             },
         )
 

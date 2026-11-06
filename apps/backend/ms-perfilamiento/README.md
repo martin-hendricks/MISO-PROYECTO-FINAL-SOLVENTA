@@ -73,6 +73,8 @@ La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde 
 
 Cada adaptador tiene su propio timeout (`timeout_open_finance_ms`, `timeout_open_data_ms`, 400ms por defecto) aplicado con `asyncio.wait_for` en `app/application/casos_uso.py`. Si expira o el adaptador lanza cualquier excepción, el atributo correspondiente se sustituye por su valor de respaldo (constante configurable) y se marca `degradado=True` para ese atributo; la `Oferta` resultante expone `degradado=true` si al menos uno de sus atributos vino del respaldo. La oferta degradada sigue siendo válida y se persiste junto con el snapshot completo de insumos (`snapshot_atributos`), para que la decisión de precio sea 100% reconstruible aunque las reglas cambien después.
 
+Cada atributo del snapshot registra qué adaptador respondió (`origen`) y cómo: `estado`, `modo` (`LIVE`, `CACHE` o `DEFAULT`) y `causa` (`timeout` o `fallo` cuando el adaptador no respondió a tiempo). El evento `OfertaHipotecarioEmitida` resume lo mismo por fuente en `fuentes`.
+
 Valores de respaldo por defecto: `nivel_ingresos_estimado=1.0`, `score_comportamiento=0.5`, `zona_riesgo=0.5`, `antiguedad_documento=1.0`.
 
 <!-- desarrollo -->

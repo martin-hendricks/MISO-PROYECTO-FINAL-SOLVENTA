@@ -142,6 +142,15 @@ def test_cotizacion_rechazo_de_negocio_se_propaga(client, nucleo_cotizacion):
     assert response.json() == {"codigo": "producto_suspendido", "mensaje": "Producto suspendido"}
 
 
+def test_emision_rechaza_datos_de_tarjeta(client):
+    response = client.post(
+        "/v1/cliente/polizas",
+        headers=_auth(client),
+        json={"cotizacionId": COTIZACION_ID, "numeroTarjeta": "4242424242424242"},
+    )
+    assert response.status_code == 422
+
+
 def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas):
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
         201, json=ACEPTACION_SALIDA

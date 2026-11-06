@@ -112,3 +112,17 @@ section {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+.renewal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.renewal-helper {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}

@@ -5,6 +5,8 @@ def test_prueba_de_vida_ok_y_no(client):
         "documento": "1012345678",
         "correo": "camila@correo.com",
         "habeasData": True,
+        "ingresos_mensuales": "4500000.00",
+        "gastos_mensuales": "1500000.00",
     }
     ok = client.post("/registro", json={**base, "pruebaDeVida": "ok"})
     no = client.post("/registro", json={**base, "pruebaDeVida": "no"})
@@ -22,6 +24,8 @@ def test_otro_valor_de_prueba_es_400(client):
             "documento": "1",
             "correo": "c@c.com",
             "habeasData": True,
+            "ingresos_mensuales": "4500000.00",
+            "gastos_mensuales": "1500000.00",
             "pruebaDeVida": "maybe",
         },
     )
