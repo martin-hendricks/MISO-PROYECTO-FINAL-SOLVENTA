@@ -61,7 +61,6 @@ import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
-import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.ui.region.findActivity
@@ -90,10 +89,11 @@ fun CustomerNavHost(
         when (push.destino) {
             PushDestination.PARAMETRICO ->
                 if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
-            PushDestination.AVISO_VENCIMIENTO ->
-                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoVencimientoRoute)
-            PushDestination.AVISO_RENOVACION ->
-                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoRenovacionRoute)
+            // La ruta solo depende del tipo de aviso; qué póliza real coincide
+            // se resuelve dentro de la pantalla (AvisoVigenciaViewModel.openPush,
+            // vía OpenValidityNotice) contra la lista real de avisos, no aquí.
+            PushDestination.AVISO_VENCIMIENTO -> navController.navigate(AvisoVencimientoRoute)
+            PushDestination.AVISO_RENOVACION -> navController.navigate(AvisoRenovacionRoute)
             PushDestination.DETALLE_SINIESTRO -> Unit
         }
     }
