@@ -79,6 +79,11 @@ variable "seed_external_provider_placeholders" {
   default     = true
 }
 
+variable "evidencias_bucket_name" {
+  type        = string
+  description = "Name of the claim evidence bucket (s3_evidencias module bucket_id). Published as S3_EVIDENCIAS_BUCKET in the siniestros-config secret."
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."

@@ -217,3 +217,29 @@ resource "aws_secretsmanager_secret_version" "bff_movil_token" {
     ignore_changes = [secret_string]
   }
 }
+
+# --- ms-siniestros: configuración publicada por Terraform ---
+#
+# El nombre del bucket de evidencia lleva un sufijo aleatorio (módulo
+# s3_evidencias) y el workflow de CD no puede leer `terraform output` (el
+# state es local, ver .github/workflows/deploy.yml). Se publica aquí y
+# External Secrets lo proyecta al pod, igual que SOLVENTA_TOKEN_SECRET: la
+# clave del JSON es el nombre exacto de la env var, así que basta con listar
+# el secreto en externalSecrets.remoteSecrets de values/ms-siniestros.yaml.
+# No es un dato sensible; se usa Secrets Manager porque es el único backend
+# del ClusterSecretStore (infra/k8s/platform/clustersecretstore.yaml).
+resource "aws_secretsmanager_secret" "siniestros_config" {
+  name                    = "${var.project_name}-${var.environment}-siniestros-config"
+  description             = "Configuracion no sensible de ms-siniestros (S3_EVIDENCIAS_BUCKET), proyectada por External Secrets"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-siniestros-config" })
+}
+
+resource "aws_secretsmanager_secret_version" "siniestros_config" {
+  secret_id = aws_secretsmanager_secret.siniestros_config.id
+  # Sin ignore_changes a propósito: si el bucket se recrea con otro sufijo, el
+  # secreto debe seguirlo en el siguiente apply.
+  secret_string = jsonencode({ S3_EVIDENCIAS_BUCKET = var.evidencias_bucket_name })
+}
