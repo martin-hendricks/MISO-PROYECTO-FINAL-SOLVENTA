@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # IPerfilRiesgo real (HU-162): estos productos toman el factor del perfil que arma
     # ms-perfilamiento; los demás siguen con el adaptador stub.
     ms_perfilamiento_url: str = "http://ms-perfilamiento:8080"
-    productos_perfil_perfilamiento: list[str] = ["vida-crediticia", "vida-hipotecario"]
+    productos_perfil_perfilamiento: list[str] = ["vida-hipotecario"]
 
     # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
     # default razonable a confirmar con negocio.

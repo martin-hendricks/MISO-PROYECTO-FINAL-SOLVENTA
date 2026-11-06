@@ -18,7 +18,7 @@ Calcula prima en tiempo real combinando reglas actuariales, riesgo y señales de
 | HU-7 · Reconsultar oferta por id | [SOLV-100](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-100) | `GET /v1/cotizaciones/{cotizacionId}`: lectura pura, sin recálculo; marca ofertas vencidas con su precio original. |
 | HU-12 · Aceptar oferta vigente | [SOLV-105](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-105) | `POST /v1/cotizaciones/{cotizacionId}/aceptacion`: acepta una oferta vigente y no usada, congela su precio y encadena la decisión de suscripción de HU-13. |
 | HU-163 · Cotizaciones pendientes del asesor | [SOLV-262](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-262) | `GET /v1/cotizaciones?asesor_id=...`: lista paginada de las cotizaciones que creó el asesor (`cotizada`/`aceptada`), ocultando las vencidas salvo `incluir_vencidas=true`. |
-| HU-162 · Oferta de vida hipotecario en el portal | [SOLV-261](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-261) | `AdaptadorPerfilRiesgo` real para `vida-crediticia`: lee el `factor_ajuste` de la última oferta de `ms-perfilamiento` (`IPerfilRiesgo`), así la prima cotizada usa el mismo perfil que el cliente vio. El resto de productos sigue con el stub; sin consentimiento, sin oferta o con el servicio caído aplica el valor de respaldo de HU-5. |
+| HU-162 · Oferta de vida hipotecario en el portal | [SOLV-261](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-261) | `AdaptadorPerfilRiesgo` real para `vida-hipotecario`: lee el `factor_ajuste` de la última oferta de `ms-perfilamiento` (`IPerfilRiesgo`), así la prima cotizada usa el mismo perfil que el cliente vio. El resto de productos sigue con el stub; sin consentimiento, sin oferta o con el servicio caído aplica el valor de respaldo de HU-5. |
 
 ### Catálogo de productos (HU-1)
 
@@ -65,7 +65,7 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `LOG_LEVEL` | `INFO` | |
 | `MS_SUSCRIPCION_URL` | `http://ms-suscripcion:8080` | Decisión de suscripción que encadena la aceptación (HU-12 → HU-13) |
 | `MS_PERFILAMIENTO_URL` | `http://ms-perfilamiento:8080` | Perfil de riesgo de los productos de `PRODUCTOS_PERFIL_PERFILAMIENTO` (HU-162) |
-| `PRODUCTOS_PERFIL_PERFILAMIENTO` | `["vida-crediticia", "vida-hipotecario"]` | Productos cuyo factor de riesgo sale de `ms-perfilamiento` (lista JSON) |
+| `PRODUCTOS_PERFIL_PERFILAMIENTO` | `["vida-hipotecario"]` | Productos cuyo factor de riesgo sale de `ms-perfilamiento` (lista JSON) |
 | — | — | Al aceptar, si el producto está en `PRODUCTOS_PERFIL_PERFILAMIENTO` y la oferta usó el perfil, se verifica `GET /v1/consentimientos/{usuario_id}`; revocado responde 422 `consentimiento_revocado` (N18, HA-21) |
 | `TIMEOUT_DEPENDENCIAS` | `2.0` | Segundos por llamada a otro servicio |
 

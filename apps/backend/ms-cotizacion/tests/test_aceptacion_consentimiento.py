@@ -77,7 +77,7 @@ async def test_consentimiento_vigente_permite_aceptar(uow, catalogo, config, sus
 
 async def test_producto_que_no_usa_el_perfil_no_consulta_el_consentimiento(uow, catalogo, config, suscripciones):
     solicitud = await _cotizada(uow, catalogo, config)
-    consentimientos = ConsentimientosFalsos(productos={"vida-crediticia"}, vigentes=set())
+    consentimientos = ConsentimientosFalsos(productos={"vida-hipotecario"}, vigentes=set())
 
     aceptacion = await _aceptar(uow, suscripciones, consentimientos, solicitud.id)
 
@@ -134,7 +134,7 @@ async def test_adaptador_http_interpreta_la_respuesta_de_ms_perfilamiento(estado
         return httpx.Response(estado, json={})
 
     async with _http(manejador) as http:
-        adaptador = ConsentimientoPerfilamientoHTTP(http, ["vida-crediticia"])
+        adaptador = ConsentimientoPerfilamientoHTTP(http, ["vida-hipotecario"])
         assert await adaptador.vigente(usuario) is vigente
 
     assert rutas == [("GET", f"/v1/consentimientos/{usuario}")]
@@ -156,9 +156,9 @@ async def test_adaptador_http_sin_red_es_dependencia_no_disponible():
 
 
 def test_adaptador_http_requiere_solo_los_productos_configurados():
-    adaptador = ConsentimientoPerfilamientoHTTP(httpx.AsyncClient(), ["vida-crediticia"])
+    adaptador = ConsentimientoPerfilamientoHTTP(httpx.AsyncClient(), ["vida-hipotecario"])
 
-    assert adaptador.requiere("vida-crediticia") is True
+    assert adaptador.requiere("vida-hipotecario") is True
     assert adaptador.requiere("soat-motocicleta") is False
 
 

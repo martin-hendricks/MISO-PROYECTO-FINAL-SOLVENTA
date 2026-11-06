@@ -134,7 +134,7 @@ variablesEntorno:
     valor: "300"
   - nombre: NODE_GROUP
     valor: "a"
-  # HU-162: IPerfilRiesgo real para vida-crediticia. ms-perfilamiento escucha en
+  # HU-162: IPerfilRiesgo real para vida-hipotecario. ms-perfilamiento escucha en
   # :8080 (apps/backend/ms-perfilamiento/Dockerfile) y el Service publica el
   # mismo puerto (`puerto` en values/ms-perfilamiento.yaml).
   - nombre: MS_PERFILAMIENTO_URL
