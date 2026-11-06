@@ -198,6 +198,12 @@ def test_motor_rechaza_poliza_no_vigente():
     assert "no está vigente" in r.motivo
 
 
+def test_estado_de_ms_polizas_en_mayusculas_cuenta_como_vigente():
+    assert poliza(estado="VIGENTE").vigente
+    r = motor_reglas.evaluar(aviso(poliza=poliza(estado="VIGENTE")), DISPOSITIVO, 1, 0)
+    assert r.resultado is ResultadoAuditado.APROBADO
+
+
 def test_motor_rechaza_hecho_fuera_de_vigencia():
     p = poliza(inicio_vigencia=HOY - timedelta(days=10))
     r = motor_reglas.evaluar(aviso(poliza=p, fecha_hecho=HOY - timedelta(days=20)), DISPOSITIVO, 1, 0)

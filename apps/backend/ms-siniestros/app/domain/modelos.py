@@ -97,7 +97,8 @@ class SnapshotPoliza:
 
     @property
     def vigente(self) -> bool:
-        return self.estado == "vigente"
+        # ms-polizas responde el estado en mayúsculas (VIGENTE): se compara sin mayúsculas.
+        return (self.estado or "").strip().lower() == "vigente"
 
 
 @dataclass

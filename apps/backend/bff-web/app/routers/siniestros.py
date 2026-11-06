@@ -124,7 +124,7 @@ async def reportar_siniestro(
             "poliza_id": str(datos_poliza["id"]),
             "numero": datos_poliza["numero"],
             "ramo": cotizacion.get("producto") or "sin-clasificar",
-            "estado": datos_poliza["estado"],
+            "estado": str(datos_poliza["estado"]).lower(),  # ms-polizas responde VIGENTE
             "inicio_vigencia": datos_poliza["inicio_vigencia"],
             "fin_vigencia": datos_poliza["fin_vigencia"],
             # TODO: sin suma_asegurada a propósito -- emitir() guarda hoy coberturas

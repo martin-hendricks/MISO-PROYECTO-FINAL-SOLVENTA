@@ -19,7 +19,7 @@ POLIZA = {
     "usuario_id": DUENO,
     "inicio_vigencia": "2026-09-01",
     "fin_vigencia": "2027-09-01",
-    "estado": "vigente",
+    "estado": "VIGENTE",  # así responde ms-polizas
     "coberturas": [{"nombre": "dano", "suma_asegurada": "89000", "deducible": "0"}],
     "prima": {"valor": "89000", "periodicidad": "ANUAL"},
     "renovable": False,
@@ -115,6 +115,7 @@ def test_reportar_envia_foto_de_poliza_y_evidencia_al_nucleo(client, nucleo_poli
     assert datos["canal"] == "web"
     assert datos["poliza"]["ramo"] == "proteccion-dispositivo"
     assert datos["poliza"]["poliza_id"] == POLIZA_ID
+    assert datos["poliza"]["estado"] == "vigente"
     assert "suma_asegurada" not in datos["poliza"]
     assert datos["geo"] == {"lat": 4.65, "lng": -74.08, "precision_m": 12.0}
     assert datos["tipos_adjuntos"] == ["foto"]
