@@ -28,6 +28,8 @@ describe('EmisionViewModel', () => {
 
     expect(viewModel.status()).toBe('issued');
     expect(viewModel.poliza()?.numero).toBe('POL-2026-00088421');
+    viewModel.chooseRenewal(true);
+    expect(viewModel.renewal()).toBeTrue();
   });
 
   it('keeps renewal off until the customer changes it, without another issuance', () => {
