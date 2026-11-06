@@ -76,6 +76,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import retrofit2.HttpException
@@ -276,15 +277,16 @@ class RemoteIssuanceRepository(
 
 private const val CONSENT_REVOKED = "consentimiento_revocado"
 
-private fun HttpException.codigo(): String? =
-    try {
-        val body = response()?.errorBody()?.string().orEmpty()
-        (bffJson.parseToJsonElement(body) as? JsonObject)?.get("codigo")?.jsonPrimitive?.contentOrNull
+private fun HttpException.codigo(): String? {
+    val body = response()?.errorBody()?.string().orEmpty()
+    val parsed = try {
+        bffJson.parseToJsonElement(body)
     } catch (_: SerializationException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
+        return null
     }
+    val codigo = (parsed as? JsonObject)?.get("codigo") as? JsonPrimitive
+    return codigo?.contentOrNull
+}
 
 private sealed interface Acceptance {
     data class Issued(val policy: IssuedPolicy) : Acceptance
