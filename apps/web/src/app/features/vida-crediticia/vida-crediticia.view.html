@@ -53,8 +53,8 @@
         <a
           class="filled"
           data-testid="oferta-aceptar"
-          routerLink="/emision"
-          [queryParams]="{ cotizacion: oferta.cotizacionId }"
+          routerLink="/confirmacion-tarjeta"
+          [queryParams]="{ cotizacion: oferta.cotizacionId, prima: oferta.prima }"
           >{{ 'vidaCrediticia.oferta.aceptar' | translate }}</a
         >
       </article>

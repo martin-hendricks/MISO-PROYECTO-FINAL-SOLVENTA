@@ -134,6 +134,8 @@ Given('the customer then revoked the profiling consent', async function (this: P
 
 When('the customer accepts the mortgage offer', async function (this: PortalWorld) {
   await this.page.getByTestId('oferta-aceptar').click();
+  await this.cotizacion.fillCard();
+  await this.cotizacion.confirmCard();
 });
 
 Then('the customer is told the profiling consent was revoked', async function (this: PortalWorld) {

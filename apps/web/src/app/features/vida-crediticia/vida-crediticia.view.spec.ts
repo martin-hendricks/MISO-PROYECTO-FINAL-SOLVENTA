@@ -93,7 +93,9 @@ describe('VidaCrediticiaView', () => {
     expect(element('vida-factor-zona_riesgo')?.textContent).toContain('Zona de riesgo');
     expect(element('vida-factores')?.textContent).toContain('Aumenta la prima');
     expect(element('vida-degradada')).toBeNull();
-    expect(element('oferta-aceptar')?.getAttribute('href')).toBe('/emision?cotizacion=COT-7001');
+    expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
+      '/confirmacion-tarjeta?cotizacion=COT-7001&prima=140100',
+    );
   });
 
   it('warns when the profile degraded but still offers to emit (HU-56)', () => {
