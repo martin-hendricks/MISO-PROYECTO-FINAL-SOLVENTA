@@ -21,6 +21,7 @@ Given('an active origination and profiling consent', async function (this: Porta
   this.home = fullHome();
   await this.bff.serveCatalogs('cliente', CATALOGS);
   await this.bff.serveMortgageOffer('cliente', this.offer as MortgageOffer);
+  await this.bff.serveMortgageOrigination({ valor: 180000000, plazoMeses: 240 });
   await this.bff.acceptSignIn(this.account.email, 'cliente');
   await this.bff.serveHome(this.home);
   await this.login.open('customer');
@@ -116,6 +117,7 @@ Given("a mortgage offer quoted with the customer's profile", async function (thi
   this.home = fullHome();
   await this.bff.serveCatalogs('cliente', CATALOGS);
   await this.bff.serveMortgageOffer('cliente', this.offer as MortgageOffer);
+  await this.bff.serveMortgageOrigination(null);
   await this.bff.acceptSignIn(this.account.email, 'cliente');
   await this.bff.serveHome(this.home);
   await this.login.open('customer');
@@ -150,4 +152,46 @@ Then('the customer is told the profiling consent was revoked', async function (t
 Then('the customer can start a new quote instead of retrying', async function (this: PortalWorld) {
   assert.equal(await this.page.getByTestId('emision-revoked-new-quote').getAttribute('href'), '/cotizacion');
   assert.equal(await this.page.getByTestId('emision-retry').count(), 0);
+});
+
+// Mortgage life from Nueva cotización
+
+Given('a customer on Nueva cotización', async function (this: PortalWorld) {
+  this.offer = mortgageOffer();
+  await this.bff.serveCatalogs('cliente', CATALOGS);
+  await this.bff.serveMortgageOffer('cliente', this.offer as MortgageOffer);
+  await this.bff.serveMortgageOrigination(null);
+  await this.bff.acceptSignIn(this.account.email, 'cliente');
+  await this.bff.serveHome(fullHome());
+  await this.login.open('customer');
+  await this.login.signIn(this.account);
+  await this.shell.expectInicio();
+  await this.cotizacion.openNew();
+});
+
+When('the customer quotes Vida hipotecario', async function (this: PortalWorld) {
+  await this.cotizacion.pickLine('hipotecario');
+  await this.cotizacion.fillMortgage('180000000', '240');
+  await this.page.getByTestId('cotizar').click();
+});
+
+Then(
+  'the mortgage is saved and the consent opens with the amounts filled',
+  async function (this: PortalWorld) {
+    await this.page.waitForURL('**/vida-crediticia?**');
+    await this.vidaCrediticia.waitForConsent();
+    await this.vidaCrediticia.expectPrefilled('180000000', '240');
+    assert.deepEqual(this.bff.originationBody(), { valor: 180000000, plazoMeses: 240 });
+    assert.equal(this.bff.quotesRequested(), 0);
+  },
+);
+
+Then('authorizing shows each profiling step before the offer', async function (this: PortalWorld) {
+  await this.vidaCrediticia.authorizePrefilled();
+  await this.vidaCrediticia.expectProfilingSteps();
+  await this.vidaCrediticia.expectFactor('Zona de riesgo');
+  assert.deepEqual(this.bff.mortgageBody(), {
+    credito: { valor: 180000000, plazoMeses: 240 },
+    consentimientoPerfil: true,
+  });
 });

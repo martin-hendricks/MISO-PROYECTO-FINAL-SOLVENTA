@@ -17,9 +17,26 @@ export class VidaCrediticiaPage {
   }
 
   async authorize(valor = '180000000', plazoMeses = '240'): Promise<void> {
-    await this.page.getByTestId('vida-valorCredito').fill(valor);
+    await this.page.getByTestId('vida-valor').fill(valor);
     await this.page.getByTestId('vida-plazoMeses').fill(plazoMeses);
     await this.page.getByTestId('vida-autorizar').click();
+    await this.page.getByTestId('vida-factores').waitFor({ state: 'visible' });
+  }
+
+  async expectPrefilled(valor: string, plazoMeses: string): Promise<void> {
+    assert.equal(await this.page.getByTestId('vida-valor').inputValue(), valor);
+    assert.equal(await this.page.getByTestId('vida-plazoMeses').inputValue(), plazoMeses);
+  }
+
+  async authorizePrefilled(): Promise<void> {
+    await this.page.getByTestId('vida-autorizar').click();
+  }
+
+  async expectProfilingSteps(): Promise<void> {
+    await this.page.getByTestId('vida-progreso').waitFor({ state: 'visible' });
+    for (const etapa of ['openFinance', 'openData', 'riesgo', 'oferta']) {
+      await this.page.getByTestId(`vida-etapa-${etapa}`).waitFor({ state: 'visible' });
+    }
     await this.page.getByTestId('vida-factores').waitFor({ state: 'visible' });
   }
 

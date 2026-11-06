@@ -46,6 +46,7 @@ export class BffDoubles {
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
   private mortgageBodies: Record<string, unknown>[] = [];
+  private originationBodies: Record<string, unknown>[] = [];
 
   constructor(private readonly page: Page) {}
 
@@ -318,6 +319,26 @@ export class BffDoubles {
       this.issueRequests += 1;
       return route.fulfill({ status, json: body });
     });
+  }
+
+  /** Answers the customer mortgage origination: GET returns the pending one (or 404), POST saves it. */
+  async serveMortgageOrigination(pending: { valor: number; plazoMeses: number } | null): Promise<void> {
+    const url = '**/web/cliente/originacion-hipotecaria';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        this.originationBodies.push(body);
+        return route.fulfill({ status: 201, json: { ...body, origen: 'cliente' } });
+      }
+      return pending
+        ? route.fulfill({ json: { ...pending, origen: 'cliente' } })
+        : route.fulfill({ status: 404, json: { codigo: 'no_encontrado', mensaje: 'No existe' } });
+    });
+  }
+
+  originationBody(): Record<string, unknown> | undefined {
+    return this.originationBodies.at(-1);
   }
 
   /** Answers `POST /{canal}/oferta-hipotecaria` (HU-162); a new call replaces the answer. */
