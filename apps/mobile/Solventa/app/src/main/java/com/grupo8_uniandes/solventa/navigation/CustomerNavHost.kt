@@ -493,6 +493,7 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
         destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
         destination.hasRoute<SuscripcionRechazadaRoute>() -> SuscripcionRechazadaRoute
+        destination.hasRoute<ConsentimientoRevocadoRoute>() -> ConsentimientoRevocadoRoute
         destination.hasRoute<OfertaHipotecarioRoute>() -> OfertaHipotecarioRoute
         else -> InicioRoute
     }

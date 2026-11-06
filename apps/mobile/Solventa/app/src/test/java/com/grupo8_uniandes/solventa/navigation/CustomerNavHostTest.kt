@@ -23,7 +23,13 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
@@ -36,6 +42,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
+import org.koin.dsl.module
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -320,6 +327,43 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenARevokedConsent_whenTheIssuanceAnswers_thenTheRevocationScreenOpens() {
+        val revoked = object : IssuanceRepository {
+            override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
+
+            override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
+
+            override suspend fun consentRevoked(): Boolean = true
+
+            override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
+
+            override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
+        }
+        GlobalContext.get().loadModules(listOf(module { single { AcceptOffer(revoked) } }), allowOverride = true)
+        try {
+            val holder = arrayOfNulls<NavHostController>(1)
+            show(holder, start = EmisionEnCursoRoute("COT-1042"))
+            rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+            assertEquals(ConsentimientoRevocadoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+            rule.onNodeWithTag("action_consent_revoked_new_quote").performClick()
+            rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
+        } finally {
+            GlobalContext.get().loadModules(
+                listOf(module { single { AcceptOffer(get()) } }),
+                allowOverride = true,
+            )
+        }
+    }
+
+    @Test
+    fun givenARevokedConsent_whenHome_thenInicioOpens() {
+        show(start = ConsentimientoRevocadoRoute)
+        rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+        rule.onNodeWithTag("action_consent_revoked_home").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
     }
 
     @Test
