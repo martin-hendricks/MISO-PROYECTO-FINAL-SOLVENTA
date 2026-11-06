@@ -1,11 +1,12 @@
 from decimal import Decimal
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
 
 from app.application import casos_uso_cotizaciones as casos_uso
-from app.dependencies import obtener_adaptador_perfil_riesgo
+from app.dependencies import obtener_adaptador_perfil_riesgo, obtener_consentimientos
 from app.domain.errores import ConsentimientoRevocado, DependenciaNoDisponible
 from app.domain.modelos import EstadoSolicitud
 from app.infrastructure.consentimiento_perfilamiento import ConsentimientoPerfilamientoHTTP
@@ -183,3 +184,9 @@ def test_api_consentimiento_revocado_responde_422(client, consentimientos):
 
     assert respuesta.status_code == 422
     assert respuesta.json()["codigo"] == "consentimiento_revocado"
+
+
+def test_obtener_consentimientos_lee_el_adaptador_del_estado_de_la_app():
+    estado = SimpleNamespace(consentimientos=ConsentimientosFalsos())
+
+    assert obtener_consentimientos(SimpleNamespace(app=SimpleNamespace(state=estado))) is estado.consentimientos
