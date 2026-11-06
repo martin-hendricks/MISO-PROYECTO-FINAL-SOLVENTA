@@ -95,8 +95,8 @@ variable "cors_allow_methods" {
 
 variable "cors_allow_headers" {
   type        = list(string)
-  description = "Allowed request headers for the API Gateway CORS configuration. Idempotency-Key: the web portal sends it when reporting a claim (POST /v1/cliente/siniestros); without it the browser preflight fails and the POST is never sent."
-  default     = ["Content-Type", "Authorization", "Idempotency-Key"]
+  description = "Allowed request headers for the API Gateway CORS configuration. Idempotency-Key: the web portal sends it when reporting a claim (POST /v1/cliente/siniestros); without it the browser preflight fails and the POST is never sent. X-Auth-Retry: the web portal adds it when it retries a request after renewing an expired token (auth.interceptor.ts); without it the retry is blocked by the preflight."
+  default     = ["Content-Type", "Authorization", "Idempotency-Key", "X-Auth-Retry"]
 }
 
 variable "cors_max_age" {
