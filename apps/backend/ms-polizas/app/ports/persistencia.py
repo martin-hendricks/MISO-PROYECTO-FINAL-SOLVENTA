@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from typing import Protocol
 from uuid import UUID
 
@@ -27,6 +28,14 @@ class RepositorioPolizas(Protocol):
     async def obtener_por_numero(self, numero: str) -> Poliza | None: ...
 
     async def actualizar(self, poliza: Poliza) -> None: ...
+
+    async def listar_por_vencer(
+        self, hoy: date, hasta: date, usuario_id: UUID | None = None
+    ) -> list[Poliza]: ...
+
+    async def listar_emitidas_entre(self, desde: date, hasta: date) -> list[Poliza]: ...
+
+    async def listar_canceladas_entre(self, desde: date, hasta: date) -> list[Poliza]: ...
 
 
 class RepositorioFirmas(Protocol):
