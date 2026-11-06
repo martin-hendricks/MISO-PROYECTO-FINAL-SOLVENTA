@@ -546,7 +546,7 @@ PERFIL_HIPOTECARIO = {
     "creado_en": "2026-10-01T00:00:00Z",
 }
 
-COTIZACION_VIDA = {**COTIZACION_SALIDA, "producto": "vida-crediticia", "factor_riesgo_origen": "real"}
+COTIZACION_VIDA = {**COTIZACION_SALIDA, "producto": "vida-hipotecario", "factor_riesgo_origen": "real"}
 
 
 def _oferta_asistida(client, consentimiento: bool = True):
@@ -582,7 +582,7 @@ def test_oferta_hipotecaria_asistida_es_la_misma_oferta_a_nombre_del_cliente(
     assert json.loads(nucleo_perfilamiento.peticiones[0].content)["cliente_id"] == cliente_id
     enviado = json.loads(nucleo_cotizacion.peticiones[-1].content)
     assert enviado["usuario_id"] == cliente_id
-    assert enviado["producto"] == "vida-crediticia"
+    assert enviado["producto"] == "vida-hipotecario"
     assert enviado["canal"] == "asesor"
     # Queda con el asesor de la sesión para seguir a emisión desde sus pendientes (HU-163).
     assert enviado["asesor_id"] == _asesor_id()

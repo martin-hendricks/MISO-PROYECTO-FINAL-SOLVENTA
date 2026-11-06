@@ -23,7 +23,7 @@ from ..ramos import presentar
 from .cliente import (
     FIRMA_NO_EXITOSA,
     RAMO_A_PRODUCTO,
-    RAMO_VIDA_CREDITICIA,
+    RAMO_VIDA_HIPOTECARIO,
     SIN_CONSENTIMIENTO,
     ContextoUsuario,
     Credito,
@@ -32,7 +32,7 @@ from .cliente import (
     _idempotency_key,
     _producto_de,
     _uuid_desde,
-    ofertar_vida_crediticia,
+    ofertar_vida_hipotecario,
 )
 
 router = APIRouter(
@@ -148,9 +148,9 @@ async def oferta_hipotecaria(
     declara el cliente en la venta asistida; sin él no se perfila. La
     cotización queda con el asesor, así sigue a emisión por HU-163."""
     if not body.consentimientoPerfil:
-        return {"ramo": RAMO_VIDA_CREDITICIA, "estado": SIN_CONSENTIMIENTO}
+        return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
 
-    return await ofertar_vida_crediticia(
+    return await ofertar_vida_hipotecario(
         ContextoUsuario(body.clienteId),
         body.credito,
         "asesor",

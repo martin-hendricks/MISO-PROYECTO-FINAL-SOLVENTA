@@ -190,6 +190,52 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     assert _json.loads(poliza_enviada.read())["token_pago_confirmado"] == PAGO_ID
 
 
+def _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, producto: str) -> None:
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json={**COTIZACION_SALIDA, "producto": producto}
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
+
+
+def test_emitir_vida_hipotecario_cierra_la_originacion(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
+):
+    _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "vida-hipotecario")
+    ruta = f"/v1/originaciones/clientes/{_usuario_id()}/pendiente"
+    nucleo_perfilamiento.respuestas[("DELETE", ruta)] = lambda _: httpx.Response(204)
+
+    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+
+    assert response.json()["resultado"] == "EMITIDA"
+    assert len(_ruta(nucleo_perfilamiento.peticiones, "DELETE", ruta)) == 1
+
+
+def test_emitir_si_no_se_puede_cerrar_la_originacion_igual_queda_emitida(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
+):
+    _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "vida-hipotecario")
+    nucleo_perfilamiento.respuestas[("DELETE", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")] = _caido
+
+    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+
+    assert response.status_code == 200
+    assert response.json()["resultado"] == "EMITIDA"
+
+
+def test_emitir_otro_ramo_no_toca_la_originacion(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
+):
+    _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "proteccion-dispositivo")
+
+    client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+
+    assert nucleo_perfilamiento.peticiones == []
+
+
 def test_emision_cuando_decision_es_rechazada_no_cobra_ni_emite(
     client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
 ):
@@ -432,7 +478,7 @@ OFERTA_HIPOTECARIA_SALIDA = {
 
 COTIZACION_VIDA_SALIDA = {
     **COTIZACION_SALIDA,
-    "producto": "vida-crediticia",
+    "producto": "vida-hipotecario",
     "prima": "140100.00",
     "prima_neta": "128100.00",
     "gastos_expedicion": "12000.00",
@@ -440,6 +486,24 @@ COTIZACION_VIDA_SALIDA = {
 }
 
 CREDITO = {"valor": 180000000, "plazoMeses": 180}
+
+ORIGINACION_ID = "77777777-7777-7777-7777-777777777777"
+
+
+def _originacion(valor: str = "180000000.00", plazo: int = 180, origen: str = "cliente") -> dict:
+    return {
+        "id": ORIGINACION_ID,
+        "cliente_id": "c",
+        "valor": valor,
+        "plazo_meses": plazo,
+        "origen": origen,
+        "creada_en": "2026-11-05T00:00:00Z",
+        "pendiente": True,
+    }
+
+
+def _ruta(peticiones, metodo: str, ruta: str) -> list:
+    return [p for p in peticiones if (p.method, p.url.path) == (metodo, ruta)]
 
 
 UID_SESION = "11111111-1111-1111-1111-111111111111"
@@ -461,6 +525,9 @@ def _perfilamiento_responde(nucleo_perfilamiento, oferta: dict = OFERTA_HIPOTECA
         },
     )
     nucleo_perfilamiento.respuestas[("POST", "/v1/ofertas-hipotecario")] = lambda _: httpx.Response(201, json=oferta)
+    nucleo_perfilamiento.respuestas[("POST", "/v1/originaciones")] = lambda _: httpx.Response(
+        201, json=_originacion()
+    )
 
 
 def _cotizacion_vida_responde(nucleo_cotizacion, salida: dict = COTIZACION_VIDA_SALIDA) -> None:
@@ -479,7 +546,7 @@ def _pedir_oferta(client, consentimiento: bool = True, credito: dict = CREDITO, 
     )
 
 
-def test_hipoteca_perfila_y_cotiza_vida_crediticia_con_el_mismo_cliente(
+def test_hipoteca_perfila_y_cotiza_vida_hipotecario_con_el_mismo_cliente(
     client, nucleo_perfilamiento, nucleo_cotizacion
 ):
     _perfilamiento_responde(nucleo_perfilamiento)
@@ -492,7 +559,7 @@ def test_hipoteca_perfila_y_cotiza_vida_crediticia_con_el_mismo_cliente(
     # La prima es la de la cotización: es la que se cobra al emitir con este id (HU-114).
     assert body["cotizacionId"] == COTIZACION_ID
     assert body["prima"] == "140100.00"
-    assert body["ramo"] == "Vida crediticia"
+    assert body["ramo"] == "Vida hipotecario"
     assert body["degradada"] is False
     assert body["credito"] == CREDITO
     assert body["factores"] == [
@@ -501,17 +568,106 @@ def test_hipoteca_perfila_y_cotiza_vida_crediticia_con_el_mismo_cliente(
     ]
 
     # Se otorga el consentimiento antes de perfilar, para el cliente de la sesión.
-    consentimiento, perfil = nucleo_perfilamiento.peticiones
-    assert (consentimiento.method, consentimiento.url.path) == ("POST", "/v1/consentimientos")
+    (consentimiento,) = _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/consentimientos")
+    (perfil,) = _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/ofertas-hipotecario")
     assert json.loads(consentimiento.read())["cliente_id"] == _usuario_id()
     assert json.loads(perfil.read())["cliente_id"] == _usuario_id()
 
     # ms-cotizacion recibe el mismo usuario_id: con él lee el perfil (IPerfilRiesgo).
     cotizacion = json.loads(nucleo_cotizacion.peticiones[-1].read())
-    assert cotizacion["producto"] == "vida-crediticia"
+    assert cotizacion["producto"] == "vida-hipotecario"
     assert cotizacion["usuario_id"] == _usuario_id()
     assert cotizacion["canal"] == "web"
-    assert cotizacion["datos_riesgo"] == {"valorCredito": 180000000, "plazoMeses": 180}
+    assert cotizacion["datos_riesgo"] == {"valor": 180000000, "plazoMeses": 180}
+    # La cotización queda atada a la originación: autorizar de nuevo no la duplica.
+    assert nucleo_cotizacion.peticiones[-1].headers["Idempotency-Key"] == f"originacion-{ORIGINACION_ID}"
+    (registrada,) = _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/originaciones")
+    assert json.loads(registrada.read()) == {
+        "cliente_id": _usuario_id(),
+        "valor": "180000000",
+        "plazo_meses": 180,
+        "origen": "cliente",
+    }
+
+
+def test_hipoteca_reutiliza_la_originacion_pendiente_con_los_mismos_valores(
+    client, nucleo_perfilamiento, nucleo_cotizacion
+):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    _cotizacion_vida_responde(nucleo_cotizacion)
+    nucleo_perfilamiento.respuestas[
+        ("GET", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")
+    ] = lambda _: httpx.Response(200, json=_originacion())
+
+    _pedir_oferta(client)
+    _pedir_oferta(client)
+
+    assert _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/originaciones") == []
+    claves = {p.headers["Idempotency-Key"] for p in _ruta(nucleo_cotizacion.peticiones, "POST", "/v1/cotizaciones")}
+    assert claves == {f"originacion-{ORIGINACION_ID}"}
+
+
+def test_hipoteca_con_otros_valores_registra_una_originacion_nueva(client, nucleo_perfilamiento, nucleo_cotizacion):
+    _perfilamiento_responde(nucleo_perfilamiento)
+    _cotizacion_vida_responde(nucleo_cotizacion)
+    nucleo_perfilamiento.respuestas[
+        ("GET", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")
+    ] = lambda _: httpx.Response(200, json=_originacion(valor="90000000.00", plazo=120))
+
+    _pedir_oferta(client)
+
+    (registrada,) = _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/originaciones")
+    assert json.loads(registrada.read())["plazo_meses"] == 180
+
+
+def test_registrar_originacion_del_cliente(client, nucleo_perfilamiento):
+    nucleo_perfilamiento.respuestas[("POST", "/v1/originaciones")] = lambda _: httpx.Response(
+        201, json=_originacion(valor="250000000.00", plazo=240)
+    )
+
+    response = client.post(
+        "/v1/cliente/originacion-hipotecaria",
+        headers=_auth(client),
+        json={"valor": 250000000, "plazoMeses": 240},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"valor": 250000000, "plazoMeses": 240, "origen": "cliente"}
+    (registrada,) = nucleo_perfilamiento.peticiones
+    assert json.loads(registrada.read()) == {
+        "cliente_id": _usuario_id(),
+        "valor": "250000000",
+        "plazo_meses": 240,
+        "origen": "cliente",
+    }
+
+
+def test_registrar_originacion_invalida_es_422_sin_llamar_al_nucleo(client, nucleo_perfilamiento):
+    response = client.post(
+        "/v1/cliente/originacion-hipotecaria",
+        headers=_auth(client),
+        json={"valor": 0, "plazoMeses": 240},
+    )
+
+    assert response.status_code == 422
+    assert nucleo_perfilamiento.peticiones == []
+
+
+def test_consultar_originacion_pendiente_del_cliente(client, nucleo_perfilamiento):
+    nucleo_perfilamiento.respuestas[
+        ("GET", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")
+    ] = lambda _: httpx.Response(200, json=_originacion(origen="socio"))
+
+    response = client.get("/v1/cliente/originacion-hipotecaria", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json() == {"valor": 180000000, "plazoMeses": 180, "origen": "socio"}
+
+
+def test_sin_originacion_pendiente_es_404(client, nucleo_perfilamiento):
+    response = client.get("/v1/cliente/originacion-hipotecaria", headers=_auth(client))
+
+    assert response.status_code == 404
 
 
 def test_hipoteca_usa_la_identidad_de_cada_sesion(client, nucleo_perfilamiento, nucleo_cotizacion):
@@ -523,7 +679,7 @@ def test_hipoteca_usa_la_identidad_de_cada_sesion(client, nucleo_perfilamiento, 
         acceso = issue_pair(correo, "cliente", uid)["accessToken"]
         _pedir_oferta(client, headers={"Authorization": f"Bearer {acceso}"})
 
-    consentimientos = nucleo_perfilamiento.peticiones[::2]
+    consentimientos = _ruta(nucleo_perfilamiento.peticiones, "POST", "/v1/consentimientos")
     assert [json.loads(p.read())["cliente_id"] for p in consentimientos] == [
         _usuario_id("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
         _usuario_id("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
@@ -534,7 +690,7 @@ def test_hipoteca_sin_consentimiento_no_llama_a_ningun_servicio(client, nucleo_p
     response = _pedir_oferta(client, consentimiento=False)
 
     assert response.status_code == 200
-    assert response.json() == {"ramo": "Vida crediticia", "estado": "sin_consentimiento"}
+    assert response.json() == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
     assert nucleo_perfilamiento.peticiones == []
     assert nucleo_cotizacion.peticiones == []
 
@@ -558,6 +714,9 @@ def test_hipoteca_factor_de_respaldo_en_cotizacion_marca_la_oferta(client, nucle
 
 def test_hipoteca_perfilamiento_caido_no_cancela_la_originacion(client, nucleo_perfilamiento, nucleo_cotizacion):
     nucleo_perfilamiento.respuestas[("POST", "/v1/consentimientos")] = _caido
+    nucleo_perfilamiento.respuestas[
+        ("GET", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")
+    ] = _caido
     _cotizacion_vida_responde(nucleo_cotizacion, {**COTIZACION_VIDA_SALIDA, "factor_riesgo_origen": "respaldo"})
 
     response = _pedir_oferta(client)
@@ -646,9 +805,37 @@ def test_un_nucleo_lento_no_agota_el_presupuesto_del_inicio(monkeypatch):
     assert elapsed < 0.5
 
 
-def test_inicio(client):
+def test_inicio_sin_originacion_no_ofrece_vida_hipotecario(client):
     body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
-    assert body["hipotecario"] == {"estado": "disponible"}
+    assert body["hipotecario"] is None
+
+
+def test_inicio_con_originacion_pendiente_ofrece_continuar_con_sus_valores(client, nucleo_perfilamiento):
+    nucleo_perfilamiento.respuestas[
+        ("GET", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")
+    ] = lambda _: httpx.Response(200, json=_originacion(origen="socio"))
+
+    body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
+
+    assert body["hipotecario"] == {"estado": "disponible", "valor": 180000000, "plazoMeses": 180, "origen": "socio"}
+
+
+def test_inicio_no_lista_cotizaciones_hipotecarias_como_pendientes(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-usuario/{UID_SESION}")] = lambda _: httpx.Response(
+        200,
+        json={
+            "items": [
+                {"cotizacion_id": "COT-H", "producto": "vida-hipotecario", "vence_en": "2999-06-01T12:00:00Z"},
+                {"cotizacion_id": "COT-C", "producto": "vida-crediticia", "vence_en": "2999-06-01T12:00:00Z"},
+                {"cotizacion_id": "COT-1", "producto": "proteccion-dispositivo", "vence_en": "2999-06-01T12:00:00Z"},
+            ]
+        },
+    )
+
+    body = client.get("/v1/cliente/inicio", headers=_auth(client)).json()
+
+    assert [p["cotizacionId"] for p in body["cotizacionesPendientes"]] == ["COT-1"]
+    assert body["ofertaVigente"]["cotizacionId"] == "COT-1"
 
 
 UID = "11111111-1111-1111-1111-111111111111"
