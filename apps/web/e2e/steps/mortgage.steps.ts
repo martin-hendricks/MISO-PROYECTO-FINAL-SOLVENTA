@@ -108,3 +108,44 @@ Then('this view is not the customer Vida Crediticia card', async function (this:
   assert.equal(await this.page.getByTestId('vida-crediticia').count(), 0);
   assert.ok(new URL(this.page.url()).pathname.startsWith('/cms/'));
 });
+
+// Acceptance after revoking the profiling consent (HU-165)
+
+Given("a mortgage offer quoted with the customer's profile", async function (this: PortalWorld) {
+  this.offer = mortgageOffer();
+  this.home = fullHome();
+  await this.bff.serveCatalogs('cliente', CATALOGS);
+  await this.bff.serveMortgageOffer('cliente', this.offer as MortgageOffer);
+  await this.bff.acceptSignIn(this.account.email, 'cliente');
+  await this.bff.serveHome(this.home);
+  await this.login.open('customer');
+  await this.login.signIn(this.account);
+  await this.shell.expectInicio();
+  await this.vidaCrediticia.open();
+  await this.vidaCrediticia.authorize();
+});
+
+Given('the customer then revoked the profiling consent', async function (this: PortalWorld) {
+  await this.bff.refuseIssuance(422, {
+    codigo: 'consentimiento_revocado',
+    mensaje: 'El consentimiento de perfilamiento ya no está vigente; vuelva a cotizar',
+  });
+});
+
+When('the customer accepts the mortgage offer', async function (this: PortalWorld) {
+  await this.page.getByTestId('oferta-aceptar').click();
+});
+
+Then('the customer is told the profiling consent was revoked', async function (this: PortalWorld) {
+  const aviso = this.page.getByTestId('emision-revoked');
+  await aviso.waitFor({ state: 'visible' });
+  assert.ok(
+    (await aviso.textContent())?.includes('Revocaste la autorización para usar tus datos en el perfilamiento.'),
+  );
+  assert.equal(this.bff.issuesRequested(), 1);
+});
+
+Then('the customer can start a new quote instead of retrying', async function (this: PortalWorld) {
+  assert.equal(await this.page.getByTestId('emision-revoked-new-quote').getAttribute('href'), '/cotizacion');
+  assert.equal(await this.page.getByTestId('emision-retry').count(), 0);
+});

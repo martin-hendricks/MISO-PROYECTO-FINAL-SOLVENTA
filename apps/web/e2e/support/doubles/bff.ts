@@ -272,6 +272,15 @@ export class BffDoubles {
     });
   }
 
+  /** Answers the customer issuance `POST /cliente/polizas` with a core refusal (HU-165). */
+  async refuseIssuance(status: number, body: Record<string, unknown>): Promise<void> {
+    await this.page.route(POLIZAS_LISTA, (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      this.issueRequests += 1;
+      return route.fulfill({ status, json: body });
+    });
+  }
+
   /** Answers `POST /{canal}/oferta-hipotecaria` (HU-162); a new call replaces the answer. */
   async serveMortgageOffer(canal: Canal, offer: MortgageOffer): Promise<void> {
     const url = `**/web/${canal}/oferta-hipotecaria`;
