@@ -136,7 +136,7 @@
             @for (etapa of etapas; track etapa) {
               @let estado = vm.estadoEtapa(etapa);
               <li [attr.data-state]="estado" [attr.data-testid]="'vida-etapa-' + etapa">
-                <span class="marca" aria-hidden="true">{{ estado === 'done' ? '✓' : '' }}</span>
+                <span class="marca" aria-hidden="true"></span>
                 {{ 'vidaCrediticia.etapas.' + etapa | translate }}
               </li>
             }
