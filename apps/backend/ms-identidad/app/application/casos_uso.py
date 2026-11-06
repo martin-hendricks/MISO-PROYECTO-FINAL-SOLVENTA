@@ -83,3 +83,11 @@ async def actualizar_perfil(
         await tx.usuarios.actualizar(usuario)
         await tx.confirmar()
     return usuario
+
+
+async def buscar_por_documento(uow: FabricaUnidadDeTrabajo, tipo_documento: str, numero_documento: str) -> Usuario:
+    async with uow() as tx:
+        usuario = await tx.usuarios.obtener_por_documento(tipo_documento.strip().upper(), numero_documento.strip())
+    if usuario is None:
+        raise NoEncontrado()
+    return usuario
