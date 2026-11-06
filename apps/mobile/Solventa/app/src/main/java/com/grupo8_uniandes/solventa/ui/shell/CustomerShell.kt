@@ -57,6 +57,7 @@ import com.grupo8_uniandes.solventa.navigation.InicioRoute
 import com.grupo8_uniandes.solventa.navigation.PerfilRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
+import com.grupo8_uniandes.solventa.navigation.ConsentimientoRevocadoRoute
 import com.grupo8_uniandes.solventa.navigation.SuscripcionRechazadaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
@@ -379,7 +380,7 @@ internal fun SignedInShell(
                     showBack = mode == ShellMode.Nested,
                     showIdentityMark = route is OfertaHipotecarioRoute,
                     onBack = {
-                        if (route == SuscripcionRechazadaRoute) {
+                        if (route == SuscripcionRechazadaRoute || route == ConsentimientoRevocadoRoute) {
                             navController.leaveIssuance(InicioRoute)
                         } else {
                             navController.popBackStack()
@@ -429,7 +430,7 @@ private fun routeTitle(route: Any): String = when (route) {
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
     is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
-    SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
+    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
     AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
