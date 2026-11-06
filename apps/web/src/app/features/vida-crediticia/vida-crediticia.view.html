@@ -124,6 +124,24 @@
         }
       </fieldset>
 
+      @if (vm.status() === 'requesting') {
+        <div class="card progreso" role="status" aria-live="polite" data-testid="vida-progreso">
+          <p class="label">{{ 'vidaCrediticia.etapas.title' | translate }}</p>
+          <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <span></span>
+          </div>
+          <ol class="etapas">
+            @for (etapa of etapas; track etapa) {
+              @let estado = vm.estadoEtapa(etapa);
+              <li [attr.data-state]="estado" [attr.data-testid]="'vida-etapa-' + etapa">
+                <span class="marca" aria-hidden="true">{{ estado === 'done' ? '✓' : '' }}</span>
+                {{ 'vidaCrediticia.etapas.' + etapa | translate }}
+              </li>
+            }
+          </ol>
+        </div>
+      }
+
       @switch (vm.status()) {
         @case ('rejected') {
           <p class="banner" role="alert" data-testid="vida-rechazo">{{ vm.rechazo()!.mensaje }}</p>

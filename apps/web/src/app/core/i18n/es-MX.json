@@ -491,6 +491,13 @@
       "autorizando": "Calculando tu oferta…",
       "ahoraNo": "Ahora no"
     },
+    "etapas": {
+      "title": "Estamos armando tu oferta",
+      "openFinance": "Consultando Open Finance",
+      "openData": "Consultando Open Data",
+      "riesgo": "Calculando tu riesgo individualizado",
+      "oferta": "Generando tu oferta de vida hipotecario"
+    },
     "oferta": {
       "title": "Oferta Vida Crediticia",
       "subtitle": "Prima personalizada con factores explicables.",

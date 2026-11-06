@@ -1,5 +1,5 @@
 import { computed, signal } from '@angular/core';
-import { Observable } from 'rxjs';
+import { forkJoin, interval, Observable, of, Subscription, take, timer } from 'rxjs';
 import { Catalogo, RechazoCotizacion, rechazoDe } from '../cotizacion/cotizacion.gateway';
 import { Campo, ProblemaCampo, Rango, validarCampo } from '../cotizacion/ramos';
 import { Credito, OfertaHipotecaria } from './vida-crediticia.gateway';
@@ -7,16 +7,25 @@ import { Credito, OfertaHipotecaria } from './vida-crediticia.gateway';
 export type VidaCrediticiaStatus = 'consent' | 'requesting' | 'offer' | 'rejected' | 'error';
 export type CatalogoStatus = 'loading' | 'ready' | 'error';
 
-/** The mortgage data, with the keys of the `vida-crediticia` catalog that bounds them. */
+/** The mortgage data, with the keys of the `vida-hipotecario` catalog that bounds them. */
 export const CAMPOS_CREDITO: readonly Campo[] = [
-  { clave: 'valorCredito', tipo: 'moneda' },
+  { clave: 'valor', tipo: 'moneda' },
   { clave: 'plazoMeses', tipo: 'numero' },
 ];
 
+/** What Solventa does after "Autorizar", in the order the customer sees it. */
+export const ETAPAS = ['openFinance', 'openData', 'riesgo', 'oferta'] as const;
+export type Etapa = (typeof ETAPAS)[number];
+export type EstadoEtapa = 'done' | 'active' | 'pending';
+
+/** Time each step stays on screen, so the customer can follow the profiling. */
+export const ETAPA_MS = 700;
+
 /**
- * Mortgage life origination (HU-105): the customer gives the mortgage data and
- * authorizes profiling in one step; "Ahora no" leaves without calling anyone.
- * The offer is a firm quote, so accepting it goes to the regular emission.
+ * Mortgage life origination (HU-105): the mortgage data comes from Nueva
+ * cotización or a partner, the customer only reviews it and authorizes
+ * profiling; "Ahora no" leaves without calling anyone. The offer is a firm
+ * quote, so accepting it goes to the regular emission.
  */
 export class VidaCrediticiaViewModel {
   private readonly statusState = signal<VidaCrediticiaStatus>('consent');
@@ -46,6 +55,9 @@ export class VidaCrediticiaViewModel {
   private readonly rechazoState = signal<RechazoCotizacion | null>(null);
   readonly rechazo = this.rechazoState.asReadonly();
 
+  private readonly etapaState = signal(0);
+  private avance: Subscription | null = null;
+
   private readonly problems = computed(() => {
     const problems: Record<string, ProblemaCampo | null> = {};
     for (const campo of CAMPOS_CREDITO) {
@@ -69,6 +81,7 @@ export class VidaCrediticiaViewModel {
   constructor(
     private readonly catalogSource: () => Observable<Catalogo>,
     private readonly source: (credito: Credito) => Observable<OfertaHipotecaria>,
+    private readonly etapaMs: number = ETAPA_MS,
   ) {}
 
   loadCatalog(): void {
@@ -80,6 +93,11 @@ export class VidaCrediticiaViewModel {
       },
       error: () => this.catalogoStatusState.set('error'),
     });
+  }
+
+  /** Fills the mortgage data the customer or the partner already entered. */
+  prefill(credito: Credito): void {
+    this.valoresState.set({ valor: String(credito.valor), plazoMeses: String(credito.plazoMeses) });
   }
 
   valor(clave: string): string {
@@ -109,6 +127,15 @@ export class VidaCrediticiaViewModel {
     }
   }
 
+  estadoEtapa(etapa: Etapa): EstadoEtapa {
+    const indice = ETAPAS.indexOf(etapa);
+    const actual = this.etapaState();
+    if (indice < actual) {
+      return 'done';
+    }
+    return indice === actual ? 'active' : 'pending';
+  }
+
   /** "Autorizar": the explicit consent that lets Solventa profile the customer. */
   authorize(): void {
     if (!this.canAuthorize()) {
@@ -116,15 +143,25 @@ export class VidaCrediticiaViewModel {
     }
     this.statusState.set('requesting');
     this.rechazoState.set(null);
-    this.source({
-      valor: this.numero('valorCredito'),
-      plazoMeses: this.numero('plazoMeses'),
-    }).subscribe({
-      next: (oferta) => {
+    this.etapaState.set(0);
+    this.avance?.unsubscribe();
+    if (this.etapaMs > 0) {
+      this.avance = interval(this.etapaMs)
+        .pipe(take(ETAPAS.length - 1))
+        .subscribe(() => this.etapaState.update((etapa) => etapa + 1));
+    }
+    const pausa = this.etapaMs > 0 ? timer(this.etapaMs * ETAPAS.length) : of(0);
+    forkJoin([
+      this.source({ valor: this.numero('valor'), plazoMeses: this.numero('plazoMeses') }),
+      pausa,
+    ]).subscribe({
+      next: ([oferta]) => {
+        this.etapaState.set(ETAPAS.length);
         this.ofertaState.set(oferta);
         this.statusState.set('offer');
       },
       error: (error: unknown) => {
+        this.avance?.unsubscribe();
         const rechazo = rechazoDe(error);
         this.rechazoState.set(rechazo);
         this.statusState.set(rechazo ? 'rejected' : 'error');

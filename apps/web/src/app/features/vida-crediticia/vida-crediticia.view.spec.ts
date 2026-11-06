@@ -1,20 +1,23 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
 import {
-  CATALOGO_VIDA_WIRE,
+  CATALOGO_VIDA_HIPOTECARIO_WIRE,
   FUERA_DE_RANGO,
   OFERTA_HIPOTECARIA_WIRE,
 } from '../cotizacion/cotizacion.testing';
+import { Credito, VIDA_ETAPA_MS } from './vida-crediticia.gateway';
 import { VidaCrediticiaView } from './vida-crediticia.view';
 
 describe('VidaCrediticiaView', () => {
   const URL = '/web/cliente/oferta-hipotecaria';
-  const CATALOGO_URL = '/web/cliente/catalogo/Vida%20crediticia';
+  const CATALOGO_URL = '/web/cliente/catalogo/Vida%20hipotecario';
+  const ORIGINACION_URL = '/web/cliente/originacion-hipotecaria';
 
-  function render() {
+  function render(opciones: { originacion?: Credito | null; query?: Record<string, string> } = {}) {
+    const query = opciones.query ?? {};
     TestBed.configureTestingModule({
       imports: [VidaCrediticiaView],
       providers: [
@@ -22,11 +25,22 @@ describe('VidaCrediticiaView', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         ...provideSolventaI18n(),
+        { provide: VIDA_ETAPA_MS, useValue: 0 },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(query) } } },
       ],
     });
     const fixture = TestBed.createComponent(VidaCrediticiaView);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    if (!('valor' in query)) {
+      const originacion = http.expectOne(ORIGINACION_URL);
+      if (opciones.originacion) {
+        originacion.flush(opciones.originacion);
+      } else {
+        originacion.flush(null, { status: 404, statusText: 'Not Found' });
+      }
+      fixture.detectChanges();
+    }
     const host = fixture.nativeElement as HTMLElement;
     const element = <T extends HTMLElement = HTMLElement>(testId: string) =>
       host.querySelector<T>(`[data-testid="${testId}"]`);
@@ -37,11 +51,11 @@ describe('VidaCrediticiaView', () => {
       fixture.detectChanges();
     };
     const catalogo = () => {
-      http.expectOne(CATALOGO_URL).flush(CATALOGO_VIDA_WIRE);
+      http.expectOne(CATALOGO_URL).flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
       fixture.detectChanges();
     };
     const fill = () => {
-      type('vida-valorCredito', '180000000');
+      type('vida-valor', '180000000');
       type('vida-plazoMeses', '240');
     };
     const autorizar = () => {
@@ -138,7 +152,7 @@ describe('VidaCrediticiaView', () => {
     fixture.detectChanges();
 
     element('vida-catalogo-retry')!.click();
-    http.expectOne(CATALOGO_URL).flush(CATALOGO_VIDA_WIRE);
+    http.expectOne(CATALOGO_URL).flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
     fixture.detectChanges();
 
     expect(element('vida-catalogo-error')).toBeNull();
@@ -148,20 +162,20 @@ describe('VidaCrediticiaView', () => {
     const { fixture, http, element, catalogo, autorizar } = render();
     catalogo();
 
-    element('vida-valorCredito')!.dispatchEvent(new Event('blur'));
+    element('vida-valor')!.dispatchEvent(new Event('blur'));
     fixture.detectChanges();
     autorizar();
 
-    expect(element('vida-valorCredito-error')?.textContent).toContain('Campo obligatorio');
+    expect(element('vida-valor-error')?.textContent).toContain('Campo obligatorio');
     http.expectNone(URL);
   });
 
   it('formats the amount in pesos while the catalog is still loading', () => {
     const { element, type, catalogo } = render();
 
-    type('vida-valorCredito', '180000000');
+    type('vida-valor', '180000000');
 
-    expect(element('vida-valorCredito')!.parentElement!.textContent).toContain('COP');
+    expect(element('vida-valor')!.parentElement!.textContent).toContain('COP');
     catalogo();
   });
 
@@ -178,5 +192,47 @@ describe('VidaCrediticiaView', () => {
     fixture.detectChanges();
 
     expect(element('vida-factor-factor_nuevo')?.textContent).toContain('factor_nuevo');
+  });
+
+  it('fills the mortgage the customer or a partner left pending and enables "Autorizar"', () => {
+    const { element, catalogo } = render({ originacion: { valor: 250000000, plazoMeses: 300 } });
+    catalogo();
+
+    expect(element<HTMLInputElement>('vida-valor')!.value).toBe('250000000');
+    expect(element<HTMLInputElement>('vida-plazoMeses')!.value).toBe('300');
+    expect(element<HTMLButtonElement>('vida-autorizar')!.disabled).toBeFalse();
+  });
+
+  it('fills the mortgage sent by Nueva cotización without asking the core again', () => {
+    const { http, element, catalogo } = render({ query: { valor: '180000000', plazoMeses: '240' } });
+    catalogo();
+
+    expect(element<HTMLInputElement>('vida-valor')!.value).toBe('180000000');
+    expect(element<HTMLInputElement>('vida-plazoMeses')!.value).toBe('240');
+    http.expectNone(ORIGINACION_URL);
+  });
+
+  it('ignores an incomplete mortgage in the address and loads the pending one', () => {
+    const { element, catalogo } = render({ query: { plazoMeses: '240' } });
+    catalogo();
+
+    expect(element<HTMLInputElement>('vida-valor')!.value).toBe('');
+  });
+
+  it('shows each profiling step while Solventa builds the offer', () => {
+    const { fixture, http, element, catalogo, fill, autorizar } = render();
+    catalogo();
+    fill();
+
+    autorizar();
+
+    expect(element('vida-progreso')).not.toBeNull();
+    expect(element('vida-etapa-openFinance')?.getAttribute('data-state')).toBe('active');
+    expect(element('vida-etapa-openData')?.getAttribute('data-state')).toBe('pending');
+    expect(element('vida-etapa-riesgo')?.textContent).toContain('Calculando tu riesgo individualizado');
+    expect(element('vida-etapa-oferta')?.textContent).toContain('Generando tu oferta');
+    http.expectOne(URL).flush(OFERTA_HIPOTECARIA_WIRE);
+    fixture.detectChanges();
+    expect(element('vida-progreso')).toBeNull();
   });
 });
