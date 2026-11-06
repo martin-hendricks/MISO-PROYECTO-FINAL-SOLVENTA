@@ -258,6 +258,33 @@ class BffCallTest {
     }
 
     @Test
+    fun givenARevokedConsent_whenAcceptanceIsRead_thenTheRepositoryReportsIt() = runBlocking {
+        val issuance = RemoteIssuanceRepository(api(), gate, cache)
+        server.enqueue(
+            MockResponse().setResponseCode(422)
+                .setBody("""{"detail":"El consentimiento ya no está vigente","codigo":"consentimiento_revocado"}"""),
+        )
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertTrue(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no","codigo":"oferta_ya_usada"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"no","codigo":"consentimiento_revocado"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        enqueue(PublishedSamples.ISSUED)
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Ready)
+        assertFalse(issuance.consentRevoked())
+    }
+
+    @Test
     fun givenAClaimTheHostRefuses_whenNotified_thenNothingIsQueued() = runBlocking {
         val claims = RemoteClaimRepository(api(), gate, cache)
         val notice = ClaimNotice("POL-88219-CO", "2026-03-12", null, emptyList())

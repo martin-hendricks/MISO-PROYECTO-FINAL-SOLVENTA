@@ -52,6 +52,8 @@
     <string name="offer_card_meta">Vence %1$s · sigue: emitir y pagar</string>
     <string name="rejection_title">Resultado de la oferta</string>
     <string name="rejection_heading">No pudimos emitir Protección de dispositivo</string>
+    <string name="consent_revoked_title">No pudimos emitir la póliza</string>
+    <string name="consent_revoked_banner">Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.</string>
     <string name="rejection_banner">La suscripción automática rechazó el riesgo del dispositivo cotizado.</string>
     <string name="offer_expired">La oferta está vencida</string>
     <string name="action_quote_again">Volver a cotizar</string>

@@ -45,6 +45,7 @@ import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
+import com.grupo8_uniandes.solventa.ui.shell.ConsentimientoRevocadoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
@@ -373,6 +374,9 @@ fun CustomerNavHost(
                     is IssuanceUi.Refused -> navController.navigate(SuscripcionRechazadaRoute) {
                         popUpTo<EmisionEnCursoRoute> { inclusive = true }
                     }
+                    IssuanceUi.ConsentRevoked -> navController.navigate(ConsentimientoRevocadoRoute) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
                     IssuanceUi.Waiting -> Unit
                 }
             }
@@ -382,6 +386,12 @@ fun CustomerNavHost(
             SuscripcionRechazadaScreen(
                 onHome = { navController.leaveIssuance(InicioRoute) },
                 onUnderstood = { navController.leaveIssuance(InicioRoute) },
+            )
+        }
+        composable<ConsentimientoRevocadoRoute> {
+            ConsentimientoRevocadoScreen(
+                onNewQuote = { navController.leaveIssuance(CotizacionRoute()) },
+                onHome = { navController.leaveIssuance(InicioRoute) },
             )
         }
         composable<PolizaEmitidaRoute> { entry ->

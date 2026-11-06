@@ -174,3 +174,50 @@ fun SuscripcionRechazadaScreen(
         )
     }
 }
+
+@Composable
+fun ConsentimientoRevocadoScreen(
+    onNewQuote: () -> Unit,
+    onHome: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BackHandler(onBack = onHome)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = SolventaSpacing.gutter, vertical = SolventaSpacing.s12)
+            .testTag("screen_consent_revoked"),
+        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SolventaStatusMark(status = SolventaStatus.Error)
+        Text(
+            text = stringResource(R.string.consent_revoked_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SolventaBanner(
+            message = stringResource(R.string.consent_revoked_banner),
+            style = SolventaBannerStyle.Error,
+        )
+        SolventaButton(
+            text = stringResource(R.string.action_new_quote),
+            style = SolventaButtonStyle.Filled,
+            onClick = onNewQuote,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "action_consent_revoked_new_quote",
+        )
+        SolventaButton(
+            text = stringResource(R.string.action_back_home),
+            style = SolventaButtonStyle.Text,
+            onClick = onHome,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "action_consent_revoked_home",
+        )
+    }
+}
