@@ -74,7 +74,7 @@ describe('AvisosView', () => {
 
   it('el asesor no ve la cola', () => {
     const { element } = render('asesor');
-    expect(element('avisos')?.getAttribute('data-state')).toBe('no-permission');
+    expect(element('section-avisos')?.getAttribute('data-state')).toBe('no-permission');
   });
 
   it('cola vacía: chip Pendientes en cero, acción Actualizar y sin tabla ni detalle', () => {
@@ -211,7 +211,7 @@ describe('AvisosView', () => {
     http.expectOne(COLA_URL).flush(COLA);
     fixture.detectChanges();
 
-    expect(element('avisos')?.getAttribute('data-modo')).toBe('pago');
+    expect(element('section-avisos')?.getAttribute('data-modo')).toBe('pago');
     expect(element('pago-clave')?.textContent).toContain('idem-111111111111');
     expect(element('pago-monto')?.textContent).toContain('420.000');
     expect(element('pago-trazabilidad')?.textContent).toContain('Pendiente de desembolso');
@@ -232,7 +232,7 @@ describe('AvisosView', () => {
 
     element('pago-volver')!.click();
     fixture.detectChanges();
-    expect(element('avisos')?.getAttribute('data-modo')).toBe('cola');
+    expect(element('section-avisos')?.getAttribute('data-modo')).toBe('cola');
   });
 
   it('en el pago informa el reintento idempotente y los errores', () => {
@@ -268,7 +268,7 @@ describe('AvisosView', () => {
 
     element('pago-volver-aviso')!.click();
     fixture.detectChanges();
-    expect(element('avisos')?.getAttribute('data-modo')).toBe('cola');
+    expect(element('section-avisos')?.getAttribute('data-modo')).toBe('cola');
   });
 
   it('un caso ya pagado ofrece "Ver pago" con montos ausentes en cero', () => {
