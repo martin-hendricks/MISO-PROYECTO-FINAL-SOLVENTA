@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
-from .routers import asesor, cliente, operador, registro, sesion, siniestros
+from .routers import asesor, avisos_poliza, cliente, operador, registro, reportes, sesion, siniestros
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,14 @@ app.add_middleware(
 # Prefijo de versión centralizado: cada router sigue declarando su propio
 # prefix (/cliente, /asesor, etc.) sin "/v1" -- así el prefijo de versión no
 # se repite en cada archivo ni se puede olvidar en uno nuevo.
+#
+# avisos_poliza y reportes van ANTES de cliente/operador a propósito:
+# GET /cliente/polizas/por-vencer (path estático) debe resolver antes de que
+# GET /cliente/polizas/{numero} (cliente.py, path dinámico) lo capture
+# tratando "por-vencer" como numero -- entre _IncludedRouter distintos,
+# Starlette prioriza por orden de inclusión, no por especificidad de patrón.
+app.include_router(avisos_poliza.router, prefix="/v1")
+app.include_router(reportes.router, prefix="/v1")
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
