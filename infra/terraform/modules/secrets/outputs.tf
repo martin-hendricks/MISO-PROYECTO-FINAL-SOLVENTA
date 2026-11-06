@@ -1,15 +1,16 @@
 output "secret_arns" {
   value = merge(
     {
-      polizas_db      = aws_secretsmanager_secret.polizas_db.arn
-      siniestros_db   = aws_secretsmanager_secret.siniestros_db.arn
-      compartida_db   = aws_secretsmanager_secret.compartida_db.arn
-      bff_web_token   = aws_secretsmanager_secret.bff_web_token.arn
-      bff_movil_token = aws_secretsmanager_secret.bff_movil_token.arn
+      polizas_db        = aws_secretsmanager_secret.polizas_db.arn
+      siniestros_db     = aws_secretsmanager_secret.siniestros_db.arn
+      compartida_db     = aws_secretsmanager_secret.compartida_db.arn
+      bff_web_token     = aws_secretsmanager_secret.bff_web_token.arn
+      bff_movil_token   = aws_secretsmanager_secret.bff_movil_token.arn
+      siniestros_config = aws_secretsmanager_secret.siniestros_config.arn
     },
     { for name, secret in aws_secretsmanager_secret.external_providers : name => secret.arn }
   )
-  description = "Map of secret name (polizas_db, siniestros_db, compartida_db, bff_web_token, bff_movil_token, and each external provider) to its Secrets Manager ARN."
+  description = "Map of secret name (polizas_db, siniestros_db, compartida_db, bff_web_token, bff_movil_token, siniestros_config, and each external provider) to its Secrets Manager ARN."
 }
 
 output "polizas_db_secret_arn" {

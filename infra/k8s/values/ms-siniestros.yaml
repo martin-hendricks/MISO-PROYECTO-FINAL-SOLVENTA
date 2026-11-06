@@ -80,11 +80,20 @@ externalSecrets:
         - database_url
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: ms-siniestros-token
+    # S3_EVIDENCIAS_BUCKET: lo publica Terraform (modules/secrets,
+    # siniestros_config) porque el nombre del bucket lleva sufijo aleatorio.
+    - nombreRemoto: solventa-minimo-siniestros-config
+      nombreLocal: ms-siniestros-config
 
 serviceAccount:
   crear: true
   nombre: ms-siniestros
-  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."ms-siniestros"'
+  # El workflow de CD arma el ARN por convención
+  # (arn:aws:iam::<cuenta>:role/solventa-minimo-ms-siniestros-irsa, ver
+  # modules/irsa_aplicacion) cuando irsa es true. Para un helm manual:
+  # terraform output -json irsa_role_arns | jq -r '."ms-siniestros"'
+  irsa: true
+  roleArn: ""
 
 podDisruptionBudget:
   habilitado: true
@@ -95,8 +104,7 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
-  - nombre: S3_EVIDENCIAS_BUCKET
-    valor: ""  # TODO: reemplazar por s3_evidencias.bucket_id (output de Terraform)
+  # S3_EVIDENCIAS_BUCKET llega de externalSecrets (ms-siniestros-config).
   # HU-157: región del bucket. Sin S3_ENDPOINT_URL ni llaves: en EKS boto3 usa IRSA. El
   # bucket ya cifra por defecto con la CMK del módulo kms (sin SSE explícito por objeto).
   - nombre: AWS_REGION

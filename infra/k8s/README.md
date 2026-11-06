@@ -66,7 +66,7 @@ Ningún manifiesto de esta carpeta referencia el state de Terraform directamente
 | `siniestros_endpoint` | `values/ms-siniestros.yaml` → `variablesEntorno[DB_SINIESTROS_HOST]`. |
 | `redis_primary_endpoint` | `values/ms-cotizacion.yaml` y `values/ms-perfilamiento.yaml` → `REDIS_CACHE_OF_HOST` / `REDIS_CACHE_OD_HOST`. |
 | `msk_bootstrap_brokers_sasl_iam` | `values/ms-parametrico.yaml`, `values/ms-pagos.yaml`, `values/analitica.yaml`, `values/notificaciones.yaml` → `MSK_BOOTSTRAP_BROKERS`. |
-| `evidencias_bucket_name` | `values/ms-siniestros.yaml` → `S3_EVIDENCIAS_BUCKET`. |
+| `evidencias_bucket_name` | Automático: Terraform lo publica como `S3_EVIDENCIAS_BUCKET` en el secreto `solventa-minimo-siniestros-config` (`modules/secrets`) y `values/ms-siniestros.yaml` lo proyecta con `externalSecrets`. No hay nada que copiar. |
 | Rol IRSA de `external-secrets` (módulo `eks_addons`) | `platform/clustersecretstore.yaml` → `spec.provider.aws.auth.jwt.serviceAccountRef` (apunta al ServiceAccount `external-secrets`/`external-secrets`, que Terraform ya anota con ese rol). |
 | Rol IRSA de `aws-load-balancer-controller` (módulo `eks_addons`) | Implícito: es el controlador que interpreta `platform/ingress.yaml`. No hay nada que copiar a mano aquí. |
 
@@ -106,9 +106,11 @@ python3 -c "import yaml,sys; [list(yaml.safe_load_all(open(f))) for f in sys.arg
   ```
 
   Si el `roleArn` queda vacío, el pod arranca pero falla al llamar a AWS: el ServiceAccount no lleva la anotación y no hay credenciales que presentar.
+
+  En CD ya no hace falta copiarlo para los servicios que declaran `serviceAccount.irsa: true` (hoy `ms-siniestros`): `.github/workflows/deploy.yml` arma el ARN por la convención `arn:aws:iam::<cuenta>:role/solventa-minimo-<servicio>-irsa`. Los otros cuatro pueden sumarse poniendo `irsa: true` en su values.
 - **Tags de imagen.** `imagen.tag` queda vacío en los 14 `values/*.yaml` con `# TODO: tag de imagen`. Se decide en el pipeline de CI/CD (por ejemplo, el SHA corto del commit o un semver), no aquí.
 - **`<account>` en `imagen.repositorio`.** Placeholder literal en los 14 archivos; se resuelve con `ecr_repository_urls` (ver tabla arriba) o con el account ID real una vez se corra `terraform apply`.
-- **Endpoints de datos con placeholder `*.solventa.internal`.** `DB_POLIZAS_WRITE_HOST`/`READ_HOST`, `DB_SINIESTROS_HOST`, `REDIS_CACHE_OF_HOST`/`OD_HOST`, `MSK_BOOTSTRAP_BROKERS`, `S3_EVIDENCIAS_BUCKET`: todos marcados con TODO y el output de Terraform exacto que los reemplaza.
+- **Endpoints de datos con placeholder `*.solventa.internal`.** `DB_POLIZAS_WRITE_HOST`/`READ_HOST`, `DB_SINIESTROS_HOST`, `REDIS_CACHE_OF_HOST`/`OD_HOST`, `MSK_BOOTSTRAP_BROKERS`: todos marcados con TODO y el output de Terraform exacto que los reemplaza.
 - **Certificado ACM y HTTPS del Ingress.** `platform/ingress.yaml` hoy solo escucha HTTP/HTTPS sin certificado; falta `alb.ingress.kubernetes.io/certificate-arn` cuando exista un dominio y certificado definidos.
 - **NetworkPolicy real vs. CNI.** Las políticas de `platform/networkpolicies.yaml` asumen que el VPC CNI tiene "Network Policy" habilitado (`ENABLE_NETWORK_POLICY=true` en el addon `vpc-cni`, o Calico). Hoy el módulo `eks` de Terraform no fija ese flag explícitamente; verificar antes de depender de estas políticas para aislar tráfico en producción.
 - **Prometheus/Grafana.** El namespace `solventa-observability` se creó en `platform/namespace.yaml` para alojar ese stack, pero los manifiestos/chart de Prometheus/Grafana no son parte de esta tarea.
