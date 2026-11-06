@@ -134,6 +134,14 @@ export const routes: Routes = [
           import('./features/polizas/lista/polizas-lista.view').then((m) => m.PolizasListaView),
       },
       {
+        // HU-119: ruta literal antes de polizas/:numero -- "avisos" no es un numero de poliza.
+        path: 'polizas/avisos',
+        loadComponent: () =>
+          import('./features/polizas/avisos/polizas-avisos.view').then(
+            (m) => m.PolizasAvisosView,
+          ),
+      },
+      {
         path: 'polizas/:numero',
         loadComponent: () =>
           import('./features/polizas/detalle/poliza-detalle.view').then((m) => m.PolizaDetalleView),

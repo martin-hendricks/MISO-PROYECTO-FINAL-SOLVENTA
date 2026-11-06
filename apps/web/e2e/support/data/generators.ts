@@ -124,6 +124,25 @@ export function policyDetail(numero: string): PolicyDetail {
   };
 }
 
+export interface PolicyNotice {
+  numero: string;
+  ramo: string;
+  descripcion: string;
+  venceEn: string;
+  renovable: boolean;
+}
+
+/** Shape of GET /cliente/polizas/por-vencer (bff-web routers/avisos_poliza.py, HU-119). */
+export function policyNotice(numero: string): PolicyNotice {
+  return {
+    numero,
+    ramo: 'SOAT motocicleta',
+    descripcion: 'SOAT motocicleta',
+    venceEn: '2026-11-20T00:00:00Z',
+    renovable: true,
+  };
+}
+
 export interface OperatorPolicy {
   numero: string;
   ramo: string;

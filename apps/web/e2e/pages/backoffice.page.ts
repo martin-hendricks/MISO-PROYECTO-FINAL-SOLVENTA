@@ -3,7 +3,7 @@ import { Page } from 'playwright';
 import { Role } from '../support/doubles/bff';
 import { Client } from '../support/data/generators';
 
-export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos';
+export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos' | 'reportes';
 
 export class BackofficePage {
   constructor(private readonly page: Page) {}
@@ -45,7 +45,7 @@ export class BackofficePage {
       .allInnerTexts();
     assert.deepEqual(
       destinations.map((text) => text.trim()),
-      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos'],
+      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes'],
     );
   }
 

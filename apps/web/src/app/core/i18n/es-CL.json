@@ -97,6 +97,18 @@
         "body": "Cuando emitas una póliza la verás aquí."
       }
     },
+    "avisos": {
+      "title": "Avisos de vencimiento",
+      "subtitle": "Pólizas vigentes que vencen pronto.",
+      "loading": "Cargando tus avisos…",
+      "error": { "body": "No pudimos cargar tus avisos.", "retry": "Reintentar" },
+      "empty": {
+        "title": "No tienes avisos",
+        "body": "Ninguna de tus pólizas vence pronto."
+      },
+      "venceEl": "Vence el",
+      "verPoliza": "Ver póliza"
+    },
     "detalle": {
       "back": "Volver",
       "title": "Póliza {{producto}}",

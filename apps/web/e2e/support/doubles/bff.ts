@@ -1,5 +1,14 @@
 import { Page } from 'playwright';
-import { Catalog, Client, Home, MortgageOffer, Offer, OperatorPolicy, PolicyDetail } from '../data/generators';
+import {
+  Catalog,
+  Client,
+  Home,
+  MortgageOffer,
+  Offer,
+  OperatorPolicy,
+  PolicyDetail,
+  PolicyNotice,
+} from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
@@ -11,6 +20,11 @@ const INICIO = '**/web/cliente/inicio';
 const PERFIL = '**/web/cliente/perfil';
 const POLIZAS_LISTA = '**/web/cliente/polizas';
 const POLIZA_DETALLE = '**/web/cliente/polizas/*';
+// Más específica que POLIZA_DETALLE (que también matchea esta URL, ver el
+// comentario de serveOperatorPolicyWith sobre el orden de registro inverso de
+// Playwright) -- se registra DESPUÉS de servePolicyDetail en cualquier step
+// que necesite ambas, para que esta gane primero.
+const POLIZAS_AVISOS = '**/web/cliente/polizas/por-vencer';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
 const ASESOR_EMISION = '**/web/asesor/emisiones';
@@ -148,6 +162,13 @@ export class BffDoubles {
   async servePolicyList(policies: PolicyDetail[]): Promise<void> {
     await this.page.unroute(POLIZAS_LISTA);
     await this.page.route(POLIZAS_LISTA, (route) => route.fulfill({ json: { polizas: policies } }));
+  }
+
+  /** HU-119: pólizas vigentes del cliente que vencen pronto. Registrar
+   * después de servePolicyDetail si el escenario también necesita esa ruta. */
+  async serveNotices(notices: PolicyNotice[]): Promise<void> {
+    await this.page.unroute(POLIZAS_AVISOS);
+    await this.page.route(POLIZAS_AVISOS, (route) => route.fulfill({ json: { polizas: notices } }));
   }
 
   /** Single handler for both GET .../polizas/{numero} and POST .../ciclo:

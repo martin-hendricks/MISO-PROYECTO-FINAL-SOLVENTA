@@ -49,7 +49,7 @@ When('the asesor retries loading the clients', async function (this: PortalWorld
   await this.backoffice.retryClients();
 });
 
-Then('the back-office shows its four destinations', async function (this: PortalWorld) {
+Then('the back-office shows its five destinations', async function (this: PortalWorld) {
   await this.backoffice.expectShell();
 });
 
