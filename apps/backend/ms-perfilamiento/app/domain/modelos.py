@@ -42,6 +42,53 @@ class Consentimiento:
             self.revocado_en = datetime.now(UTC)
 
 
+class OrigenOriginacion(StrEnum):
+    CLIENTE = "cliente"
+    SOCIO = "socio"
+
+
+PLAZO_MAXIMO_MESES = 480
+
+
+@dataclass
+class Originacion:
+    id: UUID
+    cliente_id: str
+    valor: Decimal
+    plazo_meses: int
+    origen: OrigenOriginacion
+    creada_en: datetime
+    cerrada_en: datetime | None
+
+    @classmethod
+    def abrir(cls, cliente_id: str, valor: Decimal, plazo_meses: int, origen: OrigenOriginacion) -> Originacion:
+        if not cliente_id.strip():
+            raise ReglaDeNegocioViolada("cliente_id_vacio", "El cliente_id es obligatorio")
+        if valor <= 0:
+            raise ReglaDeNegocioViolada("valor_credito_invalido", "El valor del crédito debe ser mayor que cero")
+        if not 1 <= plazo_meses <= PLAZO_MAXIMO_MESES:
+            raise ReglaDeNegocioViolada(
+                "plazo_credito_invalido", f"El plazo debe estar entre 1 y {PLAZO_MAXIMO_MESES} meses"
+            )
+        return cls(
+            id=uuid4(),
+            cliente_id=cliente_id.strip(),
+            valor=valor,
+            plazo_meses=plazo_meses,
+            origen=origen,
+            creada_en=datetime.now(UTC),
+            cerrada_en=None,
+        )
+
+    @property
+    def pendiente(self) -> bool:
+        return self.cerrada_en is None
+
+    def cerrar(self) -> None:
+        if self.cerrada_en is None:
+            self.cerrada_en = datetime.now(UTC)
+
+
 class EstadoAdaptador(StrEnum):
     EXITO = "exito"
     DEGRADADO = "degradado"

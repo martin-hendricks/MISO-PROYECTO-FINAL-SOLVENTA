@@ -67,7 +67,19 @@ Pesos y tarifa base por defecto (configurables en `app/config.py` / `.env`):
 
 ### Perfil de riesgo para ms-cotizacion (`IPerfilRiesgo`)
 
-La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde los factores y el snapshot persistidos). `GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima` devuelve la oferta más reciente del cliente sin volver a llamar a los adaptadores; ms-cotizacion la lee para cotizar `vida-crediticia` con este mismo perfil, de modo que la prima cotizada y cobrada en la emisión sale del perfil que el cliente vio explicado. Exige consentimiento vigente (`403` si se revocó) y responde `404` si el cliente aún no tiene ofertas.
+La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde los factores y el snapshot persistidos). `GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima` devuelve la oferta más reciente del cliente sin volver a llamar a los adaptadores; ms-cotizacion la lee para cotizar `vida-hipotecario` con este mismo perfil, de modo que la prima cotizada y cobrada en la emisión sale del perfil que el cliente vio explicado. Exige consentimiento vigente (`403` si se revocó) y responde `404` si el cliente aún no tiene ofertas.
+
+### Originación hipotecaria (HU-53, HU-105)
+
+Una originación guarda el crédito para el que el cliente pide vida hipotecario: `valor`, `plazo_meses` y `origen` (`cliente` cuando cotiza en el portal, `socio` cuando la envía un banco aliado). Hay a lo sumo una pendiente por cliente.
+
+| Método | Ruta | Efecto |
+| --- | --- | --- |
+| `POST` | `/v1/originaciones` | Registra la originación; si ya había una pendiente, la cierra y la reemplaza (`201`) |
+| `GET` | `/v1/originaciones/clientes/{cliente_id}/pendiente` | Devuelve la pendiente o `404` |
+| `DELETE` | `/v1/originaciones/clientes/{cliente_id}/pendiente` | La cierra al emitir la póliza (`204`, idempotente) |
+
+La tabla se crea con `db/02_ms_perfilamiento_originacion.sql`. Una base creada antes de ese script no lo corre sola: hay que recrear el volumen o aplicarlo a mano.
 
 ## Degradación (HU-56)
 

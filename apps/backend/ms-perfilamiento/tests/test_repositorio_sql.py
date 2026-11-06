@@ -80,3 +80,22 @@ async def test_ultima_oferta_por_cliente_es_la_mas_reciente(uow, config):
 
     assert leida.id == ultima.oferta.id
     assert leida.factor_ajuste == ultima.oferta.factor_ajuste
+
+
+async def test_originacion_persiste_reemplaza_y_cierra(uow):
+    from decimal import Decimal
+
+    from app.domain.modelos import OrigenOriginacion
+
+    cliente_id = f"it-{uuid4()}"
+    primera = await casos_uso.registrar_originacion(uow, cliente_id, Decimal("100000000"), 120, OrigenOriginacion.CLIENTE)
+    segunda = await casos_uso.registrar_originacion(uow, cliente_id, Decimal("200000000"), 360, OrigenOriginacion.SOCIO)
+
+    pendiente = await casos_uso.consultar_originacion_pendiente(uow, cliente_id)
+    assert pendiente.id == segunda.id
+    assert pendiente.id != primera.id
+    assert (pendiente.valor, pendiente.plazo_meses, pendiente.origen) == (Decimal("200000000.00"), 360, OrigenOriginacion.SOCIO)
+
+    await casos_uso.cerrar_originacion(uow, cliente_id)
+    with pytest.raises(Exception):
+        await casos_uso.consultar_originacion_pendiente(uow, cliente_id)
