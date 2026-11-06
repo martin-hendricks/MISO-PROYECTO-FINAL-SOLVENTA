@@ -43,10 +43,10 @@ class CacheCaida:
 
 class CacheLenta:
     async def leer(self, clave):
-        await asyncio.sleep(1)
+        await asyncio.Event().wait()
 
     async def guardar(self, clave, atributos, ttl_segundos):
-        await asyncio.sleep(1)
+        await asyncio.Event().wait()
 
 
 class RedisFalso:
