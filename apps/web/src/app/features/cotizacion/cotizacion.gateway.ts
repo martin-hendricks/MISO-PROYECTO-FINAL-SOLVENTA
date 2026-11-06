@@ -97,8 +97,11 @@ function toOferta(wire: OfertaWire): Oferta {
 /** A 409/422 from the core is a business answer about the input, not an outage. */
 export function rechazoDe(error: unknown): RechazoCotizacion | null {
   if (error instanceof HttpErrorResponse && (error.status === 409 || error.status === 422)) {
-    const body = error.error as Partial<RechazoCotizacion> | null;
-    return { codigo: body?.codigo ?? 'rechazo', mensaje: body?.mensaje ?? '' };
+    const body = error.error as (Partial<RechazoCotizacion> & { detail?: string }) | null;
+    return {
+      codigo: body?.codigo ?? 'rechazo',
+      mensaje: body?.mensaje || (typeof body?.detail === 'string' ? body.detail : ''),
+    };
   }
   return null;
 }

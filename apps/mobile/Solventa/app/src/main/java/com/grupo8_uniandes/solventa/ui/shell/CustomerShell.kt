@@ -68,6 +68,7 @@ import com.grupo8_uniandes.solventa.navigation.AvisoRenovacionRoute
 import com.grupo8_uniandes.solventa.navigation.AvisoVencimientoRoute
 import com.grupo8_uniandes.solventa.navigation.ParametricoRoute
 import com.grupo8_uniandes.solventa.navigation.ConfirmacionAvisoRoute
+import com.grupo8_uniandes.solventa.navigation.ConfirmacionTarjetaRoute
 import com.grupo8_uniandes.solventa.navigation.EvidenciaAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
 import com.grupo8_uniandes.solventa.navigation.leaveIssuance
@@ -284,6 +285,8 @@ private fun OnboardingHost(
                         habeasData = habeasData,
                         contrasena = draft.password.trim(),
                         tipoDocumento = draft.documentType.trim(),
+                        ingresosMensuales = draft.monthlyIncome.trim(),
+                        gastosMensuales = draft.monthlySpending.trim(),
                     ),
                 ) is StandInAnswer.Ready
             },
@@ -309,11 +312,14 @@ private fun OnboardingHost(
             onDocumentNumber = viewModel::onDocumentNumber,
             onPassword = viewModel::onPassword,
             onPasswordConfirm = viewModel::onPasswordConfirm,
+            onIncome = viewModel::onIncome,
+            onSpending = viewModel::onSpending,
             onPhotoAttached = viewModel::attachPhoto,
             onPhotoDeclined = viewModel::photoDeclined,
             onHabeasData = viewModel::onHabeasData,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
+            region = region,
             showStep = showStep,
             modifier = modifier,
         )
@@ -377,7 +383,7 @@ internal fun SignedInShell(
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
-                    showIdentityMark = route is OfertaHipotecarioRoute,
+                    showIdentityMark = route is OfertaHipotecarioRoute || route is ConfirmacionTarjetaRoute,
                     onBack = {
                         if (route == SuscripcionRechazadaRoute) {
                             navController.leaveIssuance(InicioRoute)
@@ -424,6 +430,7 @@ internal fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     is CotizacionRoute -> stringResource(R.string.quote_step_title)
     is VerOfertaRoute -> stringResource(R.string.offer_title)
+    is ConfirmacionTarjetaRoute -> stringResource(R.string.card_title)
     OfertaHipotecarioRoute -> stringResource(R.string.mortgage_offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)

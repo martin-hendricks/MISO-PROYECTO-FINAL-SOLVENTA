@@ -93,6 +93,8 @@ class Poliza:
     cancelada_por: str | None = None
     devolucion_estimada: Decimal | None = None
     firma_hash: str | None = None
+    renovacion_automatica: bool = False
+    renovacion_actualizada_en: datetime | None = None
 
     @classmethod
     def emitir(
@@ -192,6 +194,11 @@ class Poliza:
         self.motivo_cancelacion = motivo.strip()
         self.cancelada_en = hoy
         self.cancelada_por = cancelada_por.strip()
+
+    def fijar_renovacion_automatica(self, valor: bool, ahora: datetime) -> None:
+        """Guarda la preferencia del cliente sin cobrar ni cambiar el ciclo de vida."""
+        self.renovacion_automatica = valor
+        self.renovacion_actualizada_en = ahora
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, Header, Response, status
 
 from app.application import casos_uso
 from app.config import Settings
-from app.dependencies import obtener_adaptador_open_data, obtener_adaptador_open_finance, obtener_config, obtener_uow
+from app.dependencies import (
+    obtener_adaptador_open_data,
+    obtener_adaptador_open_finance,
+    obtener_cache_fuentes,
+    obtener_config,
+    obtener_uow,
+)
 from app.domain.errores import NoEncontrado
 from app.ports.adaptadores import AdaptadorOpenData, AdaptadorOpenFinance
 from app.ports.persistencia import FabricaUnidadDeTrabajo
@@ -22,6 +28,7 @@ Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
 OpenFinance = Annotated[AdaptadorOpenFinance, Depends(obtener_adaptador_open_finance)]
 OpenData = Annotated[AdaptadorOpenData, Depends(obtener_adaptador_open_data)]
 Config = Annotated[Settings, Depends(obtener_config)]
+Cache = Annotated[object, Depends(obtener_cache_fuentes)]
 ERRORES = {403: {"model": ErrorSalida}, 404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}}
 
 
@@ -48,10 +55,9 @@ async def consultar_consentimiento(cliente_id: str, uow: Uow):
 
 
 @router.delete("/consentimientos/{cliente_id}", response_model=ConsentimientoSalida, responses=ERRORES)
-async def revocar_consentimiento(cliente_id: str, uow: Uow):
-    """HU-53: revocar es efectivo de inmediato (sin caché): la siguiente consulta de
-    consentimiento vigente ya no lo encuentra."""
-    return ConsentimientoSalida.desde(await casos_uso.revocar_consentimiento(uow, cliente_id))
+async def revocar_consentimiento(cliente_id: str, uow: Uow, cache: Cache):
+    """HU-53: revocar impide nuevas consultas y reutilizar el perfil cacheado."""
+    return ConsentimientoSalida.desde(await casos_uso.revocar_consentimiento(uow, cliente_id, cache))
 
 
 @router.post(
@@ -67,12 +73,20 @@ async def solicitar_oferta_hipotecario(
     adaptador_open_finance: OpenFinance,
     adaptador_open_data: OpenData,
     config: Config,
+    cache: Cache,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
 ):
     """HU-53+HU-54+HU-55+HU-56 en un único flujo: verifica consentimiento, perfila con
     los adaptadores (degradando si hace falta) y arma la oferta explicable."""
     resultado = await casos_uso.perfilar_y_ofertar(
-        uow, adaptador_open_finance, adaptador_open_data, config, idempotency_key, entrada.cliente_id
+        uow,
+        adaptador_open_finance,
+        adaptador_open_data,
+        config,
+        idempotency_key,
+        entrada.cliente_id,
+        cache,
+        entrada.numero_documento,
     )
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK

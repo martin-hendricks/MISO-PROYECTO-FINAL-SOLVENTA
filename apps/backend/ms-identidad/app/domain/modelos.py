@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bcrypt
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -51,6 +52,8 @@ class Usuario:
     estado: EstadoUsuario
     nombre: str = ""
     apellidos: str = ""
+    ingresos_mensuales: Decimal | None = None
+    gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
 
     @classmethod
@@ -63,7 +66,13 @@ class Usuario:
         password_plano: str,
         nombre: str = "",
         apellidos: str = "",
+        ingresos_mensuales: Decimal | None = None,
+        gastos_mensuales: Decimal | None = None,
     ) -> Usuario:
+        if ingresos_mensuales is not None and ingresos_mensuales <= 0:
+            raise ValueError("ingresos_mensuales debe ser mayor que cero")
+        if gastos_mensuales is not None and gastos_mensuales < 0:
+            raise ValueError("gastos_mensuales no puede ser negativo")
         return cls(
             id=uuid4(),
             tipo_documento=tipo_documento.strip().upper(),
@@ -73,6 +82,8 @@ class Usuario:
             estado=EstadoUsuario.ACTIVO,
             nombre=nombre.strip(),
             apellidos=apellidos.strip(),
+            ingresos_mensuales=ingresos_mensuales,
+            gastos_mensuales=gastos_mensuales,
             rol="cliente",
         )
 

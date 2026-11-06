@@ -16,6 +16,8 @@ async def crear_usuario(
     password_plano: str,
     nombre: str = "",
     apellidos: str = "",
+    ingresos_mensuales=None,
+    gastos_mensuales=None,
 ) -> Usuario:
     """Alta de cuenta (SOLV-215). La verificación previa de duplicados es
     una optimización para responder rápido en el caso común; la garantía
@@ -32,6 +34,8 @@ async def crear_usuario(
         password_plano=password_plano,
         nombre=nombre,
         apellidos=apellidos,
+        ingresos_mensuales=ingresos_mensuales,
+        gastos_mensuales=gastos_mensuales,
     )
     if not await kyc.verificar(usuario.tipo_documento, usuario.numero_documento):
         raise IdentidadNoVerificada()

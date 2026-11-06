@@ -14,6 +14,8 @@ describe('RegistroDraft', () => {
     documento: '1012345678',
     correo: 'camila@correo.com',
     contrasena: 'secreto123',
+    ingresos_mensuales: '4500000.00',
+    gastos_mensuales: '1200000.00',
   };
 
   function guard() {

@@ -72,8 +72,8 @@
           <a
             class="filled"
             data-testid="oferta-aceptar"
-            routerLink="/emision"
-            [queryParams]="{ cotizacion: oferta.cotizacionId }"
+            routerLink="/confirmacion-tarjeta"
+            [queryParams]="{ cotizacion: oferta.cotizacionId, prima: oferta.prima }"
             >{{ 'cotizacion.oferta.aceptar' | translate }}</a
           >
         }

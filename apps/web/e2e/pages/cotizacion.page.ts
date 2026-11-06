@@ -127,6 +127,24 @@ export class CotizacionPage {
     return this.page.getByTestId('oferta-aceptar').getAttribute('href');
   }
 
+  async openCard(cotizacionId: string): Promise<void> {
+    await this.page.goto(`/confirmacion-tarjeta?cotizacion=${cotizacionId}`);
+    await this.page.getByTestId('confirmacion-tarjeta').waitFor({ state: 'visible' });
+  }
+
+  async fillCard(): Promise<void> {
+    await this.page.getByTestId('confirmacion-tarjeta').waitFor({ state: 'visible' });
+    await this.page.getByTestId('tarjeta-titular').fill('Camila Restrepo');
+    await this.page.getByTestId('tarjeta-numero').fill('4242424242424242');
+    await this.page.getByTestId('tarjeta-mes').fill('8');
+    await this.page.getByTestId('tarjeta-anio').fill('28');
+    await this.page.getByTestId('tarjeta-codigo').fill('123');
+  }
+
+  async confirmCard(): Promise<void> {
+    await this.page.getByTestId('tarjeta-confirmar').click();
+  }
+
   async expectOfferPath(cotizacionId: string): Promise<void> {
     await this.page.waitForURL(`**/cotizaciones/${cotizacionId}`);
   }

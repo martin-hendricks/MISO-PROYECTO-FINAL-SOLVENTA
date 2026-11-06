@@ -63,6 +63,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
+import com.grupo8_uniandes.solventa.ui.shell.QuoteAmountVisualTransformation
 import com.grupo8_uniandes.solventa.ui.components.SolventaBanner
 import com.grupo8_uniandes.solventa.ui.components.SolventaBannerStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
@@ -102,15 +105,19 @@ fun OnboardingScreen(
     onDocumentNumber: (String) -> Unit,
     onPassword: (String) -> Unit,
     onPasswordConfirm: (String) -> Unit,
+    onIncome: (String) -> Unit = {},
+    onSpending: (String) -> Unit = {},
     onPhotoAttached: (ByteArray) -> Unit,
     onPhotoDeclined: () -> Unit,
     onHabeasData: (Boolean) -> Unit,
     onContinue: () -> Unit,
     onExistingAccount: () -> Unit,
+    region: Region = Region.Colombia,
     showStep: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val moneyVisual = remember(region) { QuoteAmountVisualTransformation(region) }
     var typeExpanded by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
@@ -212,6 +219,11 @@ fun OnboardingScreen(
             )
             Text(
                 text = stringResource(R.string.onboarding_intro),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.onboarding_income_sentence),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -328,6 +340,26 @@ fun OnboardingScreen(
                 },
                 externalLabel = true,
                 testTag = "field_confirmar",
+            )
+            SolventaTextField(
+                value = state.monthlyIncome,
+                onValueChange = { onIncome(quoteAmountDigits(it)) },
+                label = stringResource(R.string.onboarding_income),
+                helper = stringResource(R.string.onboarding_income_hint),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = moneyVisual,
+                externalLabel = true,
+                testTag = "field_ingresos",
+            )
+            SolventaTextField(
+                value = state.monthlySpending,
+                onValueChange = { onSpending(quoteAmountDigits(it)) },
+                label = stringResource(R.string.onboarding_spending),
+                helper = stringResource(R.string.onboarding_spending_hint),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = moneyVisual,
+                externalLabel = true,
+                testTag = "field_gastos",
             )
             Box(
                 modifier = Modifier

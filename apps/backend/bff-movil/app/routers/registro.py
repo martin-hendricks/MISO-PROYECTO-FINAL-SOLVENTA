@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, HTTPException, Request
 
 from .sesion import _sesion_de
@@ -15,6 +17,8 @@ class Alta(BaseModel):
     habeasData: bool
     contrasena: str = ""
     tipoDocumento: str = ""
+    ingresos_mensuales: Decimal = Field(gt=0)
+    gastos_mensuales: Decimal = Field(ge=0)
 
 
 class Revocacion(BaseModel):
@@ -49,6 +53,8 @@ def alta(body: Alta, request: Request) -> dict:
             password=body.contrasena,
             nombre=body.nombre,
             apellidos=body.apellidos,
+            ingresos_mensuales=str(body.ingresos_mensuales),
+            gastos_mensuales=str(body.gastos_mensuales),
         )
     except HTTPException as exc:
         if exc.status_code == 409:

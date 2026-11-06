@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     MetaData,
@@ -55,6 +56,8 @@ class PolizaFila(Base):
     cancelada_en: Mapped[date | None]
     cancelada_por: Mapped[str | None] = mapped_column(String)
     devolucion_estimada: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    renovacion_automatica: Mapped[bool] = mapped_column(Boolean, default=False)
+    renovacion_actualizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CoberturaFila(Base):
@@ -117,6 +120,8 @@ def _a_dominio(fila: PolizaFila, coberturas: list[CoberturaFila], prima: PrimaFi
         cancelada_por=fila.cancelada_por,
         devolucion_estimada=fila.devolucion_estimada,
         firma_hash=fila.firma_hash,
+        renovacion_automatica=bool(fila.renovacion_automatica),
+        renovacion_actualizada_en=fila.renovacion_actualizada_en,
     )
 
 
@@ -229,6 +234,8 @@ class RepositorioPolizasSQL:
         fila.cancelada_en = poliza.cancelada_en
         fila.cancelada_por = poliza.cancelada_por
         fila.devolucion_estimada = poliza.devolucion_estimada
+        fila.renovacion_automatica = poliza.renovacion_automatica
+        fila.renovacion_actualizada_en = poliza.renovacion_actualizada_en
 
         existentes = list(
             await self._s.scalars(select(CoberturaFila).where(CoberturaFila.poliza_id == poliza.id))

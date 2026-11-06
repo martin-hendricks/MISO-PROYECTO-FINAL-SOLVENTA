@@ -17,6 +17,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
@@ -86,6 +87,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
         assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
         rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
     }
@@ -105,6 +107,7 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onNodeWithTag("action_issued_home").performClick()
@@ -115,6 +118,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
         rule.onNodeWithTag("action_accept_offer").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()

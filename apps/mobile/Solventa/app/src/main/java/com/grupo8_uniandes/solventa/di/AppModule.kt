@@ -27,7 +27,11 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.RequestFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.ShowFirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
+import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalPreferenceRepository
+import com.grupo8_uniandes.solventa.domain.bff.policy.SaveRenewalPreference
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
+import com.grupo8_uniandes.solventa.issuance.ConfirmacionTarjetaViewModel
+import com.grupo8_uniandes.solventa.policy.RenewalChoiceViewModel
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
@@ -76,6 +80,8 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<SignupRepository> { get<BffRuntime>().signup }
     single<OfferRepository> { get<BffRuntime>().offer }
     single<IssuanceRepository> { get<BffRuntime>().issuance }
+    single<RenewalPreferenceRepository> { get<BffRuntime>().renewal }
+    single { SaveRenewalPreference(get()) }
     single<PolicyMemory> { get<BffRuntime>().memory }
     single { AcceptOffer(get()) }
     single<ClaimRepository> { get<BffRuntime>().claim }
@@ -130,6 +136,8 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     viewModel { PolizasViewModel(get(), get()) }
     viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get()) }
     viewModel { (offerId: String) -> IssuanceViewModel(get(), offerId) }
+    viewModel { ConfirmacionTarjetaViewModel() }
+    viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
     viewModel { AvisoSiniestroViewModel(get()) }
     viewModel { ParametricoViewModel(get()) }

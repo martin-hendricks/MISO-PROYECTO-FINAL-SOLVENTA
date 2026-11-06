@@ -34,6 +34,9 @@ fun ParametricoScreen(
     notice: ParametricNotice,
     onBack: () -> Unit,
     onDownload: () -> Unit,
+    renewalChecked: Boolean = false,
+    renewalMissing: Boolean = false,
+    onRenewal: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -71,7 +74,7 @@ fun ParametricoScreen(
                 )
             }
             Text(
-                text = notice.disparo,
+                text = stringResource(R.string.parametric_card_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -85,6 +88,12 @@ fun ParametricoScreen(
             text = stringResource(R.string.parametric_explanation),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RenewalChoice(
+            checked = renewalChecked,
+            helper = stringResource(R.string.renewal_off_parametric),
+            missing = renewalMissing,
+            onChecked = onRenewal,
         )
         SolventaButton(
             text = stringResource(R.string.parametric_back_claims),

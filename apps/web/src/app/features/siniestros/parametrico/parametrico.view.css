@@ -1,0 +1,27 @@
+:host {
+  display: block;
+}
+
+label,
+a {
+  display: block;
+  margin-top: 1rem;
+}
+
+.renewal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.renewal-helper {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+input {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}

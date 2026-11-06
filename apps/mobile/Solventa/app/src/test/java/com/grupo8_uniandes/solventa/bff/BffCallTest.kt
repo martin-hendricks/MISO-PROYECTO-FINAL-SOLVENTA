@@ -86,7 +86,7 @@ class BffCallTest {
         assertEquals(64_000L, ready.value.prima)
 
         enqueue(PublishedSamples.HOME)
-        val home = RemoteHomeBffRepository(api(), gate).load() as StandInAnswer.Ready
+        val home = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
         assertNull(home.value.hipotecario)
         assertEquals("COT-1042", checkNotNull(home.value.ofertaVigente).cotizacionId)
 
@@ -95,10 +95,29 @@ class BffCallTest {
             {"ofertaVigente":{"cotizacionId":"COT-1042","ramo":"Protección de dispositivo","estado":"oferta_vigente"},"poliza":null,"siniestroEnCurso":{"siniestroId":"SIN-441","estado":"en_evaluacion"},"hipotecario":null}
             """,
         )
-        val withoutPolicy = RemoteHomeBffRepository(api(), gate).load() as StandInAnswer.Ready
+        val withoutPolicy = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
         assertNull(withoutPolicy.value.poliza)
         assertEquals("COT-1042", checkNotNull(withoutPolicy.value.ofertaVigente).cotizacionId)
         assertEquals("SIN-441", checkNotNull(withoutPolicy.value.siniestroEnCurso).siniestroId)
+
+        enqueue(
+            """
+            {"ofertaVigente":null,"cotizacionesPendientes":[],"poliza":null,"siniestroEnCurso":null,"hipotecario":null}
+            """,
+        )
+        val empty = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
+        assertNull(empty.value.ofertaVigente)
+        assertNull(empty.value.poliza)
+        assertTrue(empty.value.cotizacionesPendientes.isEmpty())
+    }
+
+    @Test
+    fun givenNoAccessToken_whenHomeLoads_thenInicioStaysEmpty() = runBlocking {
+        tokens.clear()
+        val home = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
+        assertNull(home.value.ofertaVigente)
+        assertNull(home.value.poliza)
+        assertEquals(0, server.requestCount)
     }
 
     @Test
@@ -123,6 +142,38 @@ class BffCallTest {
         assertEquals("89167dc2-aab6-491c-8378-45131495f364", ready.value.cotizacionId)
         assertEquals(106_900L, ready.value.prima)
         assertEquals("cotizada", ready.value.estado)
+    }
+
+    @Test
+    fun givenA422Detail_whenQuoted_thenTheExplanationSurvives() = runBlocking {
+        val detail = "El ratio de gastos supera el porcentaje máximo vigente"
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"$detail"}"""))
+        val explained = runCatching {
+            RemoteOfferRepository(api(), gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            )
+        }.exceptionOrNull()
+        assertEquals(detail, (explained as com.grupo8_uniandes.solventa.domain.bff.offer.QuoteExplained).detail)
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
+        val failed = RemoteOfferRepository(api(), gate).quote(
+            "Protección de dispositivo",
+            DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+        )
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
+        assertTrue(
+            RemoteOfferRepository(api(), gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            ) is StandInAnswer.Failed,
+        )
+        val dead = deadClients()
+        assertTrue(
+            RemoteOfferRepository(dead.api, dead.gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            ) is StandInAnswer.Failed,
+        )
     }
 
     @Test

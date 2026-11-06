@@ -13,6 +13,8 @@ BODY = {
     "correo": "camila@correo.com",
     "contrasena": "secreto123",
     "habeasData": True,
+    "ingresos_mensuales": "4500000.00",
+    "gastos_mensuales": "1500000.00",
 }
 
 
@@ -96,6 +98,14 @@ def test_alta_con_identidad_rechazada_por_kyc_es_422_y_no_cuenta_duplicada(clien
 
     assert response.status_code == 422
     assert response.json()["detail"] == "No fue posible verificar la identidad"
+
+
+def test_alta_sin_ingreso_no_crea_cuenta(client, nucleo_identidad):
+    response = client.post("/v1/registro", json={**BODY, "ingresos_mensuales": "0.00"})
+    assert response.status_code == 422
+    assert nucleo_identidad.peticiones == []
+    assert "4500000.00" not in response.text
+    assert "contrasena" not in response.text
 
 
 def test_alta_con_kyc_caido_en_ms_identidad_no_esta_disponible(client, nucleo_identidad):

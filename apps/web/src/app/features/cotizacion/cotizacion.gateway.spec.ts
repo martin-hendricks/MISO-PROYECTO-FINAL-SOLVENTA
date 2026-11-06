@@ -134,6 +134,17 @@ describe('CotizacionGateway', () => {
       mensaje: '',
     });
     expect(rechazoDe(new HttpErrorResponse({ status: 500 }))).toBeNull();
+    expect(
+      rechazoDe(
+        new HttpErrorResponse({
+          status: 422,
+          error: { detail: 'El ratio de gastos supera el porcentaje máximo vigente' },
+        }),
+      ),
+    ).toEqual({
+      codigo: 'rechazo',
+      mensaje: 'El ratio de gastos supera el porcentaje máximo vigente',
+    });
     expect(rechazoDe(new Error('boom'))).toBeNull();
   });
 });

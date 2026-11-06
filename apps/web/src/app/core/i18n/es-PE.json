@@ -132,7 +132,9 @@
     "emitida": {
       "title": "Póliza emitida",
       "subtitle": "{{producto}} ya está en tu billetera.",
-      "verPoliza": "Ver mi póliza"
+      "verPoliza": "Ver mi póliza",
+      "renovacion": "Pago de renovación automática",
+      "renovacionAyuda": "Apagado. Renueva la prima de esta póliza. No cobra ahora."
     },
     "rechazada": {
       "title": "No pudimos emitir",
@@ -145,6 +147,46 @@
       "title": "No hay una oferta para emitir",
       "body": "Vuelve a la oferta y acéptala de nuevo."
     }
+  },
+  "tarjeta": {
+    "title": "Confirma el medio de pago",
+    "subtitle": "Prima de solo lectura. El número, el vencimiento y el código se validan en este dispositivo y se descartan al confirmar.",
+    "tarjeta": "Tarjeta",
+    "titular": "Titular",
+    "titularHint": "Como aparece en la tarjeta",
+    "numero": "Número de tarjeta",
+    "numeroHint": {
+      "default": "16 dígitos",
+      "amex": "15 dígitos",
+      "diners": "14 dígitos"
+    },
+    "vencimiento": "Vencimiento",
+    "mes": "Mes",
+    "anio": "Año",
+    "digitos": "2 dígitos",
+    "codigo": "Código de seguridad",
+    "codigoHint": "3 o 4 dígitos",
+    "placeholder": {
+      "titular": "Camila Restrepo",
+      "numero": "4242 4242 4242 4242",
+      "mes": "08",
+      "anio": "28",
+      "codigo": "123"
+    },
+    "privacidad": "Formato validado aquí. Estos datos no se envían a Solventa ni se guardan.",
+    "primaLabel": "Prima total · solo lectura",
+    "confirmar": "Confirmar pago",
+    "cancelar": "Volver a la oferta",
+    "volver": "← Volver",
+    "footerLinks": "Privacidad   ·   Términos   ·   Accesibilidad"
+  },
+  "parametrico": {
+    "title": "Pago automático realizado",
+    "subtitle": "Este depósito corresponde al siniestro paramétrico, no a la prima.",
+    "poliza": "Póliza relacionada",
+    "explicacion": "Activar la renovación no repite el pago ni cobra la prima.",
+    "renovacionAyuda": "Apagado. Opta esa póliza a renovar su prima.",
+    "volver": "Volver a siniestros"
   },
   "login": {
     "customer": {
@@ -185,14 +227,19 @@
       "apellidos": "Apellidos",
       "documento": "Documento",
       "correo": "Correo",
-      "contrasena": "Contraseña"
+      "contrasena": "Contraseña",
+      "ingresos": "Ingresos mensuales",
+      "gastos": "Gastos mensuales",
+      "ingresosHint": "Debe ser mayor que cero.",
+      "gastosHint": "Puede ser cero."
     },
     "submit": "Registrarme",
     "haveAccount": "Ya tengo cuenta",
     "error": {
       "required": "Completa este campo.",
       "format": "Escribe un correo válido.",
-      "length": "Usa al menos 8 caracteres."
+      "length": "Usa al menos 8 caracteres.",
+      "amount": "El ingreso mensual debe ser mayor que cero."
     }
   },
   "consentimiento": {

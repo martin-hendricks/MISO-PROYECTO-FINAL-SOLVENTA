@@ -16,6 +16,8 @@ import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
+import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalPreferenceRepository
+import com.grupo8_uniandes.solventa.domain.bff.policy.StandInRenewalPreferenceRepository
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
@@ -38,6 +40,7 @@ class BffRuntime private constructor(
     val assistance: AssistanceRepository,
     val memory: PolicyMemory,
     val claimHold: ClaimHold,
+    val renewal: RenewalPreferenceRepository,
 ) {
     companion object {
         fun standIn(): BffRuntime {
@@ -57,6 +60,7 @@ class BffRuntime private constructor(
                 bff.assistance,
                 InMemoryPolicyStore(),
                 MemoryClaimHold(),
+                StandInRenewalPreferenceRepository(),
             )
         }
 
@@ -75,11 +79,12 @@ class BffRuntime private constructor(
                 RemoteMortgageRepository(api, gate),
                 RemoteNoticeRepository(api, gate),
                 RemotePolicyCommandRepository(api, gate),
-                RemoteHomeBffRepository(api, gate),
+                RemoteHomeBffRepository(api, gate, tokens),
                 RemotePushRepository(api, gate),
                 RemoteAssistanceRepository(api, gate),
                 BffPolicyMemory(cache),
                 CachedClaimHold(cache),
+                RemoteRenewalPreferenceRepository(api, gate),
             )
         }
     }

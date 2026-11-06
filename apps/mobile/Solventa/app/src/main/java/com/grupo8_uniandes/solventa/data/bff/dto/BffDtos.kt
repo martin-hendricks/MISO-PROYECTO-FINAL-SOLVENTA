@@ -36,7 +36,15 @@ data class SignupDto(
     val habeasData: Boolean,
     val contrasena: String = "",
     val tipoDocumento: String = "",
+    @kotlinx.serialization.SerialName("ingresos_mensuales") val ingresosMensuales: String = "",
+    @kotlinx.serialization.SerialName("gastos_mensuales") val gastosMensuales: String = "",
 )
+
+@Serializable
+data class RenewalRequestDto(val renovacionAutomatica: Boolean)
+
+@Serializable
+data class RenewalPreferenceDto(val numero: String, val renovacionAutomatica: Boolean)
 
 @Serializable
 data class RevokeDto(val habeasData: Boolean)

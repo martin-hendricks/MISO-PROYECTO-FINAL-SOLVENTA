@@ -110,6 +110,8 @@ Then('the consent mark is auditable', async function (this: PortalWorld) {
     documento,
     correo,
     contrasena,
+    ingresos_mensuales: '4500000.00',
+    gastos_mensuales: '1200000.00',
     habeasData: true,
   });
   const mark = this.bff.grantedConsent();

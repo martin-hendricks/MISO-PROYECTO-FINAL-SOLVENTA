@@ -50,6 +50,8 @@ export class RegistroPage {
     for (const [field, value] of Object.entries(alta)) {
       await this.page.getByTestId(`registro-${field}`).fill(value);
     }
+    await this.page.getByTestId('registro-ingresos').fill('4500000');
+    await this.page.getByTestId('registro-gastos').fill('1200000');
     await this.page.getByTestId('registro-submit').click();
   }
 

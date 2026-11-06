@@ -28,6 +28,27 @@ describe('EmisionViewModel', () => {
 
     expect(viewModel.status()).toBe('issued');
     expect(viewModel.poliza()?.numero).toBe('POL-2026-00088421');
+    viewModel.chooseRenewal(true);
+    expect(viewModel.renewal()).toBeTrue();
+  });
+
+  it('keeps renewal off until the customer changes it, without another issuance', () => {
+    const issued = of(EMITIDA);
+    const saved: boolean[] = [];
+    const vm = new EmisionViewModel(
+      () => issued,
+      () => fail('should not reject'),
+      (_numero, enabled) => {
+        saved.push(enabled);
+        return of({ numero: 'POL-2026-00088421', renovacionAutomatica: enabled });
+      },
+    );
+    vm.issue();
+    expect(vm.status()).toBe('issued');
+    expect(vm.renewal()).toBeFalse();
+    expect(saved).toEqual([]);
+    vm.chooseRenewal(true);
+    expect(saved).toEqual([true]);
   });
 
   it('hands the stored reason over when the core rejects', () => {
@@ -42,6 +63,8 @@ describe('EmisionViewModel', () => {
     expect(viewModel.status()).toBe('rejected');
     expect(viewModel.poliza()).toBeNull();
     expect(reasons).toEqual([MOTIVO]);
+    viewModel.chooseRenewal(true);
+    expect(viewModel.renewal()).toBeFalse();
   });
 
   it('maps a race-time expired offer to a new quotation', () => {

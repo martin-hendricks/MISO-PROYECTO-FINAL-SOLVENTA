@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +28,8 @@ class Alta(BaseModel):
     correo: str = Field(min_length=1)
     contrasena: str = Field(min_length=1)
     habeasData: bool
+    ingresos_mensuales: Decimal = Field(gt=0)
+    gastos_mensuales: Decimal = Field(ge=0)
 
 
 ClienteIdentidad = Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)]
@@ -46,6 +49,8 @@ async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
             password=body.contrasena,
             nombre=body.nombre,
             apellidos=body.apellidos,
+            ingresos_mensuales=body.ingresos_mensuales,
+            gastos_mensuales=body.gastos_mensuales,
         )
     except RechazoDelNucleo as exc:
         if exc.status == 409:

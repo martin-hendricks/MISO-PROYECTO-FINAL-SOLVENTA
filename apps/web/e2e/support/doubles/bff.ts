@@ -8,6 +8,7 @@ const SALIDA = '**/web/sesion/salida';
 const CLIENTES = '**/web/asesor/clientes';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
+const PERFIL = '**/web/cliente/perfil';
 const POLIZAS_LISTA = '**/web/cliente/polizas';
 const POLIZA_DETALLE = '**/web/cliente/polizas/*';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
@@ -84,6 +85,21 @@ export class BffDoubles {
   async acceptSignIn(subject: string, rol: Role): Promise<void> {
     await this.page.route(INGRESO, (route) => route.fulfill({ json: tokenPair(subject, rol) }));
     await this.page.route(SALIDA, (route) => route.fulfill({ json: { estado: 'aceptada' } }));
+  }
+
+  /** Profile is read when Perfil opens. A live 401 would sign the customer out. */
+  async serveProfile(correo: string): Promise<void> {
+    await this.page.route(PERFIL, (route) =>
+      route.fulfill({
+        json: {
+          usuarioId: 'usuario-e2e',
+          correo,
+          nombre: 'Camila',
+          apellidos: 'Restrepo',
+          documento: '1012345678',
+        },
+      }),
+    );
   }
 
   async rejectSignIn(): Promise<void> {
@@ -225,6 +241,29 @@ export class BffDoubles {
       }),
       notRenewable,
     );
+  }
+
+  /** Keeps customer issuance inside the portal. A live BFF 401 would sign the customer out. */
+  async serveCustomerIssuance(): Promise<void> {
+    await this.page.route(POLIZAS_LISTA, (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.fallback();
+      }
+      return route.fulfill({
+        json: {
+          resultado: 'EMITIDA',
+          poliza: {
+            numero: 'POL-2026-00088421',
+            producto: 'Protección de dispositivo',
+            estado: 'VIGENTE',
+            inicioVigencia: '2026-03-12',
+            finVigencia: '2027-03-12',
+            moneda: 'COP',
+            primaTotal: 42300,
+          },
+        },
+      });
+    });
   }
 
   /** Counts every call to the quote endpoints. Accepting an offer must not make one. */

@@ -11,7 +11,7 @@ from app.config import Settings
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
-from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
+from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima, evaluar_idoneidad
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
 from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
@@ -68,6 +68,7 @@ async def calcular_prima_solicitud(
         regla = await tx.reglas_rating.obtener_vigente(producto)
     if regla is None:
         raise ReglaDeNegocioViolada("regla_rating_no_configurada", f"No hay regla de rating vigente para '{producto}'")
+    evaluar_idoneidad(regla, datos_riesgo)
     resultado = calcular_prima(regla, datos_riesgo)
     return regla, resultado
 

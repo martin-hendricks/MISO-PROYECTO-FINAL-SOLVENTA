@@ -1,0 +1,118 @@
+<section data-testid="confirmacion-tarjeta">
+  <header class="page-head">
+    <a
+      class="back"
+      [routerLink]="['/cotizaciones', cotizacion()]"
+      data-testid="tarjeta-volver"
+      (click)="leave()"
+      >{{ 'tarjeta.volver' | translate }}</a
+    >
+    <h1>{{ 'tarjeta.title' | translate }}</h1>
+    <p class="subtitle">{{ 'tarjeta.subtitle' | translate }}</p>
+  </header>
+
+  <form class="columns" (submit)="$event.preventDefault(); confirm()">
+    <article class="card">
+      <h2>{{ 'tarjeta.tarjeta' | translate }}</h2>
+      <div class="field">
+        <label for="tarjeta-titular">{{ 'tarjeta.titular' | translate }}</label>
+        <input
+          id="tarjeta-titular"
+          data-testid="tarjeta-titular"
+          autocomplete="cc-name"
+          [placeholder]="'tarjeta.placeholder.titular' | translate"
+          [value]="vm.holder()"
+          (input)="holder($event)"
+        />
+        <p>{{ 'tarjeta.titularHint' | translate }}</p>
+      </div>
+      <div class="field">
+        <label for="tarjeta-numero">{{ 'tarjeta.numero' | translate }}</label>
+        <input
+          id="tarjeta-numero"
+          data-testid="tarjeta-numero"
+          inputmode="numeric"
+          autocomplete="cc-number"
+          [placeholder]="'tarjeta.placeholder.numero' | translate"
+          [value]="vm.grouped()"
+          (input)="number($event)"
+        />
+        <p data-testid="tarjeta-numero-hint">{{ vm.numberHint() | translate }}</p>
+      </div>
+      <fieldset class="field">
+        <legend>{{ 'tarjeta.vencimiento' | translate }}</legend>
+        <div class="expiry">
+          <div>
+            <label class="sr" for="tarjeta-mes">{{ 'tarjeta.mes' | translate }}</label>
+            <input
+              id="tarjeta-mes"
+              data-testid="tarjeta-mes"
+              inputmode="numeric"
+              maxlength="2"
+              [placeholder]="'tarjeta.placeholder.mes' | translate"
+              [attr.aria-label]="'tarjeta.mes' | translate"
+              [value]="vm.month()"
+              (input)="month($event)"
+            />
+            <p>{{ 'tarjeta.digitos' | translate }}</p>
+          </div>
+          <span class="slash" aria-hidden="true">/</span>
+          <div>
+            <label class="sr" for="tarjeta-anio">{{ 'tarjeta.anio' | translate }}</label>
+            <input
+              id="tarjeta-anio"
+              data-testid="tarjeta-anio"
+              inputmode="numeric"
+              maxlength="2"
+              [placeholder]="'tarjeta.placeholder.anio' | translate"
+              [attr.aria-label]="'tarjeta.anio' | translate"
+              [value]="vm.year()"
+              (input)="year($event)"
+            />
+            <p>{{ 'tarjeta.digitos' | translate }}</p>
+          </div>
+        </div>
+      </fieldset>
+      <div class="field">
+        <label for="tarjeta-codigo">{{ 'tarjeta.codigo' | translate }}</label>
+        <input
+          id="tarjeta-codigo"
+          data-testid="tarjeta-codigo"
+          inputmode="numeric"
+          maxlength="4"
+          autocomplete="cc-csc"
+          [placeholder]="'tarjeta.placeholder.codigo' | translate"
+          [value]="vm.code()"
+          (input)="code($event)"
+        />
+        <p>{{ 'tarjeta.codigoHint' | translate }}</p>
+      </div>
+      <p class="privacy" data-testid="tarjeta-privacidad">{{ 'tarjeta.privacidad' | translate }}</p>
+    </article>
+
+    <aside class="card summary">
+      <p class="summary-label">{{ 'tarjeta.primaLabel' | translate }}</p>
+      @if (prima() > 0) {
+        <p class="premium" data-testid="tarjeta-prima">{{ prima() | svMoney: 'COP' }}</p>
+      }
+      <button type="submit" class="filled" data-testid="tarjeta-confirmar" [disabled]="!vm.ready()">
+        {{ 'tarjeta.confirmar' | translate }}
+      </button>
+      <a
+        class="outlined"
+        [routerLink]="['/cotizaciones', cotizacion()]"
+        data-testid="tarjeta-cancelar"
+        (click)="leave()"
+        >{{ 'tarjeta.cancelar' | translate }}</a
+      >
+    </aside>
+  </form>
+
+  <footer>
+    <p class="footer-brand">{{ 'shell.portal' | translate }}</p>
+    <div class="footer-legal">
+      <p>{{ 'login.footer' | translate }}</p>
+      <p>{{ 'tarjeta.footerLinks' | translate }}</p>
+    </div>
+  </footer>
+</section>
