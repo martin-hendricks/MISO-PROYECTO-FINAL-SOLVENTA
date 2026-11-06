@@ -53,9 +53,9 @@ def test_cola_sin_asistencia(client, nucleo_siniestros):
     assert all("asistenciaId" not in item for item in body["avisos"])
     assert body["avisos"][0]["siniestroId"] == SINIESTRO_ID
     assert body["avisos"][0]["estado"] == "en_evaluacion"
-    # TODO documentado en operador.py: ms-siniestros no tiene poliza/ramo.
+    # Un siniestro sin póliza ni ramo (paramétrico antiguo): vocabulario canónico.
     assert body["avisos"][0]["poliza"] == ""
-    assert body["avisos"][0]["ramo"] == ""
+    assert body["avisos"][0]["ramo"] == "Sin clasificar"
 
 
 def test_cola_servicio_no_disponible_es_503(client, nucleo_siniestros):

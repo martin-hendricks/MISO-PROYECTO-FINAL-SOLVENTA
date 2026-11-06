@@ -23,7 +23,7 @@ from ..dependencies import (
     obtener_cliente_siniestros,
     require_roles,
 )
-from ..ramos import SIN_CLASIFICAR
+from ..ramos import presentar
 from .cliente import _cotizacion_de_poliza, contexto_canonico
 
 router_cliente = APIRouter(prefix="/cliente", tags=["cliente-siniestros"])
@@ -74,7 +74,7 @@ def _fila_cliente(s: dict) -> dict:
         "id": s["id"],
         "siniestroId": s.get("numero") or s["id"],
         "tipo": s.get("tipo", "asistido"),
-        "ramo": s.get("ramo") or SIN_CLASIFICAR,
+        "ramo": presentar(s.get("ramo"))[0],  # vocabulario canónico: el núcleo guarda el código
         "poliza": s.get("poliza_numero"),
         "resumen": s.get("descripcion") or "",
         "fecha": s.get("fecha_hecho"),
@@ -209,7 +209,7 @@ def _fila_operador(s: dict) -> dict:
         # ms-identidad no expone nombre ni búsqueda por id: el canal muestra el id.
         "clienteId": s.get("usuario_id"),
         "poliza": s.get("poliza_numero") or "",
-        "ramo": s.get("ramo") or "",
+        "ramo": presentar(s.get("ramo"))[0],
         "recibidoEn": s["creado_en"],
         "estado": s["estado"],
         "estadoCola": _estado_cola(s),

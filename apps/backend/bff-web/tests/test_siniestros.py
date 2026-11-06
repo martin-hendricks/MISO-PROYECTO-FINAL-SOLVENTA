@@ -156,6 +156,7 @@ def test_mis_siniestros_filtra_por_el_usuario_de_la_sesion(client, nucleo_sinies
     assert r.status_code == 200
     fila = r.json()["siniestros"][0]
     assert fila["siniestroId"] == "SIN-1001"
+    assert fila["ramo"] == "Vida crediticia"  # nombre canónico (app/ramos.py), no el código
     assert fila["estado"] == "en_evaluacion"
     assert fila["reserva"] == 3200000.0
     assert nucleo_siniestros.peticiones[-1].url.params["usuario_id"] == DUENO
