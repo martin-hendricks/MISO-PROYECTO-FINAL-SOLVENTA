@@ -30,10 +30,10 @@ output "compartida_db_secret_arn" {
 
 output "bff_web_token_secret_arn" {
   value       = aws_secretsmanager_secret.bff_web_token.arn
-  description = "ARN of the bff-web JWT signing secret (SOLVENTA_TOKEN_SECRET)."
+  description = "ARN of the shared JWT signing secret (SOLVENTA_TOKEN_SECRET) used by bff-web, bff-movil, and the core services that verify those tokens."
 }
 
 output "bff_movil_token_secret_arn" {
   value       = aws_secretsmanager_secret.bff_movil_token.arn
-  description = "ARN of the bff-movil JWT signing secret (SOLVENTA_TOKEN_SECRET)."
+  description = "ARN of the unused former bff-movil JWT secret. bff-movil signs with bff_web_token_secret_arn."
 }

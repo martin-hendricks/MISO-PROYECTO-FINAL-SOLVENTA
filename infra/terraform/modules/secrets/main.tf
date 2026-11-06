@@ -187,14 +187,14 @@ resource "aws_secretsmanager_secret_version" "bff_web_token" {
   }
 }
 
-# --- bff-movil token secret ---
+# --- bff-movil token secret (sin uso) ---
 #
-# Mismo rol que bff_web_token_secret (firma los JWT de sesión, esta vez de
-# apps/backend/bff-movil/app/dependencies.py), pero independiente: cada BFF
-# solo firma y valida sus propios tokens (confirmado en el código, ninguno
-# valida tokens emitidos por el otro), así que no hay necesidad de
-# compartir el secreto -- y mantenerlos separados limita el blast radius si
-# uno se compromete.
+# bff-movil firma con el mismo SOLVENTA_TOKEN_SECRET que bff-web
+# (aws_secretsmanager_secret.bff_web_token). El BFF reenvía el JWT del
+# cliente y ms-polizas, ms-cotizacion, ms-identidad y ms-siniestros lo
+# verifican con esa clave; un secreto distinto hace fallar esas llamadas
+# con 401 "Token invalido". Este recurso se conserva para no borrar el
+# secreto ya creado en Secrets Manager. No volver a montarlo en el pod.
 resource "random_password" "bff_movil_token_secret" {
   length  = 48
   special = false
