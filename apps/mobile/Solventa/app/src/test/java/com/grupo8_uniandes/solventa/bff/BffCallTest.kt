@@ -279,6 +279,30 @@ class BffCallTest {
         assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
         assertFalse(issuance.consentRevoked())
 
+        server.enqueue(MockResponse().setResponseCode(422).setBody("consentimiento_revocado"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""["consentimiento_revocado"]"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":null}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody(""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("{"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":{"valor":"consentimiento_revocado"}}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
         enqueue(PublishedSamples.ISSUED)
         assertTrue(issuance.accept("COT-1042") is StandInAnswer.Ready)
         assertFalse(issuance.consentRevoked())
