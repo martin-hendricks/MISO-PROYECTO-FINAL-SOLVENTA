@@ -106,6 +106,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/backoffice/avisos/avisos.view').then((m) => m.AvisosView),
       },
+      {
+        path: 'reportes',
+        loadComponent: () =>
+          import('./features/backoffice/reportes/reportes.view').then((m) => m.ReportesView),
+      },
     ],
   },
   {
