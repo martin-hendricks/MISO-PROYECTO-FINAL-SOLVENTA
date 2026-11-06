@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 
-from .clients.nucleo import ClienteNucleo, RechazoNucleo, token_saliente
+from .clients.nucleo import ClienteNucleo, token_saliente
 from .routers import cliente, registro, sesion
 
 app = FastAPI(title="bff-movil")
@@ -16,11 +15,6 @@ async def reenviar_token(request: Request, call_next):
         return await call_next(request)
     finally:
         token_saliente.reset(marca)
-
-@app.exception_handler(RechazoNucleo)
-async def rechazo_nucleo(_: Request, exc: RechazoNucleo):
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "codigo": exc.codigo})
-
 
 app.state.nucleo = ClienteNucleo()
 app.include_router(sesion.router)

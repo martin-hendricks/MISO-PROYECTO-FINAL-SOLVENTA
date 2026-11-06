@@ -76,8 +76,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import retrofit2.HttpException
 import java.io.IOException
@@ -254,38 +252,17 @@ class RemoteIssuanceRepository(
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         gate.call { api.detail(numero).toDetail() }
 
-    @Volatile
-    private var revoked = false
-
-    override suspend fun consentRevoked(): Boolean = revoked
-
-    private suspend fun readAcceptance(cotizacionId: String): Acceptance? {
-        revoked = false
-        return try {
+    private suspend fun readAcceptance(cotizacionId: String): Acceptance? =
+        try {
             gate.flush()
             api.accept(newIdempotencyKey(), IdDto(cotizacionId)).toAcceptance()
         } catch (_: IOException) {
             null
-        } catch (error: HttpException) {
-            revoked = error.code() == 422 && error.codigo() == CONSENT_REVOKED
+        } catch (_: HttpException) {
             null
         } catch (_: SerializationException) {
             null
         }
-    }
-}
-
-private const val CONSENT_REVOKED = "consentimiento_revocado"
-
-private fun HttpException.codigo(): String? {
-    val body = response()?.errorBody()?.string().orEmpty()
-    val parsed = try {
-        bffJson.parseToJsonElement(body)
-    } catch (_: SerializationException) {
-        return null
-    }
-    val codigo = (parsed as? JsonObject)?.get("codigo") as? JsonPrimitive
-    return codigo?.contentOrNull
 }
 
 private sealed interface Acceptance {

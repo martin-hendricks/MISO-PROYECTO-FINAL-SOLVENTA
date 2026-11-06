@@ -18,7 +18,6 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -75,38 +74,6 @@ class AcceptOfferTest {
     }
 
     @Test
-    fun givenARevokedConsent_whenAccepted_thenTheOutcomeAsksForANewQuote() = runBlocking {
-        var rejectedCalls = 0
-        val useCase = AcceptOffer(
-            scripted(
-                onAccept = { StandInAnswer.Failed },
-                onRejected = {
-                    rejectedCalls += 1
-                    StandInAnswer.Failed
-                },
-                revoked = true,
-            ),
-        )
-        assertEquals(AcceptOutcome.ConsentRevoked, useCase.accept("COT-1042"))
-        assertEquals(0, rejectedCalls)
-    }
-
-    @Test
-    fun givenARepositoryThatDoesNotTrackRevocation_whenAsked_thenItIsNotRevoked() = runBlocking {
-        val plain = object : IssuanceRepository {
-            override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
-
-            override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
-
-            override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
-
-            override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
-        }
-        assertFalse(plain.consentRevoked())
-        assertEquals(AcceptOutcome.Unavailable, AcceptOffer(plain).accept("COT-1042"))
-    }
-
-    @Test
     fun givenTheHostIsStillWorking_whenAccepted_thenTheCallerKeepsWaiting() = runBlocking {
         val useCase = AcceptOffer(scripted(onAccept = { StandInAnswer.Pending }))
         assertEquals(AcceptOutcome.Waiting, useCase.accept("COT-1042"))
@@ -149,16 +116,6 @@ class IssuanceViewModelTest {
     }
 
     @Test
-    fun givenARevokedConsent_whenTheScreenOpens_thenItLeavesTheWait() {
-        val viewModel = IssuanceViewModel(
-            AcceptOffer(scripted(onAccept = { StandInAnswer.Failed }, revoked = true)),
-            "COT-1042",
-        )
-        assertEquals(IssuanceUi.ConsentRevoked, viewModel.state.value)
-        assertEquals(IssuanceUi.ConsentRevoked, AcceptOutcome.ConsentRevoked.toIssuanceUi())
-    }
-
-    @Test
     fun givenNoResultYet_whenTheScreenOpens_thenItStaysOnTheWait() {
         val pending = IssuanceViewModel(AcceptOffer(scripted(onAccept = { StandInAnswer.Pending })), "COT-1042")
         assertEquals(IssuanceUi.Waiting, pending.state.value)
@@ -180,10 +137,7 @@ private fun issued() = StandInAnswer.Ready(
 private fun scripted(
     onAccept: suspend () -> StandInAnswer<IssuedPolicy> = { StandInAnswer.Failed },
     onRejected: suspend () -> StandInAnswer<IssueRejection> = { StandInAnswer.Failed },
-    revoked: Boolean = false,
 ) = object : IssuanceRepository {
-    override suspend fun consentRevoked(): Boolean = revoked
-
     override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = onAccept()
 
     override suspend fun rejected(): StandInAnswer<IssueRejection> = onRejected()

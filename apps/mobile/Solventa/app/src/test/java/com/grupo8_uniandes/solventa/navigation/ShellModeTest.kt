@@ -81,8 +81,6 @@ class ShellModeTest {
         assertNull(selectedDestination(PolizaEmitidaRoute()))
         assertEquals(ShellMode.Nested, shellMode(SuscripcionRechazadaRoute, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(SuscripcionRechazadaRoute))
-        assertEquals(ShellMode.Nested, shellMode(ConsentimientoRevocadoRoute, signedIn = true))
-        assertEquals(Destination.Inicio, selectedDestination(ConsentimientoRevocadoRoute))
         assertEquals(ShellMode.Nested, shellMode(ConfirmacionTarjetaRoute("Q-1"), signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(ConfirmacionTarjetaRoute("Q-1")))
     }

@@ -13,7 +13,7 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
     return when (route) {
         InicioRoute, PolizasRoute, SiniestrosRoute, MapaPrestadoresRoute, PerfilRoute -> ShellMode.Root
         is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
-        AsistenciaSitioRoute, SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
+        AsistenciaSitioRoute, SuscripcionRechazadaRoute, OfertaHipotecarioRoute,
         AvisoSiniestroRoute, EvidenciaAvisoRoute, is ConfirmacionAvisoRoute,
         ParametricoRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
         -> ShellMode.Nested
@@ -23,7 +23,7 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
 
 fun selectedDestination(route: Any): Destination? = when (route) {
     InicioRoute, is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute,
-    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
+    SuscripcionRechazadaRoute, OfertaHipotecarioRoute,
     -> Destination.Inicio
     PolizasRoute, is PolizaDetalleRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
     -> Destination.Polizas

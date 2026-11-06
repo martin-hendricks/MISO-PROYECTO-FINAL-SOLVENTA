@@ -12,7 +12,6 @@ import kotlinx.coroutines.launch
 internal fun AcceptOutcome.toIssuanceUi(): IssuanceUi = when (this) {
     is AcceptOutcome.Issued -> IssuanceUi.Issued(policy.numero, policy.ramo)
     is AcceptOutcome.Refused -> IssuanceUi.Refused(rejection.motivo)
-    AcceptOutcome.ConsentRevoked -> IssuanceUi.ConsentRevoked
     AcceptOutcome.Ignored, AcceptOutcome.Waiting, AcceptOutcome.Unavailable -> IssuanceUi.Waiting
 }
 
@@ -22,8 +21,6 @@ sealed interface IssuanceUi {
     data class Issued(val numero: String, val ramo: String) : IssuanceUi
 
     data class Refused(val motivo: String) : IssuanceUi
-
-    data object ConsentRevoked : IssuanceUi
 }
 
 class IssuanceViewModel(

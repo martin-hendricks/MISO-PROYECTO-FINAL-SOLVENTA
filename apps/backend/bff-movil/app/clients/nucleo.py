@@ -20,12 +20,6 @@ SERVICIOS = {
 }
 
 
-
-class RechazoNucleo(HTTPException):
-    def __init__(self, status_code: int, codigo: str, detail) -> None:
-        super().__init__(status_code=status_code, detail=detail)
-        self.codigo = codigo
-
 class ClienteNucleo:
     """Llama los mismos paths que bff-web. No habla con bff-web."""
 
@@ -279,8 +273,6 @@ class ClienteNucleo:
                 detalle = "Operación rechazada"
             else:
                 detalle = cuerpo
-            if isinstance(cuerpo, dict) and cuerpo.get("codigo"):
-                raise RechazoNucleo(respuesta.status_code, str(cuerpo["codigo"]), detalle)
             raise HTTPException(status_code=respuesta.status_code, detail=detalle)
         if respuesta.status_code >= 400:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible")

@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo, RechazoNucleo, token_saliente
+from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo, token_saliente
 from app.dependencies import secret
 from app.main import app
 from app.routers.cliente import _contexto
@@ -1216,52 +1216,3 @@ def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     cuerpo = client.get("/v1/cliente/siniestros", headers=headers).json()
     assert cuerpo["siniestros"][0]["siniestroId"] == "SIN-9"
     assert cuerpo["siniestros"][0]["ramo"] == "POL-1"
-
-
-def test_aceptar_con_consentimiento_revocado_conserva_el_codigo(client, doble):
-    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
-    doble.respuestas["aceptar_oferta"] = RechazoNucleo(
-        422, "consentimiento_revocado", "El consentimiento ya no está vigente; vuelva a cotizar"
-    )
-
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
-
-    assert respuesta.status_code == 422
-    assert respuesta.json() == {
-        "detail": "El consentimiento ya no está vigente; vuelva a cotizar",
-        "codigo": "consentimiento_revocado",
-    }
-    assert _nombres(doble) == ["aceptar_oferta"]
-
-
-def test_un_http_exception_sin_codigo_mantiene_su_cuerpo(client, doble):
-    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
-    doble.respuestas["aceptar_oferta"] = HTTPException(status_code=409, detail="duplicada")
-
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
-
-    assert respuesta.status_code == 409
-    assert respuesta.json() == {"detail": "duplicada"}
-
-
-def test_cliente_http_conserva_el_codigo_del_rechazo(monkeypatch):
-    class Falso:
-        def __init__(self, *, base_url, timeout):
-            pass
-
-        def request(self, metodo, ruta, json=None, params=None, headers=None):
-            return Falso.respuesta
-
-    monkeypatch.setattr("app.clients.nucleo.httpx.Client", Falso)
-    cliente = ClienteNucleo({"ms-cotizacion": "http://ms-cotizacion:8000"})
-
-    Falso.respuesta = _Respuesta(422, {"codigo": "consentimiento_revocado", "mensaje": "revocado"})
-    with pytest.raises(RechazoNucleo) as exc:
-        cliente.aceptar_oferta(cotizacion_id="COT-9", idempotency_key="clave-aceptar-01", perfil_id="p", score="1")
-    assert (exc.value.status_code, exc.value.detail, exc.value.codigo) == (422, "revocado", "consentimiento_revocado")
-
-    Falso.respuesta = _Respuesta(409, {"mensaje": "sin codigo"})
-    with pytest.raises(HTTPException) as exc:
-        cliente.aceptar_oferta(cotizacion_id="COT-9", idempotency_key="clave-aceptar-01", perfil_id="p", score="1")
-    assert exc.value.detail == "sin codigo"
-    assert getattr(exc.value, "codigo", None) is None

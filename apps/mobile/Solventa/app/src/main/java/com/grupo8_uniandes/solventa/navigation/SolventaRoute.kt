@@ -63,7 +63,4 @@ data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")
 data object SuscripcionRechazadaRoute
 
 @Serializable
-data object ConsentimientoRevocadoRoute
-
-@Serializable
 data object OfertaHipotecarioRoute
