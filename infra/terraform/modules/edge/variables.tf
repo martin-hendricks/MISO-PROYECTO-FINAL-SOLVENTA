@@ -95,8 +95,8 @@ variable "cors_allow_methods" {
 
 variable "cors_allow_headers" {
   type        = list(string)
-  description = "Allowed request headers for the API Gateway CORS configuration."
-  default     = ["Content-Type", "Authorization"]
+  description = "Allowed request headers for the API Gateway CORS configuration. Idempotency-Key: the web portal sends it when reporting a claim (POST /v1/cliente/siniestros); without it the browser preflight fails and the POST is never sent."
+  default     = ["Content-Type", "Authorization", "Idempotency-Key"]
 }
 
 variable "cors_max_age" {
