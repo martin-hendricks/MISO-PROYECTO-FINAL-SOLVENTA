@@ -52,7 +52,7 @@ uvicorn app.main:app --reload --port 8080          # http://localhost:8080/docs
 | `MS_COTIZACION_URL` | `http://localhost:8000` | `ms-cotizacion`: fuente del catálogo |
 | `MS_IDENTIDAD_URL` | `http://localhost:8010` | `ms-identidad`: resuelve el documento del cliente |
 | `MS_PERFILAMIENTO_URL` | `http://localhost:8004` | `ms-perfilamiento`: registra la originación |
-| `SOLVENTA_TOKEN_SECRET` | vacío | Firma el token de servicio `socio`. Sin él, originar responde error. En k8s falta proyectarlo con un `ExternalSecret` (pendiente de infraestructura) |
+| `SOLVENTA_TOKEN_SECRET` | vacío | Firma el token de servicio `socio`; es el mismo secreto que bff-web y ms-identidad. En k8s llega por `ExternalSecret` desde `solventa-minimo-bff-web-token` |
 | `SOCIO_SERVICIO_UID` | `00000000-0000-0000-0000-00000000500c` | `uid` del token de servicio |
 | `TIMEOUT_NUCLEO_S` | `1.0` | Timeout por llamada al núcleo |
 | `TIMEOUT_OPCIONAL_S` | `0.3` | Corte de fuentes opcionales en vistas agregadas |
