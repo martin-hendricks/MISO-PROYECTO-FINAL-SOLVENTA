@@ -25,6 +25,12 @@ def test_tablas_esperadas_estan_registradas():
         "evaluacion_umbral",
         "pago_parametrico",
         "outbox_evento",
+        # HU-157: siniestro asistido
+        "parametro_ramo",
+        "siniestro_adjunto",
+        "siniestro_decision",
+        "pago_siniestro",
+        "pago_siniestro_intento",
     }
 
 

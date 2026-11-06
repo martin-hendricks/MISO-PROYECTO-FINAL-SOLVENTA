@@ -51,4 +51,15 @@ def alcance(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
     return usuario_id
 
 
+def exigir_rol(llamante: Llamante, *roles: str) -> None:
+    if llamante.rol not in roles:
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+
+
+def dueno_visible(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
+    """Lectura de un recurso puntual: el cliente solo el suyo (otro -> 404 aguas abajo);
+    el back-office puede acotar por usuario_id o no acotar."""
+    return llamante.uid if llamante.rol == "cliente" else usuario_id
+
+
 LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]

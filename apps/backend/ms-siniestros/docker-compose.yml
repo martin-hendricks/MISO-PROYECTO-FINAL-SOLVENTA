@@ -15,6 +15,21 @@ services:
       timeout: 3s
       retries: 20
 
+  # Doble de S3 para la evidencia de siniestros (HU-157, N6). En AWS el bucket es el del
+  # módulo terraform s3_evidencias y las credenciales llegan por IRSA.
+  s3:
+    image: localstack/localstack:3.8.1
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
   app:
     build:
       context: .
@@ -22,8 +37,16 @@ services:
     environment:
       SERVICE_NAME: ms-siniestros
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+      S3_EVIDENCIAS_BUCKET: solventa-local-evidencias-siniestros
+      S3_ENDPOINT_URL: http://s3:4566
+      S3_ENDPOINT_PUBLICO: http://localhost:4566
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_CREAR_BUCKET: "true"
     ports:
       - "8080:8080"
     depends_on:
       db:
+        condition: service_healthy
+      s3:
         condition: service_healthy
