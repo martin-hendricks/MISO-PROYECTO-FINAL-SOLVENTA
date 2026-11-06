@@ -25,6 +25,8 @@ from app.domain.modelos import (
     FactorInterno,
     Oferta,
     OrigenAdaptador,
+    Originacion,
+    OrigenOriginacion,
 )
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
@@ -57,6 +59,18 @@ class OfertaFila(Base):
     factores: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     snapshot_atributos: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     creado_en: Mapped[datetime]
+
+
+class OriginacionFila(Base):
+    __tablename__ = "originacion"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    cliente_id: Mapped[str] = mapped_column(String, index=True)
+    valor: Mapped[Decimal] = mapped_column(Numeric(16, 2))
+    plazo_meses: Mapped[int]
+    origen: Mapped[str]
+    creada_en: Mapped[datetime]
+    cerrada_en: Mapped[datetime | None]
 
 
 class OutboxFila(Base):
@@ -168,6 +182,15 @@ class RepositorioOfertasSQL:
         fila = await self._s.scalar(select(OfertaFila).where(OfertaFila.idempotency_key == idempotency_key))
         return _oferta_a_dominio(fila) if fila else None
 
+    async def obtener_ultima_por_cliente(self, cliente_id: str) -> Oferta | None:
+        fila = await self._s.scalar(
+            select(OfertaFila)
+            .where(OfertaFila.cliente_id == cliente_id)
+            .order_by(OfertaFila.creado_en.desc())
+            .limit(1)
+        )
+        return _oferta_a_dominio(fila) if fila else None
+
     async def agregar(self, idempotency_key: str, oferta: Oferta) -> None:
         self._s.add(
             OfertaFila(
@@ -182,6 +205,51 @@ class RepositorioOfertasSQL:
                 creado_en=oferta.creado_en,
             )
         )
+
+
+def _originacion_a_dominio(fila: OriginacionFila) -> Originacion:
+    return Originacion(
+        id=fila.id,
+        cliente_id=fila.cliente_id,
+        valor=fila.valor,
+        plazo_meses=fila.plazo_meses,
+        origen=OrigenOriginacion(fila.origen),
+        creada_en=fila.creada_en,
+        cerrada_en=fila.cerrada_en,
+    )
+
+
+class RepositorioOriginacionesSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def obtener_pendiente(self, cliente_id: str) -> Originacion | None:
+        fila = await self._s.scalar(
+            select(OriginacionFila)
+            .where(OriginacionFila.cliente_id == cliente_id, OriginacionFila.cerrada_en.is_(None))
+            .order_by(OriginacionFila.creada_en.desc())
+            .limit(1)
+        )
+        return _originacion_a_dominio(fila) if fila else None
+
+    async def agregar(self, originacion: Originacion) -> None:
+        self._s.add(
+            OriginacionFila(
+                id=originacion.id,
+                cliente_id=originacion.cliente_id,
+                valor=originacion.valor,
+                plazo_meses=originacion.plazo_meses,
+                origen=originacion.origen.value,
+                creada_en=originacion.creada_en,
+                cerrada_en=originacion.cerrada_en,
+            )
+        )
+
+    async def actualizar(self, originacion: Originacion) -> None:
+        fila = await self._s.get(OriginacionFila, originacion.id)
+        if fila is not None:
+            fila.cerrada_en = originacion.cerrada_en
+            await self._s.flush()
 
 
 class OutboxSQL:
@@ -202,6 +270,7 @@ class UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.consentimientos = RepositorioConsentimientosSQL(self._sesion)
         self.ofertas = RepositorioOfertasSQL(self._sesion)
+        self.originaciones = RepositorioOriginacionesSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

@@ -1,4 +1,4 @@
-@quotation @pendiente @HU-105 @SOLV-229
+@quotation @HU-105 @SOLV-229
 Feature: Mortgage life offer for the customer
 
   Scenario: Entry from Inicio

@@ -15,6 +15,7 @@ from app.domain.oferta import oferta_aceptada
 from app.infrastructure.sql import RepositorioSolicitudesSQL
 from app.infrastructure.suscripciones import SuscripcionesHTTP
 from app.ports.persistencia import AceptacionConcurrente
+from tests.dobles import ConsentimientosFalsos
 
 DATOS_RIESGO = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
 PERFIL = uuid4()
@@ -39,7 +40,7 @@ async def _cotizada(uow, catalogo, adaptador_riesgo, config):
 
 
 async def _aceptar(uow, suscripciones, cotizacion_id, clave="aceptar-0001"):
-    return await casos_uso.aceptar_oferta(uow, suscripciones, cotizacion_id, clave, PERFIL, SCORE)
+    return await casos_uso.aceptar_oferta(uow, suscripciones, ConsentimientosFalsos(), cotizacion_id, clave, PERFIL, SCORE)
 
 
 def _vencer(almacen, oferta):

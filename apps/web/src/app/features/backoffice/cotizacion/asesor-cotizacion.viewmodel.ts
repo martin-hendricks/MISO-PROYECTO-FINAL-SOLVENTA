@@ -2,8 +2,9 @@ import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CotizacionFormViewModel } from '../../cotizacion/cotizacion-form.viewmodel';
 import { Catalogo, Oferta } from '../../cotizacion/cotizacion.gateway';
-import { DatosRiesgo } from '../../cotizacion/ramos';
+import { DatosRiesgo, RAMOS_ASESOR } from '../../cotizacion/ramos';
 import { offerExpired } from '../../cotizacion/oferta-expiration';
+import { Credito } from '../../vida-crediticia/vida-crediticia.gateway';
 
 /** Motorcycle plate as Colombia issues it: three letters, two digits, one letter (ABC12D). */
 const PLACA = /^[A-Z]{3}\d{2}[A-Z]$/;
@@ -30,6 +31,10 @@ export class AsesorCotizacionViewModel {
   /** The plate is SOAT's own datum; no other line asks for it. */
   readonly pidePlaca = computed(() => this.form.ramo().id === 'soat');
 
+  /** Mortgage life is profiled (HU-58): it needs the customer's consent before quoting. */
+  readonly esHipotecario = computed(() => this.form.ramo().id === 'hipotecario');
+  readonly consentimiento = signal(false);
+
   private readonly touched = signal<ReadonlySet<CampoCliente>>(new Set());
 
   private readonly problems = computed<Record<CampoCliente, 'required' | 'format' | null>>(() => ({
@@ -45,7 +50,9 @@ export class AsesorCotizacionViewModel {
 
   readonly canQuote = computed(
     () =>
-      Object.values(this.problems()).every((problem) => problem === null) && this.form.canQuote(),
+      Object.values(this.problems()).every((problem) => problem === null) &&
+      (!this.esHipotecario() || this.consentimiento()) &&
+      this.form.canQuote(),
   );
 
   /** "Continuar a emisión" needs a firm offer that has not expired. */
@@ -57,10 +64,27 @@ export class AsesorCotizacionViewModel {
   constructor(
     catalogSource: (ramo: string) => Observable<Catalogo>,
     source: (clienteId: string, ramo: string, datos: DatosRiesgo) => Observable<Oferta>,
+    hipotecarioSource: (clienteId: string, credito: Credito) => Observable<Oferta>,
     private readonly now: () => Date = () => new Date(),
   ) {
-    this.form = new CotizacionFormViewModel(catalogSource, (ramo, datos) =>
-      source(this.clienteRef(), ramo, this.pidePlaca() ? { ...datos, placa: this.placa() } : datos),
+    this.form = new CotizacionFormViewModel(
+      catalogSource,
+      (ramo, datos) => {
+        if (this.esHipotecario()) {
+          const credito = {
+            valor: Number(datos['valor']),
+            plazoMeses: Number(datos['plazoMeses']),
+          };
+          return hipotecarioSource(this.clienteRef(), credito);
+        }
+        return source(
+          this.clienteRef(),
+          ramo,
+          this.pidePlaca() ? { ...datos, placa: this.placa() } : datos,
+        );
+      },
+      undefined,
+      RAMOS_ASESOR,
     );
   }
 
@@ -86,6 +110,12 @@ export class AsesorCotizacionViewModel {
     if (campo === 'documento') {
       this.clienteId.set(null);
     }
+    this.form.invalidate();
+  }
+
+  /** The consent belongs to the quote: changing it also drops the offer on screen. */
+  consentir(value: boolean): void {
+    this.consentimiento.set(value);
     this.form.invalidate();
   }
 

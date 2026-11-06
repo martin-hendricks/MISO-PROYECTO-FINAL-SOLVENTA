@@ -78,6 +78,15 @@ export const RAMOS: readonly Ramo[] = [
   { id: 'viaje', ramo: 'Viaje', disponible: true, campos: [texto('destino'), numero('duracion')] },
 ];
 
+/**
+ * The advisor also quotes mortgage life (HU-58): it is profiled, so it needs
+ * the customer's consent and goes through its own endpoint. The customer
+ * reaches it from Inicio instead (HU-105), never from Nueva cotización.
+ */
+export const RAMOS_ASESOR: readonly Ramo[] = RAMOS.map((ramo) =>
+  ramo.id === 'hipotecario' ? { ...ramo, disponible: true } : ramo,
+);
+
 export const RAMO_INICIAL: Ramo = RAMOS[0];
 
 export function ramoPorId(id: string): Ramo | undefined {

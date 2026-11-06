@@ -18,6 +18,21 @@ class ClienteMsPerfilamiento(ClienteServicio):
             json={"cliente_id": cliente_id},
         )
 
+    async def registrar_originacion(
+        self, cliente_id: str, valor: int, plazo_meses: int, origen: str = "cliente"
+    ) -> dict[str, Any]:
+        return await self._pedir(
+            "POST",
+            "/v1/originaciones",
+            json={"cliente_id": cliente_id, "valor": str(valor), "plazo_meses": plazo_meses, "origen": origen},
+        )
+
+    async def originacion_pendiente(self, cliente_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/originaciones/clientes/{cliente_id}/pendiente")
+
+    async def cerrar_originacion(self, cliente_id: str) -> None:
+        await self._enviar("DELETE", f"/v1/originaciones/clientes/{cliente_id}/pendiente")
+
     async def solicitar_oferta_hipotecario(self, idempotency_key: str, cliente_id: str) -> dict[str, Any]:
         return await self._pedir(
             "POST",

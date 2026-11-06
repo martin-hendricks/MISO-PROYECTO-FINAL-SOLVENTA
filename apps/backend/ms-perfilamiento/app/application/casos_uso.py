@@ -14,6 +14,8 @@ from app.domain.modelos import (
     EstadoAdaptador,
     OrigenAdaptador,
     Oferta,
+    Originacion,
+    OrigenOriginacion,
     Perfil,
     consentimiento_otorgado,
     consentimiento_revocado,
@@ -235,6 +237,20 @@ async def perfilar_y_ofertar(
     return RegistroOferta(ganador, creada=False)
 
 
+async def consultar_ultima_oferta(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> Oferta:
+    """La oferta más reciente del cliente, sin volver a invocar los adaptadores. Es lo
+    que ms-cotizacion lee por IPerfilRiesgo para cotizar vida crediticia con el mismo
+    perfil. Revocar el consentimiento corta también esta lectura (HU-53): el perfil
+    deja de estar disponible aunque la oferta siga persistida para auditoría."""
+    async with uow() as tx:
+        if await tx.consentimientos.obtener_vigente(cliente_id) is None:
+            raise ConsentimientoNoOtorgado(cliente_id)
+        oferta = await tx.ofertas.obtener_ultima_por_cliente(cliente_id)
+    if oferta is None:
+        raise NoEncontrado(f"El cliente {cliente_id} no tiene ofertas de vida hipotecario")
+    return oferta
+
+
 __all__ = [
     "RegistroConsentimiento",
     "RegistroOferta",
@@ -242,4 +258,41 @@ __all__ = [
     "revocar_consentimiento",
     "consultar_consentimiento_vigente",
     "perfilar_y_ofertar",
+    "consultar_ultima_oferta",
 ]
+
+
+async def registrar_originacion(
+    uow: FabricaUnidadDeTrabajo,
+    cliente_id: str,
+    valor: Decimal,
+    plazo_meses: int,
+    origen: OrigenOriginacion,
+) -> Originacion:
+    nueva = Originacion.abrir(cliente_id, valor, plazo_meses, origen)
+    async with uow() as tx:
+        anterior = await tx.originaciones.obtener_pendiente(nueva.cliente_id)
+        if anterior is not None:
+            anterior.cerrar()
+            await tx.originaciones.actualizar(anterior)
+        await tx.originaciones.agregar(nueva)
+        await tx.confirmar()
+    return nueva
+
+
+async def consultar_originacion_pendiente(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> Originacion:
+    async with uow() as tx:
+        pendiente = await tx.originaciones.obtener_pendiente(cliente_id)
+    if pendiente is None:
+        raise NoEncontrado(f"El cliente {cliente_id} no tiene una originación hipotecaria pendiente")
+    return pendiente
+
+
+async def cerrar_originacion(uow: FabricaUnidadDeTrabajo, cliente_id: str) -> None:
+    async with uow() as tx:
+        pendiente = await tx.originaciones.obtener_pendiente(cliente_id)
+        if pendiente is None:
+            return
+        pendiente.cerrar()
+        await tx.originaciones.actualizar(pendiente)
+        await tx.confirmar()

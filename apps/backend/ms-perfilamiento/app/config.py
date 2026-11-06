@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     doble_open_data_latencia_ms: int = 0
     doble_open_data_fallar: bool = False
 
+    redis_cache_od_host: str = ""
+    redis_cache_od_port: int = 6379
+    redis_cache_od_ttl_seconds: int = 600
+    timeout_cache_ms: int = 50
+
     # Valores de respaldo (HU-56): constantes razonables e inventadas para fines
     # académicos, una por atributo stub. Se usan cuando el adaptador excede su timeout
     # o lanza una excepción.

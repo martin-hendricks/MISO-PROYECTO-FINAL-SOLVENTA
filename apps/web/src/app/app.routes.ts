@@ -190,7 +190,13 @@ export const routes: Routes = [
           ),
       },
       destino('perfil', 'perfil'),
-      destino('vida-crediticia', 'vidaCrediticia'),
+      {
+        path: 'vida-crediticia',
+        loadComponent: () =>
+          import('./features/vida-crediticia/vida-crediticia.view').then(
+            (m) => m.VidaCrediticiaView,
+          ),
+      },
     ],
   },
 ];

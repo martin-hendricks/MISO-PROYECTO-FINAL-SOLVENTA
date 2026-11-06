@@ -1,11 +1,12 @@
 import asyncio
+import logging
 import uuid
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
@@ -25,11 +26,16 @@ from ..dependencies import (
     require_roles,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(
     prefix="/cliente",
     tags=["cliente"],
     dependencies=[Depends(require_roles("cliente"))],
 )
+
+# Payload del JWT del cliente: `sub` es su correo y de él salen sus ids.
+Sesion = Annotated[dict, Depends(require_roles("cliente"))]
 
 OFFER = {
     "cotizacionId": "COT-1042",
@@ -56,6 +62,10 @@ PAYMENT = {
 }
 
 RAMO_A_PRODUCTO = {nombre: codigo for codigo, (nombre, _) in PRODUCTOS.items()}
+
+RAMO_VIDA_HIPOTECARIO = "Vida hipotecario"
+PRODUCTO_VIDA_HIPOTECARIO = RAMO_A_PRODUCTO[RAMO_VIDA_HIPOTECARIO]
+PRODUCTOS_HIPOTECARIOS = frozenset({PRODUCTO_VIDA_HIPOTECARIO, RAMO_A_PRODUCTO["Vida crediticia"]})
 
 # Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
 # partir de datos ya disponibles (correo de sesión). No tiene significado de
@@ -137,8 +147,8 @@ class PreferenciaRenovacion(BaseModel):
 
 
 class Credito(BaseModel):
-    valor: int
-    plazoMeses: int
+    valor: int = Field(gt=0)
+    plazoMeses: int = Field(gt=0)
 
 
 class Hipoteca(BaseModel):
@@ -266,10 +276,20 @@ async def reconsultar(
     return _cotizacion_salida(datos, ramo, descripcion)
 
 
+async def _cerrar_originacion(cliente_perfilamiento: ClienteMsPerfilamiento, cliente_id: str) -> None:
+    """La póliza ya está emitida: si cerrar la originación falla, la card de
+    Inicio sigue un rato más, pero la emisión no se revierte por eso."""
+    try:
+        await cliente_perfilamiento.cerrar_originacion(cliente_id)
+    except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
+        logger.warning("no se pudo cerrar la originación hipotecaria del cliente %s", cliente_id)
+
+
 @router.post("/polizas")
 async def emitir(
     body: Aceptar,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
@@ -358,6 +378,8 @@ async def emitir(
 
     cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
     ramo, descripcion = presentar(cotizacion.get("producto"))
+    if cotizacion.get("producto") in PRODUCTOS_HIPOTECARIOS:
+        await _cerrar_originacion(cliente_perfilamiento, str(contexto.usuario_id))
 
     return {
         "resultado": "EMITIDA",
@@ -466,70 +488,131 @@ def pagos() -> dict:
     return dict(PAYMENT)
 
 
-def _oferta_hipotecaria_salida(oferta: dict) -> dict:
-    """Traduce OfertaSalida de ms-perfilamiento al shape que el canal web ya
-    espera. precio->prima, degradado->degradada; factores se simplifica a la
-    lista de nombres de factor (el canal web solo muestra cuáles factores
-    influyeron, no el detalle de impacto/peso que ms-perfilamiento sí calcula
-    internamente para explicabilidad)."""
+SIN_CONSENTIMIENTO = "sin_consentimiento"
+
+
+async def ofertar_vida_hipotecario(
+    contexto: ContextoUsuario,
+    credito: Credito,
+    canal: str,
+    cliente_perfilamiento: ClienteMsPerfilamiento,
+    cliente_cotizacion: ClienteMsCotizacion,
+    asesor_id: UUID | None = None,
+    cliente_ref: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict:
+    """Oferta de vida hipotecario (HU-105/HU-162) para el cliente y el asesor.
+
+    1. Otorga el consentimiento de perfilamiento (HU-53) y pide a
+       ms-perfilamiento el perfil y sus factores explicables (HU-54/55).
+    2. Cotiza `vida-hipotecario` en ms-cotizacion con el valor y el plazo del
+       crédito; ms-cotizacion toma el factor de ese mismo perfil (IPerfilRiesgo).
+
+    Con la misma `idempotency_key` ms-cotizacion devuelve la misma cotización,
+    así volver a autorizar la misma originación no deja cotizaciones sueltas.
+    Si ms-perfilamiento no responde, la originación no se cancela (HU-56).
+    """
+    cliente_id = str(contexto.usuario_id)
+    factores: list[dict] = []
+    perfil_degradado = True
+    try:
+        await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
+        perfil = await cliente_perfilamiento.solicitar_oferta_hipotecario(
+            idempotency_key=_idempotency_key(),
+            cliente_id=cliente_id,
+        )
+        factores = [{"factor": f["factor"], "impacto": f["impacto"]} for f in perfil["factores"]]
+        perfil_degradado = perfil["degradado"]
+    except ServicioNoDisponible:
+        pass
+
+    datos = await cliente_cotizacion.cotizar(
+        idempotency_key=idempotency_key or _idempotency_key(),
+        usuario_id=contexto.usuario_id,
+        socio_id=contexto.socio_id,
+        consentimiento_id=contexto.consentimiento_id,
+        producto=PRODUCTO_VIDA_HIPOTECARIO,
+        canal=canal,
+        datos_riesgo={"valor": credito.valor, "plazoMeses": credito.plazoMeses},
+        asesor_id=asesor_id,
+        cliente_ref=cliente_ref,
+    )
     return {
-        "ramo": "Vida crediticia",
-        "estado": "oferta_vigente",
-        "prima": float(oferta["precio"]),
-        "moneda": oferta["moneda"],
-        "factores": [f["factor"] for f in oferta["factores"]],
-        "degradada": oferta["degradado"],
+        **_cotizacion_salida(datos, RAMO_VIDA_HIPOTECARIO),
+        "factores": factores,
+        "degradada": perfil_degradado or datos.get("factor_riesgo_origen") == "respaldo",
+        "credito": {"valor": credito.valor, "plazoMeses": credito.plazoMeses},
     }
+
+
+def _credito_de(originacion: dict) -> dict:
+    return {
+        "valor": int(Decimal(str(originacion["valor"]))),
+        "plazoMeses": int(originacion["plazo_meses"]),
+        "origen": originacion.get("origen", "cliente"),
+    }
+
+
+async def _originacion_para(cliente_perfilamiento: ClienteMsPerfilamiento, cliente_id: str, credito: Credito) -> dict:
+    """La originación pendiente con estos valores; si cambiaron o no existe, una nueva."""
+    try:
+        pendiente = await cliente_perfilamiento.originacion_pendiente(cliente_id)
+    except RecursoNoEncontrado:
+        pendiente = None
+    if pendiente is not None:
+        actual = _credito_de(pendiente)
+        if (actual["valor"], actual["plazoMeses"]) == (credito.valor, credito.plazoMeses):
+            return pendiente
+    return await cliente_perfilamiento.registrar_originacion(cliente_id, credito.valor, credito.plazoMeses)
+
+
+@router.post("/originacion-hipotecaria", status_code=201)
+async def registrar_originacion(
+    body: Credito,
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    """El cliente cotiza vida hipotecario desde Nueva cotización: guarda el
+    crédito para continuar en /vida-crediticia y en la card de Inicio."""
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    return _credito_de(await cliente_perfilamiento.registrar_originacion(cliente_id, body.valor, body.plazoMeses))
+
+
+@router.get("/originacion-hipotecaria")
+async def originacion_pendiente(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    return _credito_de(await cliente_perfilamiento.originacion_pendiente(cliente_id))
 
 
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,
     cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    """Integración real con ms-perfilamiento (HU-53 a HU-56).
+    """Oferta de vida hipotecario del cliente (HU-105).
 
-    `consentimientoPerfil=True` es la acción explícita del cliente para
-    autorizar el perfilamiento (HU-53: nunca se asume consentimiento
-    implícito). Solo en ese caso se otorga el consentimiento (idempotente del
-    lado de ms-perfilamiento) y se solicita la oferta real.
-
-    `consentimientoPerfil=False` NO debe disparar ninguna llamada a
-    ms-perfilamiento -- ese es el comportamiento de negocio correcto, no una
-    limitación técnica: sin consentimiento no se invoca el adaptador de
-    perfilamiento. Se devuelve el mismo shape "degradado" que ya esperaba el
-    canal web, documentado ahora como "sin consulta" en vez de un valor de
-    oferta inventado.
+    `consentimientoPerfil=False` no llama a ningún servicio (HU-53: nunca se
+    asume consentimiento) y no inventa una prima: el canal vuelve a Inicio.
+    La cotización se ata a la originación, así autorizar de nuevo no la duplica.
     """
-    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no hay
-    # ms-identidad real que resuelva el correo de la sesión a un cliente_id.
-    # ms-perfilamiento espera un cliente_id como str (no un UUID tipado como
-    # usuario_id); se reutiliza el mismo usuario_id derivado (uuid5 estable a
-    # partir del correo de sesión) convertido a texto, para que el mismo
-    # usuario siempre resuelva al mismo cliente_id frente a ms-perfilamiento,
-    # consistente con cómo ya se usa usuario_id frente a ms-cotizacion/
-    # ms-pagos/ms-polizas. No se agrega un atributo nuevo a ContextoUsuario
-    # porque usuario_id ya cumple ese rol de identificador estable por sesión.
-    contexto = contexto_canonico(usuario)
-    cliente_id = str(contexto.usuario_id)
-
     if not body.consentimientoPerfil:
-        return {
-            "ramo": "Vida crediticia",
-            "estado": "oferta_vigente",
-            "prima": 50000,
-            "moneda": "COP",
-            "factores": ["plazo", "valor del crédito"],
-            "degradada": True,
-        }
+        return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
 
-    await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
-    oferta = await cliente_perfilamiento.solicitar_oferta_hipotecario(
-        idempotency_key=_idempotency_key(),
-        cliente_id=cliente_id,
+    contexto = contexto_canonico(usuario)
+    clave = None
+    try:
+        originacion = await _originacion_para(cliente_perfilamiento, str(contexto.usuario_id), body.credito)
+        clave = f"originacion-{originacion['id']}"
+    except ServicioNoDisponible:
+        pass
+    return await ofertar_vida_hipotecario(
+        contexto, body.credito, "web", cliente_perfilamiento, cliente_cotizacion, idempotency_key=clave
     )
-    return _oferta_hipotecaria_salida(oferta)
 
 
 CORTE_INICIO_S = 0.7
@@ -547,16 +630,20 @@ async def inicio(
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     contexto = contexto_canonico(usuario)
-    pagina, filas, abiertos = await asyncio.gather(
+    pagina, filas, abiertos, originacion = await asyncio.gather(
         _tarjeta(cliente_cotizacion.listar_por_usuario(contexto.usuario_id)),
         _tarjeta(cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=1)),
         _tarjeta(cliente_siniestros.listar(usuario_id=contexto.usuario_id)),
+        _tarjeta(cliente_perfilamiento.originacion_pendiente(str(contexto.usuario_id))),
     )
     pendientes: list[dict] = []
     for item in (pagina or {}).get("items") or []:
+        if item.get("producto") in PRODUCTOS_HIPOTECARIOS:
+            continue
         ramo, _ = presentar(item.get("producto"))
         pendientes.append(
             {
@@ -580,7 +667,7 @@ async def inicio(
         "cotizacionesPendientes": pendientes,
         "poliza": poliza,
         "siniestroEnCurso": siniestro,
-        "hipotecario": None,
+        "hipotecario": {"estado": "disponible", **_credito_de(originacion)} if originacion else None,
     }
 
 

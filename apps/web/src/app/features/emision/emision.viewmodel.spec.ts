@@ -82,6 +82,32 @@ describe('EmisionViewModel', () => {
     expect(viewModel.poliza()).toBeNull();
   });
 
+  it('maps a revoked profiling consent to a new quotation', () => {
+    const viewModel = new EmisionViewModel(
+      () =>
+        throwError(
+          () => new HttpErrorResponse({ status: 422, error: { codigo: 'consentimiento_revocado' } }),
+        ),
+      () => undefined,
+    );
+
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('revoked');
+    expect(viewModel.poliza()).toBeNull();
+  });
+
+  it('keeps other 422 rejections as a retryable error', () => {
+    const viewModel = new EmisionViewModel(
+      () => throwError(() => new HttpErrorResponse({ status: 422, error: { codigo: 'oferta_ya_usada' } })),
+      () => undefined,
+    );
+
+    viewModel.issue();
+
+    expect(viewModel.status()).toBe('error');
+  });
+
   it('recovers on retry after a failure', () => {
     let attempts = 0;
     const viewModel = new EmisionViewModel(

@@ -19,7 +19,9 @@ from .schemas import (
     ConsentimientoSalida,
     ErrorSalida,
     OfertaSalida,
+    OriginacionSalida,
     OtorgarConsentimientoEntrada,
+    RegistrarOriginacionEntrada,
     SolicitarOfertaEntrada,
 )
 
@@ -91,3 +93,38 @@ async def solicitar_oferta_hipotecario(
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return OfertaSalida.desde(resultado.oferta)
+
+
+@router.get("/ofertas-hipotecario/clientes/{cliente_id}/ultima", response_model=OfertaSalida, responses=ERRORES)
+async def consultar_ultima_oferta(cliente_id: str, uow: Uow):
+    """IPerfilRiesgo: la última oferta del cliente con su `factor_ajuste`, para que
+    ms-cotizacion cotice vida crediticia con el mismo perfil sin volver a perfilar."""
+    return OfertaSalida.desde(await casos_uso.consultar_ultima_oferta(uow, cliente_id))
+
+
+@router.post(
+    "/originaciones",
+    response_model=OriginacionSalida,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERRORES,
+)
+async def registrar_originacion(entrada: RegistrarOriginacionEntrada, uow: Uow):
+    originacion = await casos_uso.registrar_originacion(
+        uow, entrada.cliente_id, entrada.valor, entrada.plazo_meses, entrada.origen
+    )
+    return OriginacionSalida.desde(originacion)
+
+
+@router.get("/originaciones/clientes/{cliente_id}/pendiente", response_model=OriginacionSalida, responses=ERRORES)
+async def consultar_originacion_pendiente(cliente_id: str, uow: Uow):
+    return OriginacionSalida.desde(await casos_uso.consultar_originacion_pendiente(uow, cliente_id))
+
+
+@router.delete(
+    "/originaciones/clientes/{cliente_id}/pendiente",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=ERRORES,
+)
+async def cerrar_originacion(cliente_id: str, uow: Uow):
+    await casos_uso.cerrar_originacion(uow, cliente_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
