@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -88,6 +89,21 @@ class AcceptOfferTest {
         )
         assertEquals(AcceptOutcome.ConsentRevoked, useCase.accept("COT-1042"))
         assertEquals(0, rejectedCalls)
+    }
+
+    @Test
+    fun givenARepositoryThatDoesNotTrackRevocation_whenAsked_thenItIsNotRevoked() = runBlocking {
+        val plain = object : IssuanceRepository {
+            override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
+
+            override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
+
+            override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
+
+            override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
+        }
+        assertFalse(plain.consentRevoked())
+        assertEquals(AcceptOutcome.Unavailable, AcceptOffer(plain).accept("COT-1042"))
     }
 
     @Test
