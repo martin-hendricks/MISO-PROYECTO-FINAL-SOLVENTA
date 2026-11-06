@@ -550,14 +550,33 @@ def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_c
     )
 
 
+def _avisos_proyectados(nucleo, usuario: dict) -> list:
+    """HU-119: pólizas VIGENTE con fin_vigencia en los próximos 30 días
+    (ms-polizas/por-vencer, WU-07) -- reemplaza el stub con POL-88219-CO
+    hardcodeado. Misma forma {tipo, poliza, venceEn} que ya consumía la app,
+    para no romper el contrato con el cliente Android."""
+    polizas = nucleo.polizas_por_vencer(usuario_id=_contexto(usuario)["usuario_id"])
+    if not isinstance(polizas, list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    avisos = []
+    for poliza in polizas:
+        poliza = _exigir(poliza, "numero", "fin_vigencia")
+        avisos.append(
+            {"tipo": "vencimiento", "poliza": poliza["numero"], "venceEn": poliza["fin_vigencia"]}
+        )
+    return avisos
+
+
 @router.get("/avisos")
-def avisos() -> dict:
-    return {
-        "avisos": [
-            {"tipo": "vencimiento", "poliza": "POL-88219-CO", "venceEn": "2027-03-12"},
-            {"tipo": "renovacion", "poliza": "POL-88219-CO", "estado": "vigente"},
-        ]
-    }
+def avisos(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {
+            "avisos": [
+                {"tipo": "vencimiento", "poliza": "POL-88219-CO", "venceEn": "2027-03-12"},
+                {"tipo": "renovacion", "poliza": "POL-88219-CO", "estado": "vigente"},
+            ]
+        }
+    return {"avisos": _avisos_proyectados(request.app.state.nucleo, usuario)}
 
 
 def _tarjeta_inicio(cotizacion_id: str, ramo: str) -> dict:
@@ -677,7 +696,11 @@ def guardar_perfil(
 
 
 @router.post("/avisos/token")
-def registrar_token(body: PushToken) -> dict:
+def registrar_token(body: PushToken, request: Request) -> dict:
+    if es_v1(request):
+        # notificaciones resuelve usuario_id del JWT reenviado (token_saliente,
+        # middleware reenviar_token en main.py), no hace falta pasarlo aquí.
+        request.app.state.nucleo.registrar_dispositivo(plataforma=body.plataforma, token=body.token)
     return {"estado": "aceptada", "plataforma": body.plataforma}
 
 
