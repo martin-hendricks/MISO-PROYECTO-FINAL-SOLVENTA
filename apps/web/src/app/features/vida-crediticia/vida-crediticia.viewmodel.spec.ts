@@ -1,4 +1,3 @@
-import { fakeAsync, tick } from '@angular/core/testing';
 import { Observable, of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Catalogo } from '../cotizacion/cotizacion.gateway';
@@ -25,7 +24,11 @@ function listo(source: (credito: Credito) => Observable<OfertaHipotecaria>, etap
 }
 
 describe('VidaCrediticiaViewModel', () => {
-  it('advances one profiling step at a time and shows the offer only after the last one', fakeAsync(() => {
+  beforeEach(() => jasmine.clock().install());
+  afterEach(() => jasmine.clock().uninstall());
+  const tick = (ms: number) => jasmine.clock().tick(ms);
+
+  it('advances one profiling step at a time and shows the offer only after the last one', () => {
     const vm = listo(() => of(OFERTA));
 
     vm.authorize();
@@ -43,9 +46,9 @@ describe('VidaCrediticiaViewModel', () => {
     expect(vm.status()).toBe('offer');
     expect(vm.oferta()).toBe(OFERTA);
     expect(ETAPAS.map((etapa) => vm.estadoEtapa(etapa))).toEqual(['done', 'done', 'done', 'done']);
-  }));
+  });
 
-  it('waits for a slow core after the steps end', fakeAsync(() => {
+  it('waits for a slow core after the steps end', () => {
     const respuesta = new Subject<OfertaHipotecaria>();
     const vm = listo(() => respuesta);
 
@@ -56,9 +59,9 @@ describe('VidaCrediticiaViewModel', () => {
     respuesta.next(OFERTA);
     respuesta.complete();
     expect(vm.status()).toBe('offer');
-  }));
+  });
 
-  it('stops the steps when the core fails', fakeAsync(() => {
+  it('stops the steps when the core fails', () => {
     const vm = listo(() => throwError(() => new HttpErrorResponse({ status: 503 })));
 
     vm.authorize();
@@ -66,7 +69,7 @@ describe('VidaCrediticiaViewModel', () => {
 
     expect(vm.status()).toBe('error');
     expect(vm.estadoEtapa('openFinance')).toBe('active');
-  }));
+  });
 
   it('does not authorize without valid mortgage data', () => {
     const vm = new VidaCrediticiaViewModel(() => of(CATALOGO), () => of(OFERTA), 0);
