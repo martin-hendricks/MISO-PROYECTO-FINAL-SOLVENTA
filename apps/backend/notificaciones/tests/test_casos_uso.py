@@ -48,6 +48,33 @@ async def test_registrar_dispositivo_reactiva_uno_desactivado(uow, almacen):
     assert reactivado.dispositivo.activo
 
 
+async def test_dispositivo_registrado_delega_atributos_del_dispositivo(uow, almacen):
+    """__getattr__: DispositivoRegistrado se puede usar como si fuera
+    directamente el DispositivoPush (p. ej. desde un schema de salida que
+    lee .token/.plataforma sin saber que es un wrapper)."""
+    usuario = uuid4()
+    resultado = await casos_uso.registrar_dispositivo(uow, usuario, "android", "token-1")
+
+    assert resultado.token == "token-1"
+    assert resultado.plataforma == "android"
+    assert resultado.usuario_id == usuario
+
+
+async def test_registrar_dispositivo_ganador_de_la_carrera_se_recarga(uow, almacen):
+    """Dos requests simultáneos intentan registrar el mismo (usuario_id,
+    token): el que pierde la carrera en confirmar() debe recargar y
+    devolver el que sí quedó persistido, no lanzar."""
+    usuario = uuid4()
+    ganador = DispositivoPush.registrar(usuario, "android", "token-1")
+    almacen.chocar_dispositivo = ganador
+
+    resultado = await casos_uso.registrar_dispositivo(uow, usuario, "android", "token-1")
+
+    assert not resultado.creado
+    assert resultado.dispositivo.dispositivo_id == ganador.dispositivo_id
+    assert almacen.dispositivos[ganador.dispositivo_id] is ganador
+
+
 async def test_desactivar_dispositivo_ajeno_es_no_encontrado(uow):
     creado = await casos_uso.registrar_dispositivo(uow, uuid4(), "android", "token-1")
 
@@ -215,6 +242,70 @@ async def test_despachar_no_reenvia_una_ya_enviada(uow, almacen):
 
     assert len(push.llamadas) == 1
     assert almacen.notificaciones[notificacion.notificacion_id].estado == "enviada"
+
+
+async def test_despachar_sin_proveedores_marca_fallida(uow, almacen):
+    """enviar_a_usuario() puede devolver una lista vacía sin lanzar (p. ej.
+    todos los proveedores de push rechazaron el token) -- distinto del
+    caso 'sin dispositivos', que ni siquiera llega a llamar al push."""
+
+    class _PushSinProveedores:
+        async def enviar_a_usuario(self, dispositivos, notificacion):
+            return []
+
+    usuario = uuid4()
+    almacen.dispositivos[uuid4()] = DispositivoPush.registrar(usuario, "android", "token-1")
+    notificacion = await casos_uso.crear_notificacion(
+        uow, usuario, uuid4(), "push", "tipo", "Título", "Cuerpo"
+    )
+
+    enviadas = await casos_uso.despachar_pendientes(uow, _PushSinProveedores())
+
+    assert enviadas == 0
+    assert almacen.notificaciones[notificacion.notificacion_id].estado == "fallida"
+
+
+async def test_crear_notificacion_ganadora_de_la_carrera_se_recarga(uow, almacen):
+    """Dos eventos simultáneos para el mismo (evento_origen_id, canal): el
+    que pierde la carrera en confirmar() debe recargar y devolver la
+    notificación que sí quedó persistida, no lanzar."""
+    usuario = uuid4()
+    evento = uuid4()
+    ganadora = Notificacion.crear(
+        usuario_id=usuario,
+        evento_origen_id=evento,
+        canal="push",
+        tipo="tipo",
+        titulo="Título ganador",
+        cuerpo="Cuerpo ganador",
+    )
+    almacen.chocar_notificacion = ganadora
+
+    resultado = await casos_uso.crear_notificacion(
+        uow, usuario, evento, "push", "tipo", "Título", "Cuerpo"
+    )
+
+    assert resultado.notificacion_id == ganadora.notificacion_id
+    assert resultado.titulo == "Título ganador"
+    assert almacen.notificaciones[ganadora.notificacion_id] is ganadora
+
+
+async def test_despachar_notificacion_no_pendiente_devuelve_false(uow, almacen):
+    usuario = uuid4()
+    notificacion = await casos_uso.crear_notificacion(
+        uow, usuario, uuid4(), "push", "tipo", "Título", "Cuerpo"
+    )
+    almacen.notificaciones[notificacion.notificacion_id].marcar_enviada("proveedor-x")
+
+    enviada = await casos_uso.despachar_notificacion(uow, PushDoble(), notificacion.notificacion_id)
+
+    assert enviada is False
+
+
+async def test_despachar_notificacion_inexistente_devuelve_false(uow):
+    enviada = await casos_uso.despachar_notificacion(uow, PushDoble(), uuid4())
+
+    assert enviada is False
 
 
 async def test_despachar_filtra_por_usuario_cuando_se_indica(uow, almacen):
