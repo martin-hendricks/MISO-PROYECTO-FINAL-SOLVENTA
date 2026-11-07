@@ -1,7 +1,7 @@
 <section data-testid="avisos-polizas" [attr.data-state]="vm.status()">
   <div class="page-head">
     <div>
-      <h1>{{ 'polizas.avisos.title' | translate }}</h1>
+      <h1 id="avisos-polizas-title">{{ 'polizas.avisos.title' | translate }}</h1>
       <p class="subtitle">{{ 'polizas.avisos.subtitle' | translate }}</p>
     </div>
   </div>
@@ -27,10 +27,10 @@
       </div>
     }
     @default {
-      <ul class="aviso-list" data-testid="avisos-list">
+      <ul class="aviso-list" aria-labelledby="avisos-polizas-title" data-testid="avisos-list">
         @for (aviso of vm.avisos(); track aviso.numero) {
           <li [attr.data-testid]="'aviso-' + aviso.numero">
-            <div class="aviso-card" role="status">
+            <div class="aviso-card">
               <p class="aviso-descripcion">{{ aviso.descripcion }}</p>
               <p class="aviso-vence">
                 {{ 'polizas.avisos.venceEl' | translate }} {{ aviso.venceEn | svDate }}

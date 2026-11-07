@@ -70,8 +70,13 @@ When('the operador opens the renewal action', async function (this: PortalWorld)
   // the button's disabled state and explanation, it never clicks it.
 });
 
-When('the operador cancels it', async function (this: PortalWorld) {
+When('the operador opens the cancel dialog', async function (this: PortalWorld) {
   await this.polizaBackoffice.abrirCancelar();
+});
+
+When('the operador cancels it', async function (this: PortalWorld) {
+  // The dialog is already open from the previous step so the axe check can run
+  // against the modal itself before submitting.
   await this.polizaBackoffice.confirmarCancelar('El cliente lo pidió');
 });
 

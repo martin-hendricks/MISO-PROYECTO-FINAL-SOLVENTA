@@ -55,7 +55,8 @@ describe('PolizaBackofficeDetalleView', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
-    const element = (testId: string) => host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+    const element = (testId: string) =>
+      host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
     return { fixture, http, host, element };
   }
 
@@ -117,6 +118,7 @@ describe('PolizaBackofficeDetalleView', () => {
 
     const renovar = element('poliza-backoffice-renovar') as HTMLButtonElement;
     expect(renovar.disabled).toBeFalse();
+    expect(renovar.getAttribute('aria-describedby')).toBeNull();
     renovar.click();
     fixture.detectChanges();
 
@@ -134,6 +136,9 @@ describe('PolizaBackofficeDetalleView', () => {
     fixture.detectChanges();
 
     expect((element('poliza-backoffice-renovar') as HTMLButtonElement).disabled).toBeTrue();
+    expect(element('poliza-backoffice-renovar')?.getAttribute('aria-describedby')).toBe(
+      'poliza-backoffice-no-renovable',
+    );
     expect(element('poliza-backoffice-no-renovable')).not.toBeNull();
   });
 
@@ -147,6 +152,9 @@ describe('PolizaBackofficeDetalleView', () => {
     expect(previa).toContain('El cliente lo pidió');
     expect(previa).toContain('persona@solventa.com');
     expect((element('poliza-backoffice-renovar') as HTMLButtonElement).disabled).toBeTrue();
+    expect(element('poliza-backoffice-renovar')?.getAttribute('aria-describedby')).toBe(
+      'poliza-backoffice-no-renovable',
+    );
     expect((element('poliza-backoffice-cancelar') as HTMLButtonElement).disabled).toBeTrue();
   });
 
@@ -169,7 +177,9 @@ describe('PolizaBackofficeDetalleView', () => {
     fixture.detectChanges();
     expect(host.querySelector('[data-testid="confirm-dialog"]')).not.toBeNull();
 
-    const motivo = host.querySelector<HTMLTextAreaElement>('[data-testid="confirm-dialog-motivo"]')!;
+    const motivo = host.querySelector<HTMLTextAreaElement>(
+      '[data-testid="confirm-dialog-motivo"]',
+    )!;
     motivo.value = 'El cliente lo pidió';
     motivo.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -203,6 +213,46 @@ describe('PolizaBackofficeDetalleView', () => {
     http.expectNone(CICLO_URL);
   });
 
+  it('returns focus to the cancel trigger when the dialog is closed without confirming', () => {
+    const { fixture, http, element, host } = render();
+    http.expectOne(URL).flush(POLIZA_WIRE);
+    fixture.detectChanges();
+
+    const disparador = element('poliza-backoffice-cancelar') as HTMLButtonElement;
+    disparador.focus();
+    disparador.click();
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="confirm-dialog"]')).not.toBeNull();
+
+    host.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-cancelar"]')!.click();
+    fixture.detectChanges();
+
+    expect(document.activeElement).toBe(disparador);
+  });
+
+  it('returns focus to the cancel trigger after confirming the cancellation', () => {
+    const { fixture, http, element, host } = render();
+    http.expectOne(URL).flush(POLIZA_WIRE);
+    fixture.detectChanges();
+
+    const disparador = element('poliza-backoffice-cancelar') as HTMLButtonElement;
+    disparador.focus();
+    disparador.click();
+    fixture.detectChanges();
+
+    const motivo = host.querySelector<HTMLTextAreaElement>(
+      '[data-testid="confirm-dialog-motivo"]',
+    )!;
+    motivo.value = 'El cliente lo pidió';
+    motivo.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    host.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirmar"]')!.click();
+    fixture.detectChanges();
+
+    expect(document.activeElement).toBe(disparador);
+    http.expectOne(CICLO_URL).flush(POLIZA_CANCELADA_WIRE);
+  });
+
   it('a 409 rejection on cancelar shows the core message without closing the dialog state silently', () => {
     const { fixture, http, element, host } = render();
     http.expectOne(URL).flush(POLIZA_WIRE);
@@ -210,7 +260,9 @@ describe('PolizaBackofficeDetalleView', () => {
 
     element('poliza-backoffice-cancelar')!.click();
     fixture.detectChanges();
-    const motivo = host.querySelector<HTMLTextAreaElement>('[data-testid="confirm-dialog-motivo"]')!;
+    const motivo = host.querySelector<HTMLTextAreaElement>(
+      '[data-testid="confirm-dialog-motivo"]',
+    )!;
     motivo.value = 'Otro motivo';
     motivo.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -219,10 +271,15 @@ describe('PolizaBackofficeDetalleView', () => {
 
     http
       .expectOne(CICLO_URL)
-      .flush({ codigo: 'transicion_invalida', mensaje: 'La póliza ya estaba cancelada' }, { status: 409, statusText: 'Conflict' });
+      .flush(
+        { codigo: 'transicion_invalida', mensaje: 'La póliza ya estaba cancelada' },
+        { status: 409, statusText: 'Conflict' },
+      );
     fixture.detectChanges();
 
-    expect(element('poliza-backoffice-rechazo')?.textContent).toContain('La póliza ya estaba cancelada');
+    expect(element('poliza-backoffice-rechazo')?.textContent).toContain(
+      'La póliza ya estaba cancelada',
+    );
   });
 
   it('typing a number and searching navigates to its detail route', () => {
@@ -292,8 +349,15 @@ describe('PolizaBackofficeDetalleView', () => {
     element('poliza-backoffice-modificar')!.click();
     fixture.detectChanges();
 
-    const nombre = host.querySelector<HTMLInputElement>('[data-testid="poliza-backoffice-cobertura-nombre-0"]')!;
+    const nombre = host.querySelector<HTMLInputElement>(
+      '[data-testid="poliza-backoffice-cobertura-nombre-0"]',
+    )!;
     expect(nombre.value).toBe('Robo');
+    expect(nombre.getAttribute('aria-label')).toBe('Nombre 1');
+    expect(element('poliza-backoffice-coberturas-form')?.getAttribute('role')).toBe('group');
+    expect(element('poliza-backoffice-coberturas-form')?.getAttribute('aria-labelledby')).toBe(
+      'poliza-backoffice-coberturas-title',
+    );
 
     nombre.value = 'Robo total';
     nombre.dispatchEvent(new Event('input'));
@@ -313,7 +377,10 @@ describe('PolizaBackofficeDetalleView', () => {
       verbo: 'modificar',
       coberturas: [{ nombre: 'Robo total', suma_asegurada: 2000000, deducible: 100000 }],
     });
-    request.flush({ ...POLIZA_WIRE, coberturas: [{ nombre: 'Robo total', suma_asegurada: '2000000.00', deducible: '0.00' }] });
+    request.flush({
+      ...POLIZA_WIRE,
+      coberturas: [{ nombre: 'Robo total', suma_asegurada: '2000000.00', deducible: '0.00' }],
+    });
     fixture.detectChanges();
 
     expect(element('poliza-backoffice-coberturas-form')).toBeNull();
@@ -332,6 +399,9 @@ describe('PolizaBackofficeDetalleView', () => {
     element('poliza-backoffice-cobertura-agregar')!.click();
     fixture.detectChanges();
     expect(element('poliza-backoffice-cobertura-nombre-0')).not.toBeNull();
+    expect(element('poliza-backoffice-cobertura-quitar-0')?.getAttribute('aria-label')).toBe(
+      'Quitar 1',
+    );
 
     element('poliza-backoffice-cobertura-quitar-0')!.click();
     fixture.detectChanges();
@@ -348,7 +418,9 @@ describe('PolizaBackofficeDetalleView', () => {
     element('poliza-backoffice-cobertura-agregar')!.click();
     fixture.detectChanges();
 
-    expect((element('poliza-backoffice-coberturas-guardar') as HTMLButtonElement).disabled).toBeTrue();
+    expect(
+      (element('poliza-backoffice-coberturas-guardar') as HTMLButtonElement).disabled,
+    ).toBeTrue();
 
     // El guard también protege una invocación directa del método (no solo
     // el disabled del botón, que podría no respetarse desde otro disparador).
@@ -369,15 +441,13 @@ describe('PolizaBackofficeDetalleView', () => {
 
   it('editing one row among several only updates that row', () => {
     const { fixture, http, element } = render();
-    http
-      .expectOne(URL)
-      .flush({
-        ...POLIZA_WIRE,
-        coberturas: [
-          { nombre: 'Robo', suma_asegurada: '2000000.00', deducible: '0.00' },
-          { nombre: 'Pantalla', suma_asegurada: '500000.00', deducible: '50000.00' },
-        ],
-      });
+    http.expectOne(URL).flush({
+      ...POLIZA_WIRE,
+      coberturas: [
+        { nombre: 'Robo', suma_asegurada: '2000000.00', deducible: '0.00' },
+        { nombre: 'Pantalla', suma_asegurada: '500000.00', deducible: '50000.00' },
+      ],
+    });
     fixture.detectChanges();
 
     element('poliza-backoffice-modificar')!.click();
@@ -388,7 +458,13 @@ describe('PolizaBackofficeDetalleView', () => {
     segundaFila.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    expect((element('poliza-backoffice-cobertura-nombre-0') as HTMLInputElement).value).toBe('Robo');
+    expect(element('poliza-backoffice-cobertura-quitar-0')?.getAttribute('aria-label')).toBe(
+      'Quitar Robo',
+    );
+
+    expect((element('poliza-backoffice-cobertura-nombre-0') as HTMLInputElement).value).toBe(
+      'Robo',
+    );
     expect(segundaFila.value).toBe('Pantalla rota');
   });
 
@@ -413,7 +489,10 @@ describe('PolizaBackofficeDetalleView', () => {
     element('poliza-backoffice-coberturas-guardar')!.click();
 
     const request = http.expectOne(CICLO_URL);
-    expect((request.request.body as { coberturas: { suma_asegurada: number }[] }).coberturas[0].suma_asegurada).toBe(0);
+    expect(
+      (request.request.body as { coberturas: { suma_asegurada: number }[] }).coberturas[0]
+        .suma_asegurada,
+    ).toBe(0);
     request.flush(POLIZA_WIRE);
   });
 

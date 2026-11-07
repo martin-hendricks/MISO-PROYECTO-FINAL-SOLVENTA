@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
+import { capturarFocoActivo, restaurarFoco } from '../../../core/a11y/focus-restore';
 import { CasoAviso, Cola, FiltroCola, rechazoDelNucleo, ResultadoPago } from './avisos.gateway';
 
 export type ColaStatus = 'loading' | 'ready' | 'empty' | 'error';
@@ -44,6 +45,9 @@ export class AvisosViewModel {
   readonly rechazo = signal<string | null>(null);
   readonly pago = signal<ResultadoPago | null>(null);
 
+  /** Element that had focus when the dialog opened; given back on close. */
+  private focoPrevio: HTMLElement | null = null;
+
   constructor(private readonly puertos: Puertos) {}
 
   cargar(filtro: FiltroCola = this.filtro()): void {
@@ -86,12 +90,20 @@ export class AvisosViewModel {
 
   abrir(dialogo: Exclude<Dialogo, null>): void {
     this.rechazo.set(null);
+    this.focoPrevio = capturarFocoActivo();
     this.dialogo.set(dialogo);
   }
 
   /** Volver cierra el diálogo SIN cambiar el estado del aviso (Figma HU-27). */
   cerrarDialogo(): void {
     this.dialogo.set(null);
+    this.restaurarFocoPrevio();
+  }
+
+  /** Gives focus back to the trigger once the dialog is gone. */
+  private restaurarFocoPrevio(): void {
+    restaurarFoco(this.focoPrevio);
+    this.focoPrevio = null;
   }
 
   confirmar(motivo: string): void {
@@ -114,6 +126,7 @@ export class AvisosViewModel {
       next: (actualizado) => {
         this.enviando.set(false);
         this.dialogo.set(null);
+        this.restaurarFocoPrevio();
         this.caso.set(actualizado);
         // Aprobar un bajo monto encadena con el pago (HU-29).
         if (dialogo === 'aprobar' && actualizado.bajoMonto) {
@@ -124,6 +137,7 @@ export class AvisosViewModel {
       error: (error: unknown) => {
         this.enviando.set(false);
         this.dialogo.set(null);
+        this.restaurarFocoPrevio();
         this.rechazo.set(rechazoDelNucleo(error) ?? 'error');
       },
     });

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { capturarFocoActivo, restaurarFoco } from '../../../core/a11y/focus-restore';
 import { DatePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
@@ -20,7 +21,11 @@ interface CoberturaEditable {
 }
 
 function aEditable(c: Cobertura): CoberturaEditable {
-  return { nombre: c.nombre, sumaAsegurada: String(c.sumaAsegurada), deducible: String(c.deducible) };
+  return {
+    nombre: c.nombre,
+    sumaAsegurada: String(c.sumaAsegurada),
+    deducible: String(c.deducible),
+  };
 }
 
 @Component({
@@ -43,6 +48,9 @@ export class PolizaBackofficeDetalleView {
   protected readonly editandoCoberturas = signal(false);
   protected readonly coberturasEditables = signal<CoberturaEditable[]>([]);
 
+  /** Element that had focus when the dialog opened; given back on close. */
+  private focoPrevio: HTMLElement | null = null;
+
   protected readonly vm = new PolizaBackofficeDetalleViewModel(
     () => this.gateway.buscarPorNumero(this.numero!),
     () => this.gateway.renovar(this.numero!),
@@ -64,12 +72,25 @@ export class PolizaBackofficeDetalleView {
   }
 
   protected abrirCancelar(): void {
+    this.focoPrevio = capturarFocoActivo();
     this.dialogoCancelarAbierto.set(true);
+  }
+
+  protected cerrarCancelar(): void {
+    this.dialogoCancelarAbierto.set(false);
+    this.restaurarFocoPrevio();
   }
 
   protected confirmarCancelar(motivo: string): void {
     this.dialogoCancelarAbierto.set(false);
+    this.restaurarFocoPrevio();
     this.vm.cancelar(motivo);
+  }
+
+  /** Gives focus back to the trigger once the dialog is gone. */
+  private restaurarFocoPrevio(): void {
+    restaurarFoco(this.focoPrevio);
+    this.focoPrevio = null;
   }
 
   protected abrirEditarCoberturas(): void {
@@ -91,7 +112,10 @@ export class PolizaBackofficeDetalleView {
   }
 
   protected agregarFila(): void {
-    this.coberturasEditables.update((filas) => [...filas, { nombre: '', sumaAsegurada: '0', deducible: '0' }]);
+    this.coberturasEditables.update((filas) => [
+      ...filas,
+      { nombre: '', sumaAsegurada: '0', deducible: '0' },
+    ]);
   }
 
   protected quitarFila(indice: number): void {

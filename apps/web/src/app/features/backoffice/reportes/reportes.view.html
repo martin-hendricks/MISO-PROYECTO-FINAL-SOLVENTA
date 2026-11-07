@@ -15,6 +15,11 @@
           type="button"
           class="filled"
           data-testid="reporte-regulador-generar"
+          [attr.aria-label]="
+            ('backoffice.reportes.generar' | translate) +
+            ' ' +
+            ('backoffice.reportes.regulador.title' | translate)
+          "
           [disabled]="vm.status().regulador === 'generando'"
           (click)="generar('regulador')"
         >
@@ -25,6 +30,11 @@
             type="button"
             class="outlined"
             data-testid="reporte-regulador-descargar"
+            [attr.aria-label]="
+              ('backoffice.reportes.descargar' | translate) +
+              ' ' +
+              ('backoffice.reportes.regulador.title' | translate)
+            "
             (click)="descargar(reporte)"
           >
             {{ 'backoffice.reportes.descargar' | translate }}
@@ -46,6 +56,11 @@
           type="button"
           class="filled"
           data-testid="reporte-reaseguradora-generar"
+          [attr.aria-label]="
+            ('backoffice.reportes.generar' | translate) +
+            ' ' +
+            ('backoffice.reportes.reaseguradora.title' | translate)
+          "
           [disabled]="vm.status().reaseguradora === 'generando'"
           (click)="generar('reaseguradora')"
         >
@@ -56,6 +71,11 @@
             type="button"
             class="outlined"
             data-testid="reporte-reaseguradora-descargar"
+            [attr.aria-label]="
+              ('backoffice.reportes.descargar' | translate) +
+              ' ' +
+              ('backoffice.reportes.reaseguradora.title' | translate)
+            "
             (click)="descargar(reporte)"
           >
             {{ 'backoffice.reportes.descargar' | translate }}

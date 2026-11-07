@@ -7,7 +7,7 @@ import { Role } from '../../../core/session/session.service';
 import { sessionAs } from '../backoffice.testing';
 import { AvisosView } from './avisos.view';
 import { CasoAviso } from './avisos.gateway';
-import { CASO, CASO_BAJO_MONTO, COLA, COLA_VACIA } from './avisos.testing';
+import { CASO, CASO_BAJO_MONTO, COLA, COLA_VACIA, FILA } from './avisos.testing';
 
 describe('AvisosView', () => {
   const COLA_URL = '/web/operador/avisos?filtro=pendientes';
@@ -182,6 +182,35 @@ describe('AvisosView', () => {
 
     element('aviso-SIN-2041')!.click();
     http.expectOne(CASO_URL).flush(CASO);
+  });
+
+  it('la barra espaciadora selecciona la fila sin desplazar la página', () => {
+    const segunda = {
+      ...FILA,
+      id: '22222222-2222-4222-8222-222222222222',
+      siniestroId: 'SIN-2042',
+    };
+    const { fixture, http, element } = render();
+    http.expectOne(COLA_URL).flush({
+      ...COLA,
+      avisos: [FILA, segunda],
+      conteos: { ...COLA.conteos, pendientes: 2, todos: 2 },
+    });
+    http.expectOne(CASO_URL).flush(CASO);
+    fixture.detectChanges();
+
+    const fila = element('aviso-SIN-2042')!;
+    expect(fila.getAttribute('aria-selected')).toBe('false');
+
+    const ev = new KeyboardEvent('keydown', { key: ' ', cancelable: true, bubbles: true });
+    fila.dispatchEvent(ev);
+
+    expect(ev.defaultPrevented).toBeTrue();
+    http
+      .expectOne(`/web/operador/avisos/${segunda.id}`)
+      .flush({ ...CASO, id: segunda.id, siniestroId: 'SIN-2042' });
+    fixture.detectChanges();
+    expect(fila.getAttribute('aria-selected')).toBe('true');
   });
 
   it('enruta a perito un caso que no es de bajo monto', () => {

@@ -306,6 +306,7 @@
       "prima": "Prima",
       "siniestrosAbiertos": "Siniestros abiertos",
       "renovar": "Renovar",
+      "acciones": "Acciones de la póliza",
       "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
       "cancelar": "Cancelar póliza",
       "confirmCancelar": {
@@ -329,7 +330,8 @@
         "deducible": "Deducible",
         "agregar": "Agregar cobertura",
         "quitar": "Quitar",
-        "guardar": "Guardar cambios"
+        "guardar": "Guardar cambios",
+        "acciones": "Acciones de coberturas"
       }
     },
     "emision": {
@@ -478,6 +480,7 @@
       "continuar": "Continuar emisión",
       "anterior": "Anterior",
       "siguiente": "Siguiente",
+      "paginacion": "Paginación de cotizaciones",
       "aviso": {
         "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
       },
@@ -839,6 +842,11 @@
       "elegirPoliza": "Elige una póliza",
       "fecha": "Fecha del evento",
       "descripcion": "Descripción",
+      "error": {
+        "poliza": "Selecciona una póliza.",
+        "fecha": "Elige una fecha válida que no sea futura.",
+        "descripcion": "Describe lo que ocurrió."
+      },
       "completa": "Elige la póliza, una fecha que no sea futura y describe lo ocurrido.",
       "continuar": "Continuar a evidencia",
       "queAdjuntar": {

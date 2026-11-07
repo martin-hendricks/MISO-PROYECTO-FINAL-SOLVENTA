@@ -10,7 +10,9 @@
     <h1>{{ 'backoffice.polizas.title' | translate }}</h1>
 
     <div class="buscador">
-      <label for="poliza-backoffice-buscar-input">{{ 'backoffice.polizas.buscar.label' | translate }}</label>
+      <label for="poliza-backoffice-buscar-input">{{
+        'backoffice.polizas.buscar.label' | translate
+      }}</label>
       <div class="buscador-row">
         <input
           id="poliza-backoffice-buscar-input"
@@ -20,7 +22,12 @@
           (input)="busqueda.set($any($event.target).value)"
           (keyup.enter)="buscar()"
         />
-        <button type="button" class="outlined" data-testid="poliza-backoffice-buscar-submit" (click)="buscar()">
+        <button
+          type="button"
+          class="outlined"
+          data-testid="poliza-backoffice-buscar-submit"
+          (click)="buscar()"
+        >
           {{ 'backoffice.polizas.buscar.action' | translate }}
         </button>
       </div>
@@ -36,7 +43,12 @@
         @case ('error') {
           <div class="empty-state" role="alert" data-testid="poliza-backoffice-error">
             <p>{{ 'backoffice.polizas.error.body' | translate }}</p>
-            <button type="button" class="outlined" data-testid="poliza-backoffice-retry" (click)="vm.load()">
+            <button
+              type="button"
+              class="outlined"
+              data-testid="poliza-backoffice-retry"
+              (click)="vm.load()"
+            >
               {{ 'backoffice.polizas.error.retry' | translate }}
             </button>
           </div>
@@ -51,7 +63,11 @@
           @let poliza = vm.poliza()!;
           <div class="page-head">
             <h2 data-testid="poliza-backoffice-numero">{{ poliza.numero }}</h2>
-            <span class="badge" data-testid="poliza-backoffice-estado" [attr.data-estado]="poliza.estado">
+            <span
+              class="badge"
+              data-testid="poliza-backoffice-estado"
+              [attr.data-estado]="poliza.estado"
+            >
               {{ 'backoffice.polizas.estado.' + poliza.estado | translate }}
             </span>
           </div>
@@ -65,7 +81,9 @@
             </dd>
             @if (poliza.siniestrosAbiertos !== null) {
               <dt>{{ 'backoffice.polizas.siniestrosAbiertos' | translate }}</dt>
-              <dd data-testid="poliza-backoffice-siniestros-abiertos">{{ poliza.siniestrosAbiertos }}</dd>
+              <dd data-testid="poliza-backoffice-siniestros-abiertos">
+                {{ poliza.siniestrosAbiertos }}
+              </dd>
             }
           </dl>
 
@@ -80,7 +98,10 @@
                     <li>
                       <span>{{ cobertura.nombre }}</span>
                       <span class="mono">{{ cobertura.sumaAsegurada | svMoney: 'COP' }}</span>
-                      <span class="mono">{{ 'backoffice.polizas.coberturas.deducible' | translate }}: {{ cobertura.deducible | svMoney: 'COP' }}</span>
+                      <span class="mono"
+                        >{{ 'backoffice.polizas.coberturas.deducible' | translate }}:
+                        {{ cobertura.deducible | svMoney: 'COP' }}</span
+                      >
                     </li>
                   }
                 </ul>
@@ -90,7 +111,9 @@
 
           @if (poliza.estado === 'cancelada') {
             <div class="notice" data-testid="poliza-backoffice-cancelacion-previa">
-              <p class="notice-title">{{ 'backoffice.polizas.cancelacionPrevia.title' | translate }}</p>
+              <p class="notice-title">
+                {{ 'backoffice.polizas.cancelacionPrevia.title' | translate }}
+              </p>
               <dl class="detalle">
                 <dt>{{ 'backoffice.polizas.cancelacionPrevia.fecha' | translate }}</dt>
                 <dd>{{ poliza.canceladaEn! | svDate }}</dd>
@@ -106,12 +129,23 @@
             </div>
           }
 
-          <div class="actions">
+          <div
+            class="actions"
+            role="group"
+            [attr.aria-label]="'backoffice.polizas.acciones' | translate"
+          >
             <button
               type="button"
               class="filled"
               data-testid="poliza-backoffice-renovar"
-              [disabled]="poliza.estado === 'cancelada' || !poliza.renovable || vm.accion() === 'enviando'"
+              [disabled]="
+                poliza.estado === 'cancelada' || !poliza.renovable || vm.accion() === 'enviando'
+              "
+              [attr.aria-describedby]="
+                poliza.estado === 'cancelada' || !poliza.renovable
+                  ? 'poliza-backoffice-no-renovable'
+                  : null
+              "
               (click)="vm.renovar()"
             >
               {{ 'backoffice.polizas.renovar' | translate }}
@@ -144,14 +178,24 @@
           </div>
 
           @if (editandoCoberturas()) {
-            <div class="notice" data-testid="poliza-backoffice-coberturas-form">
-              <p class="notice-title">{{ 'backoffice.polizas.coberturas.modificar' | translate }}</p>
+            <div
+              class="notice"
+              role="group"
+              aria-labelledby="poliza-backoffice-coberturas-title"
+              data-testid="poliza-backoffice-coberturas-form"
+            >
+              <p class="notice-title" id="poliza-backoffice-coberturas-title">
+                {{ 'backoffice.polizas.coberturas.modificar' | translate }}
+              </p>
               @for (fila of coberturasEditables(); track $index) {
                 <div class="cobertura-fila">
                   <input
                     type="text"
                     [attr.data-testid]="'poliza-backoffice-cobertura-nombre-' + $index"
                     [placeholder]="'backoffice.polizas.coberturas.nombre' | translate"
+                    [attr.aria-label]="
+                      ('backoffice.polizas.coberturas.nombre' | translate) + ' ' + ($index + 1)
+                    "
                     [value]="fila.nombre"
                     (input)="actualizarFila($index, 'nombre', $any($event.target).value)"
                   />
@@ -159,6 +203,9 @@
                     type="number"
                     [attr.data-testid]="'poliza-backoffice-cobertura-suma-' + $index"
                     [placeholder]="'backoffice.polizas.coberturas.suma' | translate"
+                    [attr.aria-label]="
+                      ('backoffice.polizas.coberturas.suma' | translate) + ' ' + ($index + 1)
+                    "
                     [value]="fila.sumaAsegurada"
                     (input)="actualizarFila($index, 'sumaAsegurada', $any($event.target).value)"
                   />
@@ -166,6 +213,9 @@
                     type="number"
                     [attr.data-testid]="'poliza-backoffice-cobertura-deducible-' + $index"
                     [placeholder]="'backoffice.polizas.coberturas.deducible' | translate"
+                    [attr.aria-label]="
+                      ('backoffice.polizas.coberturas.deducible' | translate) + ' ' + ($index + 1)
+                    "
                     [value]="fila.deducible"
                     (input)="actualizarFila($index, 'deducible', $any($event.target).value)"
                   />
@@ -173,17 +223,36 @@
                     type="button"
                     class="outlined error"
                     [attr.data-testid]="'poliza-backoffice-cobertura-quitar-' + $index"
+                    [attr.aria-label]="
+                      ('backoffice.polizas.coberturas.quitar' | translate) +
+                      ' ' +
+                      (fila.nombre || $index + 1)
+                    "
                     (click)="quitarFila($index)"
                   >
                     {{ 'backoffice.polizas.coberturas.quitar' | translate }}
                   </button>
                 </div>
               }
-              <div class="actions">
-                <button type="button" class="outlined" data-testid="poliza-backoffice-cobertura-agregar" (click)="agregarFila()">
+              <div
+                class="actions"
+                role="group"
+                [attr.aria-label]="'backoffice.polizas.coberturas.acciones' | translate"
+              >
+                <button
+                  type="button"
+                  class="outlined"
+                  data-testid="poliza-backoffice-cobertura-agregar"
+                  (click)="agregarFila()"
+                >
                   {{ 'backoffice.polizas.coberturas.agregar' | translate }}
                 </button>
-                <button type="button" class="outlined" data-testid="poliza-backoffice-coberturas-cancelar" (click)="cancelarEditarCoberturas()">
+                <button
+                  type="button"
+                  class="outlined"
+                  data-testid="poliza-backoffice-coberturas-cancelar"
+                  (click)="cancelarEditarCoberturas()"
+                >
                   {{ 'backoffice.confirmDialog.cancelar' | translate }}
                 </button>
                 <button
@@ -200,7 +269,9 @@
           }
 
           @if (vm.accion() === 'rechazado' && vm.rechazo(); as rechazo) {
-            <p class="error-text" role="alert" data-testid="poliza-backoffice-rechazo">{{ rechazo }}</p>
+            <p class="error-text" role="alert" data-testid="poliza-backoffice-rechazo">
+              {{ rechazo }}
+            </p>
           }
 
           @if (dialogoCancelarAbierto()) {
@@ -209,7 +280,7 @@
               [advertencia]="'backoffice.polizas.confirmCancelar.advertencia' | translate"
               [requiereMotivo]="true"
               confirmarTexto="backoffice.polizas.confirmCancelar.confirmar"
-              (cancelar)="dialogoCancelarAbierto.set(false)"
+              (cancelar)="cerrarCancelar()"
               (confirmar)="confirmarCancelar($event)"
             />
           }

@@ -36,4 +36,9 @@ export class AvisosView {
       this.vm.cargar();
     }
   }
+
+  protected onSeleccionar(event: KeyboardEvent, id: string): void {
+    event.preventDefault(); // Space would otherwise scroll the page
+    this.vm.seleccionar(id);
+  }
 }

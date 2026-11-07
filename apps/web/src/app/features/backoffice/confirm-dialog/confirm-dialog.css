@@ -53,6 +53,11 @@ button {
   cursor: pointer;
 }
 
+button:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: 2px;
+}
+
 .outlined {
   background: transparent;
   border: 1px solid var(--sv-outline);

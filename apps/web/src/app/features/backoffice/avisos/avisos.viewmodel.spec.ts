@@ -34,6 +34,13 @@ describe('AvisosViewModel', () => {
     return { vm, llamadas };
   }
 
+  function enfocarBoton(): HTMLButtonElement {
+    const boton = document.createElement('button');
+    document.body.appendChild(boton);
+    boton.focus();
+    return boton;
+  }
+
   it('abre el primer caso de la cola sin cambiar de ruta', () => {
     const { vm } = crear();
     vm.cargar();
@@ -63,6 +70,30 @@ describe('AvisosViewModel', () => {
     vm.cerrarDialogo();
     expect(vm.dialogo()).toBeNull();
     expect(llamadas.some((l) => l.startsWith('decidir'))).toBeFalse();
+  });
+
+  it('devuelve el foco al control previo al cerrar el diálogo', () => {
+    const { vm } = crear();
+    vm.cargar();
+    const boton = enfocarBoton();
+
+    vm.abrir('aprobar');
+    vm.cerrarDialogo();
+
+    expect(document.activeElement).toBe(boton);
+    boton.remove();
+  });
+
+  it('devuelve el foco al control previo tras confirmar con éxito', () => {
+    const { vm } = crear();
+    vm.cargar();
+    const boton = enfocarBoton();
+
+    vm.abrir('aprobar');
+    vm.confirmar('');
+
+    expect(document.activeElement).toBe(boton);
+    boton.remove();
   });
 
   it('no rechaza sin motivo aunque se llame directo', () => {
