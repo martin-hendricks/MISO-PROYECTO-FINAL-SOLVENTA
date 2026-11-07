@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
@@ -15,10 +16,16 @@ class RepositorioOutboxDoble:
         self.pendientes = list(pendientes or [])
         self.publicados: list[EventoOutbox] = []
         self.fallar: Exception | None = None
+        # Señal real de sincronización para tests que esperan a que
+        # bucle_relay (corriendo en background) ejecute al menos un ciclo --
+        # evita dormir un tiempo fijo, no determinista y prohibido por el
+        # gate de CI para tests unitarios.
+        self.llamado = asyncio.Event()
 
     async def publicar_pendientes(
         self, publicador: PublicadorEventos, lote: int, ahora: datetime
     ) -> int:
+        self.llamado.set()
         if self.fallar is not None:
             raise self.fallar
 

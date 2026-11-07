@@ -100,9 +100,9 @@ class TestBucleRelay:
         parar = asyncio.Event()
 
         tarea = asyncio.create_task(
-            bucle_relay([repositorio], publicador, lote=10, intervalo_segundos=0.01, parar=parar)
+            bucle_relay([repositorio], publicador, lote=10, intervalo_segundos=5, parar=parar)
         )
-        await asyncio.sleep(0.05)
+        await asyncio.wait_for(repositorio.llamado.wait(), timeout=1)
         parar.set()
         await asyncio.wait_for(tarea, timeout=1)
 
@@ -114,9 +114,9 @@ class TestBucleRelay:
         parar = asyncio.Event()
 
         tarea = asyncio.create_task(
-            bucle_relay([repositorio], publicador, lote=10, intervalo_segundos=0.01, parar=parar)
+            bucle_relay([repositorio], publicador, lote=10, intervalo_segundos=5, parar=parar)
         )
-        await asyncio.sleep(0.05)
+        await asyncio.wait_for(repositorio.llamado.wait(), timeout=1)
         parar.set()
         # No debe lanzar ni colgarse: el bucle captura el fallo y sigue
         # reintentando hasta que `parar` lo detiene.
