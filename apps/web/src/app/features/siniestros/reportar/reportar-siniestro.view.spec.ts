@@ -102,13 +102,34 @@ describe('ReportarSiniestroView', () => {
 
     element('aviso-continuar')!.click();
     fixture.detectChanges();
-    expect(element('aviso-errores')).not.toBeNull();
+    // Un mensaje por campo, sin resumen genérico, y cada campo lo referencia.
+    expect(element('aviso-errores')).toBeNull();
+    expect(element('aviso-poliza-error')).not.toBeNull();
+    expect(element('aviso-fecha-error')).not.toBeNull();
+    expect(element('aviso-descripcion-error')).not.toBeNull();
+    expect(element('aviso-poliza')?.getAttribute('aria-describedby')).toBe('aviso-poliza-error');
+    expect(element('aviso-fecha')?.getAttribute('aria-describedby')).toBe('aviso-fecha-error');
+    expect(element('aviso-descripcion')?.getAttribute('aria-describedby')).toBe(
+      'aviso-descripcion-error',
+    );
     expect(element('aviso-poliza')?.getAttribute('aria-invalid')).toBe('true');
 
     escribir('aviso-poliza', 'POL-2', 'change');
     escribir('aviso-fecha', '2026-11-01');
+    expect(element('aviso-poliza-error')).toBeNull();
+    expect(element('aviso-fecha-error')).toBeNull();
+    expect(element('aviso-poliza')?.getAttribute('aria-describedby')).toBeNull();
+    expect(element('aviso-fecha')?.getAttribute('aria-describedby')).toBeNull();
+    expect(element('aviso-descripcion-error')).not.toBeNull();
+    expect(element('aviso-descripcion')?.getAttribute('aria-describedby')).toBe(
+      'aviso-descripcion-error',
+    );
     expect(element('aviso-poliza')?.getAttribute('aria-invalid')).toBe('false');
     expect(element('reportar-siniestro')?.getAttribute('data-paso')).toBe('formulario');
+
+    escribir('aviso-descripcion', 'Pantalla rota');
+    expect(element('aviso-descripcion-error')).toBeNull();
+    expect(element('aviso-descripcion')?.getAttribute('aria-describedby')).toBeNull();
   });
 
   it('valida el archivo, permite volver y guarda la ubicación del navegador', async () => {

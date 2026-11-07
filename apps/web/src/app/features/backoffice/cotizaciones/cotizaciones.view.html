@@ -67,6 +67,11 @@
           </p>
         }
         <table data-testid="cotizaciones-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.cotizaciones.title' | translate
+            }}
+          </caption>
           <thead>
             <tr>
               <th scope="col">{{ 'backoffice.cotizaciones.column.cliente' | translate }}</th>
@@ -108,6 +113,11 @@
                       [routerLink]="['/cms/cotizaciones', cotizacion.cotizacionId, 'emision']"
                       [queryParams]="{ cliente: cotizacion.clienteRef }"
                       [attr.data-testid]="'continuar-' + cotizacion.cotizacionId"
+                      [attr.aria-label]="
+                        ('backoffice.cotizaciones.continuar' | translate) +
+                        ' ' +
+                        cotizacion.clienteRef
+                      "
                       >{{ 'backoffice.cotizaciones.continuar' | translate }}</a
                     >
                   }
@@ -116,7 +126,7 @@
             }
           </tbody>
         </table>
-        <nav class="pager">
+        <nav class="pager" [attr.aria-label]="'backoffice.cotizaciones.paginacion' | translate">
           <button
             type="button"
             class="outlined"

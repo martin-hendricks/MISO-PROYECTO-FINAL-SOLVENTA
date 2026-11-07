@@ -1,7 +1,15 @@
 <div class="scrim" data-testid="confirm-dialog">
-  <div class="dialog" role="alertdialog" aria-modal="true">
-    <h2>{{ titulo() }}</h2>
-    <p class="advertencia">{{ advertencia() }}</p>
+  <div
+    class="dialog"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="confirm-dialog-title"
+    aria-describedby="confirm-dialog-desc"
+    cdkTrapFocus
+    cdkTrapFocusAutoCapture
+  >
+    <h2 id="confirm-dialog-title">{{ titulo() }}</h2>
+    <p class="advertencia" id="confirm-dialog-desc">{{ advertencia() }}</p>
 
     @if (requiereMotivo()) {
       <label class="motivo-label" for="confirm-dialog-motivo-input">
@@ -16,7 +24,12 @@
     }
 
     <div class="acciones">
-      <button type="button" class="outlined" data-testid="confirm-dialog-cancelar" (click)="cancelar.emit()">
+      <button
+        type="button"
+        class="outlined"
+        data-testid="confirm-dialog-cancelar"
+        (click)="cancelar.emit()"
+      >
         {{ 'backoffice.confirmDialog.cancelar' | translate }}
       </button>
       <button

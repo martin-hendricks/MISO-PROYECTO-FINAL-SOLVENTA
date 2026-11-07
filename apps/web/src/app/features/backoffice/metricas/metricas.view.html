@@ -16,7 +16,12 @@
       @case ('error') {
         <div class="empty-state" role="alert" data-testid="metricas-error">
           <p>{{ 'backoffice.metricas.error' | translate }}</p>
-          <button type="button" class="outlined" data-testid="metricas-retry" (click)="reintentar()">
+          <button
+            type="button"
+            class="outlined"
+            data-testid="metricas-retry"
+            (click)="reintentar()"
+          >
             {{ 'backoffice.reportes.generar' | translate }}
           </button>
         </div>
@@ -28,11 +33,16 @@
       }
       @default {
         <table class="metricas-table" data-testid="metricas-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.metricas.title' | translate
+            }}
+          </caption>
           <thead>
             <tr>
-              <th>{{ 'backoffice.metricas.columna.tipo' | translate }}</th>
-              <th>{{ 'backoffice.metricas.columna.fecha' | translate }}</th>
-              <th>{{ 'backoffice.metricas.columna.cantidad' | translate }}</th>
+              <th scope="col">{{ 'backoffice.metricas.columna.tipo' | translate }}</th>
+              <th scope="col">{{ 'backoffice.metricas.columna.fecha' | translate }}</th>
+              <th scope="col">{{ 'backoffice.metricas.columna.cantidad' | translate }}</th>
             </tr>
           </thead>
           <tbody>
