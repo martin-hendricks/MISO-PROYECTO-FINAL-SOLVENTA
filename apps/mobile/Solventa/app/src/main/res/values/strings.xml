@@ -263,7 +263,10 @@
     <string name="consent_state_revoked">revocado</string>
     <string name="action_close">Cerrar</string>
     <string name="claim_chip_todos">Todos</string>
+    <string name="claim_chip_recibido">Recibido</string>
     <string name="claim_chip_en_evaluacion">En evaluación</string>
+    <string name="claim_chip_decidido">Decidido</string>
+    <string name="claim_chip_enrutado">Enrutado</string>
     <string name="claim_chip_pagado">Pagado</string>
     <string name="assistance_title">Pedir asistencia en sitio</string>
     <string name="assistance_registered">Registramos el pedido con tu ubicación. Operaciones lo ve; no hay despacho real a un taller.</string>

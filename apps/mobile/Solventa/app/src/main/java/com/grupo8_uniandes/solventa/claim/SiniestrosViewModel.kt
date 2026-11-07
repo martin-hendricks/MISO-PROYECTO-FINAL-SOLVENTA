@@ -3,7 +3,6 @@ package com.grupo8_uniandes.solventa.claim
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimChip
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
@@ -28,7 +27,7 @@ data class ClaimsUiState(
     val phase: ClaimsPhase = ClaimsPhase.Pending,
     val claims: List<ClaimSummary> = emptyList(),
     val openedClaimId: String? = null,
-    val chip: ClaimChip = ClaimChip.Todos,
+    val chip: ClaimStatus? = null,
     val openParametric: Boolean = false,
 ) {
     val visible: List<ClaimSummary> get() = claims.filtered(chip)
@@ -63,7 +62,7 @@ class SiniestrosViewModel(
         }
     }
 
-    fun selectChip(chip: ClaimChip) {
+    fun selectChip(chip: ClaimStatus?) {
         _state.value = _state.value.copy(chip = chip)
     }
 

@@ -55,7 +55,6 @@ class SiniestrosViewModelTest {
                 SiniestrosScreen(
                     claims = listOf(publishedRow()),
                     onOpenClaim = { opened += it },
-                    onOpenCatalog = {},
                 )
             }
         }
@@ -72,7 +71,6 @@ class SiniestrosViewModelTest {
                 SiniestrosScreen(
                     claims = listOf(publishedRow().copy(id = internal)),
                     onOpenClaim = { opened += it },
-                    onOpenCatalog = {},
                 )
             }
         }
@@ -100,7 +98,6 @@ class SiniestrosViewModelTest {
                     claims = viewModel.state.value.claims,
                     failed = viewModel.state.value.phase == ClaimsPhase.Failed,
                     onOpenClaim = {},
-                    onOpenCatalog = {},
                 )
             }
         }

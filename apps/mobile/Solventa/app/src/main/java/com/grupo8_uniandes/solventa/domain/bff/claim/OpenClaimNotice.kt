@@ -286,12 +286,5 @@ fun ClaimNoticeDraft.problems(
     )
 }
 
-fun List<com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary>.filtered(
-    chip: ClaimChip,
-): List<com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary> = when (chip) {
-    ClaimChip.Todos -> this
-    ClaimChip.EnEvaluacion -> filter { it.estado == ClaimStatus.EN_EVALUACION }
-    ClaimChip.Pagado -> filter { it.estado == ClaimStatus.PAGADO }
-}
-
-enum class ClaimChip { Todos, EnEvaluacion, Pagado }
+fun List<ClaimSummary>.filtered(estado: ClaimStatus?): List<ClaimSummary> =
+    if (estado == null) this else filter { it.estado == estado }

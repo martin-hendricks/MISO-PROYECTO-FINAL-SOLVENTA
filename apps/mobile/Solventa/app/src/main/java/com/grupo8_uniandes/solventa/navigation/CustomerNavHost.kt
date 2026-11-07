@@ -1,13 +1,8 @@
 package com.grupo8_uniandes.solventa.navigation
 
-import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -240,12 +235,6 @@ fun CustomerNavHost(
         composable<SiniestrosRoute> {
             val viewModel: SiniestrosViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
-            val context = LocalContext.current
-            val locationPermission = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { granted ->
-                if (granted) navController.navigate(MapaPrestadoresRoute)
-            }
             LaunchedEffect(Unit) { viewModel.refresh() }
             LaunchedEffect(state.openedClaimId) {
                 val id = state.openedClaimId ?: return@LaunchedEffect
@@ -267,17 +256,6 @@ fun CustomerNavHost(
                 onRetry = viewModel::refresh,
                 onOpenClaim = viewModel::openClaim,
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
-                onOpenCatalog = {
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (granted) {
-                        navController.navigate(MapaPrestadoresRoute)
-                    } else {
-                        locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
-                },
             )
         }
         composable<MapaPrestadoresRoute> {
@@ -336,9 +314,12 @@ fun CustomerNavHost(
         composable<EvidenciaAvisoRoute> {
             val viewModel = avisoViewModel()
             val state by viewModel.state.collectAsState()
-            LaunchedEffect(state.phase) {
-                if (state.phase == NoticePhase.Confirmation) {
-                    navController.navigate(ConfirmacionAvisoRoute(state.receiptId))
+            LaunchedEffect(state.receiptId) {
+                if (state.phase == NoticePhase.Confirmation && state.receiptId.isNotBlank()) {
+                    navController.navigate(ConfirmacionAvisoRoute(state.receiptId)) {
+                        popUpTo(AvisoSiniestroRoute) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             }
             EvidenciaAvisoScreen(
@@ -356,13 +337,16 @@ fun CustomerNavHost(
         }
         composable<ConfirmacionAvisoRoute> { entry ->
             val route = entry.toRoute<ConfirmacionAvisoRoute>()
+            val notice = avisoViewModel()
             ConfirmacionAvisoScreen(
                 siniestroId = route.siniestroId,
                 onMyClaims = {
-                    navController.popBackStack(SiniestrosRoute, inclusive = false)
+                    notice.reopen()
+                    navController.showClaimsList()
                 },
                 onHome = {
-                    navController.popBackStack(InicioRoute, inclusive = false)
+                    notice.reopen()
+                    navController.leaveIssuance(InicioRoute)
                 },
             )
         }
@@ -548,8 +532,7 @@ fun NavHostController.openDestination(destination: Destination) {
     val currentParent = current?.let { selectedDestination(it) }
     val currentMode = current?.let { shellMode(it, signedIn = true) }
     if (currentParent == destination && currentMode == ShellMode.Root) return
-    if (currentParent == destination) {
-        popBackStack(destination.rootRoute(), inclusive = false)
+    if (currentParent == destination && popBackStack(destination.rootRoute(), inclusive = false)) {
         return
     }
     navigate(destination.rootRoute()) {
@@ -558,6 +541,17 @@ fun NavHostController.openDestination(destination: Destination) {
         }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+fun NavHostController.showClaimsList() {
+    if (popBackStack(SiniestrosRoute, inclusive = false)) return
+    navigate(SiniestrosRoute) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = false
     }
 }
 

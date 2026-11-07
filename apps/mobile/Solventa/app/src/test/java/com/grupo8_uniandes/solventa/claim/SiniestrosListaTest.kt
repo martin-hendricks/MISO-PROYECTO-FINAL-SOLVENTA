@@ -5,7 +5,6 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimEvidence
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHistory
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
-import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimChip
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -34,22 +33,32 @@ class SiniestrosListaTest {
         Dispatchers.resetMain()
     }
     private val rows = listOf(
+        ClaimSummary("SIN-R", "SOAT", "aviso", ClaimStatus.RECIBIDO, tipo = "asistido"),
         ClaimSummary("SIN-1", "SOAT", "choque", ClaimStatus.EN_EVALUACION, tipo = "asistido"),
+        ClaimSummary("SIN-D", "SOAT", "decision", ClaimStatus.DECIDIDO, tipo = "asistido"),
+        ClaimSummary("SIN-E", "SOAT", "ruta", ClaimStatus.ENRUTADO, tipo = "asistido"),
         ClaimSummary("SIN-2", "SOAT", "pago", ClaimStatus.PAGADO, tipo = "asistido"),
         ClaimSummary("SIN-P", "Clima", "vuelo", ClaimStatus.PAGADO, tipo = "parametrico"),
     )
 
     @Test
     fun givenTheLoadedList_whenAChipIsChosen_thenOnlyThatStatusRemains() {
-        assertEquals(3, rows.filtered(ClaimChip.Todos).size)
-        assertEquals(listOf("SIN-1"), rows.filtered(ClaimChip.EnEvaluacion).map { it.siniestroId })
-        assertEquals(listOf("SIN-2", "SIN-P"), rows.filtered(ClaimChip.Pagado).map { it.siniestroId })
+        assertEquals(rows.map { it.siniestroId }, rows.filtered(null).map { it.siniestroId })
+        assertEquals(listOf("SIN-R"), rows.filtered(ClaimStatus.RECIBIDO).map { it.siniestroId })
+        assertEquals(listOf("SIN-1"), rows.filtered(ClaimStatus.EN_EVALUACION).map { it.siniestroId })
+        assertEquals(listOf("SIN-D"), rows.filtered(ClaimStatus.DECIDIDO).map { it.siniestroId })
+        assertEquals(listOf("SIN-E"), rows.filtered(ClaimStatus.ENRUTADO).map { it.siniestroId })
+        assertEquals(listOf("SIN-2", "SIN-P"), rows.filtered(ClaimStatus.PAGADO).map { it.siniestroId })
     }
 
     @Test
     fun givenAPaidParametricRow_whenOpened_thenTheViewModelMarksItParametric() {
         val model = SiniestrosViewModel(FixedClaims(rows))
-        model.selectChip(ClaimChip.Pagado)
+        model.selectChip(ClaimStatus.PAGADO)
+        assertEquals(ClaimStatus.PAGADO, model.state.value.chip)
+        model.selectChip(null)
+        assertEquals(null, model.state.value.chip)
+        model.selectChip(ClaimStatus.PAGADO)
         model.openClaim("SIN-P")
         assertEquals(true, model.state.value.openParametric)
         model.openClaim("SIN-2")
