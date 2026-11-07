@@ -1,5 +1,14 @@
 import { Page } from 'playwright';
-import { Catalog, Client, Home, Offer, OperatorPolicy, PolicyDetail } from '../data/generators';
+import {
+  Catalog,
+  Client,
+  Home,
+  MortgageOffer,
+  Offer,
+  OperatorPolicy,
+  PolicyDetail,
+  PolicyNotice,
+} from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
@@ -11,6 +20,11 @@ const INICIO = '**/web/cliente/inicio';
 const PERFIL = '**/web/cliente/perfil';
 const POLIZAS_LISTA = '**/web/cliente/polizas';
 const POLIZA_DETALLE = '**/web/cliente/polizas/*';
+// Más específica que POLIZA_DETALLE (que también matchea esta URL, ver el
+// comentario de serveOperatorPolicyWith sobre el orden de registro inverso de
+// Playwright) -- se registra DESPUÉS de servePolicyDetail en cualquier step
+// que necesite ambas, para que esta gane primero.
+const POLIZAS_AVISOS = '**/web/cliente/polizas/por-vencer';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
 const ASESOR_EMISION = '**/web/asesor/emisiones';
@@ -45,6 +59,8 @@ export class BffDoubles {
   private issueRequests = 0;
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
+  private mortgageBodies: Record<string, unknown>[] = [];
+  private originationBodies: Record<string, unknown>[] = [];
 
   constructor(private readonly page: Page) {}
 
@@ -148,6 +164,13 @@ export class BffDoubles {
     await this.page.route(POLIZAS_LISTA, (route) => route.fulfill({ json: { polizas: policies } }));
   }
 
+  /** HU-119: pólizas vigentes del cliente que vencen pronto. Registrar
+   * después de servePolicyDetail si el escenario también necesita esa ruta. */
+  async serveNotices(notices: PolicyNotice[]): Promise<void> {
+    await this.page.unroute(POLIZAS_AVISOS);
+    await this.page.route(POLIZAS_AVISOS, (route) => route.fulfill({ json: { polizas: notices } }));
+  }
+
   /** Single handler for both GET .../polizas/{numero} and POST .../ciclo:
    * Playwright matches overlapping glob routes in reverse registration
    * order, and `**\/polizas/*` also matches `.../polizas/ciclo`, so two
@@ -157,7 +180,7 @@ export class BffDoubles {
     detalle: (policy: OperatorPolicy) => OperatorPolicy,
     ciclo: (
       policy: OperatorPolicy,
-      body: { verbo: string; motivo?: string },
+      body: { verbo: string; motivo?: string; coberturas?: OperatorPolicy['coberturas'] },
     ) => { status?: number; json: unknown },
     policy: OperatorPolicy,
   ): Promise<void> {
@@ -166,7 +189,11 @@ export class BffDoubles {
     await this.page.unroute(OPERADOR_POLIZA_DETALLE);
     await this.page.route(OPERADOR_POLIZA_DETALLE, (route) => {
       if (route.request().method() === 'POST') {
-        const body = route.request().postDataJSON() as { verbo: string; motivo?: string };
+        const body = route.request().postDataJSON() as {
+          verbo: string;
+          motivo?: string;
+          coberturas?: OperatorPolicy['coberturas'];
+        };
         const { status, json } = ciclo(current, body);
         if (json && typeof json === 'object' && 'numero' in json) {
           current = json as OperatorPolicy;
@@ -187,6 +214,9 @@ export class BffDoubles {
       (current, body) => {
         if (body.verbo === 'renovar') {
           return { json: { ...current, venceEn: '2028-10-01' } };
+        }
+        if (body.verbo === 'modificar') {
+          return { json: { ...current, coberturas: body.coberturas ?? current.coberturas } };
         }
         if (body.verbo === 'cancelar') {
           return {
@@ -308,6 +338,49 @@ export class BffDoubles {
       this.issueRequests += 1;
       return route.fulfill({ json: emision });
     });
+  }
+
+  /** Answers the customer issuance `POST /cliente/polizas` with a core refusal (HU-165). */
+  async refuseIssuance(status: number, body: Record<string, unknown>): Promise<void> {
+    await this.page.route(POLIZAS_LISTA, (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      this.issueRequests += 1;
+      return route.fulfill({ status, json: body });
+    });
+  }
+
+  /** Answers the customer mortgage origination: GET returns the pending one (or 404), POST saves it. */
+  async serveMortgageOrigination(pending: { valor: number; plazoMeses: number } | null): Promise<void> {
+    const url = '**/web/cliente/originacion-hipotecaria';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        this.originationBodies.push(body);
+        return route.fulfill({ status: 201, json: { ...body, origen: 'cliente' } });
+      }
+      return pending
+        ? route.fulfill({ json: { ...pending, origen: 'cliente' } })
+        : route.fulfill({ status: 404, json: { codigo: 'no_encontrado', mensaje: 'No existe' } });
+    });
+  }
+
+  originationBody(): Record<string, unknown> | undefined {
+    return this.originationBodies.at(-1);
+  }
+
+  /** Answers `POST /{canal}/oferta-hipotecaria` (HU-162); a new call replaces the answer. */
+  async serveMortgageOffer(canal: Canal, offer: MortgageOffer): Promise<void> {
+    const url = `**/web/${canal}/oferta-hipotecaria`;
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      this.mortgageBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ json: offer });
+    });
+  }
+
+  mortgageBody(): Record<string, unknown> | undefined {
+    return this.mortgageBodies.at(-1);
   }
 
   issuesRequested(): number {

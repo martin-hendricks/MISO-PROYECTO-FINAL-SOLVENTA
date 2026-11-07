@@ -62,6 +62,14 @@
           }}</a>
         </div>
       }
+      @case ('revoked') {
+        <div class="empty-state" role="alert" data-testid="emision-revoked">
+          <p>{{ 'emision.revoked.body' | translate }}</p>
+          <a class="filled" routerLink="/cotizacion" data-testid="emision-revoked-new-quote">{{
+            'emision.revoked.action' | translate
+          }}</a>
+        </div>
+      }
       @case ('error') {
         <div class="empty-state" role="alert" data-testid="emision-error">
           <p>{{ 'emision.error.body' | translate }}</p>

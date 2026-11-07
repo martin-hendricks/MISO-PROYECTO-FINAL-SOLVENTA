@@ -5,6 +5,7 @@ Feature: Customer sign-up
     Given the customer comes from language and region or from "Crear cuenta" on login
     When the customer fills in name, document, email and password
     Then the customer continues to data consent
+    And the current page has no accessibility violations
     And no document photo or biometrics are requested
 
   Scenario: Already have an account

@@ -8,12 +8,13 @@ from typing import Any
 from uuid import UUID
 
 from app.config import Settings
-from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
+from app.domain.errores import ConsentimientoRevocado, NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima, evaluar_idoneidad
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.ports.catalogo import CatalogoProductos
+from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 from app.ports.suscripcion import DecisionSuscripcion, MotorSuscripcion
@@ -318,9 +319,26 @@ async def _registrar_aceptacion(
     return ganadora, oferta, False
 
 
+async def _exigir_consentimiento_vigente(
+    uow: FabricaUnidadDeTrabajo, consentimientos: ConsentimientoPerfil, cotizacion_id: UUID, aceptacion_key: str
+) -> None:
+    async with uow() as tx:
+        solicitud = await tx.solicitudes.obtener(cotizacion_id)
+        oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
+    if solicitud is None or oferta is None or solicitud.aceptacion_key == aceptacion_key:
+        return
+    if not consentimientos.requiere(solicitud.producto):
+        return
+    if oferta.factor_riesgo_origen != OrigenFactorRiesgo.REAL:
+        return
+    if not await consentimientos.vigente(solicitud.usuario_id):
+        raise ConsentimientoRevocado(cotizacion_id)
+
+
 async def aceptar_oferta(
     uow: FabricaUnidadDeTrabajo,
     suscripciones: MotorSuscripcion,
+    consentimientos: ConsentimientoPerfil,
     cotizacion_id: UUID,
     aceptacion_key: str,
     perfil_id: UUID,
@@ -331,6 +349,7 @@ async def aceptar_oferta(
     aceptación original; otra clave sobre una cotización aceptada es oferta_ya_usada.
     La aceptación se confirma antes de encadenar HU-13: si ms-suscripcion falla, el
     reintento con la misma clave retoma la decisión sin volver a aceptar."""
+    await _exigir_consentimiento_vigente(uow, consentimientos, cotizacion_id, aceptacion_key)
     solicitud, oferta, creada = await _registrar_aceptacion(
         uow, cotizacion_id, aceptacion_key, usuario_id
     )

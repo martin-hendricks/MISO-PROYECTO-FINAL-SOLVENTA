@@ -217,6 +217,15 @@ class DobleNucleo:
     def solicitar_oferta_hipotecario(self, **kwargs):
         return self._llamar("solicitar_oferta_hipotecario", **kwargs)
 
+    def polizas_por_vencer(self, **kwargs):
+        return self._llamar("polizas_por_vencer", **kwargs) or []
+
+    def registrar_dispositivo(self, **kwargs):
+        return self._llamar("registrar_dispositivo", **kwargs) or {
+            "dispositivo_id": "77777777-7777-7777-7777-777777777777",
+            "activo": True,
+        }
+
 
 @pytest.fixture
 def client() -> TestClient:
@@ -957,6 +966,8 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
         "obtener_por_numero",
         "registrar_aviso",
         "listar_siniestros",
+        "polizas_por_vencer",
+        "registrar_dispositivo",
     ]
 
 
@@ -1419,3 +1430,57 @@ def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     assert cuerpo["siniestros"][0]["siniestroId"] == "SIN-9"
     assert cuerpo["siniestros"][0]["ramo"] == "Sin clasificar"
     assert cuerpo["siniestros"][0]["poliza"] == "POL-1"
+
+
+def test_avisos_v0_es_la_muestra_fija_sin_llamar_al_nucleo(client, doble):
+    headers = _auth(client)
+    cuerpo = client.get("/cliente/avisos", headers=headers).json()
+    assert cuerpo["avisos"][0]["poliza"] == "POL-88219-CO"
+    assert doble.llamadas == []
+
+
+def test_avisos_v1_traduce_las_polizas_por_vencer_del_nucleo(client, doble):
+    headers = _auth(client)
+    doble.respuestas["polizas_por_vencer"] = [
+        {"numero": "POL-77", "fin_vigencia": "2027-02-01", "estado": "vigente"}
+    ]
+    cuerpo = client.get("/v1/cliente/avisos", headers=headers).json()
+    assert cuerpo == {"avisos": [{"tipo": "vencimiento", "poliza": "POL-77", "venceEn": "2027-02-01"}]}
+    assert _nombres(doble) == ["polizas_por_vencer"]
+
+
+def test_avisos_v1_sin_pendientes_devuelve_lista_vacia(client, doble):
+    headers = _auth(client)
+    assert client.get("/v1/cliente/avisos", headers=headers).json() == {"avisos": []}
+
+
+def test_avisos_v1_respuesta_no_lista_es_502(client, doble):
+    headers = _auth(client)
+    doble.respuestas["polizas_por_vencer"] = {"no": "lista"}
+    assert client.get("/v1/cliente/avisos", headers=headers).status_code == 502
+
+
+def test_avisos_v1_poliza_incompleta_es_502(client, doble):
+    headers = _auth(client)
+    doble.respuestas["polizas_por_vencer"] = [{"numero": "POL-77"}]
+    assert client.get("/v1/cliente/avisos", headers=headers).status_code == 502
+
+
+def test_avisos_token_v0_no_llama_al_nucleo(client, doble):
+    headers = _auth(client)
+    respuesta = client.post(
+        "/cliente/avisos/token", headers=headers, json={"token": "fcm-1", "plataforma": "android"}
+    )
+    assert respuesta.json() == {"estado": "aceptada", "plataforma": "android"}
+    assert doble.llamadas == []
+
+
+def test_avisos_token_v1_registra_el_dispositivo_en_notificaciones(client, doble):
+    headers = _auth(client)
+    respuesta = client.post(
+        "/v1/cliente/avisos/token", headers=headers, json={"token": "fcm-1", "plataforma": "android"}
+    )
+    assert respuesta.json() == {"estado": "aceptada", "plataforma": "android"}
+    assert _nombres(doble) == ["registrar_dispositivo"]
+    assert doble.llamadas[0]["plataforma"] == "android"
+    assert doble.llamadas[0]["token"] == "fcm-1"

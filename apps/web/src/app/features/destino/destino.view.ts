@@ -5,14 +5,7 @@ import { IdiomaRegionView } from '../idioma-region/idioma-region.view';
 import { PerfilGateway } from '../perfil/perfil.gateway';
 import { SiniestrosGateway } from '../siniestros/siniestros.gateway';
 
-export type Destino =
-  | 'cotizacion'
-  | 'emision'
-  | 'poliza'
-  | 'siniestro'
-  | 'siniestros'
-  | 'perfil'
-  | 'vidaCrediticia';
+export type Destino = 'cotizacion' | 'emision' | 'poliza' | 'siniestro' | 'siniestros' | 'perfil';
 
 /** Customer destination Inicio links to whose content belongs to a later
  * story. Perfil (HU-108) is the one exception: it already hosts the

@@ -21,11 +21,13 @@
         {{ 'emision.emitida.renovacion' | translate }}
       </label>
       @if (!vm.renewal()) {
-        <p class="renewal-helper" data-testid="parametrico-renovacion-ayuda">
+        <p class="renewal-helper" role="status" data-testid="parametrico-renovacion-ayuda">
           {{ 'parametrico.renovacionAyuda' | translate }}
         </p>
       }
     </div>
-    <a routerLink="/siniestros" data-testid="parametrico-volver">{{ 'parametrico.volver' | translate }}</a>
+    <a routerLink="/siniestros" data-testid="parametrico-volver">{{
+      'parametrico.volver' | translate
+    }}</a>
   }
 </section>

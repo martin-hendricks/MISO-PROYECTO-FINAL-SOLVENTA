@@ -20,7 +20,8 @@ app/
 ├── config.py            pydantic-settings: timeouts, valores de respaldo y pesos de la fórmula de oferta
 ├── dependencies.py      raíz de composición: qué implementación cumple cada puerto
 ├── observabilidad.py    /health, /metrics (Prometheus), X-Correlation-Id
-├── api/v1/              POST /v1/consentimientos, GET/DELETE /v1/consentimientos/{cliente_id}, POST /v1/ofertas-hipotecario
+├── api/v1/              POST /v1/consentimientos, GET/DELETE /v1/consentimientos/{cliente_id}, POST /v1/ofertas-hipotecario,
+│                        GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima
 ├── domain/               Consentimiento, AtributoPerfil, Perfil, Oferta, FactorInterno + fórmula de precio
 ├── application/         casos de uso: otorgar/revocar/consultar consentimiento, perfilar_y_ofertar
 ├── ports/               persistencia.py (repos + UoW) y adaptadores.py (AdaptadorOpenFinance/AdaptadorOpenData)
@@ -64,6 +65,22 @@ Pesos y tarifa base por defecto (configurables en `app/config.py` / `.env`):
 
 `tarifa_base = 50000` (COP). Cada atributo usado produce un `FactorInterno` `{"factor": "<atributo>", "impacto": "reduce_prima"|"aumenta_prima", "peso": <peso>}` que acompaña la oferta — nunca se expone el valor crudo de ningún proveedor, solo el nombre del atributo propio de Solventa y su efecto cualitativo.
 
+### Perfil de riesgo para ms-cotizacion (`IPerfilRiesgo`)
+
+La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde los factores y el snapshot persistidos). `GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima` devuelve la oferta más reciente del cliente sin volver a llamar a los adaptadores; ms-cotizacion la lee para cotizar `vida-hipotecario` con este mismo perfil, de modo que la prima cotizada y cobrada en la emisión sale del perfil que el cliente vio explicado. Exige consentimiento vigente (`403` si se revocó) y responde `404` si el cliente aún no tiene ofertas.
+
+### Originación hipotecaria (HU-53, HU-105)
+
+Una originación guarda el crédito para el que el cliente pide vida hipotecario: `valor`, `plazo_meses` y `origen` (`cliente` cuando cotiza en el portal, `socio` cuando la envía un banco aliado). Hay a lo sumo una pendiente por cliente.
+
+| Método | Ruta | Efecto |
+| --- | --- | --- |
+| `POST` | `/v1/originaciones` | Registra la originación; si ya había una pendiente, la cierra y la reemplaza (`201`) |
+| `GET` | `/v1/originaciones/clientes/{cliente_id}/pendiente` | Devuelve la pendiente o `404` |
+| `DELETE` | `/v1/originaciones/clientes/{cliente_id}/pendiente` | La cierra al emitir la póliza (`204`, idempotente) |
+
+La tabla se crea con `db/02_ms_perfilamiento_originacion.sql`. Una base creada antes de ese script no lo corre sola: hay que recrear el volumen o aplicarlo a mano.
+
 ## Degradación (HU-56)
 
 Cada adaptador tiene su propio timeout (`timeout_open_finance_ms`, `timeout_open_data_ms`, 400ms por defecto) aplicado con `asyncio.wait_for` en `app/application/casos_uso.py`. Si expira o el adaptador lanza cualquier excepción, el atributo correspondiente se sustituye por su valor de respaldo (constante configurable) y se marca `degradado=True` para ese atributo; la `Oferta` resultante expone `degradado=true` si al menos uno de sus atributos vino del respaldo. La oferta degradada sigue siendo válida y se persiste junto con el snapshot completo de insumos (`snapshot_atributos`), para que la decisión de precio sea 100% reconstruible aunque las reglas cambien después.
@@ -92,6 +109,10 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `TIMEOUT_OPEN_FINANCE_MS` / `TIMEOUT_OPEN_DATA_MS` | `400` | Timeout por adaptador (HU-54/HU-56) |
 | `RESPALDO_*` | ver `.env.example` | Valor de respaldo por atributo (HU-56) |
 | `TARIFA_BASE`, `PESO_*` | ver `.env.example` | Fórmula de oferta (HU-55) |
+| `REDIS_CACHE_OD_HOST` | vacío | Host de `:CacheOD`/`:CacheOF` (HA-03/HA-04). Vacío desactiva la caché |
+| `REDIS_CACHE_OD_PORT` | `6379` | Puerto de la caché |
+| `REDIS_CACHE_OD_TTL_SECONDS` | `600` | Vigencia de los atributos OF/OD en caché |
+| `TIMEOUT_CACHE_MS` | `50` | Tiempo máximo de lectura/escritura en caché; si se excede o falla, se consulta al proveedor |
 
 ## Pruebas
 

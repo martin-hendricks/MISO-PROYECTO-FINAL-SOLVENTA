@@ -50,6 +50,11 @@
         </ul>
 
         <table data-testid="clientes-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.clientes.title' | translate
+            }}
+          </caption>
           <thead>
             <tr>
               <th scope="col">{{ 'backoffice.clientes.column.cliente' | translate }}</th>
@@ -85,6 +90,9 @@
                         documento: cliente.documento,
                       }"
                       [attr.data-testid]="'cotizar-' + cliente.clienteId"
+                      [attr.aria-label]="
+                        ('backoffice.clientes.cotizar' | translate) + ' ' + cliente.nombre
+                      "
                       >{{ 'backoffice.clientes.cotizar' | translate }}</a
                     >
                   }

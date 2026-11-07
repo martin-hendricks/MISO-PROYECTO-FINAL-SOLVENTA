@@ -211,3 +211,20 @@ class SuscripcionesFalsas:
         return self._decisiones.setdefault(
             solicitud_id, DecisionSuscripcion(uuid4(), self.decision, "regla de suscripción")
         )
+
+
+class ConsentimientosFalsos:
+    def __init__(self, productos=(), vigentes=None) -> None:
+        self.productos = set(productos)
+        self.vigentes = vigentes
+        self.caida: Exception | None = None
+        self.consultas: list[UUID] = []
+
+    def requiere(self, producto):
+        return producto in self.productos
+
+    async def vigente(self, usuario_id):
+        self.consultas.append(usuario_id)
+        if self.caida is not None:
+            raise self.caida
+        return self.vigentes is None or usuario_id in self.vigentes

@@ -26,4 +26,14 @@ export class PolizaDetallePage {
       .locator('[data-testid="polizas-lista"]:not([data-state="loading"])')
       .waitFor({ state: 'visible' });
   }
+
+  /** HU-66: el detalle de cliente no expone ninguna acción de ciclo de vida
+   * (renovar/modificar/cancelar son exclusivas del back-office, ver
+   * poliza-backoffice.page.ts) -- solo botones de navegación/reintento. */
+  async expectNoLifecycleActions(): Promise<void> {
+    for (const accion of ['renovar', 'modificar', 'cancelar']) {
+      const count = await this.page.getByTestId(new RegExp(`poliza-${accion}`)).count();
+      assert.equal(count, 0, `expected no "${accion}" action in the customer policy detail`);
+    }
+  }
 }

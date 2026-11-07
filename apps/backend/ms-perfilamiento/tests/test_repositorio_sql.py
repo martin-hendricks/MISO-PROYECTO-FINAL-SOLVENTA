@@ -66,3 +66,36 @@ async def test_perfilar_y_ofertar_persiste_snapshot_completo(uow, config):
     assert oferta.precio > 0
     nombres = {a.nombre for a in oferta.snapshot_atributos}
     assert nombres == {NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO, ANTIGUEDAD_DOCUMENTO}
+
+
+async def test_ultima_oferta_por_cliente_es_la_mas_reciente(uow, config):
+    cliente_id = f"it-{uuid4()}"
+    await casos_uso.otorgar_consentimiento(uow, cliente_id)
+    for _ in range(2):
+        ultima = await casos_uso.perfilar_y_ofertar(
+            uow, AdaptadorOpenFinanceStub(), AdaptadorOpenDataStub(), config, f"it-{uuid4()}", cliente_id
+        )
+
+    leida = await casos_uso.consultar_ultima_oferta(uow, cliente_id)
+
+    assert leida.id == ultima.oferta.id
+    assert leida.factor_ajuste == ultima.oferta.factor_ajuste
+
+
+async def test_originacion_persiste_reemplaza_y_cierra(uow):
+    from decimal import Decimal
+
+    from app.domain.modelos import OrigenOriginacion
+
+    cliente_id = f"it-{uuid4()}"
+    primera = await casos_uso.registrar_originacion(uow, cliente_id, Decimal("100000000"), 120, OrigenOriginacion.CLIENTE)
+    segunda = await casos_uso.registrar_originacion(uow, cliente_id, Decimal("200000000"), 360, OrigenOriginacion.SOCIO)
+
+    pendiente = await casos_uso.consultar_originacion_pendiente(uow, cliente_id)
+    assert pendiente.id == segunda.id
+    assert pendiente.id != primera.id
+    assert (pendiente.valor, pendiente.plazo_meses, pendiente.origen) == (Decimal("200000000.00"), 360, OrigenOriginacion.SOCIO)
+
+    await casos_uso.cerrar_originacion(uow, cliente_id)
+    with pytest.raises(Exception):
+        await casos_uso.consultar_originacion_pendiente(uow, cliente_id)

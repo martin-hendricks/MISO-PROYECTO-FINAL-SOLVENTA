@@ -150,7 +150,7 @@ def test_al_arrancar_la_app_configura_el_doble_de_perfil_de_riesgo_desde_el_ento
 
     app = main.crear_app()
     with TestClient(app):
-        doble = app.state.adaptador_perfil_riesgo
+        doble = app.state.adaptador_perfil_riesgo._por_defecto
         assert (doble._latencia_ms, doble._fallar) == (900, True)
 
 

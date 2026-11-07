@@ -80,7 +80,6 @@
     "siniestro": "Detalle de siniestro",
     "siniestros": "Siniestros",
     "perfil": "Perfil",
-    "vidaCrediticia": "Vida Crediticia",
     "pending": {
       "title": "Sección en preparación",
       "body": "Pronto podrás continuar desde aquí.",
@@ -97,6 +96,18 @@
         "title": "Aún no tienes pólizas",
         "body": "Cuando emitas una póliza la verás aquí."
       }
+    },
+    "avisos": {
+      "title": "Avisos de vencimiento",
+      "subtitle": "Pólizas vigentes que vencen pronto.",
+      "loading": "Cargando tus avisos…",
+      "error": { "body": "No pudimos cargar tus avisos.", "retry": "Reintentar" },
+      "empty": {
+        "title": "No tienes avisos",
+        "body": "Ninguna de tus pólizas vence pronto."
+      },
+      "venceEl": "Vence el",
+      "verPoliza": "Ver póliza"
     },
     "detalle": {
       "back": "Volver",
@@ -143,6 +154,10 @@
     },
     "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
     "expired": { "body": "La oferta venció.", "action": "Nueva cotización" },
+    "revoked": {
+      "body": "Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.",
+      "action": "Nueva cotización"
+    },
     "invalid": {
       "title": "No hay una oferta para emitir",
       "body": "Vuelve a la oferta y acéptala de nuevo."
@@ -262,7 +277,9 @@
       "clientes": "Clientes",
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
-      "avisos": "Avisos"
+      "avisos": "Avisos",
+      "reportes": "Reportes",
+      "metricas": "Métricas"
     },
     "role": {
       "label": "Rol:",
@@ -289,6 +306,7 @@
       "prima": "Prima",
       "siniestrosAbiertos": "Siniestros abiertos",
       "renovar": "Renovar",
+      "acciones": "Acciones de la póliza",
       "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
       "cancelar": "Cancelar póliza",
       "confirmCancelar": {
@@ -302,6 +320,18 @@
         "motivo": "Motivo",
         "operador": "Operador",
         "devolucion": "Devolución estimada"
+      },
+      "coberturas": {
+        "title": "Coberturas",
+        "empty": "Esta póliza no tiene coberturas registradas.",
+        "modificar": "Modificar coberturas",
+        "nombre": "Nombre",
+        "suma": "Suma asegurada",
+        "deducible": "Deducible",
+        "agregar": "Agregar cobertura",
+        "quitar": "Quitar",
+        "guardar": "Guardar cambios",
+        "acciones": "Acciones de coberturas"
       }
     },
     "emision": {
@@ -401,7 +431,8 @@
         "nombre": "Nombre",
         "documento": "Documento",
         "vigencia": "Vigencia",
-        "placa": "Placa"
+        "placa": "Placa",
+        "consentimiento": "El cliente autoriza a Solventa a consultar su información crediticia para personalizar la oferta (consentimiento de perfilamiento)."
       },
       "error": {
         "nombre": {
@@ -423,7 +454,9 @@
         "id": "Cotización",
         "calculando": "Calculando la prima…",
         "sinOferta": "Sin oferta",
-        "sinOfertaBody": "Completa los datos y calcula la prima."
+        "sinOfertaBody": "Completa los datos y calcula la prima.",
+        "factores": "Factores del perfil",
+        "degradada": "El perfil no respondió a tiempo: la prima usa valores de respaldo."
       }
     },
     "cotizaciones": {
@@ -447,6 +480,7 @@
       "continuar": "Continuar emisión",
       "anterior": "Anterior",
       "siguiente": "Siguiente",
+      "paginacion": "Paginación de cotizaciones",
       "aviso": {
         "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
       },
@@ -559,6 +593,40 @@
         }
       }
     },
+    "reportes": {
+      "title": "Reportes",
+      "subtitle": "Extractos internos para el regulador y la reaseguradora. El contenido lo define un adaptador interno, no el formato real (SFC/ACORD).",
+      "generar": "Generar",
+      "descargar": "Descargar",
+      "error": "No pudimos generar el reporte.",
+      "regulador": {
+        "title": "Reporte al regulador",
+        "body": "Extracto interno de pólizas y siniestros de los últimos 30 días."
+      },
+      "reaseguradora": {
+        "title": "Extracto para la reaseguradora",
+        "body": "Cartera y siniestralidad de las pólizas canceladas en los últimos 30 días."
+      }
+    },
+    "metricas": {
+      "title": "Métricas",
+      "subtitle": "Conteos agregados de pólizas emitidas, renovadas, modificadas, canceladas y por vencer, de los últimos 30 días.",
+      "cargando": "Cargando métricas…",
+      "vacio": "No hay eventos registrados en este rango.",
+      "error": "No pudimos cargar las métricas.",
+      "columna": {
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "cantidad": "Cantidad"
+      },
+      "tipo": {
+        "PolizaEmitida": "Emitidas",
+        "PolizaRenovada": "Renovadas",
+        "PolizaModificada": "Modificadas",
+        "PolizaCancelada": "Canceladas",
+        "PolizaPorVencer": "Por vencer"
+      }
+    },
     "pending": {
       "title": "Sección en preparación",
       "body": "Pronto podrás gestionar esta sección desde aquí."
@@ -568,6 +636,50 @@
       "title": "No tienes permiso para ver esta sección",
       "body": "Tu rol actual es {{current}}. Esta sección es exclusiva del rol {{required}}. Solicita el cambio de rol al administrador.",
       "home": "Volver al inicio"
+    }
+  },
+  "vidaCrediticia": {
+    "volver": "Volver",
+    "consentimiento": {
+      "title": "Consentimiento Vida Crediticia",
+      "subtitle": "Originación hipotecaria. Este grant no se abre desde Perfil.",
+      "texto": "Autorizas a Solventa a consultar información crediticia para personalizar la oferta de vida asociada a tu crédito hipotecario.",
+      "credito": "Datos del crédito",
+      "autorizar": "Autorizar",
+      "autorizando": "Calculando tu oferta…",
+      "ahoraNo": "Ahora no"
+    },
+    "etapas": {
+      "title": "Estamos armando tu oferta",
+      "openFinance": "Consultando Open Finance",
+      "openData": "Consultando Open Data",
+      "riesgo": "Calculando tu riesgo individualizado",
+      "oferta": "Generando tu oferta de vida hipotecario"
+    },
+    "oferta": {
+      "title": "Oferta Crédito Hipotecario",
+      "subtitle": "Prima personalizada con factores explicables.",
+      "factores": "Factores",
+      "montoCredito": "Monto del crédito",
+      "plazo": "Plazo",
+      "plazoValor": "{{meses}} meses",
+      "prima": "Prima",
+      "aceptar": "Aceptar y emitir",
+      "degradada": "No pudimos consultar todos tus datos a tiempo: la prima usa valores de respaldo. Puedes aceptarla igual.",
+      "sinFactores": "Sin factores de perfil disponibles."
+    },
+    "factor": {
+      "nivel_ingresos_estimado": "Nivel de ingresos estimado",
+      "score_comportamiento": "Comportamiento de pago",
+      "zona_riesgo": "Zona de riesgo",
+      "antiguedad_documento": "Antigüedad del documento"
+    },
+    "impacto": {
+      "reduce_prima": "Reduce la prima",
+      "aumenta_prima": "Aumenta la prima"
+    },
+    "error": {
+      "servicio": "No pudimos calcular tu oferta. Intenta de nuevo en unos minutos."
     }
   },
   "cotizacion": {
@@ -589,6 +701,7 @@
       "referencia": "Referencia",
       "umbral": "Umbral",
       "valor": "Valor del crédito",
+      "valorCredito": "Valor del crédito",
       "plazoMeses": "Plazo (meses)",
       "cuota": "Cuota",
       "destino": "Destino",
@@ -729,6 +842,11 @@
       "elegirPoliza": "Elige una póliza",
       "fecha": "Fecha del evento",
       "descripcion": "Descripción",
+      "error": {
+        "poliza": "Selecciona una póliza.",
+        "fecha": "Elige una fecha válida que no sea futura.",
+        "descripcion": "Describe lo que ocurrió."
+      },
       "completa": "Elige la póliza, una fecha que no sea futura y describe lo ocurrido.",
       "continuar": "Continuar a evidencia",
       "queAdjuntar": {

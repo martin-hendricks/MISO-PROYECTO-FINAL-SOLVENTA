@@ -1,13 +1,22 @@
 import { homeSection, requiredRole, SECTIONS } from './sections';
 
 describe('back-office sections', () => {
-  it('exposes exactly four destinations in order', () => {
-    expect(SECTIONS).toEqual(['clientes', 'cotizaciones', 'polizas', 'avisos']);
+  it('exposes exactly six destinations in order', () => {
+    expect(SECTIONS).toEqual([
+      'clientes',
+      'cotizaciones',
+      'polizas',
+      'avisos',
+      'reportes',
+      'metricas',
+    ]);
   });
 
-  it('keeps Avisos and Polizas for the operator and the rest for the advisor', () => {
+  it('keeps Avisos, Polizas, Reportes and Metricas for the operator and the rest for the advisor', () => {
     expect(requiredRole('avisos')).toBe('operador');
     expect(requiredRole('polizas')).toBe('operador');
+    expect(requiredRole('reportes')).toBe('operador');
+    expect(requiredRole('metricas')).toBe('operador');
     expect(requiredRole('clientes')).toBe('asesor');
     expect(requiredRole('cotizaciones')).toBe('asesor');
   });

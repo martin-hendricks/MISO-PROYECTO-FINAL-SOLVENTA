@@ -11,10 +11,12 @@ from app.dependencies import (
     obtener_adaptador_perfil_riesgo,
     obtener_catalogo,
     obtener_config,
+    obtener_consentimientos,
     obtener_suscripciones,
     obtener_uow,
 )
 from app.ports.catalogo import CatalogoProductos
+from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 from app.ports.suscripcion import MotorSuscripcion
@@ -36,6 +38,7 @@ Catalogo = Annotated[CatalogoProductos, Depends(obtener_catalogo)]
 AdaptadorRiesgo = Annotated[AdaptadorPerfilRiesgo, Depends(obtener_adaptador_perfil_riesgo)]
 Config = Annotated[Settings, Depends(obtener_config)]
 Suscripciones = Annotated[MotorSuscripcion, Depends(obtener_suscripciones)]
+Consentimientos = Annotated[ConsentimientoPerfil, Depends(obtener_consentimientos)]
 ERRORES = {404: {"model": ErrorSalida}, 422: {"model": ErrorSalida}}
 
 
@@ -152,6 +155,7 @@ async def aceptar_oferta(
     response: Response,
     uow: Uow,
     suscripciones: Suscripciones,
+    consentimientos: Consentimientos,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
     llamante: LlamanteDep,
     usuario_id: UUID | None = None,
@@ -159,6 +163,7 @@ async def aceptar_oferta(
     resultado = await casos_uso.aceptar_oferta(
         uow,
         suscripciones,
+        consentimientos,
         cotizacion_id,
         idempotency_key,
         entrada.perfil_id,

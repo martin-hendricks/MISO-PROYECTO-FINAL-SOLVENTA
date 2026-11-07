@@ -106,6 +106,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/backoffice/avisos/avisos.view').then((m) => m.AvisosView),
       },
+      {
+        path: 'reportes',
+        loadComponent: () =>
+          import('./features/backoffice/reportes/reportes.view').then((m) => m.ReportesView),
+      },
+      {
+        path: 'metricas',
+        loadComponent: () =>
+          import('./features/backoffice/metricas/metricas.view').then((m) => m.MetricasView),
+      },
     ],
   },
   {
@@ -127,6 +137,14 @@ export const routes: Routes = [
         path: 'polizas',
         loadComponent: () =>
           import('./features/polizas/lista/polizas-lista.view').then((m) => m.PolizasListaView),
+      },
+      {
+        // HU-119: ruta literal antes de polizas/:numero -- "avisos" no es un numero de poliza.
+        path: 'polizas/avisos',
+        loadComponent: () =>
+          import('./features/polizas/avisos/polizas-avisos.view').then(
+            (m) => m.PolizasAvisosView,
+          ),
       },
       {
         path: 'polizas/:numero',
@@ -190,7 +208,13 @@ export const routes: Routes = [
           ),
       },
       destino('perfil', 'perfil'),
-      destino('vida-crediticia', 'vidaCrediticia'),
+      {
+        path: 'vida-crediticia',
+        loadComponent: () =>
+          import('./features/vida-crediticia/vida-crediticia.view').then(
+            (m) => m.VidaCrediticiaView,
+          ),
+      },
     ],
   },
 ];

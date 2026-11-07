@@ -25,14 +25,14 @@
       @let expired = vm.status() === 'expired';
       <div class="page-head">
         <div>
-          <h1>{{ 'cotizacion.oferta.title' | translate }}</h1>
+          <h1 id="ver-oferta-title">{{ 'cotizacion.oferta.title' | translate }}</h1>
           <p class="subtitle">{{ oferta.ramo }}</p>
           @if (oferta.descripcion) {
             <p data-testid="oferta-descripcion">{{ oferta.descripcion }}</p>
           }
         </div>
       </div>
-      <article class="card" data-testid="oferta">
+      <article class="card" aria-labelledby="ver-oferta-title" data-testid="oferta">
         <p class="label">{{ 'cotizacion.oferta.prima' | translate }}</p>
         <p class="mono premium" data-testid="oferta-prima">
           {{ oferta.prima | svMoney: oferta.moneda }}

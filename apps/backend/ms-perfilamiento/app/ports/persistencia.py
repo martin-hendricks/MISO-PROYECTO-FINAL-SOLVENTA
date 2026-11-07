@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Protocol
 from uuid import UUID
 
-from app.domain.modelos import Consentimiento, EventoDominio, Oferta
+from app.domain.modelos import Consentimiento, EventoDominio, Oferta, Originacion
 
 
 class ClaveIdempotenciaDuplicada(Exception):
@@ -29,7 +29,19 @@ class RepositorioOfertas(Protocol):
 
     async def obtener_por_clave(self, idempotency_key: str) -> Oferta | None: ...
 
+    async def obtener_ultima_por_cliente(self, cliente_id: str) -> Oferta | None:
+        """La oferta más reciente del cliente (por `creado_en`), o None si no tiene."""
+        ...
+
     async def agregar(self, idempotency_key: str, oferta: Oferta) -> None: ...
+
+
+class RepositorioOriginaciones(Protocol):
+    async def obtener_pendiente(self, cliente_id: str) -> Originacion | None: ...
+
+    async def agregar(self, originacion: Originacion) -> None: ...
+
+    async def actualizar(self, originacion: Originacion) -> None: ...
 
 
 class Outbox(Protocol):
@@ -39,6 +51,7 @@ class Outbox(Protocol):
 class UnidadDeTrabajo(Protocol):
     consentimientos: RepositorioConsentimientos
     ofertas: RepositorioOfertas
+    originaciones: RepositorioOriginaciones
     outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...

@@ -78,7 +78,10 @@ describe('DestinoView', () => {
 
   it('Perfil offers the idioma-region dialog, closed by default', () => {
     const { host: perfil } = render('perfil', null);
-    expect(perfil.querySelector('[data-testid="perfil-idioma-region-open"]')).not.toBeNull();
+    const toggle = perfil.querySelector('[data-testid="perfil-idioma-region-open"]');
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle?.getAttribute('aria-controls')).toBe('destino-idioma-region');
     expect(perfil.querySelector('[data-testid="idioma-region"]')).toBeNull();
   });
 
@@ -117,13 +120,24 @@ describe('DestinoView', () => {
     host.querySelector<HTMLButtonElement>('[data-testid="perfil-idioma-region-open"]')!.click();
     fixture.detectChanges();
 
+    expect(
+      host
+        .querySelector('[data-testid="perfil-idioma-region-open"]')
+        ?.getAttribute('aria-expanded'),
+    ).toBe('true');
     const dialog = host.querySelector('[data-testid="idioma-region"]');
     expect(dialog).not.toBeNull();
     expect(dialog?.getAttribute('data-embedded')).toBe('true');
+    expect(host.querySelector('#destino-idioma-region')).not.toBeNull();
 
     host.querySelector<HTMLButtonElement>('[data-testid="idioma-region-done"]')!.click();
     fixture.detectChanges();
 
     expect(host.querySelector('[data-testid="idioma-region"]')).toBeNull();
+    expect(
+      host
+        .querySelector('[data-testid="perfil-idioma-region-open"]')
+        ?.getAttribute('aria-expanded'),
+    ).toBe('false');
   });
 });

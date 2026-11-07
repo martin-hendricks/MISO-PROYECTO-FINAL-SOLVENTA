@@ -1,5 +1,5 @@
 import os
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -144,3 +144,90 @@ async def test_firma_rechazada_persiste_constancia_sin_poliza(uow):
     assert not constancia.exitosa and constancia.motivo
     async with uow() as tx:
         assert await tx.polizas.obtener_por_oferta(pedido.oferta_id) is None
+
+
+async def test_por_vencer_filtra_por_ventana_y_usuario(uow):
+    # emitir_poliza() siempre fija fin_vigencia a 1 año desde hoy, y
+    # renovar() nunca permite ACORTAR la vigencia -- para dejarla "por
+    # vencer" en unos días hay que escribir fin_vigencia directo en la fila,
+    # no vía un caso de uso del dominio (ninguno existe para acortar).
+    usuario_id = uuid4()
+    pedido = SolicitudEmision(
+        solicitud_id=uuid4(), oferta_id=uuid4(), usuario_id=usuario_id, token_pago_confirmado=uuid4(),
+        coberturas=[Cobertura(nombre="RC", suma_asegurada=Decimal("1000.00"))],
+    )
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+    pronto = date.today() + timedelta(days=10)
+    async with uow() as tx:
+        await tx._sesion.execute(
+            text(f"UPDATE {ESQUEMA}.poliza SET fin_vigencia = :pronto WHERE poliza_id = :id"),
+            {"pronto": pronto, "id": emision.poliza.id},
+        )
+        await tx.confirmar()
+
+    resultado = await casos_uso.listar_polizas_por_vencer(uow, usuario_id, dias=30)
+
+    assert emision.poliza.id in [p.id for p in resultado]
+
+    resultado_otro_usuario = await casos_uso.listar_polizas_por_vencer(uow, uuid4(), dias=30)
+    assert emision.poliza.id not in [p.id for p in resultado_otro_usuario]
+
+
+async def test_generar_avisos_vencimiento_publica_y_es_idempotente_contra_bd_real(uow):
+    usuario_id = uuid4()
+    pedido = SolicitudEmision(
+        solicitud_id=uuid4(), oferta_id=uuid4(), usuario_id=usuario_id, token_pago_confirmado=uuid4(),
+        coberturas=[Cobertura(nombre="RC", suma_asegurada=Decimal("1000.00"))],
+    )
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+    pronto = date.today() + timedelta(days=10)
+    async with uow() as tx:
+        await tx._sesion.execute(
+            text(f"UPDATE {ESQUEMA}.poliza SET fin_vigencia = :pronto WHERE poliza_id = :id"),
+            {"pronto": pronto, "id": emision.poliza.id},
+        )
+        await tx.confirmar()
+
+    primera = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+    segunda = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert primera >= 1
+    assert segunda == 0
+    async with uow() as tx:
+        cantidad = await tx._sesion.scalar(
+            text(
+                f"SELECT count(*) FROM {ESQUEMA}.outbox_evento "
+                "WHERE agregado_id = :id AND tipo = 'PolizaPorVencer'"
+            ),
+            {"id": emision.poliza.id},
+        )
+    assert cantidad == 1
+
+
+async def test_reporte_regulador_incluye_emitidas_hoy(uow):
+    from .dobles import ReportesFalsos
+
+    reportes = ReportesFalsos()
+    pedido = solicitud()
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+    hoy = date.today()
+
+    await casos_uso.generar_reporte_regulador(uow, reportes, hoy, hoy)
+
+    [(polizas, _, _)] = reportes.llamadas_regulador
+    assert emision.poliza.id in [p.id for p in polizas]
+
+
+async def test_reporte_reaseguradora_incluye_canceladas_hoy(uow):
+    from .dobles import ReportesFalsos
+
+    reportes = ReportesFalsos()
+    pedido = solicitud()
+    emision = await casos_uso.emitir_poliza(uow, SuscripcionesFalsas(), CobrosFalsos(), FirmaFalsa(), pedido)
+    await casos_uso.cancelar_poliza(uow, emision.poliza.id, "El cliente lo pidió", "op-1")
+    hoy = date.today()
+
+    await casos_uso.generar_reporte_reaseguradora(uow, reportes, hoy, hoy)
+
+    [(canceladas, _, _)] = reportes.llamadas_reaseguradora
+    assert emision.poliza.id in [p.id for p in canceladas]

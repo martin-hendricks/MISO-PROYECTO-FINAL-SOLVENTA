@@ -11,7 +11,7 @@ from app.domain.modelos import EstadoSolicitud
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.infrastructure.catalogo_sql import CatalogoSQL
 from app.infrastructure.sql import ESQUEMA, crear_motor, fabrica_unidad_de_trabajo
-from tests.dobles import SuscripcionesFalsas
+from tests.dobles import ConsentimientosFalsos, SuscripcionesFalsas
 
 pytestmark = [
     pytest.mark.integration,
@@ -128,7 +128,7 @@ async def test_listar_cotizaciones_usuario_contra_postgres_real(uow, catalogo):
     await cotizar(uuid4())
     aceptada = await cotizar(usuario)
     await casos_uso.aceptar_oferta(
-        uow, SuscripcionesFalsas(), aceptada.solicitud.id, f"acc-{uuid4()}", uuid4(), Decimal("0.5000")
+        uow, SuscripcionesFalsas(), ConsentimientosFalsos(), aceptada.solicitud.id, f"acc-{uuid4()}", uuid4(), Decimal("0.5000")
     )
 
     pagina = await casos_uso.listar_cotizaciones_usuario(uow, usuario, 1, 20)

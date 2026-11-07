@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.domain.modelos import AtributoPerfil, Consentimiento, FactorInterno, Oferta
+from app.domain.modelos import AtributoPerfil, Consentimiento, FactorInterno, Oferta, Originacion, OrigenOriginacion
 
 
 class OtorgarConsentimientoEntrada(BaseModel):
@@ -72,6 +72,7 @@ class OfertaSalida(BaseModel):
     precio: Decimal
     moneda: str
     degradado: bool
+    factor_ajuste: Decimal
     factores: list[FactorInternoSalida]
     snapshot_atributos: list[AtributoPerfilSalida]
     creado_en: datetime
@@ -84,6 +85,7 @@ class OfertaSalida(BaseModel):
             precio=oferta.precio,
             moneda=oferta.moneda,
             degradado=oferta.degradado,
+            factor_ajuste=oferta.factor_ajuste,
             factores=[FactorInternoSalida.desde(f) for f in oferta.factores],
             snapshot_atributos=[AtributoPerfilSalida.desde(a) for a in oferta.snapshot_atributos],
             creado_en=oferta.creado_en,
@@ -93,3 +95,32 @@ class OfertaSalida(BaseModel):
 class ErrorSalida(BaseModel):
     codigo: str
     mensaje: str
+
+
+class RegistrarOriginacionEntrada(BaseModel):
+    cliente_id: str = Field(min_length=1, max_length=120)
+    valor: Decimal = Field(gt=0)
+    plazo_meses: int = Field(ge=1, le=480)
+    origen: OrigenOriginacion = OrigenOriginacion.CLIENTE
+
+
+class OriginacionSalida(BaseModel):
+    id: UUID
+    cliente_id: str
+    valor: Decimal
+    plazo_meses: int
+    origen: OrigenOriginacion
+    creada_en: datetime
+    pendiente: bool
+
+    @classmethod
+    def desde(cls, originacion: Originacion) -> "OriginacionSalida":
+        return cls(
+            id=originacion.id,
+            cliente_id=originacion.cliente_id,
+            valor=originacion.valor,
+            plazo_meses=originacion.plazo_meses,
+            origen=originacion.origen,
+            creada_en=originacion.creada_en,
+            pendiente=originacion.pendiente,
+        )

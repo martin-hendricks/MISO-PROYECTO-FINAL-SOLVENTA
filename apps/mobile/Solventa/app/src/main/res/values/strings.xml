@@ -353,4 +353,7 @@
     <string name="claim_evidence">Evidencia adjunta</string>
     <string name="claim_no_evidence">Sin evidencia</string>
     <string name="claim_history">Historial del caso</string>
+    <string name="notice_expiry_banner">Tu póliza %1$s vence el %2$s. La renovación la confirma un operador.</string>
+    <string name="notice_expiry_banner_no_date">Tu póliza %1$s está por vencer. La renovación la confirma un operador.</string>
+    <string name="notice_renewal_banner">Renovación confirmada · tu póliza %1$s sigue vigente. La ejecuta un operador; aquí solo la consultas.</string>
 </resources>

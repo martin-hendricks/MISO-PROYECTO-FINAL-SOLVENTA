@@ -42,6 +42,53 @@ class Consentimiento:
             self.revocado_en = datetime.now(UTC)
 
 
+class OrigenOriginacion(StrEnum):
+    CLIENTE = "cliente"
+    SOCIO = "socio"
+
+
+PLAZO_MAXIMO_MESES = 480
+
+
+@dataclass
+class Originacion:
+    id: UUID
+    cliente_id: str
+    valor: Decimal
+    plazo_meses: int
+    origen: OrigenOriginacion
+    creada_en: datetime
+    cerrada_en: datetime | None
+
+    @classmethod
+    def abrir(cls, cliente_id: str, valor: Decimal, plazo_meses: int, origen: OrigenOriginacion) -> Originacion:
+        if not cliente_id.strip():
+            raise ReglaDeNegocioViolada("cliente_id_vacio", "El cliente_id es obligatorio")
+        if valor <= 0:
+            raise ReglaDeNegocioViolada("valor_credito_invalido", "El valor del crédito debe ser mayor que cero")
+        if not 1 <= plazo_meses <= PLAZO_MAXIMO_MESES:
+            raise ReglaDeNegocioViolada(
+                "plazo_credito_invalido", f"El plazo debe estar entre 1 y {PLAZO_MAXIMO_MESES} meses"
+            )
+        return cls(
+            id=uuid4(),
+            cliente_id=cliente_id.strip(),
+            valor=valor,
+            plazo_meses=plazo_meses,
+            origen=origen,
+            creada_en=datetime.now(UTC),
+            cerrada_en=None,
+        )
+
+    @property
+    def pendiente(self) -> bool:
+        return self.cerrada_en is None
+
+    def cerrar(self) -> None:
+        if self.cerrada_en is None:
+            self.cerrada_en = datetime.now(UTC)
+
+
 class EstadoAdaptador(StrEnum):
     EXITO = "exito"
     DEGRADADO = "degradado"
@@ -101,6 +148,16 @@ class FactorInterno:
     peso: Decimal
 
 
+def ajuste_por_factores(factores: tuple[FactorInterno, ...], atributos: tuple[AtributoPerfil, ...]) -> Decimal:
+    """`1 + sum(peso_i * valor_i)`: el multiplicador que el perfil aplica sobre una
+    tarifa base (HU-55). Se recalcula siempre desde los factores y el snapshot
+    persistidos, así que es reconstruible sin guardar un dato aparte."""
+    valores = {a.nombre: a.valor for a in atributos}
+    return Decimal("1") + sum(
+        (f.peso * valores[f.factor] for f in factores if f.factor in valores), Decimal("0")
+    )
+
+
 @dataclass(frozen=True)
 class Oferta:
     """Precio + factores internos explicables, con snapshot completo de insumos para
@@ -136,6 +193,13 @@ class Oferta:
             snapshot_atributos=perfil.atributos,
             creado_en=datetime.now(UTC),
         )
+
+    @property
+    def factor_ajuste(self) -> Decimal:
+        """Multiplicador del perfil sobre la tarifa base. Es lo que consume
+        ms-cotizacion por IPerfilRiesgo para que la prima cotizada use este mismo
+        perfil (una sola fuente de precio para vida crediticia)."""
+        return ajuste_por_factores(self.factores, self.snapshot_atributos)
 
 
 @dataclass(frozen=True)

@@ -93,6 +93,21 @@ describe('EmisionView', () => {
     expect(element('emision-new-quote')?.getAttribute('href')).toBe('/cotizacion');
   });
 
+  it('offers a new quotation when the profiling consent was revoked', () => {
+    const { fixture, http, element } = render();
+
+    http
+      .expectOne(URL)
+      .flush({ codigo: 'consentimiento_revocado' }, { status: 422, statusText: 'Unprocessable Entity' });
+    fixture.detectChanges();
+
+    expect(element('emision-revoked')?.textContent).toContain(
+      'Revocaste la autorización para usar tus datos en el perfilamiento.',
+    );
+    expect(element('emision-revoked-new-quote')?.getAttribute('href')).toBe('/cotizacion');
+    expect(element('emision-retry')).toBeNull();
+  });
+
   it('offers to retry in the same view when the request fails', () => {
     const { fixture, http, element } = render();
     http.expectOne(URL).error(new ProgressEvent('error'));

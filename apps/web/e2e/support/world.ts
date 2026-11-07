@@ -8,8 +8,10 @@ import { LoginPage } from '../pages/login.page';
 import { InicioPage } from '../pages/inicio.page';
 import { PolizaBackofficePage } from '../pages/poliza-backoffice.page';
 import { PolizaDetallePage } from '../pages/poliza-detalle.page';
+import { PolizasAvisosPage } from '../pages/polizas-avisos.page';
 import { RegistroPage } from '../pages/registro.page';
 import { ShellPage } from '../pages/shell.page';
+import { VidaCrediticiaPage } from '../pages/vida-crediticia.page';
 import { Client, credentials, Credentials, Home, Offer, SignUp } from './data/generators';
 import { BffDoubles } from './doubles/bff';
 
@@ -27,6 +29,8 @@ export class PortalWorld extends World {
   polizaDetalle!: PolizaDetallePage;
   idiomaRegion!: IdiomaRegionPage;
   polizaBackoffice!: PolizaBackofficePage;
+  vidaCrediticia!: VidaCrediticiaPage;
+  polizasAvisos!: PolizasAvisosPage;
   account!: Credentials;
   alta!: SignUp;
   clientes: Client[] = [];
@@ -54,6 +58,8 @@ export class PortalWorld extends World {
     this.polizaDetalle = new PolizaDetallePage(this.page);
     this.idiomaRegion = new IdiomaRegionPage(this.page);
     this.polizaBackoffice = new PolizaBackofficePage(this.page);
+    this.vidaCrediticia = new VidaCrediticiaPage(this.page);
+    this.polizasAvisos = new PolizasAvisosPage(this.page);
     this.account = credentials();
   }
 

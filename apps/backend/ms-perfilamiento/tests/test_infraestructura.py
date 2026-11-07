@@ -163,3 +163,77 @@ def test_dependencias_leen_el_estado_de_la_app():
     assert obtener_adaptador_open_finance(request) is estado.adaptador_open_finance
     assert obtener_adaptador_open_data(request) is estado.adaptador_open_data
     assert obtener_config(request) is estado.config
+
+
+def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_la_cache_y_la_cierra(monkeypatch):
+    from app.infrastructure.cache import AdaptadorConCache
+
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    creados = []
+
+    class RedisFalso:
+        def __init__(self, host, port):
+            self.host, self.port, self.cerrado = host, port, False
+            creados.append(self)
+
+        async def aclose(self):
+            self.cerrado = True
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "Redis", RedisFalso)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+    monkeypatch.setenv("REDIS_CACHE_OD_PORT", "6380")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorConCache)
+        assert isinstance(app.state.adaptador_open_data, AdaptadorConCache)
+        assert (creados[0].host, creados[0].port) == ("cache-od", 6380)
+    assert creados[0].cerrado is True
+
+
+async def test_repositorio_sql_de_originaciones_agrega_lee_y_cierra():
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from app.domain.modelos import Originacion, OrigenOriginacion
+    from app.infrastructure.sql import OriginacionFila, RepositorioOriginacionesSQL
+
+    class SesionFalsa:
+        def __init__(self):
+            self.filas = {}
+            self.flushes = 0
+
+        def add(self, fila):
+            self.filas[fila.id] = fila
+
+        async def get(self, _modelo, clave):
+            return self.filas.get(clave)
+
+        async def scalar(self, _consulta):
+            pendientes = [f for f in self.filas.values() if f.cerrada_en is None]
+            return max(pendientes, key=lambda f: f.creada_en) if pendientes else None
+
+        async def flush(self):
+            self.flushes += 1
+
+    sesion = SesionFalsa()
+    repo = RepositorioOriginacionesSQL(sesion)
+    originacion = Originacion.abrir("cliente-1", Decimal("180000000"), 240, OrigenOriginacion.SOCIO)
+
+    await repo.agregar(originacion)
+    leida = await repo.obtener_pendiente("cliente-1")
+    assert leida == originacion
+    assert isinstance(sesion.filas[originacion.id], OriginacionFila)
+    assert sesion.filas[originacion.id].origen == "socio"
+
+    originacion.cerrar()
+    await repo.actualizar(originacion)
+    assert sesion.filas[originacion.id].cerrada_en == originacion.cerrada_en
+    assert sesion.flushes == 1
+    assert await repo.obtener_pendiente("cliente-1") is None
+
+    fantasma = Originacion.abrir("cliente-2", Decimal("1"), 12, OrigenOriginacion.CLIENTE)
+    fantasma.cerrada_en = datetime.now(UTC)
+    await repo.actualizar(fantasma)
+    assert sesion.flushes == 1

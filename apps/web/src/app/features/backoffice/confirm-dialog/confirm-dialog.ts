@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostListener,
+  computed,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
 /** Modal with a scrim over the content it opens on top of (not a new route),
@@ -7,7 +16,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 @Component({
   selector: 'sv-confirm-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, A11yModule],
   templateUrl: './confirm-dialog.html',
   styleUrl: './confirm-dialog.css',
 })
@@ -24,6 +33,12 @@ export class ConfirmDialog {
 
   readonly cancelar = output<void>();
   readonly confirmar = output<string>();
+
+  /** Escape behaves like the Cancelar button: closes without a reason. */
+  @HostListener('keydown.escape')
+  protected onEscape(): void {
+    this.cancelar.emit();
+  }
 
   protected onConfirmar(): void {
     if (!this.puedeConfirmar()) {
