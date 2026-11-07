@@ -384,6 +384,45 @@ async def test_por_vencer_usa_30_dias_por_defecto(uow, almacen):
     assert [p.id for p in resultado] == [dentro.id]
 
 
+async def test_generar_avisos_vencimiento_publica_evento_por_cada_poliza_en_ventana(uow, almacen):
+    dentro = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=10))
+    fuera = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=60))
+    cancelada = poliza_de_prueba(
+        fin_vigencia=date.today() + timedelta(days=10), estado=EstadoPoliza.CANCELADA, cancelada_en=date.today()
+    )
+    for poliza in (dentro, fuera, cancelada):
+        almacen.polizas[poliza.id] = poliza
+
+    generados = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert generados == 1
+    eventos = [e for e in almacen.eventos if e.tipo == "PolizaPorVencer"]
+    assert len(eventos) == 1
+    assert eventos[0].agregado_id == dentro.id
+    assert eventos[0].payload["usuario_id"] == str(dentro.usuario_id)
+    assert eventos[0].payload["numero"] == dentro.numero
+    assert eventos[0].payload["fin_vigencia"] == dentro.fin_vigencia.isoformat()
+
+
+async def test_generar_avisos_vencimiento_es_idempotente(uow, almacen):
+    poliza = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=10))
+    almacen.polizas[poliza.id] = poliza
+
+    primera = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+    segunda = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert primera == 1
+    assert segunda == 0
+    assert len([e for e in almacen.eventos if e.tipo == "PolizaPorVencer"]) == 1
+
+
+async def test_generar_avisos_vencimiento_sin_polizas_no_publica_nada(uow, almacen):
+    generados = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert generados == 0
+    assert almacen.eventos == []
+
+
 async def test_reporte_regulador_reune_las_polizas_emitidas_en_el_rango(uow, almacen, reportes):
     desde = date.today() - timedelta(days=10)
     hasta = date.today()

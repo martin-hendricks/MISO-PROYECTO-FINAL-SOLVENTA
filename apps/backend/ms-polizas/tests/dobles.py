@@ -198,6 +198,10 @@ class _Outbox:
     async def agregar(self, evento):
         self._uow.eventos_pendientes.append(evento)
 
+    async def existe_para_agregado(self, tipo, agregado_id):
+        todos = [*self._uow.almacen.eventos, *self._uow.eventos_pendientes]
+        return any(e.tipo == tipo and e.agregado_id == agregado_id for e in todos)
+
 
 class UnidadDeTrabajoEnMemoria:
     def __init__(self, almacen: AlmacenEnMemoria) -> None:

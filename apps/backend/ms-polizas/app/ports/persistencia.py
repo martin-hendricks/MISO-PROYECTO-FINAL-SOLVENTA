@@ -47,6 +47,13 @@ class RepositorioFirmas(Protocol):
 class Outbox(Protocol):
     async def agregar(self, evento: EventoDominio) -> None: ...
 
+    async def existe_para_agregado(self, tipo: str, agregado_id: UUID) -> bool:
+        """HU-67: idempotencia del job de avisos de vencimiento -- evita
+        generar un "PolizaPorVencer" nuevo en cada corrida mientras la misma
+        póliza siga dentro de la ventana (correría a diario sobre la misma
+        póliza por hasta `dias` días seguidos sin esto)."""
+        ...
+
 
 class UnidadDeTrabajo(Protocol):
     polizas: RepositorioPolizas

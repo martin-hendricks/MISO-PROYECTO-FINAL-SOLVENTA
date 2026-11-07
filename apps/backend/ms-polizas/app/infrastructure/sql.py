@@ -332,6 +332,14 @@ class OutboxSQL:
             OutboxFila(id=evento.id, tipo=evento.tipo, agregado_id=evento.agregado_id, payload=evento.payload)
         )
 
+    async def existe_para_agregado(self, tipo: str, agregado_id: UUID) -> bool:
+        fila = await self._s.scalar(
+            select(OutboxFila.id)
+            .where(OutboxFila.tipo == tipo, OutboxFila.agregado_id == agregado_id)
+            .limit(1)
+        )
+        return fila is not None
+
 
 class UnidadDeTrabajoSQL:
     def __init__(self, fabrica: async_sessionmaker[AsyncSession]) -> None:

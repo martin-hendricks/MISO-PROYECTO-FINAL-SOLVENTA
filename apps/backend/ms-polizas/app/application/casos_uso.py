@@ -14,6 +14,7 @@ from app.domain.modelos import (
     poliza_cancelada,
     poliza_emitida,
     poliza_modificada,
+    poliza_por_vencer,
     poliza_renovada,
 )
 from app.ports.firma import FirmaElectronica
@@ -216,6 +217,34 @@ async def listar_polizas_por_vencer(
     hoy = _hoy()
     async with uow() as tx:
         return await tx.polizas.listar_por_vencer(hoy, hoy + timedelta(days=dias), usuario_id)
+
+
+async def generar_avisos_vencimiento(
+    uow: FabricaUnidadDeTrabajo, dias: int = DIAS_AVISO_VENCIMIENTO_DEFECTO
+) -> int:
+    """HU-67: orquestador de ciclo de vida -- job periódico (ver
+    app/jobs/avisos_vencimiento.py) que cierra el loop ms-polizas ->
+    outbox-relay -> notificaciones sin que nadie llame GET /v1/polizas/
+    por-vencer a mano. Reusa listar_polizas_por_vencer (HU-119) en vez de
+    duplicar la query.
+
+    Idempotente por póliza: si ya existe un evento "PolizaPorVencer" para
+    esa póliza en el outbox (de una corrida anterior), no genera otro. Sin
+    esto, correr el job a diario mientras la póliza sigue dentro de la
+    ventana de `dias` generaría un push nuevo cada día -- notificaciones
+    solo deduplica por (evento_origen_id, canal), y cada evento nuevo trae
+    un evento_origen_id distinto, así que sí despacharía un push repetido.
+    """
+    generados = 0
+    async with uow() as tx:
+        por_vencer = await tx.polizas.listar_por_vencer(_hoy(), _hoy() + timedelta(days=dias))
+        for poliza in por_vencer:
+            if await tx.outbox.existe_para_agregado("PolizaPorVencer", poliza.id):
+                continue
+            await tx.outbox.agregar(poliza_por_vencer(poliza))
+            generados += 1
+        await tx.confirmar()
+    return generados
 
 
 async def generar_reporte_regulador(
