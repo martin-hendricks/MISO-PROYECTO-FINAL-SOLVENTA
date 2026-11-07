@@ -1,0 +1,15 @@
+/* Badges de estado del siniestro: siempre con texto, el color solo acompaña. */
+.badge[data-estado='pagado'],
+.badge[data-estado='aprobado'] {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+}
+
+.badge[data-estado='rechazado'] {
+  color: var(--sv-on-error-container, #410002);
+  background: var(--sv-error-container, #ffdad6);
+}
+
+.page-head .filled {
+  white-space: nowrap;
+}

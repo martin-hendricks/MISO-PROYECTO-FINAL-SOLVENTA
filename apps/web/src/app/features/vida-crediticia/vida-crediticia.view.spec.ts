@@ -261,3 +261,9 @@ describe('VidaCrediticiaView', () => {
     expect(element('vida-progreso')).toBeNull();
   });
 });
+
+describe('VIDA_ETAPA_MS', () => {
+  it('keeps each profiling step on screen for 700 ms unless told otherwise', () => {
+    expect(TestBed.inject(VIDA_ETAPA_MS)).toBe(700);
+  });
+});

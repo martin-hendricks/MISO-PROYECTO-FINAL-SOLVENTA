@@ -88,4 +88,16 @@ describe('VidaCrediticiaViewModel', () => {
     expect(vm.bloqueado()).toBeTrue();
     expect(vm.valor('valor')).toBe('180000000');
   });
+
+  it('shows each step for 700 ms by default', () => {
+    const vm = new VidaCrediticiaViewModel(() => of(CATALOGO), () => of(OFERTA));
+    vm.loadCatalog();
+    vm.prefill({ valor: 180000000, plazoMeses: 240 });
+
+    vm.authorize();
+    tick(699);
+    expect(vm.estadoEtapa('openFinance')).toBe('active');
+    tick(1);
+    expect(vm.estadoEtapa('openData')).toBe('active');
+  });
 });

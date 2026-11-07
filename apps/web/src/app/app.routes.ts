@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
 import { redirectSignedIn, requireLocaleChosen, requireRole } from './core/session/session.guard';
 import { Role, SessionService } from './core/session/session.service';
-import { homeSection, Section } from './features/backoffice/sections';
+import { homeSection } from './features/backoffice/sections';
 import type { Destino } from './features/destino/destino.view';
 import { BACKOFFICE_LOGIN, CUSTOMER_LOGIN } from './features/login/login.variant';
 import { requireDraft } from './features/registro/registro.draft';
@@ -11,13 +11,6 @@ const CUSTOMER: readonly Role[] = ['cliente'];
 const STAFF: readonly Role[] = ['asesor', 'operador'];
 
 const loadLogin = () => import('./features/login/login.view').then((m) => m.LoginView);
-const loadSection = () =>
-  import('./features/backoffice/section/section.view').then((m) => m.SectionView);
-const section = (name: Section) => ({
-  path: name,
-  data: { section: name },
-  loadComponent: loadSection,
-});
 const destino = (path: string, name: Destino) => ({
   path,
   data: { destino: name },
@@ -108,7 +101,11 @@ export const routes: Routes = [
             (m) => m.PolizaBackofficeDetalleView,
           ),
       },
-      section('avisos'),
+      {
+        path: 'avisos',
+        loadComponent: () =>
+          import('./features/backoffice/avisos/avisos.view').then((m) => m.AvisosView),
+      },
     ],
   },
   {
@@ -164,14 +161,34 @@ export const routes: Routes = [
       },
       destino('emision/:id', 'emision'),
       {
+        path: 'siniestros',
+        loadComponent: () =>
+          import('./features/siniestros/lista/siniestros-lista.view').then(
+            (m) => m.SiniestrosListaView,
+          ),
+      },
+      {
+        // Rutas literales antes de siniestros/:id: "nuevo" y "parametrico" no son ids.
+        path: 'siniestros/nuevo',
+        loadComponent: () =>
+          import('./features/siniestros/reportar/reportar-siniestro.view').then(
+            (m) => m.ReportarSiniestroView,
+          ),
+      },
+      {
         path: 'siniestros/parametrico',
         loadComponent: () =>
           import('./features/siniestros/parametrico/parametrico.view').then(
             (m) => m.ParametricoView,
           ),
       },
-      destino('siniestros/:id', 'siniestro'),
-      destino('siniestros', 'siniestros'),
+      {
+        path: 'siniestros/:id',
+        loadComponent: () =>
+          import('./features/siniestros/detalle/siniestro-detalle.view').then(
+            (m) => m.SiniestroDetalleView,
+          ),
+      },
       destino('perfil', 'perfil'),
       {
         path: 'vida-crediticia',

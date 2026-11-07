@@ -11,6 +11,12 @@ anyio==4.15.1
     #   watchfiles
 asyncpg==0.32.0
     # via ms-siniestros (pyproject.toml)
+boto3==1.43.123
+    # via ms-siniestros (pyproject.toml)
+botocore==1.43.123
+    # via
+    #   boto3
+    #   s3transfer
 certifi==2026.10.23
     # via
     #   httpcore
@@ -39,6 +45,10 @@ idna==3.20
     #   httpx
 iniconfig==2.3.1
     # via pytest
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
 opentelemetry-api==1.45.1
     # via fastapi
 packaging==26.3
@@ -60,6 +70,8 @@ pydantic-settings==2.16.1
     # via ms-siniestros (pyproject.toml)
 pygments==2.21.0
     # via pytest
+pyjwt==2.15.1
+    # via ms-siniestros (pyproject.toml)
 pytest==9.1.1
     # via
     #   ms-siniestros (pyproject.toml)
@@ -72,12 +84,20 @@ pytest-cov==7.1.0
     # via ms-siniestros (pyproject.toml)
 pytest-socket==0.8.1
     # via ms-siniestros (pyproject.toml)
+python-dateutil==2.9.0.post0
+    # via botocore
 python-dotenv==1.2.4
     # via
     #   pydantic-settings
     #   uvicorn
+python-multipart==0.0.33
+    # via ms-siniestros (pyproject.toml)
 pyyaml==6.0.3
     # via uvicorn
+s3transfer==0.19.3
+    # via boto3
+six==1.17.0
+    # via python-dateutil
 sqlalchemy==2.0.55
     # via ms-siniestros (pyproject.toml)
 starlette==1.9.0
@@ -99,6 +119,8 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+urllib3==2.8.0
+    # via botocore
 uvicorn==0.54.0
     # via ms-siniestros (pyproject.toml)
 uvloop==0.23.0

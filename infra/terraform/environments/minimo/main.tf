@@ -108,6 +108,9 @@ module "secrets" {
     dbname   = module.rds_compartida.db_name
   }
 
+  # ms-siniestros lo recibe como S3_EVIDENCIAS_BUCKET vía External Secrets.
+  evidencias_bucket_name = module.s3_evidencias.bucket_id
+
   tags = var.extra_tags
 }
 
