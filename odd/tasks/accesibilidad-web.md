@@ -158,16 +158,35 @@ que un mock no reproduce.
 - [x] Investigación del proyecto de referencia (sin nada replicable como sistema).
 - [x] Auditoría del estado real de `apps/web/` (base más madura de lo esperado).
 - [x] Este documento.
-- [ ] Tarea 1: `confirm-dialog` — `aria-labelledby`, `FocusTrap`, `Escape`, devolución de foco.
-- [ ] Tarea 2: `reportar-siniestro.view.html` — error por campo con `aria-describedby`.
-- [ ] Tarea 3: `avisos.view.html:176` — `(keydown.space)`.
-- [ ] Tarea 4: triage de las 14 vistas sin `aria-` (empezar por `poliza-backoffice-detalle`).
-- [ ] Tarea 5: `@angular/cdk` + `@axe-core/playwright` + helper de Cucumber.
+- [x] **Tarea 1**: `confirm-dialog` — `aria-labelledby`/`aria-describedby`, `cdkTrapFocus` +
+      `cdkTrapFocusAutoCapture` (`@angular/cdk/a11y`, en vez de la factory manual
+      sugerida originalmente — más simple, mismo resultado), `Escape` vía `HostListener`.
+      Devolución de foco (`core/a11y/focus-restore.ts`, nuevo) implementada en ambos
+      consumidores reales: `poliza-backoffice-detalle.view.ts` (en la vista) y
+      `avisos.viewmodel.ts` (en el viewmodel — decisión de diseño distinta entre los dos
+      componentes, ambas válidas, no se unificó por no ser necesario).
+- [x] **Tarea 2**: `reportar-siniestro.view.html` — patrón canónico `aria-describedby`/`id`
+      por campo, mensajes de error específicos en vez del genérico único.
+- [x] **Tarea 3**: `avisos.view.ts` — `(keydown.space)` ya estaba en el componente (con
+      `preventDefault` para no hacer scroll), confirmado al revisar.
+- [x] **Tarea 4**: triage completo. La mayoría de las 14 vistas originales ya tenían `aria-`
+      desde antes (recibieron mejoras puntuales); solo `app.html`/`section.view.html`
+      (shell raíz, stub genérico) quedan sin ningún `aria-`, dejados deliberadamente por
+      bajo riesgo real.
+- [x] **Tarea 5**: `@angular/cdk` + `@axe-core/playwright` instalados.
+      `e2e/support/a11y.ts`/`e2e/steps/a11y.steps.ts` (`color-contrast` excluido a
+      propósito, es auditoría de diseño). Conectado a 5 escenarios E2E críticos: login
+      (3 escenarios), registro, cotizar, cancelación de póliza (incluyendo el
+      `confirm-dialog` abierto Y cerrado, validando el fix del modal), firma de asesor.
+- [x] Commit `b1da466` (rama `feature/accesibilidad-web`, basada en `develop` tras el merge
+      de R6/#169). 464/464 Karma, 100% cobertura (4 ejes).
 
 ## Siguiente paso
 
-Confirmar con el usuario el orden de ejecución (sugerido: 1 → 3 → 2 → 5 → 4, de mayor a menor
-impacto/esfuerzo, dejando el triage de la tarea 4 al final porque requiere lectura archivo por
-archivo antes de poder estimarse). Ninguna tarea tiene bloqueo de PRs abiertos conocido —
-confirmar contra `gh pr list --state open` antes de empezar, seguir la misma disciplina que
-en R6 de no construir sobre un PR en curso de un compañero sin revisar colisiones primero.
+- [ ] **Validar el E2E real con axe contra el stack Docker completo.** Se intentó correr
+      `pnpm e2e` contra el dev server de Angular (`:4200`) y falló por `ERR_CONNECTION_REFUSED`
+      en `:8080` — el E2E real espera `bff-web` (y el resto del stack) sirviendo ahí, no el
+      dev server solo. Pendiente de levantar el stack completo (`docker compose`/build real,
+      mismo patrón que otras validaciones E2E de esta sesión) y confirmar que los 5
+      escenarios con el step de axe pasan sin violaciones reales.
+- [ ] Abrir el PR contra `develop` una vez validado el E2E real.
