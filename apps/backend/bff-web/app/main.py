@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
-from .routers import asesor, avisos_poliza, cliente, operador, registro, reportes, sesion, siniestros
+from .routers import asesor, avisos_poliza, cliente, metricas, operador, registro, reportes, sesion, siniestros
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(base_url=config.ms_siniestros_url, timeout=config.timeout_nucleo_s) as http_siniestros,
         httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_nucleo_s) as http_suscripcion,
         httpx.AsyncClient(base_url=config.ms_identidad_url, timeout=config.timeout_nucleo_s) as http_identidad,
+        httpx.AsyncClient(base_url=config.analitica_url, timeout=config.timeout_nucleo_s) as http_analitica,
     ):
         app.state.http_ms_cotizacion = http_cotizacion
         app.state.http_ms_pagos = http_pagos
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI):
         app.state.http_ms_siniestros = http_siniestros
         app.state.http_ms_suscripcion = http_suscripcion
         app.state.http_ms_identidad = http_identidad
+        app.state.http_analitica = http_analitica
         yield
 
 
@@ -82,6 +84,7 @@ app.add_middleware(
 # Starlette prioriza por orden de inclusión, no por especificidad de patrón.
 app.include_router(avisos_poliza.router, prefix="/v1")
 app.include_router(reportes.router, prefix="/v1")
+app.include_router(metricas.router, prefix="/v1")
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
