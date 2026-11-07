@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -373,9 +373,15 @@ async def test_por_vencer_sin_usuario_lista_de_todos(uow, almacen):
 
 
 async def test_por_vencer_usa_30_dias_por_defecto(uow, almacen):
+    # _hoy() en producción usa datetime.now(UTC).date(), no date.today() (hora
+    # local) -- con la máquina en una zona horaria negativa y ya entrada la
+    # noche, ambas difieren en un día y este límite exacto (29/31 vs 30)
+    # queda mal evaluado. Los demás tests de este archivo no lo notan porque
+    # usan ventanas amplias (1, 2, 5 días), lejos del borde.
+    hoy = datetime.now(UTC).date()
     assert casos_uso.DIAS_AVISO_VENCIMIENTO_DEFECTO == 30
-    dentro = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=29))
-    fuera = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=31))
+    dentro = poliza_de_prueba(fin_vigencia=hoy + timedelta(days=29))
+    fuera = poliza_de_prueba(fin_vigencia=hoy + timedelta(days=31))
     almacen.polizas[dentro.id] = dentro
     almacen.polizas[fuera.id] = fuera
 
