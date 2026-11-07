@@ -1,4 +1,4 @@
-@customer-portal @pendiente @HU-66 @SOLV-159
+@customer-portal @HU-66 @SOLV-159
 Feature: Customer self-service
 
   Scenario: Without an advisor
