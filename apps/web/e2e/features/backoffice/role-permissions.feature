@@ -4,7 +4,7 @@ Feature: Back-office role permissions
   Scenario: An advisor opening Avisos keeps the shell
     Given an asesor signed in to the back-office
     When the user opens the avisos destination
-    Then the back-office shows its five destinations
+    Then the back-office shows its six destinations
     And the avisos destination is the current one
     And the content says the role asesor needs the role operador
 

@@ -278,7 +278,8 @@
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
       "avisos": "Avisos",
-      "reportes": "Reportes"
+      "reportes": "Reportes",
+      "metricas": "Métricas"
     },
     "role": {
       "label": "Rol:",
@@ -602,6 +603,25 @@
       "reaseguradora": {
         "title": "Extracto para la reaseguradora",
         "body": "Cartera y siniestralidad de las pólizas canceladas en los últimos 30 días."
+      }
+    },
+    "metricas": {
+      "title": "Métricas",
+      "subtitle": "Conteos agregados de pólizas emitidas, renovadas, modificadas, canceladas y por vencer, de los últimos 30 días.",
+      "cargando": "Cargando métricas…",
+      "vacio": "No hay eventos registrados en este rango.",
+      "error": "No pudimos cargar las métricas.",
+      "columna": {
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "cantidad": "Cantidad"
+      },
+      "tipo": {
+        "PolizaEmitida": "Emitidas",
+        "PolizaRenovada": "Renovadas",
+        "PolizaModificada": "Modificadas",
+        "PolizaCancelada": "Canceladas",
+        "PolizaPorVencer": "Por vencer"
       }
     },
     "pending": {

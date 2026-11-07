@@ -1,6 +1,6 @@
 import { Role } from '../../core/session/session.service';
 
-export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos' | 'reportes';
+export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos' | 'reportes' | 'metricas';
 
 export const SECTIONS: readonly Section[] = [
   'clientes',
@@ -8,6 +8,7 @@ export const SECTIONS: readonly Section[] = [
   'polizas',
   'avisos',
   'reportes',
+  'metricas',
 ];
 
 const REQUIRED_ROLE: Record<Section, Role> = {
@@ -21,6 +22,9 @@ const REQUIRED_ROLE: Record<Section, Role> = {
   // de bff-web) -- ambos reportes se autorizan contra "operador", misma
   // decisión que ya tomó el backend.
   reportes: 'operador',
+  // HU-68/69: dashboard de métricas agregadas, de operación interna --
+  // mismo único rol de back-office real que reportes.
+  metricas: 'operador',
 };
 
 export function requiredRole(section: Section): Role {

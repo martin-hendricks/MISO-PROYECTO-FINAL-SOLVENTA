@@ -111,6 +111,11 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/backoffice/reportes/reportes.view').then((m) => m.ReportesView),
       },
+      {
+        path: 'metricas',
+        loadComponent: () =>
+          import('./features/backoffice/metricas/metricas.view').then((m) => m.MetricasView),
+      },
     ],
   },
   {

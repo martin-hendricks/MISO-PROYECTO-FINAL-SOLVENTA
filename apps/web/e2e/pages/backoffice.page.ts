@@ -45,7 +45,7 @@ export class BackofficePage {
       .allInnerTexts();
     assert.deepEqual(
       destinations.map((text) => text.trim()),
-      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes'],
+      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes', 'Métricas'],
     );
   }
 

@@ -37,14 +37,21 @@ describe('BackofficeLayout', () => {
     return { harness, host, element, signOuts: session.signOuts };
   }
 
-  it('shows the Back-office tag and exactly five destinations', async () => {
+  it('shows the Back-office tag and exactly six destinations', async () => {
     const { host, element } = await open('asesor', '/cms/clientes');
 
     const links = Array.from(host.querySelectorAll('nav a')).map((link) =>
       link.textContent?.trim(),
     );
     expect(element('backoffice-tag')?.textContent).toContain('Back-office');
-    expect(links).toEqual(['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes']);
+    expect(links).toEqual([
+      'Clientes',
+      'Cotizaciones',
+      'Pólizas',
+      'Avisos',
+      'Reportes',
+      'Métricas',
+    ]);
   });
 
   it('marks only the current destination', async () => {
