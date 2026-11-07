@@ -223,6 +223,26 @@ class EventoDominio:
     id: UUID = field(default_factory=uuid4)
 
 
+def poliza_por_vencer(poliza: Poliza) -> EventoDominio:
+    """HU-67: orquestador de ciclo de vida -- avisa que una póliza VIGENTE
+    entró a la ventana de vencimiento (HU-119/notices.feature), sin esperar a
+    que alguien llame GET /v1/polizas/por-vencer a mano. `usuario_id` va en
+    el payload (a diferencia de poliza_renovada/modificada/cancelada, que no
+    lo incluyen) porque notificaciones.app.application.manejadores.manejar_evento
+    lo exige para CUALQUIER tipo de evento que vaya a generar push real."""
+    return EventoDominio(
+        tipo="PolizaPorVencer",
+        agregado_id=poliza.id,
+        payload={
+            "poliza_id": str(poliza.id),
+            "usuario_id": str(poliza.usuario_id),
+            "numero": poliza.numero,
+            "fin_vigencia": poliza.fin_vigencia.isoformat(),
+            "estado": poliza.estado.value,
+        },
+    )
+
+
 def poliza_emitida(poliza: Poliza) -> EventoDominio:
     return EventoDominio(
         tipo="PolizaEmitida",

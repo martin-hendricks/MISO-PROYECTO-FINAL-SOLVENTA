@@ -19,6 +19,7 @@ const POLIZA_WIRE = {
   canceladaPor: null,
   motivoCancelacion: null,
   siniestrosAbiertos: null,
+  coberturas: [{ nombre: 'Robo', suma_asegurada: '2000000.00', deducible: '0.00' }],
 };
 
 const POLIZA_CANCELADA_WIRE = {
@@ -262,6 +263,172 @@ describe('PolizaBackofficeDetalleView', () => {
     element('poliza-backoffice-buscar-submit')!.click();
 
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows the current coverages', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush(POLIZA_WIRE);
+    fixture.detectChanges();
+
+    const texto = element('poliza-backoffice-coberturas')!.textContent!;
+    expect(texto).toContain('Robo');
+  });
+
+  it('shows the empty-coverages hint when the policy has none', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_WIRE, coberturas: [] });
+    fixture.detectChanges();
+
+    expect(element('poliza-backoffice-coberturas')!.textContent).toContain(
+      'no tiene coberturas registradas',
+    );
+  });
+
+  it('opens the coverage editor pre-filled with the current coverages and saves the change', () => {
+    const { fixture, http, element, host } = render();
+    http.expectOne(URL).flush(POLIZA_WIRE);
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+
+    const nombre = host.querySelector<HTMLInputElement>('[data-testid="poliza-backoffice-cobertura-nombre-0"]')!;
+    expect(nombre.value).toBe('Robo');
+
+    nombre.value = 'Robo total';
+    nombre.dispatchEvent(new Event('input'));
+    const deducible = host.querySelector<HTMLInputElement>(
+      '[data-testid="poliza-backoffice-cobertura-deducible-0"]',
+    )!;
+    deducible.value = '100000';
+    deducible.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    element('poliza-backoffice-coberturas-guardar')!.click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(CICLO_URL);
+    expect(request.request.body).toEqual({
+      numero: 'POL-2026-00000001',
+      verbo: 'modificar',
+      coberturas: [{ nombre: 'Robo total', suma_asegurada: 2000000, deducible: 100000 }],
+    });
+    request.flush({ ...POLIZA_WIRE, coberturas: [{ nombre: 'Robo total', suma_asegurada: '2000000.00', deducible: '0.00' }] });
+    fixture.detectChanges();
+
+    expect(element('poliza-backoffice-coberturas-form')).toBeNull();
+    expect(element('poliza-backoffice-coberturas')!.textContent).toContain('Robo total');
+  });
+
+  it('adds and removes coverage rows in the editor', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_WIRE, coberturas: [] });
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+    expect(element('poliza-backoffice-cobertura-nombre-0')).toBeNull();
+
+    element('poliza-backoffice-cobertura-agregar')!.click();
+    fixture.detectChanges();
+    expect(element('poliza-backoffice-cobertura-nombre-0')).not.toBeNull();
+
+    element('poliza-backoffice-cobertura-quitar-0')!.click();
+    fixture.detectChanges();
+    expect(element('poliza-backoffice-cobertura-nombre-0')).toBeNull();
+  });
+
+  it('cannot save coverages with a blank name', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_WIRE, coberturas: [] });
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+    element('poliza-backoffice-cobertura-agregar')!.click();
+    fixture.detectChanges();
+
+    expect((element('poliza-backoffice-coberturas-guardar') as HTMLButtonElement).disabled).toBeTrue();
+
+    // El guard también protege una invocación directa del método (no solo
+    // el disabled del botón, que podría no respetarse desde otro disparador).
+    (fixture.componentInstance as unknown as { guardarCoberturas(): void }).guardarCoberturas();
+    http.expectNone(CICLO_URL);
+  });
+
+  it('opening the editor for a policy with no coverages starts from an empty list', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_WIRE, coberturas: [] });
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+
+    expect(element('poliza-backoffice-cobertura-nombre-0')).toBeNull();
+  });
+
+  it('editing one row among several only updates that row', () => {
+    const { fixture, http, element } = render();
+    http
+      .expectOne(URL)
+      .flush({
+        ...POLIZA_WIRE,
+        coberturas: [
+          { nombre: 'Robo', suma_asegurada: '2000000.00', deducible: '0.00' },
+          { nombre: 'Pantalla', suma_asegurada: '500000.00', deducible: '50000.00' },
+        ],
+      });
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+
+    const segundaFila = element('poliza-backoffice-cobertura-nombre-1') as HTMLInputElement;
+    segundaFila.value = 'Pantalla rota';
+    segundaFila.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect((element('poliza-backoffice-cobertura-nombre-0') as HTMLInputElement).value).toBe('Robo');
+    expect(segundaFila.value).toBe('Pantalla rota');
+  });
+
+  it('a non-numeric amount is sent as zero instead of NaN', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_WIRE, coberturas: [] });
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+    element('poliza-backoffice-cobertura-agregar')!.click();
+    fixture.detectChanges();
+
+    const nombre = element('poliza-backoffice-cobertura-nombre-0') as HTMLInputElement;
+    nombre.value = 'Robo';
+    nombre.dispatchEvent(new Event('input'));
+    const suma = element('poliza-backoffice-cobertura-suma-0') as HTMLInputElement;
+    suma.value = '';
+    suma.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    element('poliza-backoffice-coberturas-guardar')!.click();
+
+    const request = http.expectOne(CICLO_URL);
+    expect((request.request.body as { coberturas: { suma_asegurada: number }[] }).coberturas[0].suma_asegurada).toBe(0);
+    request.flush(POLIZA_WIRE);
+  });
+
+  it('closing the coverage editor without saving does not call the BFF', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush(POLIZA_WIRE);
+    fixture.detectChanges();
+
+    element('poliza-backoffice-modificar')!.click();
+    fixture.detectChanges();
+    element('poliza-backoffice-coberturas-cancelar')!.click();
+    fixture.detectChanges();
+
+    expect(element('poliza-backoffice-coberturas-form')).toBeNull();
+    http.expectNone(CICLO_URL);
   });
 
   it('keeps the section from the advisor without calling the BFF', () => {

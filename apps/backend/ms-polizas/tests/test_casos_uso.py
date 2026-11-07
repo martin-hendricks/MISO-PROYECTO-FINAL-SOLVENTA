@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -8,7 +8,7 @@ from app.application import casos_uso
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import Cobertura, EstadoPoliza, Poliza
 
-from .dobles import FirmaFalsa, coberturas, solicitud
+from .dobles import FirmaFalsa, coberturas, poliza_de_prueba, solicitud
 
 
 async def test_emision_tras_cobro_exitoso(uow, almacen, suscripciones, cobros, firma):
@@ -334,3 +334,128 @@ async def test_consultar_firma_devuelve_la_ultima_constancia_de_la_oferta(uow, s
 async def test_consultar_firma_sin_constancia(uow):
     with pytest.raises(NoEncontrado):
         await casos_uso.consultar_firma(uow, uuid4())
+
+
+async def test_por_vencer_incluye_solo_vigentes_dentro_de_la_ventana(uow, almacen):
+    usuario = uuid4()
+    dentro = poliza_de_prueba(usuario_id=usuario, fin_vigencia=date.today() + timedelta(days=10))
+    fuera = poliza_de_prueba(usuario_id=usuario, fin_vigencia=date.today() + timedelta(days=60))
+    cancelada = poliza_de_prueba(
+        usuario_id=usuario, fin_vigencia=date.today() + timedelta(days=10), estado=EstadoPoliza.CANCELADA,
+        cancelada_en=date.today(),
+    )
+    for poliza in (dentro, fuera, cancelada):
+        almacen.polizas[poliza.id] = poliza
+
+    resultado = await casos_uso.listar_polizas_por_vencer(uow, usuario, dias=30)
+
+    assert [p.id for p in resultado] == [dentro.id]
+
+
+async def test_por_vencer_filtra_por_usuario(uow, almacen):
+    de_otro = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=5))
+    almacen.polizas[de_otro.id] = de_otro
+
+    resultado = await casos_uso.listar_polizas_por_vencer(uow, uuid4(), dias=30)
+
+    assert resultado == []
+
+
+async def test_por_vencer_sin_usuario_lista_de_todos(uow, almacen):
+    a = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=1))
+    b = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=2))
+    almacen.polizas[a.id] = a
+    almacen.polizas[b.id] = b
+
+    resultado = await casos_uso.listar_polizas_por_vencer(uow, usuario_id=None, dias=30)
+
+    assert {p.id for p in resultado} == {a.id, b.id}
+
+
+async def test_por_vencer_usa_30_dias_por_defecto(uow, almacen):
+    # _hoy() en producción usa datetime.now(UTC).date(), no date.today() (hora
+    # local) -- con la máquina en una zona horaria negativa y ya entrada la
+    # noche, ambas difieren en un día y este límite exacto (29/31 vs 30)
+    # queda mal evaluado. Los demás tests de este archivo no lo notan porque
+    # usan ventanas amplias (1, 2, 5 días), lejos del borde.
+    hoy = datetime.now(UTC).date()
+    assert casos_uso.DIAS_AVISO_VENCIMIENTO_DEFECTO == 30
+    dentro = poliza_de_prueba(fin_vigencia=hoy + timedelta(days=29))
+    fuera = poliza_de_prueba(fin_vigencia=hoy + timedelta(days=31))
+    almacen.polizas[dentro.id] = dentro
+    almacen.polizas[fuera.id] = fuera
+
+    resultado = await casos_uso.listar_polizas_por_vencer(uow)
+
+    assert [p.id for p in resultado] == [dentro.id]
+
+
+async def test_generar_avisos_vencimiento_publica_evento_por_cada_poliza_en_ventana(uow, almacen):
+    dentro = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=10))
+    fuera = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=60))
+    cancelada = poliza_de_prueba(
+        fin_vigencia=date.today() + timedelta(days=10), estado=EstadoPoliza.CANCELADA, cancelada_en=date.today()
+    )
+    for poliza in (dentro, fuera, cancelada):
+        almacen.polizas[poliza.id] = poliza
+
+    generados = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert generados == 1
+    eventos = [e for e in almacen.eventos if e.tipo == "PolizaPorVencer"]
+    assert len(eventos) == 1
+    assert eventos[0].agregado_id == dentro.id
+    assert eventos[0].payload["usuario_id"] == str(dentro.usuario_id)
+    assert eventos[0].payload["numero"] == dentro.numero
+    assert eventos[0].payload["fin_vigencia"] == dentro.fin_vigencia.isoformat()
+
+
+async def test_generar_avisos_vencimiento_es_idempotente(uow, almacen):
+    poliza = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=10))
+    almacen.polizas[poliza.id] = poliza
+
+    primera = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+    segunda = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert primera == 1
+    assert segunda == 0
+    assert len([e for e in almacen.eventos if e.tipo == "PolizaPorVencer"]) == 1
+
+
+async def test_generar_avisos_vencimiento_sin_polizas_no_publica_nada(uow, almacen):
+    generados = await casos_uso.generar_avisos_vencimiento(uow, dias=30)
+
+    assert generados == 0
+    assert almacen.eventos == []
+
+
+async def test_reporte_regulador_reune_las_polizas_emitidas_en_el_rango(uow, almacen, reportes):
+    desde = date.today() - timedelta(days=10)
+    hasta = date.today()
+    dentro = poliza_de_prueba(inicio_vigencia=desde + timedelta(days=1))
+    fuera = poliza_de_prueba(inicio_vigencia=desde - timedelta(days=5))
+    almacen.polizas[dentro.id] = dentro
+    almacen.polizas[fuera.id] = fuera
+
+    reporte = await casos_uso.generar_reporte_regulador(uow, reportes, desde, hasta)
+
+    [(polizas, llamada_desde, llamada_hasta)] = reportes.llamadas_regulador
+    assert [p.id for p in polizas] == [dentro.id]
+    assert (llamada_desde, llamada_hasta) == (desde, hasta)
+    assert reporte.nombre_archivo == "regulador.csv"
+
+
+async def test_reporte_reaseguradora_reune_solo_las_canceladas_en_el_rango(uow, almacen, reportes):
+    desde = date.today() - timedelta(days=10)
+    hasta = date.today()
+    cancelada_dentro = poliza_de_prueba(estado=EstadoPoliza.CANCELADA, cancelada_en=desde + timedelta(days=1))
+    cancelada_fuera = poliza_de_prueba(estado=EstadoPoliza.CANCELADA, cancelada_en=desde - timedelta(days=5))
+    vigente = poliza_de_prueba(fin_vigencia=date.today() + timedelta(days=100))
+    for poliza in (cancelada_dentro, cancelada_fuera, vigente):
+        almacen.polizas[poliza.id] = poliza
+
+    await casos_uso.generar_reporte_reaseguradora(uow, reportes, desde, hasta)
+
+    [(canceladas, llamada_desde, llamada_hasta)] = reportes.llamadas_reaseguradora
+    assert [p.id for p in canceladas] == [cancelada_dentro.id]
+    assert (llamada_desde, llamada_hasta) == (desde, hasta)

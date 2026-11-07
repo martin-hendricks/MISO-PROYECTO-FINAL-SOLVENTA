@@ -1,0 +1,49 @@
+<section data-testid="avisos-polizas" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'polizas.avisos.title' | translate }}</h1>
+      <p class="subtitle">{{ 'polizas.avisos.subtitle' | translate }}</p>
+    </div>
+  </div>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="avisos-loading">
+        {{ 'polizas.avisos.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="avisos-error">
+        <p>{{ 'polizas.avisos.error.body' | translate }}</p>
+        <button type="button" class="outlined" data-testid="avisos-retry" (click)="vm.load()">
+          {{ 'polizas.avisos.error.retry' | translate }}
+        </button>
+      </div>
+    }
+    @case ('empty') {
+      <div class="empty-state" data-testid="avisos-empty">
+        <h2>{{ 'polizas.avisos.empty.title' | translate }}</h2>
+        <p>{{ 'polizas.avisos.empty.body' | translate }}</p>
+      </div>
+    }
+    @default {
+      <ul class="aviso-list" data-testid="avisos-list">
+        @for (aviso of vm.avisos(); track aviso.numero) {
+          <li [attr.data-testid]="'aviso-' + aviso.numero">
+            <div class="aviso-card" role="status">
+              <p class="aviso-descripcion">{{ aviso.descripcion }}</p>
+              <p class="aviso-vence">
+                {{ 'polizas.avisos.venceEl' | translate }} {{ aviso.venceEn | svDate }}
+              </p>
+              <a [routerLink]="['/polizas', aviso.numero]">{{
+                'polizas.avisos.verPoliza' | translate
+              }}</a>
+              <!-- HU-119: "the customer cannot renew it" -- nunca se ofrece una acción de
+                   renovar aquí, solo el enlace de solo lectura al detalle de la póliza. -->
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

@@ -8,6 +8,12 @@ export interface Prima {
   periodicidad: string;
 }
 
+export interface Cobertura {
+  nombre: string;
+  sumaAsegurada: number;
+  deducible: number;
+}
+
 /** Shape of GET/POST /operador/polizas/*, ver _poliza_salida() en bff-web. */
 export interface PolizaOperador {
   numero: string;
@@ -23,6 +29,7 @@ export interface PolizaOperador {
   canceladaPor: string | null;
   motivoCancelacion: string | null;
   siniestrosAbiertos: number | null;
+  coberturas: Cobertura[];
 }
 
 interface PrimaWire {
@@ -30,9 +37,19 @@ interface PrimaWire {
   periodicidad: string;
 }
 
-type PolizaOperadorWire = Omit<PolizaOperador, 'prima' | 'devolucionEstimada'> & {
+/** ms-polizas no traduce coberturas a camelCase antes de que bff-web las
+ * reenvíe (_poliza_salida hace `poliza.get("coberturas", [])` tal cual) --
+ * llegan en snake_case con Decimal serializado como string. */
+interface CoberturaWire {
+  nombre: string;
+  suma_asegurada: number | string;
+  deducible: number | string;
+}
+
+type PolizaOperadorWire = Omit<PolizaOperador, 'prima' | 'devolucionEstimada' | 'coberturas'> & {
   prima: PrimaWire;
   devolucionEstimada: number | string | null;
+  coberturas: CoberturaWire[];
 };
 
 function toPoliza(wire: PolizaOperadorWire): PolizaOperador {
@@ -40,6 +57,11 @@ function toPoliza(wire: PolizaOperadorWire): PolizaOperador {
     ...wire,
     prima: { valor: Number(wire.prima.valor), periodicidad: wire.prima.periodicidad },
     devolucionEstimada: wire.devolucionEstimada === null ? null : Number(wire.devolucionEstimada),
+    coberturas: wire.coberturas.map((c) => ({
+      nombre: c.nombre,
+      sumaAsegurada: Number(c.suma_asegurada),
+      deducible: Number(c.deducible),
+    })),
   };
 }
 
@@ -88,6 +110,20 @@ export class PolizasBackofficeGateway {
         numero,
         verbo: 'cancelar',
         motivo,
+      })
+      .pipe(map(toPoliza));
+  }
+
+  modificarCoberturas(numero: string, coberturas: Cobertura[]): Observable<PolizaOperador> {
+    return this.http
+      .post<PolizaOperadorWire>(`${this.baseUrl}/operador/polizas/ciclo`, {
+        numero,
+        verbo: 'modificar',
+        coberturas: coberturas.map((c) => ({
+          nombre: c.nombre,
+          suma_asegurada: c.sumaAsegurada,
+          deducible: c.deducible,
+        })),
       })
       .pipe(map(toPoliza));
   }

@@ -1,7 +1,12 @@
 import { Given, Then, When } from '@cucumber/cucumber';
 import { BffDoubles } from '../support/doubles/bff';
 import { PolizaDetallePage } from '../pages/poliza-detalle.page';
-import { operatorPolicy, PolicyDetail, policyDetail } from '../support/data/generators';
+import {
+  operatorPolicy,
+  PolicyDetail,
+  policyDetail,
+  policyNotice,
+} from '../support/data/generators';
 import { PortalWorld } from '../support/world';
 
 const NUMERO = 'POL-2026-00000001';
@@ -14,6 +19,21 @@ async function signInAsOperador(world: PortalWorld): Promise<void> {
   // for that shell before navigating elsewhere, same as backoffice.steps.ts.
   await world.backoffice.waitForShell();
 }
+
+const NUMERO_AVISO = 'POL-2026-00000002';
+
+Given('a policy about to expire', async function (this: PortalWorld) {
+  await this.bff.acceptSignIn(this.account.email, 'cliente');
+  await this.bff.serveNotices([policyNotice(NUMERO_AVISO)]);
+  await this.login.open('customer');
+  await this.login.signIn(this.account);
+  // signIn() navigates to /inicio on its own right after persisting the
+  // token; navigating straight to /polizas/avisos races that in-flight
+  // navigation and the router can hang (same reasoning as openAsCustomer()
+  // below, and waitForShell() for the operador's own sign-in).
+  await this.page.waitForURL('**/inicio');
+  await this.polizasAvisos.open();
+});
 
 Given('a valid policy', async function (this: PortalWorld) {
   await this.bff.serveOperatorPolicy(operatorPolicy(NUMERO));
@@ -53,6 +73,10 @@ When('the operador opens the renewal action', async function (this: PortalWorld)
 When('the operador cancels it', async function (this: PortalWorld) {
   await this.polizaBackoffice.abrirCancelar();
   await this.polizaBackoffice.confirmarCancelar('El cliente lo pidió');
+});
+
+When('the operador changes data or coverages', async function (this: PortalWorld) {
+  await this.polizaBackoffice.modificarPrimeraCobertura('Robo total');
 });
 
 When('the operador opens the cancel action', async function (this: PortalWorld) {
@@ -128,6 +152,17 @@ Then('the policy detail shows the cancelled status', async function (this: Porta
   await this.polizaBackoffice.expectEstado('cancelada');
 });
 
+Then('the policy detail shows the updated status', async function (this: PortalWorld) {
+  await this.polizaBackoffice.expectCoberturaVisible('Robo total');
+});
+
+Then('no new policy is created from scratch', async function (this: PortalWorld) {
+  // The same POL-2026-00000001 detail screen reflects the change in place
+  // (just asserted above) -- there is no "issue a new policy" flow reachable
+  // from the modificar action, and the URL/numero never change.
+  await this.polizaBackoffice.expectEstado('vigente');
+});
+
 Then('the customer no longer holds valid coverage', async function (this: PortalWorld) {
   const detail = { ...policyDetail(NUMERO), estado: 'CANCELADA' };
   const polizaDetalle = await openAsCustomer(this, NUMERO, detail);
@@ -148,4 +183,12 @@ Then(
 Then('no second premium refund is generated', async function (this: PortalWorld) {
   // Cancelar is disabled (just asserted above): the operador has no way to
   // trigger a second cancellation/refund from this screen at all.
+});
+
+Then('the customer sees the expiry notice', async function (this: PortalWorld) {
+  await this.polizasAvisos.expectNoticeFor(NUMERO_AVISO);
+});
+
+Then('the customer cannot renew it', async function (this: PortalWorld) {
+  await this.polizasAvisos.expectNoRenewAction();
 });
