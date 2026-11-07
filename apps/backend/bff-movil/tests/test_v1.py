@@ -1066,6 +1066,10 @@ def test_cliente_http_traduce_exito_y_errores(monkeypatch):
     )["siniestro"]["id"] == "s"
     assert visto["files"] == [("archivos", ("dano.png", b"png", "image/png"))]
     assert visto["data"] == {"datos": '{"lugar": "Calle 72"}'}
+    Falso.respuesta = _Respuesta(200, {"siniestro": {"id": "s"}})
+    assert cliente.detalle_siniestro("SIN-1", "u")["siniestro"]["id"] == "s"
+    assert visto["llamada"][:3] == ("GET", "/v1/siniestros/SIN-1/detalle", None)
+    assert visto["llamada"][3] == {"usuario_id": "u"}
     Falso.respuesta = _Respuesta(200, {"numero": "POL-1"})
     assert cliente.obtener_por_numero("POL-1", "u")["numero"] == "POL-1"
 
@@ -1413,6 +1417,95 @@ def test_aviso_v1_reenvia_multipart_y_el_detalle(client, doble):
     pago_auto = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()
     assert pago_auto["umbral"] == "500000.00"
     assert pago_auto["estadoTexto"] == "Pagado"
+
+
+def _aviso(client, headers, **cambios):
+    data = {
+        "poliza": "POL-88219-CO",
+        "fechaHecho": "2026-03-12",
+        "descripcion": "Choque",
+        "lugar": "Calle 72",
+    }
+    data.update(cambios.pop("data", {}))
+    for clave in cambios.pop("sin", ()):
+        data.pop(clave, None)
+    archivos = cambios.pop(
+        "files",
+        [("archivos", ("dano.png", b"png", "image/png"))],
+    )
+    return client.post("/v1/cliente/siniestros", headers=headers, data=data, files=archivos)
+
+
+def test_aviso_v1_rechaza_el_formulario_incompleto(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "aviso-incompleto-01"}
+    assert _aviso(client, headers, sin=("descripcion",)).status_code == 422
+    assert _aviso(client, headers, data={"descripcion": "x" * 1001}).status_code == 422
+    assert _aviso(client, headers, data={"lugar": "x" * 201}).status_code == 422
+    assert _aviso(client, headers, files=[]).status_code == 422
+    assert _aviso(
+        client,
+        headers,
+        files=[("archivos", (f"{n}.png", b"a", "image/png")) for n in range(6)],
+    ).status_code == 422
+    assert _aviso(
+        client, headers, files=[("archivos", ("nota.txt", b"a", "text/plain"))]
+    ).status_code == 422
+    assert _aviso(
+        client,
+        headers,
+        files=[("archivos", ("grande.png", b"a" * (10 * 1024 * 1024 + 1), "image/jpeg"))],
+    ).status_code == 422
+    con_charset = _aviso(
+        client, headers, files=[("archivos", ("dano.png", b"a", "image/png; charset=binary"))]
+    )
+    assert con_charset.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert aviso["datos"]["tipos_adjuntos"] == ["foto"]
+    sin_lugar = _aviso(client, headers, sin=("lugar",))
+    assert sin_lugar.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert "lugar" not in aviso["datos"]
+    assert _aviso(client, headers, data={"geo": "[]"}).status_code == 422
+    assert _aviso(client, headers, data={"geo": '{"lng": 1}'}).status_code == 422
+    sin_precision = _aviso(client, headers, data={"geo": '{"lat": 1, "lng": 2}'})
+    assert sin_precision.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert aviso["datos"]["geo"] == {"lat": 1, "lng": 2}
+
+    doble.respuestas["obtener_por_numero"] = {"id": "p", "numero": "POL-88219-CO", "usuario_id": "otro"}
+    assert _aviso(client, headers).status_code == 404
+    doble.respuestas["obtener_por_numero"] = {"numero": "POL-88219-CO", "usuario_id": UID}
+    assert _aviso(client, headers).status_code == 404
+    doble.respuestas["obtener_por_numero"] = {}
+    doble.respuestas["registrar_aviso"] = {"id": "66666666-6666-6666-6666-666666666666", "estado": "recibido"}
+    plano = _aviso(client, headers)
+    assert plano.status_code == 200
+    assert plano.json()["estado"] == "recibido"
+    doble.respuestas["registrar_aviso"] = ["no-dict"]
+    assert _aviso(client, headers).status_code == 502
+
+    assert client.get("/cliente/siniestros/SIN-1", headers=_auth(client)).status_code == 404
+    doble.respuestas["detalle_siniestro"] = "incompleto"
+    assert client.get("/v1/cliente/siniestros/SIN-1", headers=_auth(client)).status_code == 502
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "recibido",
+            "geo": {"lat": "no", "lng": 1},
+        }
+    }
+    assert client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()["geo"] is None
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "recibido",
+            "geo": {"lat": 1, "lng": 2, "precision_m": "no"},
+        }
+    }
+    geo = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()["geo"]
+    assert geo == {"lat": 1.0, "lng": 2.0, "precisionM": 0}
 
 
 def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
