@@ -45,8 +45,10 @@ fun SolventaSelect(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     appearance: SolventaSelectAppearance = SolventaSelectAppearance.Button,
+    optionTag: (String) -> String = { "option_$it" },
+    fieldTag: String? = null,
 ) {
-    val menuTag = if (expanded) "solventa_select_open" else "solventa_select_closed"
+    val menuTag = fieldTag ?: if (expanded) "solventa_select_open" else "solventa_select_closed"
     if (appearance == SolventaSelectAppearance.Field) {
         DocumentTypeMenu(
             label = label,
@@ -57,6 +59,7 @@ fun SolventaSelect(
             onSelect = onSelect,
             modifier = modifier,
             menuTag = menuTag,
+            optionTag = optionTag,
         )
         return
     }
@@ -77,7 +80,7 @@ fun SolventaSelect(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(option)
                 }
@@ -96,6 +99,7 @@ private fun DocumentTypeMenu(
     onSelect: (String) -> Unit,
     modifier: Modifier,
     menuTag: String,
+    optionTag: (String) -> String,
 ) {
     val shape = RoundedCornerShape(8.dp)
     Column(modifier.fillMaxWidth()) {
@@ -140,7 +144,7 @@ private fun DocumentTypeMenu(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(
                         text = option,

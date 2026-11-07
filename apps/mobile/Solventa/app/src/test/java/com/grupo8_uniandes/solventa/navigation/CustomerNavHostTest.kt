@@ -2,8 +2,13 @@ package com.grupo8_uniandes.solventa.navigation
 
 import android.Manifest
 import android.app.Application
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.test.core.app.ApplicationProvider
+import com.grupo8_uniandes.solventa.claim.CannedEvidenceRegistry
 import org.robolectric.Shadows.shadowOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -201,7 +206,7 @@ class CustomerNavHostTest {
         rule.onNodeWithText("Continuar a evidencia").performClick()
         rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
         assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
-        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Enviar aviso").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
@@ -215,7 +220,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onNodeWithText("Reportar siniestro").performClick()
         rule.onNodeWithText("Continuar a evidencia").performClick()
-        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Enviar aviso").performClick()
         rule.waitForIdle()
         rule.onNodeWithText("Ir al inicio").performClick()
@@ -319,7 +324,8 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
+        rule.onNodeWithText("SIN-441").assertIsDisplayed()
     }
 
     @Test
@@ -338,16 +344,23 @@ class CustomerNavHostTest {
         paymentPush: PushNotice? = null,
     ) {
         rule.setContent {
+            val owner = remember {
+                object : ActivityResultRegistryOwner {
+                    override val activityResultRegistry = CannedEvidenceRegistry()
+                }
+            }
             SolventaTheme {
                 val controller = rememberNavController()
                 holder[0] = controller
-                CustomerNavHost(
-                    navController = controller,
-                    homeState = homeState,
-                    contentPadding = PaddingValues(0.dp),
-                    startDestination = start,
-                    paymentPush = paymentPush,
-                )
+                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                    CustomerNavHost(
+                        navController = controller,
+                        homeState = homeState,
+                        contentPadding = PaddingValues(0.dp),
+                        startDestination = start,
+                        paymentPush = paymentPush,
+                    )
+                }
             }
         }
     }

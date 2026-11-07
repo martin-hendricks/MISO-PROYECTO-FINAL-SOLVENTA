@@ -57,6 +57,20 @@ def test_post_aviso_201_recibido_con_evidencia_y_url_firmada(client, almacen_evi
     assert len(almacen_evidencias.objetos) == 1
 
 
+def test_post_aviso_guarda_el_lugar_y_omite_el_vacio(client):
+    con_lugar = avisar(client, lugar="Calle 72")
+    assert con_lugar.status_code == 201, con_lugar.text
+    assert con_lugar.json()["siniestro"]["lugar"] == "Calle 72"
+    sin_lugar = avisar(client, lugar="   ")
+    assert sin_lugar.status_code == 201
+    assert sin_lugar.json()["siniestro"]["lugar"] is None
+
+
+def test_post_aviso_sin_archivo_sigue_rechazado(client):
+    r = avisar(client, archivos=())
+    assert r.status_code == 422
+
+
 def test_post_aviso_sin_geo_sigue(client):
     r = avisar(client, geo=None)
     assert r.status_code == 201

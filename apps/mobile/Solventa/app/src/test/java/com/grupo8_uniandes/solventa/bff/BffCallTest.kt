@@ -3,6 +3,7 @@ package com.grupo8_uniandes.solventa.bff
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
+import com.grupo8_uniandes.solventa.data.bff.mapping.toParts
 import com.grupo8_uniandes.solventa.data.bff.remote.BffCache
 import com.grupo8_uniandes.solventa.data.bff.remote.BffPolicyMemory
 import com.grupo8_uniandes.solventa.data.bff.remote.MobileBffApi
@@ -28,6 +29,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
@@ -279,9 +281,10 @@ class BffCallTest {
         assertNotEquals(key, fresh.getHeader("Idempotency-Key"))
         val replayBody = replay.body.readUtf8()
         val freshBody = fresh.body.readUtf8()
-        assertTrue(replayBody, replayBody.contains("\"geo\":null"))
+        assertTrue(replayBody, replayBody.contains("name=\"fechaHecho\""))
+        assertTrue(replayBody, replayBody.contains("2026-03-12"))
         assertTrue(freshBody, freshBody.contains("2026-03-13"))
-        assertFalse(replayBody.contains("lat"))
+        assertFalse(replayBody.contains("name=\"geo\""))
         assertNull(cache.readClaim())
     }
 
@@ -313,7 +316,7 @@ class BffCallTest {
         val claims = RemoteClaimRepository(api(), gate, cache)
         val notice = ClaimNotice("POL-88219-CO", "2026-03-12", null, emptyList())
         server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
-        assertTrue(claims.notify(notice, null) is StandInAnswer.Failed)
+        assertTrue(claims.notify(notice, null) is StandInAnswer.Rejected)
         assertNull(cache.readClaim())
         server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
         assertTrue(claims.notify(notice, null) is StandInAnswer.Failed)
@@ -412,6 +415,55 @@ class BffCallTest {
         enqueue(PublishedSamples.ASSISTANCE_OUT)
         val requested = assistance.request(AssistanceRequest("PR-1", 4.65, -74.08, "POL-88219-CO"))
         assertTrue(requested is StandInAnswer.Ready)
+    }
+
+    @Test
+    fun givenMissingFileBytes_whenNotifying_thenTheHostIsNotCalled() = runBlocking {
+        EvidenceBytes.clear()
+        val notice = ClaimNotice(
+            poliza = "POL-1",
+            fechaHecho = "2026-11-01",
+            geo = null,
+            adjuntos = listOf(Attachment(AttachmentKind.FOTO, "a.png", "image/png", 20)),
+            descripcion = "Choque",
+        )
+        val answer = RemoteClaimRepository(api(), gate, cache).notify(notice, "key-11111111")
+        assertTrue(answer is StandInAnswer.Failed)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun givenAClaimDetail_whenTheHostAnswers_thenTheFieldsAndAMissingClaimAreMapped() = runBlocking {
+        enqueue(
+            """
+            {"id":"internal","siniestroId":"SIN-9","tipo":"parametrico","ramo":"Clima","resumen":"vuelo","fecha":"2026-11-01","estado":"pagado","poliza":"POL-1","descripcion":"Retraso","lugar":"Calle 72","umbral":"90 min","pago":{"comprobante":"C-1","monto":180000,"moneda":"COP","fecha":"2026-11-01"}}
+            """.trimIndent(),
+        )
+        val ready = RemoteClaimRepository(api(), gate, cache).detail("internal") as StandInAnswer.Ready
+        assertEquals("POL-1", ready.value.poliza)
+        assertEquals("Calle 72", ready.value.lugar)
+        assertEquals("Sin geoetiqueta", ready.value.lines().last { it == "Sin geoetiqueta" })
+        assertEquals("vuelo", ready.value.storedPayment()?.asunto)
+        server.enqueue(MockResponse().setResponseCode(404))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Rejected)
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Failed)
+        server.enqueue(MockResponse().setResponseCode(200).setBody("not-json"))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Failed)
+        val dead = deadClients()
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).detail("missing") is StandInAnswer.Failed)
+        val located = ClaimNotice(
+            poliza = "POL-1",
+            fechaHecho = "2026-11-01",
+            geo = com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint(4.6, -74.0, 8),
+            adjuntos = listOf(Attachment(AttachmentKind.FOTO, "geo.png", "image/png", 2)),
+            descripcion = "Choque",
+            lugar = "Calle 72",
+        )
+        EvidenceBytes.keep("geo.png", byteArrayOf(1, 2))
+        val parts = located.toParts()
+        assertTrue(parts.any { it.headers?.get("Content-Disposition")?.contains("name=\"geo\"") == true })
+        assertTrue(parts.any { it.headers?.get("Content-Disposition")?.contains("name=\"lugar\"") == true })
     }
 
     private fun api() = BffClients.open(server.url("/").toString(), tokens).api

@@ -43,7 +43,8 @@ class OfferViewModel(
             _state.value = OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
             _state.value = when (val answer = showFirmOffer.load(cotizacionId)) {
             StandInAnswer.Pending -> OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
-            StandInAnswer.Failed -> OfferUiState(phase = OfferPhase.Failed, cotizacionId = cotizacionId)
+            StandInAnswer.Failed, is StandInAnswer.Rejected ->
+                OfferUiState(phase = OfferPhase.Failed, cotizacionId = cotizacionId)
             is StandInAnswer.Ready -> answer.value.toUi(region)
             }
         }

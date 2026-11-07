@@ -1,3 +1,4 @@
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -466,39 +467,156 @@ def detalle(numero: str, request: Request, usuario: dict = Depends(require_custo
     return _poliza_movil(poliza, _cotizacion_de_poliza(nucleo, poliza), detalle=True)
 
 
+_ESTADO_TEXTO = {
+    "recibido": "Recibido",
+    "en_evaluacion": "En evaluación",
+    "decidido": "Decidido",
+    "enrutado": "Enrutado",
+    "pagado": "Pagado",
+}
+
+
 def _siniestro_movil(fila: dict) -> dict:
     fila = _exigir(fila, "id", "estado")
+    numero = fila.get("numero") or fila.get("siniestroId") or fila["id"]
     return {
-        "siniestroId": str(fila["id"]),
-        "ramo": fila.get("poliza") or "",
-        "resumen": fila.get("evento_id") or "",
+        "id": str(fila["id"]),
+        "siniestroId": str(numero),
+        "tipo": fila.get("tipo") or "asistido",
+        "ramo": fila.get("ramo") or fila.get("poliza") or "",
+        "resumen": fila.get("descripcion") or fila.get("evento_id") or fila.get("resumen") or "",
+        "fecha": fila.get("fecha_hecho") or fila.get("fecha"),
         "estado": fila["estado"],
+        "estadoTexto": fila.get("estadoTexto") or _ESTADO_TEXTO.get(fila["estado"], fila["estado"]),
+        "reserva": fila.get("reserva"),
+        "moneda": fila.get("moneda") or "COP",
     }
 
 
+def _detalle_movil(detalle: dict) -> dict:
+    siniestro = detalle.get("siniestro") if isinstance(detalle.get("siniestro"), dict) else detalle
+    fila = _siniestro_movil(siniestro)
+    pago = detalle.get("pago")
+    return fila | {
+        "poliza": siniestro.get("poliza_numero") or siniestro.get("poliza"),
+        "descripcion": siniestro.get("descripcion"),
+        "lugar": siniestro.get("lugar"),
+        "geo": siniestro.get("geo"),
+        "motivo": siniestro.get("motivo") or detalle.get("motivo"),
+        "evidencia": [
+            {
+                "nombre": a.get("nombre"),
+                "tipo": a.get("tipo"),
+                "contentType": a.get("content_type") or a.get("contentType"),
+                "url": a.get("url"),
+            }
+            for a in detalle.get("adjuntos") or detalle.get("evidencia") or []
+        ],
+        "historial": [
+            {"estado": h.get("estado"), "fecha": h.get("ocurrido_en") or h.get("fecha")}
+            for h in siniestro.get("historial") or detalle.get("historial") or []
+        ],
+        "pago": pago,
+        "umbral": siniestro.get("umbral_automatico") or detalle.get("umbral"),
+    }
+
+
+_TIPOS = {
+    "image/png": "foto",
+    "image/jpeg": "foto",
+    "application/pdf": "soporte",
+    "video/mp4": "video",
+}
+
+
+def _geo_aviso(crudo) -> dict | None:
+    """El móvil envía {lat, lng, precisionM}. ms-siniestros espera precision_m."""
+    if not crudo:
+        return None
+    try:
+        valor = json.loads(str(crudo))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="Ubicación inválida") from exc
+    if not isinstance(valor, dict) or "lat" not in valor or "lng" not in valor:
+        raise HTTPException(status_code=422, detail="Ubicación inválida")
+    geo = {"lat": valor["lat"], "lng": valor["lng"]}
+    precision = valor.get("precision_m", valor.get("precisionM"))
+    if precision is not None:
+        geo["precision_m"] = precision
+    return geo
+
+
 @router.post("/siniestros")
-def avisar(
-    body: Aviso,
-    request: Request,
-    usuario: dict = Depends(require_customer),
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> dict:
+async def avisar(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
         return {"siniestroId": "SIN-441", "estado": "recibido"}
+    idempotency_key = request.headers.get("idempotency-key")
     if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key requerida")
+    form = await request.form()
+    numero = str(form.get("poliza") or "")
+    fecha = str(form.get("fechaHecho") or "")
+    descripcion = str(form.get("descripcion") or "").strip()
+    lugar = str(form.get("lugar") or "").strip()
+    if not numero or not fecha or not descripcion:
+        raise HTTPException(status_code=422, detail="Faltan poliza, fecha o descripción")
+    if len(descripcion) > 1000:
+        raise HTTPException(status_code=422, detail="La descripción admite hasta 1000 caracteres")
+    if len(lugar) > 200:
+        raise HTTPException(status_code=422, detail="El lugar admite hasta 200 caracteres")
+    archivos = form.getlist("archivos")
+    if not archivos or len(archivos) > 5:
+        raise HTTPException(status_code=422, detail="El aviso requiere de 1 a 5 archivos")
+    evidencia = []
+    tipos = []
+    for archivo in archivos:
+        tipo = (archivo.content_type or "").split(";")[0].strip().lower()
+        if tipo not in _TIPOS:
+            raise HTTPException(status_code=422, detail="Tipo de archivo no admitido")
+        contenido = await archivo.read()
+        if len(contenido) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=422, detail="Cada archivo admite hasta 10 MB")
+        evidencia.append((archivo.filename or "evidencia", contenido, tipo))
+        tipos.append(_TIPOS[tipo])
     uid = _contexto(usuario)["usuario_id"]
-    poliza = request.app.state.nucleo.obtener_por_numero(body.poliza, usuario_id=uid)
+    nucleo = request.app.state.nucleo
+    poliza = nucleo.obtener_por_numero(numero, usuario_id=uid)
     if _ajeno(poliza, uid):
         raise HTTPException(status_code=404, detail="No existe")
     poliza_id = str(poliza.get("poliza_id") or poliza.get("id") or "")
     if not poliza_id:
         raise HTTPException(status_code=404, detail="No existe")
-    creado = request.app.state.nucleo.crear_siniestro(
-        usuario_id=uid, poliza=body.poliza, poliza_id=poliza_id, idempotency_key=idempotency_key
+    cotizacion = _cotizacion_de_poliza(nucleo, poliza)
+    geo = _geo_aviso(form.get("geo"))
+    datos = {
+        "usuario_id": uid,
+        "canal": "movil",
+        "poliza": {
+            "poliza_id": poliza_id,
+            "numero": poliza.get("numero") or numero,
+            "ramo": cotizacion.get("producto") or poliza.get("ramo") or "sin-clasificar",
+            "estado": str(poliza.get("estado") or "vigente").lower(),
+            "inicio_vigencia": poliza.get("inicio_vigencia") or "2020-01-01",
+            "fin_vigencia": poliza.get("fin_vigencia") or "2099-01-01",
+        },
+        "fecha_hecho": fecha,
+        "descripcion": descripcion,
+        "geo": geo,
+        "tipos_adjuntos": tipos,
+    }
+    if lugar:
+        datos["lugar"] = lugar
+    creado = nucleo.registrar_aviso(
+        usuario_id=uid, datos=datos, archivos=evidencia, idempotency_key=idempotency_key
     )
-    creado = _exigir(creado, "id", "estado")
-    return {"siniestroId": str(creado["id"]), "estado": creado["estado"]}
+    siniestro = creado.get("siniestro") if isinstance(creado, dict) else None
+    if not isinstance(siniestro, dict):
+        siniestro = creado if isinstance(creado, dict) else {}
+    siniestro = _exigir(siniestro, "id", "estado")
+    return {
+        "siniestroId": str(siniestro.get("numero") or siniestro["id"]),
+        "estado": siniestro["estado"],
+    }
 
 
 @router.get("/siniestros")
@@ -518,6 +636,17 @@ def siniestros(request: Request, usuario: dict = Depends(require_customer)) -> d
     if not isinstance(filas, list):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
     return {"siniestros": [_siniestro_movil(fila) for fila in filas]}
+
+
+@router.get("/siniestros/{siniestro_id}")
+def detalle_siniestro(siniestro_id: str, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        raise HTTPException(status_code=404, detail="No existe")
+    uid = _contexto(usuario)["usuario_id"]
+    detalle = request.app.state.nucleo.detalle_siniestro(siniestro_id, uid)
+    if not isinstance(detalle, dict):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    return _detalle_movil(detalle)
 
 
 @router.get("/pagos-automaticos")

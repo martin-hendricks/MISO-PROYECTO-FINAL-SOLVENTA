@@ -21,6 +21,10 @@ fun SiniestroDetalleScreen(
     claimId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    lines: List<String> = emptyList(),
+    missing: Boolean = false,
+    failed: Boolean = false,
+    onRetry: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -37,6 +41,29 @@ fun SiniestroDetalleScreen(
             text = claimId,
             style = SolventaTypography.amount,
         )
+        lines.forEach { line ->
+            Text(text = line, style = MaterialTheme.typography.bodyLarge)
+        }
+        if (missing) {
+            Text(
+                text = stringResource(R.string.claim_not_found),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.testTag("claim_not_found"),
+            )
+        }
+        if (failed) {
+            Text(
+                text = stringResource(R.string.load_failed),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.testTag("claim_detail_failed"),
+            )
+            SolventaButton(
+                text = stringResource(R.string.claim_retry),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onRetry,
+                testTag = "claim_detail_retry",
+            )
+        }
         SolventaButton(
             text = stringResource(R.string.action_back),
             style = SolventaButtonStyle.Outlined,

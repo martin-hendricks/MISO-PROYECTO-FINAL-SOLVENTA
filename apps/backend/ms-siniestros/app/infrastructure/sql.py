@@ -83,6 +83,7 @@ class SiniestroFila(Base):
     suma_asegurada: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     fecha_hecho: Mapped[date | None]
     descripcion: Mapped[str | None]
+    lugar: Mapped[str | None] = mapped_column(String(200))
     reserva: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     umbral_automatico: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     geo_lat: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
@@ -245,6 +246,7 @@ def _siniestro_a_dominio(fila: SiniestroFila, transiciones: list[TransicionEstad
         poliza=poliza,
         fecha_hecho=fila.fecha_hecho,
         descripcion=fila.descripcion,
+        lugar=fila.lugar,
         geo=geo,
         reserva=fila.reserva,
         umbral_automatico=fila.umbral_automatico,
@@ -272,6 +274,7 @@ def _copiar_a_fila(siniestro: Siniestro, fila: SiniestroFila) -> None:
     fila.suma_asegurada = poliza.suma_asegurada if poliza else None
     fila.fecha_hecho = siniestro.fecha_hecho
     fila.descripcion = siniestro.descripcion
+    fila.lugar = siniestro.lugar
     fila.reserva = siniestro.reserva
     fila.umbral_automatico = siniestro.umbral_automatico
     fila.geo_lat = siniestro.geo.lat if siniestro.geo else None

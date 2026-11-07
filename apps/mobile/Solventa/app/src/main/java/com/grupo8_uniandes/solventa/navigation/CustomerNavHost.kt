@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
+import com.grupo8_uniandes.solventa.claim.DetailPhase
+import com.grupo8_uniandes.solventa.claim.ParametricTarget
+import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.issuance.ConfirmacionTarjetaViewModel
@@ -227,14 +230,22 @@ fun CustomerNavHost(
             LaunchedEffect(Unit) { viewModel.refresh() }
             LaunchedEffect(state.openedClaimId) {
                 val id = state.openedClaimId ?: return@LaunchedEffect
-                if (id == OpenParametricPayment.STORED_ID) {
+                if (state.openParametric) {
                     navController.navigate(ParametricoRoute)
-                    viewModel.consumeOpenedClaim()
+                } else {
+                    navController.navigate(SiniestroDetalleRoute(id))
                 }
+                viewModel.consumeOpenedClaim()
             }
             SiniestrosScreen(
-                claims = state.claims,
+                claims = state.visible,
+                chip = state.chip,
+                onChip = viewModel::selectChip,
+                filterMiss = state.phase == ClaimsPhase.Ready &&
+                    state.claims.isNotEmpty() &&
+                    state.visible.isEmpty(),
                 failed = state.phase == ClaimsPhase.Failed,
+                onRetry = viewModel::refresh,
                 onOpenClaim = viewModel::openClaim,
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
                 onOpenCatalog = {
@@ -275,10 +286,27 @@ fun CustomerNavHost(
         composable<AvisoSiniestroRoute> {
             val viewModel = avisoViewModel()
             LaunchedEffect(Unit) { viewModel.reopen() }
+            val aviso by viewModel.state.collectAsState()
             AvisoSiniestroScreen(
+                sentences = listOf(
+                    aviso.draft.poliza,
+                    aviso.draft.fechaHecho,
+                    aviso.draft.descripcion,
+                    aviso.draft.lugar,
+                ),
+                problems = aviso.problems,
+                policies = aviso.policyOptions,
+                policiesLoaded = aviso.policiesLoaded,
+                geotag = aviso.draft.geotag,
+                geo = aviso.draft.geo,
+                locationDenied = aviso.draft.locationDenied,
+                locating = aviso.locating,
+                onRevise = viewModel::revise,
+                onToggleGeotag = viewModel::toggleGeotag,
+                onUseLocation = viewModel::useCurrentLocation,
+                onLocationDenied = viewModel::denyCurrentLocation,
                 onContinue = {
-                    viewModel.continueToCamera()
-                    navController.navigate(EvidenciaAvisoRoute)
+                    if (viewModel.continueToEvidence()) navController.navigate(EvidenciaAvisoRoute)
                 },
                 onCancel = {
                     viewModel.cancel()
@@ -290,30 +318,21 @@ fun CustomerNavHost(
             val viewModel = avisoViewModel()
             val state by viewModel.state.collectAsState()
             LaunchedEffect(state.phase) {
-                if (state.phase == NoticePhase.Evidence) {
-                    viewModel.attachVideo()
-                    viewModel.attachReceipt()
-                }
                 if (state.phase == NoticePhase.Confirmation) {
                     navController.navigate(ConfirmacionAvisoRoute(state.receiptId))
                 }
             }
             EvidenciaAvisoScreen(
-                phase = state.phase,
                 draft = state.draft,
-                onAllowCamera = viewModel::allowCamera,
-                onDenyCamera = viewModel::denyCamera,
-                onDismissCamera = viewModel::dismissCamera,
-                onAllowPhotos = viewModel::allowPhotos,
-                onDenyPhotos = viewModel::denyPhotos,
-                onAllowLocation = viewModel::allowLocation,
-                onDenyLocation = viewModel::denyLocation,
-                onDismissLocation = viewModel::dismissLocation,
-                onOpenLocation = viewModel::openLocation,
-                onChoosePhotos = viewModel::choosePhotos,
+                onAttach = { attachment, bytes -> viewModel.attach(attachment, bytes) },
+                onRemove = viewModel::remove,
+                onCameraDenied = viewModel::markCameraDenied,
                 onSend = viewModel::send,
                 onQueue = viewModel::queue,
-                onAttach = viewModel::attachSupport,
+                sending = state.sending,
+                queued = state.queued,
+                rejection = state.rejection,
+                fileRejected = state.fileRejected,
             )
         }
         composable<ConfirmacionAvisoRoute> { entry ->
@@ -330,19 +349,19 @@ fun CustomerNavHost(
         }
         composable<ParametricoRoute> {
             val viewModel: ParametricoViewModel = koinViewModel()
-            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(OpenParametricPayment.POLICY) }
             val state by viewModel.state.collectAsState()
-            val renewalState by renewal.state.collectAsState()
             val context = LocalContext.current
-            LaunchedEffect(Unit) { viewModel.load() }
+            LaunchedEffect(Unit) {
+                val id = ParametricTarget.claimId
+                if (id.isNotBlank()) viewModel.loadStored(id) else viewModel.load()
+            }
             val notice = state.notice
             if (notice != null) {
                 ParametricoScreen(
                     notice = notice,
                     onBack = { navController.popBackStack() },
-                    renewalChecked = renewalState.checked,
-                    renewalMissing = renewalState.missing,
-                    onRenewal = renewal::onChecked,
+                    renewalChecked = state.renewalChecked,
+                    onRenewal = viewModel::setRenewal,
                     onDownload = {
                         val receipt = viewModel.offerReceipt() ?: return@ParametricoScreen
                         val text = listOf(receipt.asunto, receipt.disparo, receipt.lineaDepositada)
@@ -358,8 +377,14 @@ fun CustomerNavHost(
         }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
+            val viewModel: SiniestroDetalleViewModel = koinViewModel { parametersOf(route.claimId) }
+            val detail by viewModel.state.collectAsState()
             SiniestroDetalleScreen(
                 claimId = route.claimId,
+                lines = detail.lines,
+                missing = detail.phase == DetailPhase.Missing,
+                failed = detail.phase == DetailPhase.Failed,
+                onRetry = viewModel::load,
                 onBack = { navController.popBackStack() },
             )
         }

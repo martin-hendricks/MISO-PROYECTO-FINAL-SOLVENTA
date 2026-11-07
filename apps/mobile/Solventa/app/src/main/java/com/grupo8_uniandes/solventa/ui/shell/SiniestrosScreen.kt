@@ -20,7 +20,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimChip
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.ui.components.SolventaButton
+import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaCard
 import com.grupo8_uniandes.solventa.ui.components.SolventaChip
 import com.grupo8_uniandes.solventa.ui.components.SolventaFloatingAction
@@ -34,6 +37,10 @@ fun SiniestrosScreen(
     onOpenCatalog: () -> Unit,
     onReport: () -> Unit = {},
     failed: Boolean = false,
+    chip: ClaimChip = ClaimChip.Todos,
+    onChip: (ClaimChip) -> Unit = {},
+    filterMiss: Boolean = false,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -48,12 +55,25 @@ fun SiniestrosScreen(
                 .padding(SolventaSpacing.gutter),
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
         ) {
-            ClaimChips(onOpenCatalog = onOpenCatalog)
+            ClaimChips(onOpenCatalog = onOpenCatalog, chip = chip, onChip = onChip)
             if (failed) {
                 Text(
                     text = stringResource(R.string.load_failed),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.testTag("load_failed"),
+                )
+                SolventaButton(
+                    text = stringResource(R.string.claim_retry),
+                    style = SolventaButtonStyle.Outlined,
+                    onClick = onRetry,
+                    testTag = "claim_retry",
+                )
+            }
+            if (claims.isEmpty() && !failed) {
+                Text(
+                    text = stringResource(if (filterMiss) R.string.claim_list_none else R.string.claim_list_empty),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.testTag(if (filterMiss) "claim_list_none" else "claim_list_empty"),
                 )
             }
             claims.forEach { claim ->
@@ -74,31 +94,35 @@ fun SiniestrosScreen(
 }
 
 @Composable
-internal fun ClaimChips(onOpenCatalog: (() -> Unit)? = null) {
+internal fun ClaimChips(
+    onOpenCatalog: (() -> Unit)? = null,
+    chip: ClaimChip = ClaimChip.Todos,
+    onChip: (ClaimChip) -> Unit = {},
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SolventaChip(
             label = stringResource(R.string.claim_chip_todos),
-            selected = true,
-            onClick = {},
+            selected = chip == ClaimChip.Todos,
+            onClick = { onChip(ClaimChip.Todos) },
             showSelectionIcon = false,
             labelStyle = SolventaTypography.amount,
             testTag = "chip_todos",
         )
         SolventaChip(
             label = stringResource(R.string.claim_chip_en_evaluacion),
-            selected = false,
-            onClick = {},
+            selected = chip == ClaimChip.EnEvaluacion,
+            onClick = { onChip(ClaimChip.EnEvaluacion) },
             showSelectionIcon = false,
             labelStyle = SolventaTypography.amount,
             testTag = "chip_en_evaluacion",
         )
         SolventaChip(
             label = stringResource(R.string.claim_chip_pagado),
-            selected = false,
-            onClick = {},
+            selected = chip == ClaimChip.Pagado,
+            onClick = { onChip(ClaimChip.Pagado) },
             showSelectionIcon = false,
             labelStyle = SolventaTypography.amount,
             testTag = "chip_pagado",

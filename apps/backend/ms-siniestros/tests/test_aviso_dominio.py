@@ -235,6 +235,16 @@ def test_motor_rechazo_tiene_prioridad_sobre_revision():
     assert r.resultado is ResultadoAuditado.RECHAZADO
 
 
+def test_lugar_se_guarda_y_el_vacio_se_omite():
+    con_lugar = aviso(lugar="  Calle 72  ")
+    assert con_lugar.lugar == "Calle 72"
+    assert aviso(lugar="   ").lugar is None
+    assert aviso().lugar is None
+    with pytest.raises(ReglaDeNegocioViolada) as exc:
+        aviso(lugar="x" * 201)
+    assert exc.value.codigo == "lugar_largo"
+
+
 def test_motor_es_determinista():
     s = aviso()
     a = motor_reglas.evaluar(s, DISPOSITIVO, 1, 0)

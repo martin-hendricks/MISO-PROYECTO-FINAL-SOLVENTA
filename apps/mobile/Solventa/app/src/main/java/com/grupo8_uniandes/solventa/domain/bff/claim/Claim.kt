@@ -26,6 +26,8 @@ data class GeoPoint(
 data class Attachment(
     val tipo: AttachmentKind,
     val nombre: String,
+    val contentType: String = "application/octet-stream",
+    val tamanoBytes: Long = 0,
 )
 
 data class ClaimNotice(
@@ -33,6 +35,8 @@ data class ClaimNotice(
     val fechaHecho: String,
     val geo: GeoPoint?,
     val adjuntos: List<Attachment>,
+    val descripcion: String = "",
+    val lugar: String = "",
 )
 
 data class ClaimReceipt(
@@ -46,6 +50,11 @@ data class ClaimSummary(
     val resumen: String,
     val estado: ClaimStatus,
     val estadoTexto: String? = null,
+    val id: String = siniestroId,
+    val tipo: String = "asistido",
+    val fecha: String? = null,
+    val reserva: Double? = null,
+    val moneda: String? = null,
 ) {
     fun whatHappened(): String = "$ramo · $resumen"
 
@@ -58,8 +67,62 @@ data class ClaimSummary(
     }
 }
 
+data class ClaimEvidence(
+    val nombre: String,
+    val tipo: String,
+    val contentType: String,
+    val url: String,
+)
+
+data class ClaimHistory(val estado: String, val fecha: String)
+
+data class ClaimPayment(val comprobante: String, val monto: Double, val moneda: String, val fecha: String)
+
+data class ClaimDetail(
+    val summary: ClaimSummary,
+    val poliza: String?,
+    val descripcion: String?,
+    val lugar: String?,
+    val geo: GeoPoint?,
+    val motivo: String?,
+    val evidencia: List<ClaimEvidence>,
+    val historial: List<ClaimHistory>,
+    val pago: ClaimPayment?,
+    val umbral: String?,
+) {
+    fun lines(): List<String> = buildList {
+        add(summary.siniestroId)
+        add(summary.ramo)
+        add(summary.statusWords())
+        motivo?.takeIf { it.isNotBlank() }?.let(::add)
+        poliza?.takeIf { it.isNotBlank() }?.let(::add)
+        summary.fecha?.takeIf { it.isNotBlank() }?.let(::add)
+        descripcion?.takeIf { it.isNotBlank() }?.let(::add)
+        lugar?.takeIf { it.isNotBlank() }?.let(::add)
+        add(if (geo == null) "Sin geoetiqueta" else "${geo.lat}, ${geo.lng}")
+        summary.reserva?.let { add(it.toString()) }
+        pago?.let { add("${it.comprobante} ${it.monto} ${it.moneda}") }
+        evidencia.forEach { add(it.nombre) }
+        historial.forEach { add("${it.estado} ${it.fecha}") }
+    }
+
+    fun storedPayment(): ParametricNotice? {
+        val payment = pago ?: return null
+        if (summary.tipo != "parametrico" || summary.estado != ClaimStatus.PAGADO) return null
+        return ParametricNotice(
+            asunto = summary.resumen,
+            disparo = umbral.orEmpty(),
+            monto = payment.monto.toLong(),
+            moneda = payment.moneda,
+            lineaDepositada = "${payment.monto.toLong()} ${payment.moneda}",
+        )
+    }
+}
+
 interface ClaimRepository {
     suspend fun notify(notice: ClaimNotice, idempotencyKey: String? = null): StandInAnswer<ClaimReceipt>
 
     suspend fun list(): StandInAnswer<List<ClaimSummary>>
+
+    suspend fun detail(id: String): StandInAnswer<ClaimDetail> = StandInAnswer.Failed
 }

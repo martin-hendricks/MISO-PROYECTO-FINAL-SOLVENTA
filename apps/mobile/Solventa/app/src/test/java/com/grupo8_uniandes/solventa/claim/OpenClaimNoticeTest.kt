@@ -5,7 +5,10 @@ import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.bff.remote.BffCache
 import com.grupo8_uniandes.solventa.data.bff.remote.CachedClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
+import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
+import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNoticeDraft
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
@@ -42,7 +45,7 @@ class OpenClaimNoticeTest {
         assertEquals(
             listOf(
                 "Los campos siguen el ramo de la póliza que elijas",
-                "Pide permiso de ubicacion del dispositivo para geoetiquetar",
+                "Escribe el lugar. Geoetiqueta solo si la activas.",
             ),
             notice.review().helpLines(),
         )
@@ -52,26 +55,26 @@ class OpenClaimNoticeTest {
     }
 
     @Test
-    fun givenContinue_whenTheCameraIsNotAnswered_thenNoPhotoIsAttached() {
+    fun givenContinue_whenEvidenceOpens_thenNoPhotoIsAttached() {
         val notice = open()
 
-        notice.continueToCamera()
+        notice.continueToEvidence()
 
-        assertEquals(NoticePhase.Camera, notice.phase)
+        assertEquals(NoticePhase.Evidence, notice.phase)
         assertTrue(notice.draft.adjuntos.isEmpty())
     }
 
     @Test
-    fun givenTheCameraIsAllowed_whenTheNoticeIsSent_thenSin441ArrivesOnce() = runBlocking {
+    fun givenAPhoto_whenTheNoticeIsSent_thenSin441ArrivesOnce() = runBlocking {
         val repo = RecordingClaims()
         val notice = open(repo)
 
-        notice.allowCamera()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1, 2))
         val first = notice.send()
         val second = notice.send()
 
         assertEquals(listOf(AttachmentKind.FOTO), repo.notice?.adjuntos?.map { it.tipo })
-        assertEquals("foto-dano", repo.notice?.adjuntos?.single()?.nombre)
+        assertEquals("foto.jpg", repo.notice?.adjuntos?.single()?.nombre)
         assertEquals("SIN-441", first?.siniestroId)
         assertEquals(ClaimStatus.EN_EVALUACION, first?.estado)
         assertEquals(first, second)
@@ -93,13 +96,13 @@ class OpenClaimNoticeTest {
     }
 
     @Test
-    fun givenThePhotoStep_whenVideoReceiptAndScanAreAttached_thenTheyStayOnTheNotice() = runBlocking {
+    fun givenEvidence_whenPhotoVideoAndReceiptAreAttached_thenTheyStayOnTheNotice() = runBlocking {
         val repo = RecordingClaims()
         val notice = open(repo)
-        notice.allowCamera()
-        notice.attachVideo()
-        notice.attachReceipt()
-        notice.attachSupport()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
+        notice.attachFile(file(AttachmentKind.VIDEO, "video.mp4", "video/mp4"), byteArrayOf(2))
+        notice.attachFile(file(AttachmentKind.RECIBO, "recibo.pdf", "application/pdf"), byteArrayOf(3))
+        notice.attachFile(file(AttachmentKind.SOPORTE, "soporte.png", "image/png"), byteArrayOf(4))
 
         notice.send()
 
@@ -108,7 +111,7 @@ class OpenClaimNoticeTest {
             repo.notice?.adjuntos?.map { it.tipo },
         )
         assertEquals(
-            listOf("foto-dano", "video-dano", "recibo-dano", "soporte-recorte"),
+            listOf("foto.jpg", "video.mp4", "recibo.pdf", "soporte.png"),
             repo.notice?.adjuntos?.map { it.nombre },
         )
     }
@@ -120,7 +123,8 @@ class OpenClaimNoticeTest {
         val hold = CachedClaimHold(cache)
         val repo = RecordingClaims()
         val notice = OpenClaimNotice(repo, hold) { "key-held" }
-        notice.allowCamera()
+        notice.continueToEvidence()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
 
         val first = notice.queue()
         val second = notice.queue()
@@ -144,8 +148,9 @@ class OpenClaimNoticeTest {
     fun givenLocationIsDenied_whenTheNoticeIsSent_thenGeoIsNull() = runBlocking {
         val repo = RecordingClaims()
         val notice = open(repo)
-        notice.allowCamera()
-        notice.denyLocation()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
+        notice.setGeotag(true)
+        notice.placeAt(null)
 
         notice.send()
 
@@ -155,27 +160,32 @@ class OpenClaimNoticeTest {
     }
 
     @Test
-    fun givenLocationIsAllowed_whenTheEvidenceIsShown_thenTheCoordinateIsSet() {
+    fun givenGeotagIsOn_whenAPointIsPlaced_thenTheCoordinateStaysUntilItIsTurnedOff() {
         val notice = open()
-        notice.allowLocation()
+        notice.setGeotag(true)
+        notice.placeAt(GeoPoint(lat = 4.6533, lng = -74.0836, precisionM = 12))
 
-        assertEquals(NoticePhase.Evidence, notice.phase)
+        assertEquals(NoticePhase.Form, notice.phase)
+        assertTrue(notice.draft.geotag)
         assertEquals(4.6533, notice.draft.geo!!.lat, 0.0001)
         assertEquals(-74.0836, notice.draft.geo!!.lng, 0.0001)
         assertEquals(12, notice.draft.geo?.precisionM)
+
+        notice.setGeotag(false)
+        assertNull(notice.draft.geo)
+        assertFalse(notice.draft.geotag)
     }
 
     @Test
-    fun givenTheCameraIsDenied_whenAGalleryPhotoIsAllowed_thenOnePhotoStaysAndTheNoticeIsOpen() {
+    fun givenAFile_whenItIsRemoved_thenTheBytesGoWithIt() {
         val notice = open()
-        notice.denyCamera()
-        notice.choosePhotos()
-        notice.allowPhotos()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(9))
+        notice.markCameraDenied()
+        notice.remove("foto.jpg")
 
-        assertEquals(listOf(AttachmentKind.FOTO), notice.draft.adjuntos.map { it.tipo })
-        assertEquals("foto-dano", notice.draft.adjuntos.single().nombre)
-        assertEquals(NoticePhase.Evidence, notice.phase)
-        assertNull(notice.receipt)
+        assertTrue(notice.draft.adjuntos.isEmpty())
+        assertTrue(notice.draft.cameraDenied)
+        assertNull(EvidenceBytes.read("foto.jpg"))
     }
 
     @Test
@@ -186,12 +196,15 @@ class OpenClaimNoticeTest {
         hold.keep("saved", ClaimNoticeDraft.Review.toNotice())
         assertEquals(ClaimNoticeDraft.Review.toNotice(), hold.readNotice())
 
-        notice.allowCamera()
-        notice.allowCamera()
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
         assertNull(notice.send())
-        assertEquals(NoticePhase.Evidence, notice.phase)
+        assertEquals(NoticePhase.Form, notice.phase)
         assertTrue(notice.queue().isNotEmpty())
     }
+
+    private fun file(kind: AttachmentKind, name: String, type: String) =
+        Attachment(kind, name, type, 4)
 
     private fun open(repo: ClaimRepository = RecordingClaims()) =
         OpenClaimNotice(repo, MemoryClaimHold()) { "key-1" }

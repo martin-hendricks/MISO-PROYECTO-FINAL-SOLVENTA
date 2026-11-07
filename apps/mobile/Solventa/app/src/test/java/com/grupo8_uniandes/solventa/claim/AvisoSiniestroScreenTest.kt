@@ -1,9 +1,17 @@
 package com.grupo8_uniandes.solventa.claim
 
+import android.Manifest
+import android.app.Application
+import android.net.Uri
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -20,6 +29,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.core.app.ActivityOptionsCompat
+import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
@@ -27,9 +38,11 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
@@ -42,7 +55,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w480dp-h2000dp")
@@ -52,19 +67,22 @@ class AvisoSiniestroScreenTest {
 
     @Test
     fun givenACurrentPolicy_whenTheNoticeIsSent_thenSin441ShowsOnce() {
-        show()
+        show(grantCamera = true)
         rule.onNodeWithText("Reportar siniestro · Protección de dispositivo").assertIsDisplayed()
         rule.onNodeWithText("POL-88219-CO · Protección de dispositivo").assertIsDisplayed()
         rule.onNodeWithText("12 mar 2026").assertIsDisplayed()
         rule.onNodeWithText("Pantalla rota al caer el teléfono").assertIsDisplayed()
         rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
         rule.onNodeWithText("Continuar a evidencia").performClick()
-        rule.onNodeWithText("No graba video", substring = true).assertIsDisplayed()
-        rule.onAllNodesWithTag("tab_Siniestros").assertCountEquals(0)
-        rule.onNodeWithText("Ahora no").performClick()
-        rule.onAllNodesWithText("Mientras usas la app").assertCountEquals(0)
+        rule.onNodeWithTag("tab_Siniestros").assertIsDisplayed()
+        rule.onNodeWithTag("claim_send").assertIsNotEnabled()
+        rule.onNodeWithTag("claim_take_photo").performClick()
+        rule.onNodeWithText("image/jpeg", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("claim_record_video").performClick()
+        rule.onNodeWithText("video/mp4", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Foto, video y recibo del daño · evidencia de Protección de dispositivo").assertIsDisplayed()
-        rule.onNodeWithText("Adjuntar al trámite").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("dano.jpg").assertIsDisplayed()
         rule.onNodeWithText("Enviar aviso").performClick()
         rule.onNodeWithText("Aviso recibido").assertIsDisplayed()
         rule.onNodeWithText(
@@ -77,37 +95,72 @@ class AvisoSiniestroScreenTest {
     }
 
     @Test
-    fun givenLocationAndCamera_whenDenied_thenTheNoticeStaysOpen() {
-        show()
-        rule.onNodeWithText("Continuar a evidencia").performClick()
-        rule.onNodeWithText("Solo esta vez").performClick()
-        rule.onNodeWithTag("claim_location_row").performClick()
-        rule.onNodeWithText("Dónde ocurrió el siniestro").assertIsDisplayed()
-        rule.onNodeWithText("Ahora no").performClick()
-        rule.onNodeWithText("Enviar aviso").assertIsDisplayed()
-        rule.onNodeWithTag("claim_location_row").performClick()
-        rule.onNodeWithTag("claim_permission_deny").performClick()
+    fun givenGeotag_whenLocationIsDeniedThenAllowed_thenTheCoordinateShows() {
+        show(permissions = listOf(false, true))
+        rule.onNodeWithTag("claim_use_location").assertDoesNotExist()
+        rule.onNodeWithTag("claim_geotag").performClick()
+        rule.onNodeWithTag("claim_use_location").performClick()
         rule.onNodeWithText("Permiso denegado").assertIsDisplayed()
         rule.onNodeWithText("Puedes enviar el aviso sin geoetiqueta").assertIsDisplayed()
-        rule.onNodeWithText("Abrir ajustes del dispositivo").performClick()
-        rule.onNodeWithTag("tab_Siniestros").assertIsSelected()
-        rule.onNodeWithTag("claim_location_row").performClick()
-        rule.onNodeWithText("Mientras usas la app").performClick()
-        rule.onNodeWithText("Ubicación añadida").assertIsDisplayed()
-        rule.onNodeWithText("GPS 4.6533, -74.0836 · ±12 m · Bogotá").assertIsDisplayed()
+        rule.onNodeWithTag("claim_use_location").performClick()
+        rule.onNodeWithText("GPS 4.6533, -74.0836 · ±12 m").assertIsDisplayed()
     }
 
     @Test
-    fun givenTheCameraIsDenied_whenPhotosAreChosen_thenTheFlowStaysOpen() {
-        show()
+    fun givenTheCameraIsDenied_whenAFileIsPicked_thenTheFlowStaysOpen() {
+        show(permissions = listOf(false))
         rule.onNodeWithText("Continuar a evidencia").performClick()
-        rule.onNodeWithTag("claim_permission_deny").performClick()
+        rule.onNodeWithTag("claim_take_photo").performClick()
         rule.onNodeWithText("Cámara denegada").assertIsDisplayed()
-        rule.onNodeWithText("Elegir de fotos").performClick()
-        rule.onNodeWithText("Seleccionar fotos").performClick()
-        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        rule.onNodeWithText("Elige una foto de la galería o abre Ajustes").assertIsDisplayed()
+        rule.onNodeWithTag("claim_settings").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("dano.jpg").assertIsDisplayed()
+        rule.onNodeWithTag("claim_remove_dano.jpg").performClick()
+        rule.onAllNodesWithText("dano.jpg").assertCountEquals(0)
+        rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Guardar en cola").performClick()
+        rule.onNodeWithTag("claim_queued").assertIsDisplayed()
         rule.onAllNodesWithText("Aviso recibido").assertCountEquals(0)
+        rule.onNodeWithTag("tab_Siniestros").assertIsSelected()
+    }
+
+    @Test
+    fun givenPoliciesInForce_whenOneIsChosen_thenThatNumberIsKept() {
+        rule.setContent {
+            var policy by remember { mutableStateOf("POL-1") }
+            SolventaTheme {
+                AvisoSiniestroScreen(
+                    policies = listOf(
+                        WalletEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"),
+                        WalletEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
+                    ),
+                    policiesLoaded = true,
+                    sentences = listOf(policy, "2026-11-01", "Choque", ""),
+                    onRevise = { next, _, _, _ -> policy = next },
+                    onContinue = {},
+                    onCancel = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("claim_policy").performClick()
+        rule.onNodeWithTag("claim_policy_option_POL-2").performClick()
+        rule.onNodeWithText("POL-2 · Vida").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenNoPolicies_whenTheFormLoads_thenItSaysSo() {
+        rule.setContent {
+            SolventaTheme {
+                AvisoSiniestroScreen(
+                    policiesLoaded = true,
+                    onRevise = { _, _, _, _ -> },
+                    onContinue = {},
+                    onCancel = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("claim_no_policy").assertIsDisplayed()
     }
 
     @Test
@@ -126,74 +179,98 @@ class AvisoSiniestroScreenTest {
         org.junit.Assert.assertTrue(reported)
     }
 
-    private fun show() {
+    private fun show(permissions: List<Boolean> = listOf(true), grantCamera: Boolean = false) {
+        if (grantCamera) {
+            shadowOf(ApplicationProvider.getApplicationContext<Application>())
+                .grantPermissions(Manifest.permission.CAMERA)
+        }
+        val registry = CannedEvidenceRegistry(permissions)
+        val owner = object : ActivityResultRegistryOwner {
+            override val activityResultRegistry = registry
+        }
         rule.setContent {
             val notice = remember { OpenClaimNotice(ReadyClaims(), MemoryClaimHold()) { "key-1" } }
             var phase by remember { mutableStateOf(notice.phase) }
             var draft by remember { mutableStateOf(notice.draft) }
             var receipt by remember { mutableStateOf(notice.receipt?.siniestroId) }
+            var queued by remember { mutableStateOf(notice.queued) }
             fun refresh() {
                 phase = notice.phase
                 draft = notice.draft
                 receipt = notice.receipt?.siniestroId
+                queued = notice.queued
             }
-            SolventaTheme {
-                Box(Modifier.fillMaxSize()) {
-                    when (phase) {
-                        NoticePhase.Form -> Column {
-                            Text(stringResource(R.string.claim_notice_title))
-                            AvisoSiniestroScreen(
-                                onContinue = {
-                                    notice.continueToCamera()
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                SolventaTheme {
+                    Box(Modifier.fillMaxSize()) {
+                        when (phase) {
+                            NoticePhase.Form -> Column {
+                                Text(stringResource(R.string.claim_notice_title))
+                                AvisoSiniestroScreen(
+                                    geotag = draft.geotag,
+                                    geo = draft.geo,
+                                    locationDenied = draft.locationDenied,
+                                    onToggleGeotag = {
+                                        notice.setGeotag(it)
+                                        refresh()
+                                    },
+                                    onUseLocation = {
+                                        notice.placeAt(GeoPoint(4.6533, -74.0836, 12))
+                                        refresh()
+                                    },
+                                    onLocationDenied = {
+                                        notice.placeAt(null)
+                                        refresh()
+                                    },
+                                    onContinue = {
+                                        notice.continueToEvidence()
+                                        refresh()
+                                    },
+                                    onCancel = {
+                                        notice.cancel()
+                                        refresh()
+                                    },
+                                )
+                            }
+                            NoticePhase.Confirmation -> ConfirmacionAvisoScreen(
+                                siniestroId = receipt.orEmpty(),
+                                onMyClaims = {},
+                                onHome = {},
+                            )
+                            else -> EvidenciaAvisoScreen(
+                                draft = draft,
+                                onAttach = { attachment, bytes ->
+                                    notice.attachFile(attachment, bytes)
                                     refresh()
                                 },
-                                onCancel = {
-                                    notice.cancel()
+                                onRemove = {
+                                    notice.remove(it)
                                     refresh()
                                 },
+                                onCameraDenied = {
+                                    notice.markCameraDenied()
+                                    refresh()
+                                },
+                                onSend = {
+                                    runBlocking { notice.send() }
+                                    refresh()
+                                },
+                                onQueue = {
+                                    notice.queue()
+                                    refresh()
+                                },
+                                queued = queued,
+                                fileRejected = true,
+                                rejection = "rechazado",
                             )
                         }
-                        NoticePhase.Confirmation -> ConfirmacionAvisoScreen(
-                            siniestroId = receipt.orEmpty(),
-                            onMyClaims = {},
-                            onHome = {},
-                        )
-                        else -> EvidenciaAvisoScreen(
-                            phase = phase,
-                            draft = draft,
-                            onAllowCamera = { notice.allowCamera(); refresh() },
-                            onDenyCamera = { notice.denyCamera(); refresh() },
-                            onDismissCamera = { notice.dismissCamera(); refresh() },
-                            onAllowPhotos = { notice.allowPhotos(); refresh() },
-                            onDenyPhotos = { notice.denyPhotos(); refresh() },
-                            onAllowLocation = { notice.allowLocation(); refresh() },
-                            onDenyLocation = { notice.denyLocation(); refresh() },
-                            onDismissLocation = { notice.dismissLocation(); refresh() },
-                            onOpenLocation = { notice.openLocation(); refresh() },
-                            onChoosePhotos = { notice.choosePhotos(); refresh() },
-                            onSend = {
-                                runBlocking { notice.send() }
-                                refresh()
-                            },
-                            onQueue = {
-                                notice.queue()
-                                refresh()
-                            },
-                            onAttach = {
-                                notice.attachSupport()
-                                refresh()
-                            },
-                        )
-                    }
-                    val tabsHidden = phase == NoticePhase.Camera ||
-                        phase == NoticePhase.Photos ||
-                        phase == NoticePhase.Location
-                    if (!tabsHidden && phase != NoticePhase.Closed) {
-                        SolventaBottomBar(
-                            selected = Destination.Siniestros,
-                            onSelect = {},
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                        )
+                        if (phase != NoticePhase.Closed) {
+                            SolventaBottomBar(
+                                selected = Destination.Siniestros,
+                                onSelect = {},
+                                modifier = Modifier.align(Alignment.BottomCenter),
+                            )
+                        }
                     }
                 }
             }
@@ -205,5 +282,59 @@ class AvisoSiniestroScreenTest {
             StandInAnswer.Ready(ClaimReceipt("SIN-441", ClaimStatus.EN_EVALUACION))
 
         override suspend fun list(): StandInAnswer<List<ClaimSummary>> = StandInAnswer.Failed
+    }
+}
+
+internal class CannedEvidenceRegistry(
+    private val permissions: List<Boolean> = listOf(true),
+) : ActivityResultRegistry() {
+    private var permissionIndex = 0
+
+    override fun <I, O> onLaunch(
+        requestCode: Int,
+        contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
+        input: I,
+        options: ActivityOptionsCompat?,
+    ) {
+        val result: Any? = when (contract) {
+            is ActivityResultContracts.RequestPermission -> {
+                val granted = permissions.getOrElse(permissionIndex) { permissions.last() }
+                permissionIndex += 1
+                granted
+            }
+            is ActivityResultContracts.TakePicture,
+            is ActivityResultContracts.CaptureVideo,
+            -> {
+                write(input as Uri)
+                true
+            }
+            is ActivityResultContracts.OpenDocument -> sampleFile()
+            else -> return
+        }
+        @Suppress("UNCHECKED_CAST")
+        dispatchResult(requestCode, result as O)
+    }
+
+    private fun write(uri: Uri) {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val name = uri.lastPathSegment?.substringAfterLast('/').orEmpty()
+        if (name.isNotEmpty()) {
+            val file = File(context.cacheDir, "claim/$name")
+            file.parentFile?.mkdirs()
+            file.writeBytes(SAMPLE)
+        }
+        runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(SAMPLE) } }
+    }
+
+    private fun sampleFile(): Uri {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val file = File(context.cacheDir, "claim/dano.jpg")
+        file.parentFile?.mkdirs()
+        file.writeBytes(SAMPLE)
+        return Uri.fromFile(file)
+    }
+
+    private companion object {
+        val SAMPLE = byteArrayOf(1, 2, 3, 4)
     }
 }
