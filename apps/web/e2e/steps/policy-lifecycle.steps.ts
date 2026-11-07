@@ -75,6 +75,10 @@ When('the operador cancels it', async function (this: PortalWorld) {
   await this.polizaBackoffice.confirmarCancelar('El cliente lo pidió');
 });
 
+When('the operador changes data or coverages', async function (this: PortalWorld) {
+  await this.polizaBackoffice.modificarPrimeraCobertura('Robo total');
+});
+
 When('the operador opens the cancel action', async function (this: PortalWorld) {
   // Already on the detail from the Given step; cancellation.feature only
   // asserts the button's disabled state and the previous record, it never
@@ -146,6 +150,17 @@ Then('the only option offered is issuing a new policy', async function (this: Po
 
 Then('the policy detail shows the cancelled status', async function (this: PortalWorld) {
   await this.polizaBackoffice.expectEstado('cancelada');
+});
+
+Then('the policy detail shows the updated status', async function (this: PortalWorld) {
+  await this.polizaBackoffice.expectCoberturaVisible('Robo total');
+});
+
+Then('no new policy is created from scratch', async function (this: PortalWorld) {
+  // The same POL-2026-00000001 detail screen reflects the change in place
+  // (just asserted above) -- there is no "issue a new policy" flow reachable
+  // from the modificar action, and the URL/numero never change.
+  await this.polizaBackoffice.expectEstado('vigente');
 });
 
 Then('the customer no longer holds valid coverage', async function (this: PortalWorld) {

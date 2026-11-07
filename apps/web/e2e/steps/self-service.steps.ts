@@ -4,7 +4,7 @@ import { PortalWorld } from '../support/world';
 
 const NUMERO = 'POL-2026-00000003';
 
-Given('the customer is signed in', async function (this: PortalWorld) {
+Given('the customer is signed in with a valid policy', async function (this: PortalWorld) {
   await this.bff.acceptSignIn(this.account.email, 'cliente');
   await this.bff.servePolicyDetail(policyDetail(NUMERO));
   await this.login.open('customer');

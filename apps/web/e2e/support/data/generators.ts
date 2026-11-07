@@ -155,6 +155,7 @@ export interface OperatorPolicy {
   canceladaPor: string | null;
   motivoCancelacion: string | null;
   siniestrosAbiertos: number | null;
+  coberturas: { nombre: string; suma_asegurada: number; deducible: number }[];
 }
 
 /** Shape of GET/POST /operador/polizas/* (bff-web routers/operador.py, _poliza_salida). */
@@ -171,6 +172,7 @@ export function operatorPolicy(numero: string): OperatorPolicy {
     canceladaPor: null,
     motivoCancelacion: null,
     siniestrosAbiertos: null,
+    coberturas: [{ nombre: 'Robo', suma_asegurada: 2000000, deducible: 0 }],
   };
 }
 

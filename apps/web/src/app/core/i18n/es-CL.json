@@ -318,6 +318,17 @@
         "motivo": "Motivo",
         "operador": "Operador",
         "devolucion": "Devolución estimada"
+      },
+      "coberturas": {
+        "title": "Coberturas",
+        "empty": "Esta póliza no tiene coberturas registradas.",
+        "modificar": "Modificar coberturas",
+        "nombre": "Nombre",
+        "suma": "Suma asegurada",
+        "deducible": "Deducible",
+        "agregar": "Agregar cobertura",
+        "quitar": "Quitar",
+        "guardar": "Guardar cambios"
       }
     },
     "emision": {

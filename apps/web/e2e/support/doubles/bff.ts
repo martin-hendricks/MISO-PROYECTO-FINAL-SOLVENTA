@@ -180,7 +180,7 @@ export class BffDoubles {
     detalle: (policy: OperatorPolicy) => OperatorPolicy,
     ciclo: (
       policy: OperatorPolicy,
-      body: { verbo: string; motivo?: string },
+      body: { verbo: string; motivo?: string; coberturas?: OperatorPolicy['coberturas'] },
     ) => { status?: number; json: unknown },
     policy: OperatorPolicy,
   ): Promise<void> {
@@ -189,7 +189,11 @@ export class BffDoubles {
     await this.page.unroute(OPERADOR_POLIZA_DETALLE);
     await this.page.route(OPERADOR_POLIZA_DETALLE, (route) => {
       if (route.request().method() === 'POST') {
-        const body = route.request().postDataJSON() as { verbo: string; motivo?: string };
+        const body = route.request().postDataJSON() as {
+          verbo: string;
+          motivo?: string;
+          coberturas?: OperatorPolicy['coberturas'];
+        };
         const { status, json } = ciclo(current, body);
         if (json && typeof json === 'object' && 'numero' in json) {
           current = json as OperatorPolicy;
@@ -210,6 +214,9 @@ export class BffDoubles {
       (current, body) => {
         if (body.verbo === 'renovar') {
           return { json: { ...current, venceEn: '2028-10-01' } };
+        }
+        if (body.verbo === 'modificar') {
+          return { json: { ...current, coberturas: body.coberturas ?? current.coberturas } };
         }
         if (body.verbo === 'cancelar') {
           return {

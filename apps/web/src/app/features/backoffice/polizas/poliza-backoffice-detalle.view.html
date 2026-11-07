@@ -69,6 +69,25 @@
             }
           </dl>
 
+          @if (!editandoCoberturas()) {
+            <div class="notice" data-testid="poliza-backoffice-coberturas">
+              <p class="notice-title">{{ 'backoffice.polizas.coberturas.title' | translate }}</p>
+              @if (poliza.coberturas.length === 0) {
+                <p class="hint">{{ 'backoffice.polizas.coberturas.empty' | translate }}</p>
+              } @else {
+                <ul class="coberturas-lista">
+                  @for (cobertura of poliza.coberturas; track cobertura.nombre) {
+                    <li>
+                      <span>{{ cobertura.nombre }}</span>
+                      <span class="mono">{{ cobertura.sumaAsegurada | svMoney: 'COP' }}</span>
+                      <span class="mono">{{ 'backoffice.polizas.coberturas.deducible' | translate }}: {{ cobertura.deducible | svMoney: 'COP' }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+
           @if (poliza.estado === 'cancelada') {
             <div class="notice" data-testid="poliza-backoffice-cancelacion-previa">
               <p class="notice-title">{{ 'backoffice.polizas.cancelacionPrevia.title' | translate }}</p>
@@ -112,7 +131,73 @@
             >
               {{ 'backoffice.polizas.cancelar' | translate }}
             </button>
+
+            <button
+              type="button"
+              class="outlined"
+              data-testid="poliza-backoffice-modificar"
+              [disabled]="poliza.estado === 'cancelada' || vm.accion() === 'enviando'"
+              (click)="abrirEditarCoberturas()"
+            >
+              {{ 'backoffice.polizas.coberturas.modificar' | translate }}
+            </button>
           </div>
+
+          @if (editandoCoberturas()) {
+            <div class="notice" data-testid="poliza-backoffice-coberturas-form">
+              <p class="notice-title">{{ 'backoffice.polizas.coberturas.modificar' | translate }}</p>
+              @for (fila of coberturasEditables(); track $index) {
+                <div class="cobertura-fila">
+                  <input
+                    type="text"
+                    [attr.data-testid]="'poliza-backoffice-cobertura-nombre-' + $index"
+                    [placeholder]="'backoffice.polizas.coberturas.nombre' | translate"
+                    [value]="fila.nombre"
+                    (input)="actualizarFila($index, 'nombre', $any($event.target).value)"
+                  />
+                  <input
+                    type="number"
+                    [attr.data-testid]="'poliza-backoffice-cobertura-suma-' + $index"
+                    [placeholder]="'backoffice.polizas.coberturas.suma' | translate"
+                    [value]="fila.sumaAsegurada"
+                    (input)="actualizarFila($index, 'sumaAsegurada', $any($event.target).value)"
+                  />
+                  <input
+                    type="number"
+                    [attr.data-testid]="'poliza-backoffice-cobertura-deducible-' + $index"
+                    [placeholder]="'backoffice.polizas.coberturas.deducible' | translate"
+                    [value]="fila.deducible"
+                    (input)="actualizarFila($index, 'deducible', $any($event.target).value)"
+                  />
+                  <button
+                    type="button"
+                    class="outlined error"
+                    [attr.data-testid]="'poliza-backoffice-cobertura-quitar-' + $index"
+                    (click)="quitarFila($index)"
+                  >
+                    {{ 'backoffice.polizas.coberturas.quitar' | translate }}
+                  </button>
+                </div>
+              }
+              <div class="actions">
+                <button type="button" class="outlined" data-testid="poliza-backoffice-cobertura-agregar" (click)="agregarFila()">
+                  {{ 'backoffice.polizas.coberturas.agregar' | translate }}
+                </button>
+                <button type="button" class="outlined" data-testid="poliza-backoffice-coberturas-cancelar" (click)="cancelarEditarCoberturas()">
+                  {{ 'backoffice.confirmDialog.cancelar' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="filled"
+                  data-testid="poliza-backoffice-coberturas-guardar"
+                  [disabled]="!puedeGuardarCoberturas()"
+                  (click)="guardarCoberturas()"
+                >
+                  {{ 'backoffice.polizas.coberturas.guardar' | translate }}
+                </button>
+              </div>
+            </div>
+          }
 
           @if (vm.accion() === 'rechazado' && vm.rechazo(); as rechazo) {
             <p class="error-text" role="alert" data-testid="poliza-backoffice-rechazo">{{ rechazo }}</p>
