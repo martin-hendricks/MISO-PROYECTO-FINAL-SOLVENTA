@@ -52,6 +52,12 @@ class _ConsumerFalso:
         self.started = False
         self.stopped = False
         self._mensajes: list[_Mensaje] = []
+        # Señal real de sincronización: se activa justo antes de bloquear a
+        # esperar el próximo mensaje, es decir, una vez que _bucle ya
+        # terminó de procesar el mensaje anterior y volvió a pedir el
+        # siguiente -- el test espera esta señal en vez de dormir un
+        # tiempo fijo y no determinista.
+        self.ciclo_completo = asyncio.Event()
         _ConsumerFalso.instancias.append(self)
 
     async def start(self) -> None:
@@ -66,7 +72,11 @@ class _ConsumerFalso:
     async def __anext__(self):
         if self._mensajes:
             return self._mensajes.pop(0)
-        await asyncio.sleep(3600)
+        self.ciclo_completo.set()
+        # Simula el bloqueo real de un consumer esperando el próximo mensaje
+        # del tópico -- se queda esperando indefinidamente hasta que la
+        # tarea se cancela desde afuera (detener()).
+        await asyncio.Event().wait()
         raise AssertionError("no debería llegar aquí en un test")
 
 
@@ -116,10 +126,7 @@ async def test_bucle_procesa_un_mensaje_real_del_consumer(uow, almacen, consumer
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(json.dumps(_mensaje()).encode("utf-8")))
 
-    for _ in range(50):
-        if almacen.conteos:
-            break
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert sum(almacen.conteos.values()) == 1
     await consumidor.detener()
@@ -131,8 +138,7 @@ async def test_bucle_ignora_mensaje_cuyo_payload_no_es_un_objeto(uow, almacen, c
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(json.dumps(mensaje).encode()))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert not almacen.conteos
     await consumidor.detener()
@@ -143,8 +149,7 @@ async def test_bucle_captura_json_invalido_por_la_rama_except(uow, almacen, cons
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(b"{esto no es json"))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert not almacen.conteos
     assert not consumidor._tarea.done()
@@ -163,8 +168,7 @@ async def test_bucle_captura_excepcion_de_manejar_evento_y_sigue(
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(json.dumps(_mensaje()).encode()))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert not consumidor._tarea.done()
     await consumidor.detener()

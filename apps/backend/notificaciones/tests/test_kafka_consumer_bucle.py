@@ -45,6 +45,12 @@ class _ConsumerFalso:
         self.stopped = False
         self.fallar_en_stop = False
         self._mensajes: list[_Mensaje] = []
+        # Señal real de sincronización: se activa justo antes de bloquear a
+        # esperar el próximo mensaje, es decir, una vez que _bucle ya
+        # terminó de procesar el mensaje anterior (manejar_evento incluido)
+        # y volvió a pedir el siguiente -- el test espera esta señal en vez
+        # de dormir un tiempo fijo y no determinista.
+        self.ciclo_completo = asyncio.Event()
         _ConsumerFalso.instancias.append(self)
 
     async def start(self) -> None:
@@ -61,9 +67,14 @@ class _ConsumerFalso:
     async def __anext__(self):
         if self._mensajes:
             return self._mensajes.pop(0)
+        self.ciclo_completo.set()
         # Simula el bloqueo real de un consumer esperando el próximo mensaje
-        # del tópico -- la tarea se cancela desde afuera (detener()).
-        await asyncio.sleep(3600)
+        # del tópico -- se queda esperando indefinidamente hasta que la
+        # tarea se cancela desde afuera (detener()). Un Event que nunca se
+        # activa bloquea igual que dormir un tiempo largo, pero sin un
+        # tiempo fijo (y sin la cadena que el gate de CI prohíbe en tests
+        # unitarios).
+        await asyncio.Event().wait()
         raise AssertionError("no debería llegar aquí en un test")
 
 
@@ -130,10 +141,7 @@ async def test_bucle_procesa_un_mensaje_real_del_consumer(uow, almacen, push, co
         _Mensaje(json.dumps(mensaje).encode("utf-8"))
     )
 
-    for _ in range(50):
-        if almacen.notificaciones:
-            break
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert len(almacen.notificaciones) == 1
     assert len(push.llamadas) == 1
@@ -156,8 +164,7 @@ async def test_bucle_ignora_mensaje_cuyo_payload_no_es_un_objeto(uow, almacen, p
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(json.dumps(mensaje).encode()))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert almacen.notificaciones == {}
     await consumidor.detener()
@@ -168,8 +175,7 @@ async def test_bucle_captura_json_invalido_por_la_rama_except(uow, almacen, push
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(b"{esto no es json"))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert almacen.notificaciones == {}
     assert not consumidor._tarea.done()
@@ -201,8 +207,7 @@ async def test_bucle_captura_excepcion_de_manejar_evento_y_sigue(
     await consumidor.iniciar()
     consumidor._consumer._mensajes.append(_Mensaje(mensaje_malo_payload))
 
-    for _ in range(50):
-        await asyncio.sleep(0)
+    await asyncio.wait_for(consumidor._consumer.ciclo_completo.wait(), timeout=1)
 
     assert not consumidor._tarea.done()
     await consumidor.detener()
@@ -235,7 +240,7 @@ async def test_detener_no_lanza_si_la_tarea_lanza_algo_distinto_a_cancelled(uow,
 
     async def _tarea_que_lanza_al_cancelar():
         try:
-            await asyncio.sleep(3600)
+            await asyncio.Event().wait()
         except asyncio.CancelledError:
             raise RuntimeError("fallo inesperado durante la cancelación") from None
 
