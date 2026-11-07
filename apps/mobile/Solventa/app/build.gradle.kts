@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.okhttp)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.osmdroid.android)
     implementation(libs.retrofit.kotlinx.serialization)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

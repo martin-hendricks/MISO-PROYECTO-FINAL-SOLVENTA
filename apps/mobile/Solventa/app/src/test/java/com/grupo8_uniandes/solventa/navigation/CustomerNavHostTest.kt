@@ -17,6 +17,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
@@ -203,6 +204,7 @@ class CustomerNavHostTest {
         rule.onNodeWithText("Reportar siniestro").performClick()
         rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
         assertEquals(AvisoSiniestroRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        fillClaimNotice()
         rule.onNodeWithText("Continuar a evidencia").performClick()
         rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
         assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
@@ -219,6 +221,7 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onNodeWithText("Reportar siniestro").performClick()
+        fillClaimNotice()
         rule.onNodeWithText("Continuar a evidencia").performClick()
         rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Enviar aviso").performClick()
@@ -363,5 +366,14 @@ class CustomerNavHostTest {
                 }
             }
         }
+    }
+
+    private fun fillClaimNotice() {
+        rule.waitForIdle()
+        rule.onNodeWithTag("claim_policy").performClick()
+        rule.onNodeWithTag("claim_policy_option_POL-88219-CO").performClick()
+        rule.onNodeWithTag("claim_date").performClick()
+        rule.onNodeWithText("Aceptar").performClick()
+        rule.onNodeWithTag("claim_description").performTextInput("Choque")
     }
 }

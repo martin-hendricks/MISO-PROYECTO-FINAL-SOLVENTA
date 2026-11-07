@@ -68,11 +68,13 @@ class SiniestrosViewModel(
     }
 
     fun openClaim(id: String) {
-        val claim = _state.value.claims.find { it.siniestroId == id }
+        val claim = _state.value.claims.find { it.id == id || it.siniestroId == id }
+        val detailId = claim?.id ?: id
         val parametric = id == OpenParametricPayment.STORED_ID ||
+            detailId == OpenParametricPayment.STORED_ID ||
             (claim?.tipo == "parametrico" && claim.estado == ClaimStatus.PAGADO)
-        ParametricTarget.claimId = if (parametric && id != OpenParametricPayment.STORED_ID) id else ""
-        _state.value = _state.value.copy(openedClaimId = id, openParametric = parametric)
+        ParametricTarget.claimId = if (parametric && detailId != OpenParametricPayment.STORED_ID) detailId else ""
+        _state.value = _state.value.copy(openedClaimId = detailId, openParametric = parametric)
     }
 
     fun consumeOpenedClaim() {

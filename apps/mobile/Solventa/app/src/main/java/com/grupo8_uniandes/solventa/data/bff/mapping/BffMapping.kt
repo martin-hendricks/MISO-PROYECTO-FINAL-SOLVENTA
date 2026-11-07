@@ -63,6 +63,8 @@ import com.grupo8_uniandes.solventa.domain.bff.home.HomeOfferSlot
 import com.grupo8_uniandes.solventa.domain.bff.home.HomePolicySlot
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
@@ -214,7 +216,22 @@ internal fun WalletDto.toEntries() = polizas.map {
     WalletEntry(it.numero, it.ramo, it.resumen, it.estado, it.venceEn)
 }
 
-internal fun DetailDto.toDetail() = PolicyDetail(numero, ramo, resumen, estado, venceEn, queHacer)
+internal fun DetailDto.toDetail() = PolicyDetail(
+    numero,
+    ramo,
+    resumen,
+    estado,
+    venceEn,
+    queHacer,
+    inicioVigencia,
+    finVigencia,
+    moneda,
+    primaTotal,
+    coberturas.map { PolicyCoverage(it.nombre, it.sumaAsegurada, it.deducible) },
+    renovable,
+    renovacionAutomatica,
+    cancelacion?.let { PolicyCancellation(it.motivo, it.canceladaEn, it.devolucionEstimada) },
+)
 
 internal fun ClaimNoticeDto.toNotice() = ClaimNotice(
     poliza,
@@ -240,6 +257,8 @@ internal fun ClaimSummaryDto.toSummary() = ClaimSummary(
     fecha,
     reserva,
     moneda,
+    poliza,
+    resultado,
 )
 
 internal fun ClaimDetailDto.toDetail() = ClaimDetail(
@@ -254,6 +273,8 @@ internal fun ClaimDetailDto.toDetail() = ClaimDetail(
         fecha,
         reserva,
         moneda,
+        poliza,
+        resultado,
     ),
     poliza = poliza,
     descripcion = descripcion,
@@ -261,7 +282,7 @@ internal fun ClaimDetailDto.toDetail() = ClaimDetail(
     geo = geo?.let { GeoPoint(it.lat, it.lng, it.precisionM) },
     motivo = motivo,
     evidencia = evidencia.map { ClaimEvidence(it.nombre, it.tipo, it.contentType, it.url) },
-    historial = historial.map { ClaimHistory(it.estado, it.fecha) },
+    historial = historial.map { ClaimHistory(it.estado, it.fecha, it.estadoTexto) },
     pago = pago?.let { ClaimPayment(it.comprobante, it.monto, it.moneda, it.fecha) },
     umbral = umbral,
 )

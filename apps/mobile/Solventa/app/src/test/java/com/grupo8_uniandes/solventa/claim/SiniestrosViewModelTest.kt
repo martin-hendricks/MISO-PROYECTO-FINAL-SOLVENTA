@@ -64,6 +64,23 @@ class SiniestrosViewModelTest {
     }
 
     @Test
+    fun givenAnInternalId_whenTheRowIsTapped_thenThatIdIsOpened() {
+        val internal = "11111111-1111-1111-1111-111111111111"
+        val opened = mutableListOf<String>()
+        rule.setContent {
+            SolventaTheme {
+                SiniestrosScreen(
+                    claims = listOf(publishedRow().copy(id = internal)),
+                    onOpenClaim = { opened += it },
+                    onOpenCatalog = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        assertEquals(listOf(internal), opened)
+    }
+
+    @Test
     fun givenAPendingList_whenItLoads_thenNoClaimIsShown() {
         val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Pending))
 
@@ -147,6 +164,30 @@ class SiniestrosViewModelTest {
         assertEquals("SIN-441", viewModel.state.value.openedClaimId)
         viewModel.consumeOpenedClaim()
         assertEquals(null, viewModel.state.value.openedClaimId)
+    }
+
+    @Test
+    fun givenAVisibleNumber_whenOpened_thenTheDetailUsesTheInternalId() {
+        val internal = "11111111-1111-1111-1111-111111111111"
+        val viewModel = SiniestrosViewModel(
+            scripted(
+                StandInAnswer.Ready(
+                    listOf(
+                        ClaimSummary(
+                            siniestroId = "SIN-9",
+                            ramo = "SOAT motocicleta",
+                            resumen = "Choque",
+                            estado = ClaimStatus.EN_EVALUACION,
+                            id = internal,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        viewModel.openClaim("SIN-9")
+
+        assertEquals(internal, viewModel.state.value.openedClaimId)
     }
 
     private fun reviewRows() = listOf(

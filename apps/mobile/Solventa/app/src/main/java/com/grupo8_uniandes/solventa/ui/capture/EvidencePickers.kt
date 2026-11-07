@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,11 @@ fun EvidencePickers(
             readPicked(context.contentResolver, uri)?.let { onPicked(it.attachment, it.bytes) }
         }
     }
+    val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            readPicked(context.contentResolver, uri)?.let { onPicked(it.attachment, it.bytes) }
+        }
+    }
     fun launch(kind: CaptureKind) {
         val file = claimFile(context, kind)
         val uri = captureUri(context, file)
@@ -160,6 +166,17 @@ fun EvidencePickers(
             onClick = { start(CaptureKind.Video) },
             modifier = Modifier.fillMaxWidth(),
             testTag = "claim_record_video",
+        )
+        SolventaButton(
+            text = stringResource(R.string.claim_pick_photos),
+            style = SolventaButtonStyle.Tonal,
+            onClick = {
+                pickPhotos.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "claim_pick_photos",
         )
         SolventaButton(
             text = stringResource(R.string.claim_pick_file),

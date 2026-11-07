@@ -20,6 +20,7 @@ class AvisoFormTest {
     fun givenTwoPolicies_whenOffered_thenOnlyThoseNumbersStaySelectable() {
         val notice = open()
         notice.offerPolicies(listOf("POL-1", "POL-2"))
+        assertEquals("", notice.draft.poliza)
         notice.revise(poliza = "POL-9", fechaHecho = "2026-11-01", descripcion = "Choque", lugar = "")
         notice.continueToEvidence()
         assertEquals(NoticePhase.Form, notice.phase)

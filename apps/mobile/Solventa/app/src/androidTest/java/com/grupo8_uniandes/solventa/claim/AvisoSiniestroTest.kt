@@ -58,11 +58,11 @@ class AvisoSiniestroTest {
     @Test
     fun givenACurrentPolicy_whenTheNoticeIsSent_thenSin441ShowsOnceAndSiniestrosStaysSelected() {
         show()
-        rule.onNodeWithText("Reportar siniestro · Protección de dispositivo").assertIsDisplayed()
-        rule.onNodeWithText("POL-88219-CO · Protección de dispositivo").assertIsDisplayed()
-        rule.onNodeWithText("12 mar 2026").assertIsDisplayed()
-        rule.onNodeWithText("Pantalla rota al caer el teléfono").assertIsDisplayed()
-        rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
+        rule.onNodeWithText("Reportar siniestro").assertIsDisplayed()
+        rule.onNodeWithText("Elige una póliza").assertIsDisplayed()
+        rule.onNodeWithText("Selecciona la fecha").assertIsDisplayed()
+        rule.onNodeWithText("Cuenta qué pasó").assertIsDisplayed()
+        rule.onNodeWithText("Escribe el lugar").assertIsDisplayed()
         rule.onNodeWithText("Continuar a evidencia").assertIsDisplayed()
         rule.onNodeWithText("Cancelar").assertIsDisplayed()
         rule.onNodeWithTag("tab_Siniestros").assertIsSelected()
@@ -99,10 +99,10 @@ class AvisoSiniestroTest {
     fun givenLocationAndCamera_whenTheyAreDenied_thenTheNoticeStaysOpen() {
         show(permissions = listOf(false, true, false))
         rule.onNodeWithTag("claim_geotag").performClick()
-        rule.onNodeWithTag("claim_use_location").performClick()
         rule.onNodeWithText("Permiso denegado").assertIsDisplayed()
         rule.onNodeWithText("Puedes enviar el aviso sin geoetiqueta").assertIsDisplayed()
-        rule.onNodeWithTag("claim_use_location").performClick()
+        rule.onNodeWithTag("claim_geotag").performClick()
+        rule.onNodeWithTag("claim_geotag").performClick()
         rule.onNodeWithText("GPS 4.6533, -74.0836 · ±12 m").assertIsDisplayed()
         rule.onNodeWithTag("tab_Siniestros").assertIsSelected()
 
@@ -118,7 +118,12 @@ class AvisoSiniestroTest {
             override val activityResultRegistry = DeviceEvidenceRegistry(permissions)
         }
         rule.setContent {
-            val notice = remember { OpenClaimNotice(ReadyClaims(), MemoryClaimHold()) { "key-1" } }
+            val notice = remember {
+                OpenClaimNotice(ReadyClaims(), MemoryClaimHold()) { "key-1" }.also { opened ->
+                    val sample = com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNoticeDraft.Review
+                    opened.revise(sample.poliza, sample.fechaHecho, sample.descripcion, sample.lugar)
+                }
+            }
             var phase by remember { mutableStateOf(notice.phase) }
             var draft by remember { mutableStateOf(notice.draft) }
             var receipt by remember { mutableStateOf(notice.receipt?.siniestroId) }
@@ -236,7 +241,8 @@ private class DeviceEvidenceRegistry(
                 write(input as Uri)
                 true
             }
-            is ActivityResultContracts.OpenDocument -> sampleFile()
+            is ActivityResultContracts.PickVisualMedia -> sampleFile("foto.jpg")
+            is ActivityResultContracts.OpenDocument -> sampleFile("dano.jpg")
             else -> return
         }
         @Suppress("UNCHECKED_CAST")
@@ -254,9 +260,9 @@ private class DeviceEvidenceRegistry(
         runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(SAMPLE) } }
     }
 
-    private fun sampleFile(): Uri {
+    private fun sampleFile(name: String): Uri {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val file = File(context.cacheDir, "claim/dano.jpg")
+        val file = File(context.cacheDir, "claim/$name")
         file.parentFile?.mkdirs()
         file.writeBytes(SAMPLE)
         return Uri.fromFile(file)

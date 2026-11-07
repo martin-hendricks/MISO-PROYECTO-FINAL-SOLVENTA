@@ -126,12 +126,31 @@ data class IssuedDto(
 data class RejectionDto(val estado: String, val motivo: String)
 
 @Serializable
+data class CoverageDto(
+    val nombre: String,
+    val sumaAsegurada: Double = 0.0,
+    val deducible: Double = 0.0,
+)
+
+@Serializable
+data class CancellationDto(
+    val motivo: String? = null,
+    val canceladaEn: String? = null,
+    val devolucionEstimada: Double? = null,
+)
+
+@Serializable
 data class WalletEntryDto(
     val numero: String,
     val ramo: String,
     val resumen: String,
     val estado: String,
     val venceEn: String,
+    val inicioVigencia: String? = null,
+    val finVigencia: String? = null,
+    val moneda: String? = null,
+    val primaTotal: Double? = null,
+    val coberturas: List<CoverageDto> = emptyList(),
 )
 
 @Serializable
@@ -145,10 +164,18 @@ data class DetailDto(
     val estado: String,
     val venceEn: String,
     val queHacer: String,
+    val inicioVigencia: String? = null,
+    val finVigencia: String? = null,
+    val moneda: String = "",
+    val primaTotal: Double? = null,
+    val coberturas: List<CoverageDto> = emptyList(),
+    val renovable: Boolean = false,
+    val renovacionAutomatica: Boolean = false,
+    val cancelacion: CancellationDto? = null,
 )
 
 @Serializable
-data class GeoDto(val lat: Double, val lng: Double, val precisionM: Int)
+data class GeoDto(val lat: Double, val lng: Double, val precisionM: Int = 0)
 
 @Serializable
 enum class AttachmentKindDto { foto, video, recibo, soporte }
@@ -184,6 +211,8 @@ data class ClaimSummaryDto(
     val fecha: String? = null,
     val reserva: Double? = null,
     val moneda: String? = null,
+    val poliza: String? = null,
+    val resultado: String? = null,
 )
 
 @Serializable
@@ -195,7 +224,7 @@ data class ClaimEvidenceDto(
 )
 
 @Serializable
-data class ClaimHistoryDto(val estado: String, val fecha: String = "")
+data class ClaimHistoryDto(val estado: String, val fecha: String = "", val estadoTexto: String = "")
 
 @Serializable
 data class ClaimPaymentDto(
@@ -226,6 +255,7 @@ data class ClaimDetailDto(
     val historial: List<ClaimHistoryDto> = emptyList(),
     val pago: ClaimPaymentDto? = null,
     val umbral: String? = null,
+    val resultado: String? = null,
 )
 
 @Serializable

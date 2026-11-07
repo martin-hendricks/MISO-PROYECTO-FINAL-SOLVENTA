@@ -117,6 +117,12 @@ fun EvidenciaAvisoScreen(
             modifier = Modifier.fillMaxWidth(),
             testTag = "claim_send",
         )
+        Text(
+            text = stringResource(R.string.claim_evidence_queue_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("claim_queue_help"),
+        )
         SolventaButton(
             text = stringResource(R.string.claim_evidence_queue),
             style = SolventaButtonStyle.Tonal,

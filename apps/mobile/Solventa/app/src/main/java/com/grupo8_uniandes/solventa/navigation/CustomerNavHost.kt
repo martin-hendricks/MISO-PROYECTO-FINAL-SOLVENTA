@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.navigation
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -129,7 +130,11 @@ fun CustomerNavHost(
             val offer = remember(region) { ShowMortgageOffer(region).show() }
             OfertaHipotecarioScreen(
                 offer = offer,
-                onAccept = { navController.navigate(ConfirmacionTarjetaRoute()) },
+                onAccept = {
+                    navController.navigate(
+                        ConfirmacionTarjetaRoute(prima = offer.prima, moneda = offer.moneda),
+                    )
+                },
                 onReviewLater = { navController.popBackStack() },
             )
         }
@@ -143,7 +148,11 @@ fun CustomerNavHost(
             val state by viewModel.state.collectAsState()
             VerOfertaScreen(
                 state = state,
-                onAccept = { offerId -> navController.navigate(ConfirmacionTarjetaRoute(offerId)) },
+                onAccept = { offerId ->
+                    navController.navigate(
+                        ConfirmacionTarjetaRoute(offerId, state.prima, state.moneda),
+                    )
+                },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
                 onDecline = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
@@ -195,8 +204,18 @@ fun CustomerNavHost(
             val viewModel: PolizaDetalleViewModel = koinViewModel { parametersOf(route.policyId) }
             val state by viewModel.state.collectAsState()
             val avisos: AvisoVigenciaViewModel = koinViewModel()
+            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(route.policyId) }
+            val renewalState by renewal.state.collectAsState()
+            LaunchedEffect(state.detail?.renovacionAutomatica) {
+                state.detail?.let { renewal.adopt(it.renovacionAutomatica) }
+            }
             PolizaDetalleScreen(
                 state = state,
+                renewalChecked = renewalState.checked,
+                renewalMissing = renewalState.missing,
+                onRenewal = renewal::onChecked,
+                onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
+                onReportClaim = { navController.navigate(AvisoSiniestroRoute) },
                 onExpiryNotices = {
                     avisos.requestExpiry(route.policyId) { reading ->
                         if (reading != null) navController.navigate(AvisoVencimientoRoute)
@@ -379,13 +398,18 @@ fun CustomerNavHost(
             val route = entry.toRoute<SiniestroDetalleRoute>()
             val viewModel: SiniestroDetalleViewModel = koinViewModel { parametersOf(route.claimId) }
             val detail by viewModel.state.collectAsState()
+            val context = LocalContext.current
             SiniestroDetalleScreen(
                 claimId = route.claimId,
-                lines = detail.lines,
+                claim = detail.claim,
                 missing = detail.phase == DetailPhase.Missing,
                 failed = detail.phase == DetailPhase.Failed,
                 onRetry = viewModel::load,
-                onBack = { navController.popBackStack() },
+                onOpenPolicy = { numero -> navController.navigate(PolizaDetalleRoute(numero)) },
+                onOpenEvidence = { url ->
+                    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    runCatching { context.startActivity(view) }
+                },
             )
         }
         composable<PerfilRoute> {
@@ -396,7 +420,9 @@ fun CustomerNavHost(
         }
         composable<ConfirmacionTarjetaRoute> { entry ->
             val route = entry.toRoute<ConfirmacionTarjetaRoute>()
-            val viewModel: ConfirmacionTarjetaViewModel = koinViewModel()
+            val viewModel: ConfirmacionTarjetaViewModel = koinViewModel {
+                parametersOf(route.offerId, route.prima, route.moneda)
+            }
             val state by viewModel.state.collectAsState()
             ConfirmacionTarjetaScreen(
                 state = state,

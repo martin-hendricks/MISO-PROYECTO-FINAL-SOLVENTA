@@ -1,7 +1,9 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
 import android.content.Context
+import com.grupo8_uniandes.solventa.data.bff.dto.CancellationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
+import com.grupo8_uniandes.solventa.data.bff.dto.CoverageDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.bffJson
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
@@ -122,4 +124,19 @@ private data class StoredClaim(val key: String, val notice: ClaimNoticeDto)
 @Serializable
 private data class StoredDetails(val items: List<DetailDto>)
 
-private fun PolicyDetail.toStored() = DetailDto(numero, ramo, resumen, estado, venceEn, queHacer)
+private fun PolicyDetail.toStored() = DetailDto(
+    numero = numero,
+    ramo = ramo,
+    resumen = resumen,
+    estado = estado,
+    venceEn = venceEn,
+    queHacer = queHacer,
+    inicioVigencia = inicioVigencia,
+    finVigencia = finVigencia,
+    moneda = moneda,
+    primaTotal = primaTotal,
+    coberturas = coberturas.map { CoverageDto(it.nombre, it.sumaAsegurada, it.deducible) },
+    renovable = renovable,
+    renovacionAutomatica = renovacionAutomatica,
+    cancelacion = cancelacion?.let { CancellationDto(it.motivo, it.canceladaEn, it.devolucionEstimada) },
+)

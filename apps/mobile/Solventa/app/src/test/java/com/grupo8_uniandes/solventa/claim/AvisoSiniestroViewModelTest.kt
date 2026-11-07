@@ -52,6 +52,8 @@ class AvisoSiniestroViewModelTest {
             locator = FixedLocator(GeoPoint(4.65, -74.08, 8)),
         )
 
+        val sample = com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNoticeDraft.Review
+        viewModel.revise(sample.poliza, sample.fechaHecho, sample.descripcion, sample.lugar)
         viewModel.continueToEvidence()
         assertEquals(NoticePhase.Evidence, viewModel.state.value.phase)
         viewModel.toggleGeotag(true)

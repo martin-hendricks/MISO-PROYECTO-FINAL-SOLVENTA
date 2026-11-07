@@ -147,7 +147,7 @@ private fun ClaimCard(
     onOpenClaim: (String) -> Unit,
 ) {
     SolventaCard(
-        onClick = { onOpenClaim(claim.siniestroId) },
+        onClick = { onOpenClaim(claim.id) },
         outlined = true,
         testTag = "action_open_claim_${claim.siniestroId}",
     ) {

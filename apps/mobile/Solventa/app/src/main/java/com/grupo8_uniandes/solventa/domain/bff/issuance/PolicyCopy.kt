@@ -17,17 +17,17 @@ fun formatCoverageDate(isoDate: String): String =
 
 fun listBody(entry: WalletEntry): String = "${entry.ramo} · ${entry.resumen}"
 
-fun listMeta(entry: WalletEntry): String = when (entry.estado) {
+fun listMeta(entry: WalletEntry): String = when (entry.estado.lowercase()) {
     "vigente" -> "Vigente · vence ${formatCoverageDate(entry.venceEn)}"
     "por_vencer" -> "Por vencer · en 7 días"
     else -> entry.estado
 }
 
 fun detailMeta(detail: PolicyDetail): String = when {
-    detail.numero == "POL-88219-CO" && detail.estado == "vigente" ->
+    detail.numero == "POL-88219-CO" && detail.estado.equals("vigente", ignoreCase = true) ->
         "Vigente hasta ${formatCoverageDate(detail.venceEn)} · sigue renovación"
-    detail.estado == "por_vencer" -> "Por vencer · en 7 días"
-    detail.estado == "vigente" -> "Vigente · vence ${formatCoverageDate(detail.venceEn)}"
+    detail.estado.equals("por_vencer", ignoreCase = true) -> "Por vencer · en 7 días"
+    detail.estado.equals("vigente", ignoreCase = true) -> "Vigente · vence ${formatCoverageDate(detail.venceEn)}"
     else -> detail.estado
 }
 

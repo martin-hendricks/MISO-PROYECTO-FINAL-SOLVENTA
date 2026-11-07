@@ -10,14 +10,15 @@ class PoliciesInForce(
     suspend operator fun invoke(): List<WalletEntry> {
         val wallet = issuance.wallet()
         return if (wallet is StandInAnswer.Ready) {
-            wallet.value.filter { it.estado.trim().lowercase() in inForce }
+            wallet.value.filter { it.canReportClaim() }
         } else {
             emptyList()
         }
     }
-
-    private companion object {
-        // ms-polizas answers VIGENTE. The mobile samples use vigente and por_vencer.
-        val inForce = setOf("vigente", "por_vencer")
-    }
 }
+
+fun WalletEntry.canReportClaim(): Boolean =
+    estado.trim().lowercase() in claimReportStates
+
+// ms-polizas answers VIGENTE. por_vencer is still in force. vencida and cancelada are not.
+private val claimReportStates = setOf("vigente", "por_vencer")

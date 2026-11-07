@@ -33,6 +33,10 @@ class OpenClaimNoticeTest {
     fun givenTheReviewNotice_whenItIsShown_thenTheFrameCopyAndDateAreReady() {
         val notice = open()
 
+        assertEquals("", notice.review().poliza)
+        assertEquals("", notice.review().fechaHecho)
+        assertEquals("", notice.review().descripcion)
+        assertEquals("", notice.review().lugar)
         assertEquals(
             listOf(
                 "POL-88219-CO · Protección de dispositivo",
@@ -40,7 +44,7 @@ class OpenClaimNoticeTest {
                 "Pantalla rota al caer el teléfono",
                 "Av. Caracas con Calle 72",
             ),
-            notice.review().displaySentences(),
+            ClaimNoticeDraft.Review.displaySentences(),
         )
         assertEquals(
             listOf(
@@ -49,7 +53,7 @@ class OpenClaimNoticeTest {
             ),
             notice.review().helpLines(),
         )
-        assertEquals("2026-03-12", notice.review().fechaHecho)
+        assertEquals("2026-03-12", ClaimNoticeDraft.Review.fechaHecho)
         assertEquals(notice.review(), notice.review().copy())
         assertTrue(notice.review().adjuntos.isEmpty())
     }
@@ -57,6 +61,7 @@ class OpenClaimNoticeTest {
     @Test
     fun givenContinue_whenEvidenceOpens_thenNoPhotoIsAttached() {
         val notice = open()
+        notice.fillSample()
 
         notice.continueToEvidence()
 
@@ -123,6 +128,7 @@ class OpenClaimNoticeTest {
         val hold = CachedClaimHold(cache)
         val repo = RecordingClaims()
         val notice = OpenClaimNotice(repo, hold) { "key-held" }
+        notice.fillSample()
         notice.continueToEvidence()
         notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"), byteArrayOf(1))
 
@@ -208,6 +214,11 @@ class OpenClaimNoticeTest {
 
     private fun open(repo: ClaimRepository = RecordingClaims()) =
         OpenClaimNotice(repo, MemoryClaimHold()) { "key-1" }
+
+    private fun OpenClaimNotice.fillSample() {
+        val sample = ClaimNoticeDraft.Review
+        revise(sample.poliza, sample.fechaHecho, sample.descripcion, sample.lugar)
+    }
 
     private class RecordingClaims(private val fail: Boolean = false) : ClaimRepository {
         var notice: ClaimNotice? = null

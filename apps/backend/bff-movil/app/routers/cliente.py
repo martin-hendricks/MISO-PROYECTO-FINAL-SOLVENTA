@@ -165,6 +165,12 @@ def _oferta_movil(datos: dict, ramo: str, descripcion: str = "") -> dict:
     }
 
 
+def _flotante(valor, defecto=0.0) -> float:
+    if valor is None or valor == "":
+        return defecto
+    return float(valor)
+
+
 def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
     poliza = _exigir(poliza, "numero", "estado", "fin_vigencia", "coberturas")
     if not isinstance(poliza["coberturas"], list):
@@ -175,16 +181,38 @@ def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
         nombres.append(cobertura["nombre"])
     ramo, descripcion = presentar(cotizacion.get("producto"))
+    estado = str(poliza["estado"]).upper()
     cuerpo = {
         "numero": poliza["numero"],
         "ramo": ramo,
         "descripcion": descripcion,
         "resumen": ", ".join(nombres) or "Sin coberturas",
-        "estado": poliza["estado"],
+        "estado": estado,
         "venceEn": poliza["fin_vigencia"],
+        "inicioVigencia": poliza.get("inicio_vigencia"),
+        "finVigencia": poliza["fin_vigencia"],
+        "moneda": cotizacion.get("moneda") or "",
+        "primaTotal": _flotante(cotizacion.get("prima")),
     }
     if detalle:
+        cuerpo["coberturas"] = [
+            {
+                "nombre": cobertura["nombre"],
+                "sumaAsegurada": _flotante(cobertura.get("suma_asegurada")),
+                "deducible": _flotante(cobertura.get("deducible")),
+            }
+            for cobertura in poliza["coberturas"]
+        ]
         cuerpo["queHacer"] = QUE_HACER
+        cuerpo["renovable"] = bool(poliza.get("renovable", False))
+        cuerpo["renovacionAutomatica"] = bool(poliza.get("renovacion_automatica", False))
+        if estado == "CANCELADA":
+            devolucion = poliza.get("devolucion_estimada")
+            cuerpo["cancelacion"] = {
+                "motivo": poliza.get("motivo_cancelacion"),
+                "canceladaEn": poliza.get("cancelada_en"),
+                "devolucionEstimada": None if devolucion is None else float(devolucion),
+            }
     return cuerpo
 
 
@@ -454,10 +482,21 @@ def detalle(numero: str, request: Request, usuario: dict = Depends(require_custo
         return {
             "numero": numero,
             "ramo": "Protección de dispositivo",
+            "descripcion": "Cubre robo, daño accidental y reposición del equipo asegurado.",
             "resumen": "Robo y Pantalla",
-            "estado": "vigente",
+            "estado": "VIGENTE",
             "venceEn": "2027-03-12",
+            "inicioVigencia": "2026-03-12",
+            "finVigencia": "2027-03-12",
+            "moneda": "COP",
+            "primaTotal": 89000.0,
+            "coberturas": [
+                {"nombre": "Robo", "sumaAsegurada": 4000000.0, "deducible": 0.0},
+                {"nombre": "Pantalla", "sumaAsegurada": 1500000.0, "deducible": 0.0},
+            ],
             "queHacer": QUE_HACER,
+            "renovable": True,
+            "renovacionAutomatica": False,
         }
     nucleo = request.app.state.nucleo
     uid = _contexto(usuario)["usuario_id"]
@@ -479,30 +518,75 @@ _ESTADO_TEXTO = {
 def _siniestro_movil(fila: dict) -> dict:
     fila = _exigir(fila, "id", "estado")
     numero = fila.get("numero") or fila.get("siniestroId") or fila["id"]
+    reserva = fila.get("reserva")
     return {
         "id": str(fila["id"]),
         "siniestroId": str(numero),
         "tipo": fila.get("tipo") or "asistido",
-        "ramo": fila.get("ramo") or fila.get("poliza") or "",
+        "ramo": presentar(fila.get("ramo"))[0],
+        "poliza": fila.get("poliza_numero") or fila.get("poliza"),
         "resumen": fila.get("descripcion") or fila.get("evento_id") or fila.get("resumen") or "",
         "fecha": fila.get("fecha_hecho") or fila.get("fecha"),
         "estado": fila["estado"],
         "estadoTexto": fila.get("estadoTexto") or _ESTADO_TEXTO.get(fila["estado"], fila["estado"]),
-        "reserva": fila.get("reserva"),
+        "resultado": fila.get("resultado"),
+        "reserva": None if reserva is None else float(reserva),
         "moneda": fila.get("moneda") or "COP",
+    }
+
+
+def _motivo_para_cliente(detalle: dict, siniestro: dict) -> str | None:
+    if siniestro.get("resultado") != "rechazado":
+        return None
+    rechazos = [
+        decision
+        for decision in detalle.get("decisiones") or []
+        if isinstance(decision, dict) and decision.get("resultado") == "rechazado"
+    ]
+    return rechazos[-1].get("motivo") if rechazos else None
+
+
+def _geo_movil(geo) -> dict | None:
+    if not isinstance(geo, dict):
+        return None
+    try:
+        lat = float(geo["lat"])
+        lng = float(geo["lng"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    precision = geo.get("precisionM", geo.get("precision_m", 0))
+    try:
+        precision_m = int(float(precision)) if precision is not None else 0
+    except (TypeError, ValueError):
+        precision_m = 0
+    return {"lat": lat, "lng": lng, "precisionM": precision_m}
+
+
+def _pago_movil(pago) -> dict | None:
+    if not isinstance(pago, dict):
+        return None
+    return {
+        "comprobante": pago.get("comprobante") or "",
+        "monto": _flotante(pago.get("monto")),
+        "moneda": pago.get("moneda") or "COP",
+        "fecha": pago.get("pagado_en") or pago.get("fecha") or "",
     }
 
 
 def _detalle_movil(detalle: dict) -> dict:
     siniestro = detalle.get("siniestro") if isinstance(detalle.get("siniestro"), dict) else detalle
     fila = _siniestro_movil(siniestro)
-    pago = detalle.get("pago")
+    historial = siniestro.get("historial") or detalle.get("historial") or []
+    umbral = None
+    if fila["tipo"] == "parametrico" and fila["estado"] == "pagado":
+        crudo = siniestro.get("umbral_automatico") or detalle.get("umbral")
+        umbral = None if crudo is None else str(crudo)
     return fila | {
         "poliza": siniestro.get("poliza_numero") or siniestro.get("poliza"),
         "descripcion": siniestro.get("descripcion"),
         "lugar": siniestro.get("lugar"),
-        "geo": siniestro.get("geo"),
-        "motivo": siniestro.get("motivo") or detalle.get("motivo"),
+        "geo": _geo_movil(siniestro.get("geo")),
+        "motivo": _motivo_para_cliente(detalle, siniestro),
         "evidencia": [
             {
                 "nombre": a.get("nombre"),
@@ -511,13 +595,19 @@ def _detalle_movil(detalle: dict) -> dict:
                 "url": a.get("url"),
             }
             for a in detalle.get("adjuntos") or detalle.get("evidencia") or []
+            if isinstance(a, dict)
         ],
         "historial": [
-            {"estado": h.get("estado"), "fecha": h.get("ocurrido_en") or h.get("fecha")}
-            for h in siniestro.get("historial") or detalle.get("historial") or []
+            {
+                "estado": h.get("estado"),
+                "fecha": h.get("ocurrido_en") or h.get("fecha"),
+                "estadoTexto": _ESTADO_TEXTO.get(h.get("estado"), h.get("estado")),
+            }
+            for h in historial
+            if isinstance(h, dict)
         ],
-        "pago": pago,
-        "umbral": siniestro.get("umbral_automatico") or detalle.get("umbral"),
+        "pago": _pago_movil(detalle.get("pago")),
+        "umbral": umbral,
     }
 
 

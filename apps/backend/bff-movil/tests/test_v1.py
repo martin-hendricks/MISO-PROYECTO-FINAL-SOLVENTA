@@ -39,9 +39,12 @@ COTIZACION = {
 POLIZA = {
     "numero": "POL-9",
     "estado": "vigente",
+    "inicio_vigencia": "2026-01-01",
     "fin_vigencia": "2027-01-01",
     "oferta_id": "oferta-1",
-    "coberturas": [{"nombre": "Robo"}],
+    "coberturas": [{"nombre": "Robo", "suma_asegurada": "40000000.00", "deducible": "0"}],
+    "renovable": True,
+    "renovacion_automatica": False,
 }
 ACEPTADA = {
     "decision": "ACEPTADA",
@@ -592,8 +595,12 @@ def test_billetera_v1_proyecta_y_degrada(client, doble):
             "ramo": "Sin clasificar",
             "descripcion": "",
             "resumen": "Robo",
-            "estado": "vigente",
+            "estado": "VIGENTE",
             "venceEn": "2027-01-01",
+            "inicioVigencia": "2026-01-01",
+            "finVigencia": "2027-01-01",
+            "moneda": "",
+            "primaTotal": 0.0,
         }
     ]
     assert doble.llamadas[0]["limite"] == 20
@@ -646,7 +653,37 @@ def test_detalle_v1(client, doble):
     doble.respuestas["reconsultar_por_oferta"] = {"producto": "vida"}
     detalle = client.get("/v1/cliente/polizas/POL-9", headers=headers).json()
     assert detalle["queHacer"] == "Toma la foto del daño y anota fecha y lugar."
+    assert detalle["inicioVigencia"] == "2026-01-01"
+    assert detalle["finVigencia"] == "2027-01-01"
+    assert detalle["estado"] == "VIGENTE"
+    assert detalle["primaTotal"] == 0.0
+    assert detalle["coberturas"] == [{"nombre": "Robo", "sumaAsegurada": 40000000.0, "deducible": 0.0}]
+    assert detalle["renovable"] is True
+    assert detalle["renovacionAutomatica"] is False
+    assert "cancelacion" not in detalle
     assert "oferta_id" not in detalle
+    cancelada = {
+        **POLIZA,
+        "estado": "cancelada",
+        "motivo_cancelacion": "A solicitud del cliente",
+        "cancelada_en": "2026-06-01",
+        "devolucion_estimada": "12000.50",
+        "cancelada_por": "operador",
+        "hash_firma_legal": "abc",
+    }
+    doble.respuestas["obtener_por_numero"] = cancelada
+    doble.respuestas["reconsultar_por_oferta"] = {"producto": "soat-motocicleta", "prima": "89000.00", "moneda": "COP"}
+    baja = client.get("/v1/cliente/polizas/POL-9", headers=headers).json()
+    assert baja["ramo"] == "SOAT motocicleta"
+    assert baja["primaTotal"] == 89000.0
+    assert baja["moneda"] == "COP"
+    assert baja["cancelacion"] == {
+        "motivo": "A solicitud del cliente",
+        "canceladaEn": "2026-06-01",
+        "devolucionEstimada": 12000.5,
+    }
+    assert "cancelada_por" not in baja
+    assert "hash_firma_legal" not in baja
     assert doble.llamadas[0] == {
         "metodo": "obtener_por_numero",
         "numero": "POL-9",
@@ -677,7 +714,7 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     ]
     assert inicio["ofertaVigente"] == pendiente
     assert inicio["siniestroEnCurso"] is None
-    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "vigente"}
+    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "VIGENTE"}
     cotizaciones = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_cotizaciones_usuario")
     polizas = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_polizas")
     assert cotizaciones["usuario_id"] == _dueno()["usuario_id"]
@@ -1298,6 +1335,73 @@ def test_aviso_v1_reenvia_multipart_y_el_detalle(client, doble):
     assert detalle.json()["siniestroId"] == "SIN-9"
     assert detalle.json()["lugar"] == "Calle 72"
     assert detalle.json()["evidencia"][0]["nombre"] == "dano.png"
+    assert detalle.json()["umbral"] is None
+    assert detalle.json()["historial"] == [
+        {"estado": "recibido", "fecha": "2026-03-12", "estadoTexto": "Recibido"}
+    ]
+
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "decidido",
+            "resultado": "rechazado",
+            "tipo": "asistido",
+            "ramo": "soat-motocicleta",
+            "descripcion": "Choque",
+            "poliza_numero": "POL-1",
+            "reserva": "350000.00",
+            "geo": {"lat": "4.65", "lng": "-74.08", "precision_m": "12.00"},
+            "umbral_automatico": "500000.00",
+            "historial": [{"estado": "decidido", "ocurrido_en": "2026-03-13T10:00:00"}],
+        },
+        "decisiones": [
+            {"resultado": "aprobado", "motivo": "primero"},
+            {"resultado": "rechazado", "motivo": "Póliza no vigente en la fecha del hecho"},
+        ],
+        "adjuntos": [],
+        "pago": {
+            "clave_idempotencia": "clave",
+            "comprobante": "CMP-1",
+            "monto": "350000.00",
+            "origen": "automatico",
+            "autorizado_por": "sistema",
+            "pagado_en": "2026-03-13T12:00:00",
+        },
+    }
+    rechazo = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()
+    assert rechazo["ramo"] == "SOAT motocicleta"
+    assert rechazo["resultado"] == "rechazado"
+    assert rechazo["motivo"] == "Póliza no vigente en la fecha del hecho"
+    assert rechazo["reserva"] == 350000.0
+    assert rechazo["geo"] == {"lat": 4.65, "lng": -74.08, "precisionM": 12}
+    assert rechazo["pago"] == {
+        "comprobante": "CMP-1",
+        "monto": 350000.0,
+        "moneda": "COP",
+        "fecha": "2026-03-13T12:00:00",
+    }
+    assert "clave_idempotencia" not in rechazo["pago"]
+    assert rechazo["umbral"] is None
+
+    parametrico = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "pagado",
+            "resultado": "aprobado",
+            "tipo": "parametrico",
+            "ramo": "clima-y-vuelos",
+            "umbral_automatico": "500000.00",
+            "historial": [],
+        },
+        "decisiones": [],
+        "adjuntos": [],
+    }
+    doble.respuestas["detalle_siniestro"] = parametrico
+    pago_auto = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()
+    assert pago_auto["umbral"] == "500000.00"
+    assert pago_auto["estadoTexto"] == "Pagado"
 
 
 def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
@@ -1313,4 +1417,5 @@ def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     ]
     cuerpo = client.get("/v1/cliente/siniestros", headers=headers).json()
     assert cuerpo["siniestros"][0]["siniestroId"] == "SIN-9"
-    assert cuerpo["siniestros"][0]["ramo"] == "POL-1"
+    assert cuerpo["siniestros"][0]["ramo"] == "Sin clasificar"
+    assert cuerpo["siniestros"][0]["poliza"] == "POL-1"

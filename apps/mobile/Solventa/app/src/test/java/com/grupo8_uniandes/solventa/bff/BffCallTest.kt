@@ -442,7 +442,7 @@ class BffCallTest {
         val ready = RemoteClaimRepository(api(), gate, cache).detail("internal") as StandInAnswer.Ready
         assertEquals("POL-1", ready.value.poliza)
         assertEquals("Calle 72", ready.value.lugar)
-        assertEquals("Sin geoetiqueta", ready.value.lines().last { it == "Sin geoetiqueta" })
+        assertEquals(null, ready.value.geo)
         assertEquals("vuelo", ready.value.storedPayment()?.asunto)
         server.enqueue(MockResponse().setResponseCode(404))
         assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Rejected)

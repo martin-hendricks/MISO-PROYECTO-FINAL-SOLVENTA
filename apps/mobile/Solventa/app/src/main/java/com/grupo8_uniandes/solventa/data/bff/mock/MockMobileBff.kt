@@ -5,6 +5,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
@@ -53,6 +54,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -178,6 +180,16 @@ class MockClaimRepository(
 
     override suspend fun list(): StandInAnswer<List<ClaimSummary>> =
         control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
+
+    override suspend fun detail(id: String): StandInAnswer<ClaimDetail> =
+        control.ready {
+            val decoded = decode<ClaimDetailDto>(PublishedSamples.CLAIM_DETAIL).let(::required).toDetail()
+            if (id.isBlank()) {
+                decoded
+            } else {
+                decoded.copy(summary = decoded.summary.copy(id = id, siniestroId = id))
+            }
+        }
 
     fun readNotice(raw: String = noticeJson): ClaimNotice? = decode<ClaimNoticeDto>(raw)?.toNotice()
 }

@@ -24,6 +24,8 @@ data class OfferUiState(
     val expired: Boolean = false,
     val cotizacionId: String = "",
     val ramo: String = "",
+    val prima: Long = 0,
+    val moneda: String = "COP",
 )
 
 class OfferViewModel(
@@ -61,6 +63,8 @@ class OfferViewModel(
             expired = expired,
             cotizacionId = cotizacionId,
             ramo = ramo,
+            prima = prima,
+            moneda = moneda,
         )
     }
 

@@ -44,6 +44,16 @@ data class ClaimNoticeDraft(
     )
 
     companion object {
+        val Empty = ClaimNoticeDraft(
+            poliza = "",
+            fechaHecho = "",
+            descripcion = "",
+            lugar = "",
+            geo = null,
+            locationDenied = false,
+            adjuntos = emptyList(),
+        )
+
         val Review = ClaimNoticeDraft(
             poliza = "POL-88219-CO",
             fechaHecho = "2026-03-12",
@@ -94,7 +104,7 @@ class OpenClaimNotice(
     var phase: NoticePhase = NoticePhase.Form
         private set
 
-    var draft: ClaimNoticeDraft = ClaimNoticeDraft.Review
+    var draft: ClaimNoticeDraft = ClaimNoticeDraft.Empty
         private set
 
     var receipt: ClaimReceipt? = null
@@ -118,7 +128,11 @@ class OpenClaimNotice(
 
     fun offerPolicies(numbers: List<String>) {
         offered = numbers
-        if (numbers.size == 1) draft = draft.copy(poliza = numbers.single())
+        draft = when {
+            numbers.size == 1 -> draft.copy(poliza = numbers.single())
+            draft.poliza !in numbers -> draft.copy(poliza = "")
+            else -> draft
+        }
     }
 
     fun revise(
@@ -229,7 +243,7 @@ class OpenClaimNotice(
     fun reopen() {
         if (phase == NoticePhase.Closed || phase == NoticePhase.Confirmation) {
             phase = NoticePhase.Form
-            draft = ClaimNoticeDraft.Review
+            draft = ClaimNoticeDraft.Empty
             receipt = null
         }
     }

@@ -55,15 +55,21 @@ data class ClaimSummary(
     val fecha: String? = null,
     val reserva: Double? = null,
     val moneda: String? = null,
+    val poliza: String? = null,
+    val resultado: String? = null,
 ) {
     fun whatHappened(): String = "$ramo · $resumen"
 
-    fun statusWords(): String = estadoTexto ?: when (estado) {
-        ClaimStatus.RECIBIDO -> "Recibido"
-        ClaimStatus.EN_EVALUACION -> "En evaluación"
-        ClaimStatus.DECIDIDO -> "Decidido"
-        ClaimStatus.ENRUTADO -> "Enrutado"
-        ClaimStatus.PAGADO -> "Pagado"
+    fun statusWords(): String {
+        if (estado == ClaimStatus.DECIDIDO && resultado == "aprobado") return "Aprobado"
+        if (estado == ClaimStatus.DECIDIDO && resultado == "rechazado") return "Rechazado"
+        return estadoTexto ?: when (estado) {
+            ClaimStatus.RECIBIDO -> "Recibido"
+            ClaimStatus.EN_EVALUACION -> "En evaluación"
+            ClaimStatus.DECIDIDO -> "Decidido"
+            ClaimStatus.ENRUTADO -> "Enrutado"
+            ClaimStatus.PAGADO -> "Pagado"
+        }
     }
 }
 
@@ -74,7 +80,7 @@ data class ClaimEvidence(
     val url: String,
 )
 
-data class ClaimHistory(val estado: String, val fecha: String)
+data class ClaimHistory(val estado: String, val fecha: String, val estadoTexto: String = "")
 
 data class ClaimPayment(val comprobante: String, val monto: Double, val moneda: String, val fecha: String)
 
@@ -90,22 +96,6 @@ data class ClaimDetail(
     val pago: ClaimPayment?,
     val umbral: String?,
 ) {
-    fun lines(): List<String> = buildList {
-        add(summary.siniestroId)
-        add(summary.ramo)
-        add(summary.statusWords())
-        motivo?.takeIf { it.isNotBlank() }?.let(::add)
-        poliza?.takeIf { it.isNotBlank() }?.let(::add)
-        summary.fecha?.takeIf { it.isNotBlank() }?.let(::add)
-        descripcion?.takeIf { it.isNotBlank() }?.let(::add)
-        lugar?.takeIf { it.isNotBlank() }?.let(::add)
-        add(if (geo == null) "Sin geoetiqueta" else "${geo.lat}, ${geo.lng}")
-        summary.reserva?.let { add(it.toString()) }
-        pago?.let { add("${it.comprobante} ${it.monto} ${it.moneda}") }
-        evidencia.forEach { add(it.nombre) }
-        historial.forEach { add("${it.estado} ${it.fecha}") }
-    }
-
     fun storedPayment(): ParametricNotice? {
         val payment = pago ?: return null
         if (summary.tipo != "parametrico" || summary.estado != ClaimStatus.PAGADO) return null

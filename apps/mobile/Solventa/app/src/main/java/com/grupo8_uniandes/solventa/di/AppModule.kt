@@ -147,9 +147,11 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
         OfferViewModel(get(), cotizacionId, region)
     }
     viewModel { PolizasViewModel(get(), get()) }
-    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get()) }
+    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get(), get()) }
     viewModel { (offerId: String) -> IssuanceViewModel(get(), offerId) }
-    viewModel { ConfirmacionTarjetaViewModel() }
+    viewModel { (offerId: String, prima: Long, moneda: String) ->
+        ConfirmacionTarjetaViewModel(prima, moneda, offerId, get())
+    }
     viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
     viewModel { (claimId: String) -> SiniestroDetalleViewModel(get(), claimId) }

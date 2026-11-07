@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.policy.PolicyDetailUiState
 import com.grupo8_uniandes.solventa.policy.PolicyPhase
@@ -126,12 +127,14 @@ class PolizasListContentTest {
                 PolizaDetalleScreen(
                     state = PolicyDetailUiState(
                         phase = PolicyPhase.Ready,
-                        numero = "POL-88219-CO",
-                        ramo = "Protección de dispositivo",
-                        resumen = "Robo y Pantalla",
-                        estado = "vigente",
-                        venceEn = "2027-03-12",
-                        queHacer = "guia",
+                        detail = PolicyDetail(
+                            numero = "POL-88219-CO",
+                            ramo = "Protección de dispositivo",
+                            resumen = "Robo y Pantalla",
+                            estado = "vigente",
+                            venceEn = "2027-03-12",
+                            queHacer = "guia",
+                        ),
                         notice = true,
                     ),
                 )

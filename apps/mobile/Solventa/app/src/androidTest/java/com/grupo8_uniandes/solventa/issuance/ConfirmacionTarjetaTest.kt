@@ -33,7 +33,7 @@ class ConfirmacionTarjetaTest {
 
     @Test
     fun givenTheReviewOffer_whenShown_thenThePremiumIsReadOnlyAndInicioIsSelected() {
-        val viewModel = ConfirmacionTarjetaViewModel()
+        val viewModel = ConfirmacionTarjetaViewModel(prima = 42_000, moneda = "COP")
         show(viewModel)
         rule.onNodeWithText("Confirma el pago").assertIsDisplayed()
         rule.onNodeWithText("Prima $42.000 COP").assertIsDisplayed()
