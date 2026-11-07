@@ -124,6 +124,25 @@ export function policyDetail(numero: string): PolicyDetail {
   };
 }
 
+export interface PolicyNotice {
+  numero: string;
+  ramo: string;
+  descripcion: string;
+  venceEn: string;
+  renovable: boolean;
+}
+
+/** Shape of GET /cliente/polizas/por-vencer (bff-web routers/avisos_poliza.py, HU-119). */
+export function policyNotice(numero: string): PolicyNotice {
+  return {
+    numero,
+    ramo: 'SOAT motocicleta',
+    descripcion: 'SOAT motocicleta',
+    venceEn: '2026-11-20T00:00:00Z',
+    renovable: true,
+  };
+}
+
 export interface OperatorPolicy {
   numero: string;
   ramo: string;
@@ -136,6 +155,7 @@ export interface OperatorPolicy {
   canceladaPor: string | null;
   motivoCancelacion: string | null;
   siniestrosAbiertos: number | null;
+  coberturas: { nombre: string; suma_asegurada: number; deducible: number }[];
 }
 
 /** Shape of GET/POST /operador/polizas/* (bff-web routers/operador.py, _poliza_salida). */
@@ -152,6 +172,7 @@ export function operatorPolicy(numero: string): OperatorPolicy {
     canceladaPor: null,
     motivoCancelacion: null,
     siniestrosAbiertos: null,
+    coberturas: [{ nombre: 'Robo', suma_asegurada: 2000000, deducible: 0 }],
   };
 }
 

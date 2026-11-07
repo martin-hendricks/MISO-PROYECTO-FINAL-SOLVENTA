@@ -323,4 +323,7 @@
     <string name="parametric_card_body">Póliza POL-77310 · no es el cobro de la prima</string>
     <string name="quote_ratio">El ratio de gastos supera el porcentaje máximo vigente</string>
     <string name="quote_income">El ingreso mensual debe ser mayor que cero</string>
+    <string name="notice_expiry_banner">Tu póliza %1$s vence el %2$s. La renovación la confirma un operador.</string>
+    <string name="notice_expiry_banner_no_date">Tu póliza %1$s está por vencer. La renovación la confirma un operador.</string>
+    <string name="notice_renewal_banner">Renovación confirmada · tu póliza %1$s sigue vigente. La ejecuta un operador; aquí solo la consultas.</string>
 </resources>

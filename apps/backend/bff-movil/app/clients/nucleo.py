@@ -17,6 +17,7 @@ SERVICIOS = {
     "ms-perfilamiento": "MS_PERFILAMIENTO_URL",
     "ms-siniestros": "MS_SINIESTROS_URL",
     "ms-suscripcion": "MS_SUSCRIPCION_URL",
+    "notificaciones": "MS_NOTIFICACIONES_URL",
 }
 
 
@@ -187,6 +188,14 @@ class ClienteNucleo:
             params={"usuario_id": usuario_id, "limite": limite},
         )
 
+    def polizas_por_vencer(self, *, usuario_id: str, dias: int = 30) -> list:
+        return self._pedir(
+            "ms-polizas",
+            "GET",
+            "/v1/polizas/por-vencer",
+            params={"usuario_id": usuario_id, "dias": dias},
+        )
+
     def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict:
         return self._pedir(
             "ms-polizas",
@@ -230,6 +239,18 @@ class ClienteNucleo:
             "/v1/ofertas-hipotecario",
             json={"cliente_id": cliente_id},
             cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    def registrar_dispositivo(self, *, plataforma: str, token: str) -> dict:
+        """POST /v1/notificaciones/dispositivos: upsert por (usuario_id, token)
+        -- notificaciones resuelve el usuario_id del JWT reenviado (`uid`),
+        no de un parámetro explícito. Devuelve 201 (nuevo) o 200 (ya existía),
+        ambos manejados igual por _pedir (solo falla en >=400)."""
+        return self._pedir(
+            "notificaciones",
+            "POST",
+            "/v1/notificaciones/dispositivos",
+            json={"plataforma": plataforma, "token": token},
         )
 
     def _base(self, servicio: str) -> str:

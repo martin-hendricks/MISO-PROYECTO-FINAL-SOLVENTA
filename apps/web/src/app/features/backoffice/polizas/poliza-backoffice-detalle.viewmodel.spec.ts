@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { PolizaOperador } from './polizas-backoffice.gateway';
+import { Cobertura, PolizaOperador } from './polizas-backoffice.gateway';
 import { PolizaBackofficeDetalleViewModel } from './poliza-backoffice-detalle.viewmodel';
 
 const POLIZA: PolizaOperador = {
@@ -15,14 +15,16 @@ const POLIZA: PolizaOperador = {
   canceladaPor: null,
   motivoCancelacion: null,
   siniestrosAbiertos: null,
+  coberturas: [{ nombre: 'Robo', sumaAsegurada: 2000000, deducible: 0 }],
 };
 
 function viewModel(
   source: () => Observable<PolizaOperador | null> = () => of(POLIZA),
   renovar: () => Observable<PolizaOperador> = () => of(POLIZA),
   cancelar: (motivo: string) => Observable<PolizaOperador> = () => of(POLIZA),
+  modificarCoberturas: (coberturas: Cobertura[]) => Observable<PolizaOperador> = () => of(POLIZA),
 ) {
-  return new PolizaBackofficeDetalleViewModel(source, renovar, cancelar);
+  return new PolizaBackofficeDetalleViewModel(source, renovar, cancelar, modificarCoberturas);
 }
 
 describe('PolizaBackofficeDetalleViewModel', () => {
@@ -148,6 +150,62 @@ describe('PolizaBackofficeDetalleViewModel', () => {
     vm.load();
 
     vm.cancelar('El cliente lo pidió');
+
+    expect(vm.accion()).toBe('idle');
+    expect(vm.rechazo()).toBeNull();
+  });
+
+  it('modificarCoberturas sends the new coverages and marks the action done', () => {
+    const nuevasCoberturas: Cobertura[] = [{ nombre: 'Pantalla', sumaAsegurada: 500000, deducible: 50000 }];
+    const modificada: PolizaOperador = { ...POLIZA, coberturas: nuevasCoberturas };
+    let coberturasEnviadas: Cobertura[] | undefined;
+    const vm = viewModel(
+      () => of(POLIZA),
+      () => of(POLIZA),
+      () => of(POLIZA),
+      (coberturas) => {
+        coberturasEnviadas = coberturas;
+        return of(modificada);
+      },
+    );
+    vm.load();
+
+    vm.modificarCoberturas(nuevasCoberturas);
+
+    expect(coberturasEnviadas).toEqual(nuevasCoberturas);
+    expect(vm.accion()).toBe('hecho');
+    expect(vm.poliza()).toEqual(modificada);
+  });
+
+  it('a 409 business rejection on modificarCoberturas surfaces its message', () => {
+    const error = new HttpErrorResponse({
+      status: 422,
+      error: { codigo: 'cobertura_invalida', mensaje: 'Suma asegurada inválida' },
+    });
+    const vm = viewModel(
+      () => of(POLIZA),
+      () => of(POLIZA),
+      () => of(POLIZA),
+      () => throwError(() => error),
+    );
+    vm.load();
+
+    vm.modificarCoberturas([{ nombre: 'Robo', sumaAsegurada: -1, deducible: 0 }]);
+
+    expect(vm.accion()).toBe('rechazado');
+    expect(vm.rechazo()).toBe('Suma asegurada inválida');
+  });
+
+  it('a non-business error on modificarCoberturas goes back to idle, not rechazado', () => {
+    const vm = viewModel(
+      () => of(POLIZA),
+      () => of(POLIZA),
+      () => of(POLIZA),
+      () => throwError(() => new Error('sin red')),
+    );
+    vm.load();
+
+    vm.modificarCoberturas([{ nombre: 'Robo', sumaAsegurada: 1000, deducible: 0 }]);
 
     expect(vm.accion()).toBe('idle');
     expect(vm.rechazo()).toBeNull();

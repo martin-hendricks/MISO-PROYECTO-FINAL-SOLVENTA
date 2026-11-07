@@ -1,4 +1,4 @@
-@policy-lifecycle @pendiente @HU-60 @SOLV-153
+@policy-lifecycle @HU-60 @SOLV-153
 Feature: Policy modification
 
   Scenario: Adjustment without reissuing

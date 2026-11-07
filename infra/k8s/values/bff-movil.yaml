@@ -102,7 +102,7 @@ topologySpread:
 # Mismo bug y mismo fix que infra/k8s/values/bff-web.yaml: httpx asume el
 # puerto 80 por defecto sin uno explícito en la base_url, y ningún Service
 # de este chart lo expone (todos escuchan en :8080, o :8000 para
-# ms-cotizacion/bff-*). app/clients/nucleo.py (SERVICIOS) lee las 7
+# ms-cotizacion/bff-*). app/clients/nucleo.py (SERVICIOS) lee las 8
 # variables; faltaban MS_PAGOS_URL/MS_PERFILAMIENTO_URL/MS_SINIESTROS_URL
 # por completo -- sin ellas, _base() responde 503 "no configurado" para
 # cualquier ruta que las use.
@@ -121,3 +121,7 @@ variablesEntorno:
     valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
   - nombre: MS_SINIESTROS_URL
     valor: "http://ms-siniestros.solventa.svc.cluster.local:8080"
+  # HU-119/avisos/token: bff-movil llama a notificaciones (WU-01/02/03) para
+  # pedir pólizas por vencer y registrar el token de push del dispositivo.
+  - nombre: MS_NOTIFICACIONES_URL
+    valor: "http://notificaciones.solventa.svc.cluster.local:8080"

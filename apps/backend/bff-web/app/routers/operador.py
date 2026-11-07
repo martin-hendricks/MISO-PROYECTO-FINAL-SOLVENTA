@@ -68,6 +68,11 @@ def _poliza_salida(
         "estado": poliza["estado"].lower(),
         "venceEn": poliza.get("fin_vigencia", ""),
         "prima": poliza["prima"],
+        # HU-60: ms-polizas ya devuelve esto (PolizaSalida.coberturas), pero
+        # _poliza_salida nunca lo exponía al canal web -- sin esto, el
+        # back-office no puede precargar los valores actuales antes de
+        # modificarlos.
+        "coberturas": poliza.get("coberturas", []),
         "renovable": poliza["renovable"],
         "devolucionEstimada": poliza.get("devolucion_estimada"),
         "canceladaEn": poliza.get("cancelada_en"),

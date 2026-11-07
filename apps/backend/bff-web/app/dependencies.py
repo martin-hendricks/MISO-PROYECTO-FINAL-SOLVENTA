@@ -6,6 +6,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from .clients.analitica import ClienteAnalitica
 from .clients.ms_cotizacion import ClienteMsCotizacion
 from .clients.ms_identidad import ClienteMsIdentidad
 from .clients.ms_pagos import ClienteMsPagos
@@ -88,6 +89,10 @@ def obtener_cliente_pagos(request: Request) -> ClienteMsPagos:
 
 def obtener_cliente_polizas(request: Request) -> ClienteMsPolizas:
     return ClienteMsPolizas(request.app.state.http_ms_polizas, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_analitica(request: Request) -> ClienteAnalitica:
+    return ClienteAnalitica(request.app.state.http_analitica, getattr(request.state, "correlacion", None))
 
 
 def obtener_cliente_perfilamiento(request: Request) -> ClienteMsPerfilamiento:

@@ -15,11 +15,13 @@ const WIRE = {
   canceladaPor: null,
   motivoCancelacion: null,
   siniestrosAbiertos: null,
+  coberturas: [{ nombre: 'Robo', suma_asegurada: '2000000.00', deducible: '0.00' }],
 };
 
 const POLIZA: PolizaOperador = {
   ...WIRE,
   prima: { valor: 1000, periodicidad: 'ANUAL' },
+  coberturas: [{ nombre: 'Robo', sumaAsegurada: 2000000, deducible: 0 }],
 };
 
 describe('PolizasBackofficeGateway', () => {
@@ -93,6 +95,24 @@ describe('PolizasBackofficeGateway', () => {
     request.flush({ ...WIRE, estado: 'cancelada' });
 
     expect(resultado?.estado).toBe('cancelada');
+  });
+
+  it('modifies coverages by number through the ciclo endpoint, translating camelCase to the core shape', () => {
+    const { gateway, http } = setup();
+    let resultado: PolizaOperador | undefined;
+
+    gateway
+      .modificarCoberturas('POL-2026-00000001', [{ nombre: 'Pantalla', sumaAsegurada: 500000, deducible: 50000 }])
+      .subscribe((poliza) => (resultado = poliza));
+    const request = http.expectOne('/web/operador/polizas/ciclo');
+    expect(request.request.body).toEqual({
+      numero: 'POL-2026-00000001',
+      verbo: 'modificar',
+      coberturas: [{ nombre: 'Pantalla', suma_asegurada: 500000, deducible: 50000 }],
+    });
+    request.flush(WIRE);
+
+    expect(resultado).toEqual(POLIZA);
   });
 
   it('reads 409 and 422 as typed business rejections only', () => {

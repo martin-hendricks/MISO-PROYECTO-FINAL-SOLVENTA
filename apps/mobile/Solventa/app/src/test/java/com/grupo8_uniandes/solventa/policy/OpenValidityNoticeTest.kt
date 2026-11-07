@@ -19,7 +19,6 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -40,14 +39,13 @@ class OpenValidityNoticeTest {
     }
 
     @Test
-    fun givenAPolicyAboutToExpire_whenTheNoticeOpens_thenTheBannerNamesTheSevenDays() = runBlocking {
+    fun givenAPolicyAboutToExpire_whenTheNoticeOpens_thenItCarriesThatPolicysRealData() = runBlocking {
         val reading = notices.openExpiry()
 
         assertNotNull(reading)
         assertEquals(ValidityKind.EXPIRY, reading!!.kind)
         assertEquals(OpenValidityNotice.POLICY, reading.poliza)
-        assertEquals(OpenValidityNotice.EXPIRY_BANNER, reading.banner)
-        assertFalse(reading.banner.contains("2027-03-12"))
+        assertEquals("2027-03-12", reading.venceEn)
         assertNull(OpenValidityNotice(SampleNotices(emptyList())).openExpiry())
         assertNull(OpenValidityNotice(FailedNotices()).openExpiry())
         assertNull(
@@ -55,20 +53,26 @@ class OpenValidityNoticeTest {
                 SampleNotices(listOf(ValidityNotice("renovacion", OpenValidityNotice.POLICY, null, "vigente"))),
             ).openExpiry(),
         )
-        assertNull(
-            OpenValidityNotice(
-                SampleNotices(listOf(ValidityNotice("vencimiento", "POL-9", "2027-03-12", null))),
-            ).openExpiry(),
-        )
     }
 
     @Test
-    fun givenARenewalInForce_whenTheNoticeOpens_thenTheBannerNamesTheDate() = runBlocking {
+    fun givenAnyPolicyAboutToExpire_whenTheNoticeOpens_thenItIsNotLimitedToTheSamplePolicy() = runBlocking {
+        val reading = OpenValidityNotice(
+            SampleNotices(listOf(ValidityNotice("vencimiento", "POL-9", "2027-05-01", null))),
+        ).openExpiry()
+
+        assertNotNull(reading)
+        assertEquals("POL-9", reading!!.poliza)
+        assertEquals("2027-05-01", reading.venceEn)
+    }
+
+    @Test
+    fun givenARenewalInForce_whenTheNoticeOpens_thenItCarriesThatPolicysRealData() = runBlocking {
         val reading = notices.openRenewal()
 
         assertNotNull(reading)
         assertEquals(ValidityKind.RENEWAL, reading!!.kind)
-        assertEquals(OpenValidityNotice.RENEWAL_BANNER, reading.banner)
+        assertEquals(OpenValidityNotice.POLICY, reading.poliza)
         assertNotNull(
             OpenValidityNotice(
                 SampleNotices(
@@ -86,13 +90,16 @@ class OpenValidityNoticeTest {
                 ),
             ).openRenewal(),
         )
-        assertNull(
-            OpenValidityNotice(
-                SampleNotices(
-                    listOf(ValidityNotice("renovacion", "POL-9", null, "vigente")),
-                ),
-            ).openRenewal(),
-        )
+    }
+
+    @Test
+    fun givenAnyRenewalInForce_whenTheNoticeOpens_thenItIsNotLimitedToTheSamplePolicy() = runBlocking {
+        val reading = OpenValidityNotice(
+            SampleNotices(listOf(ValidityNotice("renovacion", "POL-9", null, "vigente"))),
+        ).openRenewal()
+
+        assertNotNull(reading)
+        assertEquals("POL-9", reading!!.poliza)
     }
 
     @Test
