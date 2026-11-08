@@ -11,6 +11,9 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
@@ -127,19 +130,40 @@ class PolizasViewModelTest {
                 PolizaDetalleScreen(
                     state = PolicyDetailUiState(
                         phase = PolicyPhase.Ready,
-                        numero = "POL-88219-CO",
-                        ramo = "Protección de dispositivo",
-                        resumen = "Robo y Pantalla",
-                        estado = "vigente",
-                        venceEn = "2027-03-12",
-                        queHacer = "Toma la foto del daño y anota fecha y lugar.",
+                        detail = PolicyDetail(
+                            numero = "POL-88219-CO",
+                            ramo = "Protección de dispositivo",
+                            resumen = "Robo y Pantalla",
+                            estado = "vigente",
+                            venceEn = "2027-03-12",
+                            queHacer = "Toma la foto del daño y anota fecha y lugar.",
+                            inicioVigencia = "2026-03-12",
+                            finVigencia = "2027-03-12",
+                            moneda = "COP",
+                            primaTotal = 89000.0,
+                            coberturas = listOf(
+                                PolicyCoverage("Robo", 4_000_000.0, 0.0),
+                                PolicyCoverage("Pantalla", 1_500_000.0, 150_000.0),
+                            ),
+                            renovable = true,
+                        ),
                         notice = true,
+                        claims = listOf(
+                            ClaimSummary("SIN-1", "SOAT", "choque", ClaimStatus.RECIBIDO, poliza = "POL-88219-CO"),
+                        ),
                     ),
+                    renewalChecked = true,
                     onExpiryNotices = { notices += 1 },
                 )
             }
         }
         rule.onNodeWithTag("policy_guidance", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_vigencia", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_prima", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_coverage_Robo", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_deductible_Pantalla", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("renewal_checkbox", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_claim_SIN-1", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").performClick()
         assertEquals(1, notices)

@@ -28,7 +28,7 @@ class ConsultPolicies(
             staleList = false
             PolicyListResult(answer.value, notice = notice, empty = answer.value.isEmpty())
         }
-        StandInAnswer.Failed -> {
+        StandInAnswer.Failed, is StandInAnswer.Rejected -> {
             val saved = memory.readWallet()
             if (saved != null) {
                 staleList = true
@@ -47,7 +47,7 @@ class ConsultPolicies(
             val notice = staleDetails.remove(numero)
             PolicyOpenResult(shown, notice = notice, missing = false)
         }
-        StandInAnswer.Failed -> {
+        StandInAnswer.Failed, is StandInAnswer.Rejected -> {
             val saved = memory.readDetail(numero)
             if (saved != null) {
                 staleDetails += numero

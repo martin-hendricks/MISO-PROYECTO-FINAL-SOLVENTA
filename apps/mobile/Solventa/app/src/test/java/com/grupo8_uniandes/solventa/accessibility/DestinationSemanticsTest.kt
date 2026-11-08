@@ -44,7 +44,7 @@ class DestinationSemanticsTest {
     fun givenPolizaDetalle_whenShown_thenHeading() {
         rule.setContent {
             SolventaTheme {
-                PolizaDetalleScreen(state = PolicyDetailUiState(numero = "POL-1"))
+                PolizaDetalleScreen(state = PolicyDetailUiState(requested = "POL-1"))
             }
         }
         rule.onNode(isHeading()).assertExists()
@@ -65,7 +65,7 @@ class DestinationSemanticsTest {
                         ),
                     ),
                     onOpenClaim = {},
-                    onOpenCatalog = {},
+                    onReport = {},
                 )
             }
         }
@@ -79,7 +79,7 @@ class DestinationSemanticsTest {
     fun givenSiniestroDetalle_whenShown_thenHeading() {
         rule.setContent {
             SolventaTheme {
-                SiniestroDetalleScreen(claimId = "SIN-1", onBack = {})
+                SiniestroDetalleScreen(claimId = "SIN-1")
             }
         }
         rule.onNode(isHeading() and hasText("Siniestros")).assertExists()

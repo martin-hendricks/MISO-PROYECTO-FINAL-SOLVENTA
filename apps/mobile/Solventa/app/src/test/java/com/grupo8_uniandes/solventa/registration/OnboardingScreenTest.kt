@@ -40,9 +40,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingUiState
-import com.grupo8_uniandes.solventa.ui.registration.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.registration.decodeDocumentPhoto
-import com.grupo8_uniandes.solventa.ui.registration.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.After
 import org.junit.Assert.assertEquals

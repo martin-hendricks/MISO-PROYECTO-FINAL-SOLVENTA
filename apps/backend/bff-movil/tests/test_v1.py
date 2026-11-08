@@ -39,9 +39,12 @@ COTIZACION = {
 POLIZA = {
     "numero": "POL-9",
     "estado": "vigente",
+    "inicio_vigencia": "2026-01-01",
     "fin_vigencia": "2027-01-01",
     "oferta_id": "oferta-1",
-    "coberturas": [{"nombre": "Robo"}],
+    "coberturas": [{"nombre": "Robo", "suma_asegurada": "40000000.00", "deducible": "0"}],
+    "renovable": True,
+    "renovacion_automatica": False,
 }
 ACEPTADA = {
     "decision": "ACEPTADA",
@@ -157,6 +160,27 @@ class DobleNucleo:
 
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
+
+    def registrar_aviso(self, *, usuario_id, datos, archivos, idempotency_key):
+        return self._llamar(
+            "registrar_aviso",
+            usuario_id=usuario_id,
+            datos=datos,
+            idempotency_key=idempotency_key,
+            archivos=len(archivos),
+        ) or {
+            "siniestro": {
+                "id": "66666666-6666-6666-6666-666666666666",
+                "numero": "66666666-6666-6666-6666-666666666666",
+                "estado": "recibido",
+            }
+        }
+
+    def detalle_siniestro(self, siniestro_id, usuario_id):
+        valor = self._llamar("detalle_siniestro", siniestro_id=siniestro_id, usuario_id=usuario_id)
+        if not valor:
+            raise HTTPException(status_code=404, detail="No existe")
+        return valor
 
     def crear_siniestro(self, *, usuario_id, poliza, poliza_id, idempotency_key):
         return self._llamar(
@@ -580,8 +604,12 @@ def test_billetera_v1_proyecta_y_degrada(client, doble):
             "ramo": "Sin clasificar",
             "descripcion": "",
             "resumen": "Robo",
-            "estado": "vigente",
+            "estado": "VIGENTE",
             "venceEn": "2027-01-01",
+            "inicioVigencia": "2026-01-01",
+            "finVigencia": "2027-01-01",
+            "moneda": "",
+            "primaTotal": 0.0,
         }
     ]
     assert doble.llamadas[0]["limite"] == 20
@@ -634,7 +662,37 @@ def test_detalle_v1(client, doble):
     doble.respuestas["reconsultar_por_oferta"] = {"producto": "vida"}
     detalle = client.get("/v1/cliente/polizas/POL-9", headers=headers).json()
     assert detalle["queHacer"] == "Toma la foto del daño y anota fecha y lugar."
+    assert detalle["inicioVigencia"] == "2026-01-01"
+    assert detalle["finVigencia"] == "2027-01-01"
+    assert detalle["estado"] == "VIGENTE"
+    assert detalle["primaTotal"] == 0.0
+    assert detalle["coberturas"] == [{"nombre": "Robo", "sumaAsegurada": 40000000.0, "deducible": 0.0}]
+    assert detalle["renovable"] is True
+    assert detalle["renovacionAutomatica"] is False
+    assert "cancelacion" not in detalle
     assert "oferta_id" not in detalle
+    cancelada = {
+        **POLIZA,
+        "estado": "cancelada",
+        "motivo_cancelacion": "A solicitud del cliente",
+        "cancelada_en": "2026-06-01",
+        "devolucion_estimada": "12000.50",
+        "cancelada_por": "operador",
+        "hash_firma_legal": "abc",
+    }
+    doble.respuestas["obtener_por_numero"] = cancelada
+    doble.respuestas["reconsultar_por_oferta"] = {"producto": "soat-motocicleta", "prima": "89000.00", "moneda": "COP"}
+    baja = client.get("/v1/cliente/polizas/POL-9", headers=headers).json()
+    assert baja["ramo"] == "SOAT motocicleta"
+    assert baja["primaTotal"] == 89000.0
+    assert baja["moneda"] == "COP"
+    assert baja["cancelacion"] == {
+        "motivo": "A solicitud del cliente",
+        "canceladaEn": "2026-06-01",
+        "devolucionEstimada": 12000.5,
+    }
+    assert "cancelada_por" not in baja
+    assert "hash_firma_legal" not in baja
     assert doble.llamadas[0] == {
         "metodo": "obtener_por_numero",
         "numero": "POL-9",
@@ -665,7 +723,7 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     ]
     assert inicio["ofertaVigente"] == pendiente
     assert inicio["siniestroEnCurso"] is None
-    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "vigente"}
+    assert inicio["poliza"] == {"numero": "POL-9", "ramo": "Sin clasificar", "estado": "VIGENTE"}
     cotizaciones = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_cotizaciones_usuario")
     polizas = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "listar_polizas")
     assert cotizaciones["usuario_id"] == _dueno()["usuario_id"]
@@ -865,10 +923,21 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
         "habeasData": False
     }
     aviso_headers = {**headers, "Idempotency-Key": "aviso-estable-01"}
-    primero = client.post("/v1/cliente/siniestros", headers=aviso_headers, json=AVISO)
-    segundo = client.post("/v1/cliente/siniestros", headers=aviso_headers, json=AVISO)
+    aviso = {
+        "data": {
+            "poliza": "POL-88219-CO",
+            "fechaHecho": "2026-03-12",
+            "descripcion": "Pantalla rota",
+            "lugar": "Calle 72",
+        },
+        "files": [("archivos", ("dano.png", b"png", "image/png"))],
+    }
+    primero = client.post("/v1/cliente/siniestros", headers=aviso_headers, **aviso)
+    segundo = client.post("/v1/cliente/siniestros", headers=aviso_headers, **aviso)
+    assert primero.status_code == 200, primero.text
     assert primero.json()["siniestroId"] == "66666666-6666-6666-6666-666666666666"
     assert segundo.json()["siniestroId"] == "66666666-6666-6666-6666-666666666666"
+    assert primero.json()["estado"] == "recibido"
     assert client.get("/v1/cliente/siniestros", headers=headers).status_code == 200
     assert client.get("/v1/cliente/avisos", headers=headers).status_code == 200
     assert (
@@ -893,9 +962,9 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
     assert asistencia.json()["estado"] == "registrada"
     assert [llamada["metodo"] for llamada in doble.llamadas] == [
         "obtener_por_numero",
-        "crear_siniestro",
+        "registrar_aviso",
         "obtener_por_numero",
-        "crear_siniestro",
+        "registrar_aviso",
         "listar_siniestros",
         "polizas_por_vencer",
         "registrar_dispositivo",
@@ -949,8 +1018,10 @@ def test_cliente_http_traduce_exito_y_errores(monkeypatch):
         def __exit__(self, *args):
             return False
 
-        def request(self, metodo, ruta, json=None, params=None, headers=None):
+        def request(self, metodo, ruta, json=None, params=None, headers=None, data=None, files=None):
             visto["llamada"] = (metodo, ruta, json, params, headers)
+            visto["data"] = data
+            visto["files"] = files
             if isinstance(self.respuesta, Exception):
                 raise self.respuesta
             return self.respuesta
@@ -986,6 +1057,19 @@ def test_cliente_http_traduce_exito_y_errores(monkeypatch):
     assert cliente.crear_siniestro(
         usuario_id="u", poliza="POL-1", poliza_id="p", idempotency_key="clave-aviso"
     )["id"] == "s"
+    Falso.respuesta = _Respuesta(201, {"siniestro": {"id": "s", "estado": "recibido"}})
+    assert cliente.registrar_aviso(
+        usuario_id="u",
+        datos={"lugar": "Calle 72"},
+        archivos=[("dano.png", b"png", "image/png")],
+        idempotency_key="clave-aviso-01",
+    )["siniestro"]["id"] == "s"
+    assert visto["files"] == [("archivos", ("dano.png", b"png", "image/png"))]
+    assert visto["data"] == {"datos": '{"lugar": "Calle 72"}'}
+    Falso.respuesta = _Respuesta(200, {"siniestro": {"id": "s"}})
+    assert cliente.detalle_siniestro("SIN-1", "u")["siniestro"]["id"] == "s"
+    assert visto["llamada"][:3] == ("GET", "/v1/siniestros/SIN-1/detalle", None)
+    assert visto["llamada"][3] == {"usuario_id": "u"}
     Falso.respuesta = _Respuesta(200, {"numero": "POL-1"})
     assert cliente.obtener_por_numero("POL-1", "u")["numero"] == "POL-1"
 
@@ -1213,6 +1297,217 @@ def test_perfil_v1_lee_y_guarda_y_v0_no_existe(client, doble):
     )
 
 
+def test_aviso_v1_reenvia_multipart_y_el_detalle(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "aviso-lugar-01"}
+    respuesta = client.post(
+        "/v1/cliente/siniestros",
+        headers=headers,
+        data={
+            "poliza": "POL-88219-CO",
+            "fechaHecho": "2026-03-12",
+            "descripcion": "Choque",
+            "lugar": "Calle 72",
+            "geo": '{"lat": 4.65, "lng": -74.08, "precisionM": 12}',
+        },
+        files=[("archivos", ("dano.png", b"png", "image/png"))],
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    aviso = next(llamada for llamada in doble.llamadas if llamada["metodo"] == "registrar_aviso")
+    assert aviso["datos"]["canal"] == "movil"
+    assert aviso["datos"]["lugar"] == "Calle 72"
+    assert aviso["datos"]["geo"] == {"lat": 4.65, "lng": -74.08, "precision_m": 12}
+    invalida = client.post(
+        "/v1/cliente/siniestros",
+        headers={**_auth(client), "Idempotency-Key": "aviso-geo-malo"},
+        data={"poliza": "POL-1", "fechaHecho": "2026-03-12", "descripcion": "Choque", "geo": "{"},
+        files=[("archivos", ("dano.png", b"png", "image/png"))],
+    )
+    assert invalida.status_code == 422
+    assert aviso["datos"]["poliza"]["numero"] == "POL-88219-CO"
+    assert aviso["archivos"] == 1
+    sin_clave = client.post(
+        "/v1/cliente/siniestros",
+        headers=_auth(client),
+        data={"poliza": "POL-1", "fechaHecho": "2026-03-12", "descripcion": "Choque"},
+        files=[("archivos", ("dano.png", b"png", "image/png"))],
+    )
+    assert sin_clave.status_code == 422
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "pagado",
+            "tipo": "asistido",
+            "descripcion": "Choque",
+            "lugar": "Calle 72",
+            "poliza_numero": "POL-1",
+            "historial": [{"estado": "recibido", "ocurrido_en": "2026-03-12"}],
+        },
+        "adjuntos": [{"nombre": "dano.png", "tipo": "foto", "content_type": "image/png", "url": "memoria://dano"}],
+    }
+    detalle = client.get("/v1/cliente/siniestros/interno", headers=_auth(client))
+    assert detalle.status_code == 200
+    assert detalle.json()["siniestroId"] == "SIN-9"
+    assert detalle.json()["lugar"] == "Calle 72"
+    assert detalle.json()["evidencia"][0]["nombre"] == "dano.png"
+    assert detalle.json()["umbral"] is None
+    assert detalle.json()["historial"] == [
+        {"estado": "recibido", "fecha": "2026-03-12", "estadoTexto": "Recibido"}
+    ]
+
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "decidido",
+            "resultado": "rechazado",
+            "tipo": "asistido",
+            "ramo": "soat-motocicleta",
+            "descripcion": "Choque",
+            "poliza_numero": "POL-1",
+            "reserva": "350000.00",
+            "geo": {"lat": "4.65", "lng": "-74.08", "precision_m": "12.00"},
+            "umbral_automatico": "500000.00",
+            "historial": [{"estado": "decidido", "ocurrido_en": "2026-03-13T10:00:00"}],
+        },
+        "decisiones": [
+            {"resultado": "aprobado", "motivo": "primero"},
+            {"resultado": "rechazado", "motivo": "Póliza no vigente en la fecha del hecho"},
+        ],
+        "adjuntos": [],
+        "pago": {
+            "clave_idempotencia": "clave",
+            "comprobante": "CMP-1",
+            "monto": "350000.00",
+            "origen": "automatico",
+            "autorizado_por": "sistema",
+            "pagado_en": "2026-03-13T12:00:00",
+        },
+    }
+    rechazo = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()
+    assert rechazo["ramo"] == "SOAT motocicleta"
+    assert rechazo["resultado"] == "rechazado"
+    assert rechazo["motivo"] == "Póliza no vigente en la fecha del hecho"
+    assert rechazo["reserva"] == 350000.0
+    assert rechazo["geo"] == {"lat": 4.65, "lng": -74.08, "precisionM": 12}
+    assert rechazo["pago"] == {
+        "comprobante": "CMP-1",
+        "monto": 350000.0,
+        "moneda": "COP",
+        "fecha": "2026-03-13T12:00:00",
+    }
+    assert "clave_idempotencia" not in rechazo["pago"]
+    assert rechazo["umbral"] is None
+
+    parametrico = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "pagado",
+            "resultado": "aprobado",
+            "tipo": "parametrico",
+            "ramo": "clima-y-vuelos",
+            "umbral_automatico": "500000.00",
+            "historial": [],
+        },
+        "decisiones": [],
+        "adjuntos": [],
+    }
+    doble.respuestas["detalle_siniestro"] = parametrico
+    pago_auto = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()
+    assert pago_auto["umbral"] == "500000.00"
+    assert pago_auto["estadoTexto"] == "Pagado"
+
+
+def _aviso(client, headers, **cambios):
+    data = {
+        "poliza": "POL-88219-CO",
+        "fechaHecho": "2026-03-12",
+        "descripcion": "Choque",
+        "lugar": "Calle 72",
+    }
+    data.update(cambios.pop("data", {}))
+    for clave in cambios.pop("sin", ()):
+        data.pop(clave, None)
+    archivos = cambios.pop(
+        "files",
+        [("archivos", ("dano.png", b"png", "image/png"))],
+    )
+    return client.post("/v1/cliente/siniestros", headers=headers, data=data, files=archivos)
+
+
+def test_aviso_v1_rechaza_el_formulario_incompleto(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "aviso-incompleto-01"}
+    assert _aviso(client, headers, sin=("descripcion",)).status_code == 422
+    assert _aviso(client, headers, data={"descripcion": "x" * 1001}).status_code == 422
+    assert _aviso(client, headers, data={"lugar": "x" * 201}).status_code == 422
+    assert _aviso(client, headers, files=[]).status_code == 422
+    assert _aviso(
+        client,
+        headers,
+        files=[("archivos", (f"{n}.png", b"a", "image/png")) for n in range(6)],
+    ).status_code == 422
+    assert _aviso(
+        client, headers, files=[("archivos", ("nota.txt", b"a", "text/plain"))]
+    ).status_code == 422
+    assert _aviso(
+        client,
+        headers,
+        files=[("archivos", ("grande.png", b"a" * (10 * 1024 * 1024 + 1), "image/jpeg"))],
+    ).status_code == 422
+    con_charset = _aviso(
+        client, headers, files=[("archivos", ("dano.png", b"a", "image/png; charset=binary"))]
+    )
+    assert con_charset.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert aviso["datos"]["tipos_adjuntos"] == ["foto"]
+    sin_lugar = _aviso(client, headers, sin=("lugar",))
+    assert sin_lugar.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert "lugar" not in aviso["datos"]
+    assert _aviso(client, headers, data={"geo": "[]"}).status_code == 422
+    assert _aviso(client, headers, data={"geo": '{"lng": 1}'}).status_code == 422
+    sin_precision = _aviso(client, headers, data={"geo": '{"lat": 1, "lng": 2}'})
+    assert sin_precision.status_code == 200
+    aviso = next(llamada for llamada in reversed(doble.llamadas) if llamada["metodo"] == "registrar_aviso")
+    assert aviso["datos"]["geo"] == {"lat": 1, "lng": 2}
+
+    doble.respuestas["obtener_por_numero"] = {"id": "p", "numero": "POL-88219-CO", "usuario_id": "otro"}
+    assert _aviso(client, headers).status_code == 404
+    doble.respuestas["obtener_por_numero"] = {"numero": "POL-88219-CO", "usuario_id": UID}
+    assert _aviso(client, headers).status_code == 404
+    doble.respuestas["obtener_por_numero"] = {}
+    doble.respuestas["registrar_aviso"] = {"id": "66666666-6666-6666-6666-666666666666", "estado": "recibido"}
+    plano = _aviso(client, headers)
+    assert plano.status_code == 200
+    assert plano.json()["estado"] == "recibido"
+    doble.respuestas["registrar_aviso"] = ["no-dict"]
+    assert _aviso(client, headers).status_code == 502
+
+    assert client.get("/cliente/siniestros/SIN-1", headers=_auth(client)).status_code == 404
+    doble.respuestas["detalle_siniestro"] = "incompleto"
+    assert client.get("/v1/cliente/siniestros/SIN-1", headers=_auth(client)).status_code == 502
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "recibido",
+            "geo": {"lat": "no", "lng": 1},
+        }
+    }
+    assert client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()["geo"] is None
+    doble.respuestas["detalle_siniestro"] = {
+        "siniestro": {
+            "id": "interno",
+            "numero": "SIN-9",
+            "estado": "recibido",
+            "geo": {"lat": 1, "lng": 2, "precision_m": "no"},
+        }
+    }
+    geo = client.get("/v1/cliente/siniestros/interno", headers=_auth(client)).json()["geo"]
+    assert geo == {"lat": 1.0, "lng": 2.0, "precisionM": 0}
+
+
 def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     headers = _auth(client)
     muestra = client.get("/cliente/siniestros", headers=headers).json()
@@ -1226,7 +1521,8 @@ def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     ]
     cuerpo = client.get("/v1/cliente/siniestros", headers=headers).json()
     assert cuerpo["siniestros"][0]["siniestroId"] == "SIN-9"
-    assert cuerpo["siniestros"][0]["ramo"] == "POL-1"
+    assert cuerpo["siniestros"][0]["ramo"] == "Sin clasificar"
+    assert cuerpo["siniestros"][0]["poliza"] == "POL-1"
 
 
 def test_avisos_v0_es_la_muestra_fija_sin_llamar_al_nucleo(client, doble):

@@ -151,6 +151,14 @@ class SampleMappingTest {
             "Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.",
             detail.queHacer,
         )
+        assertEquals(89_000.0, detail.primaTotal)
+        assertEquals("Robo", detail.coberturas.first().nombre)
+        assertEquals(150_000.0, detail.coberturas[1].deducible, 0.0)
+        assertEquals(true, detail.renovable)
+        val claim = MockClaimRepository().detail("interno") as StandInAnswer.Ready
+        assertEquals("Rechazado", claim.value.summary.statusWords())
+        assertEquals(12, claim.value.geo!!.precisionM)
+        assertEquals("Recibido", claim.value.historial.first().estadoTexto)
 
         val notice = MockClaimRepository().readNotice()!!
         assertEquals("POL-88219-CO", notice.poliza)

@@ -61,7 +61,11 @@ fun ConfirmacionTarjetaScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.card_premium),
+                    text = if (state.premiumText.isEmpty()) {
+                        stringResource(R.string.card_premium_pending)
+                    } else {
+                        stringResource(R.string.card_premium, state.premiumText)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),

@@ -22,6 +22,18 @@ data class WalletEntry(
     val venceEn: String,
 )
 
+data class PolicyCoverage(
+    val nombre: String,
+    val sumaAsegurada: Double,
+    val deducible: Double,
+)
+
+data class PolicyCancellation(
+    val motivo: String?,
+    val canceladaEn: String?,
+    val devolucionEstimada: Double?,
+)
+
 data class PolicyDetail(
     val numero: String,
     val ramo: String,
@@ -29,6 +41,14 @@ data class PolicyDetail(
     val estado: String,
     val venceEn: String,
     val queHacer: String,
+    val inicioVigencia: String? = null,
+    val finVigencia: String? = null,
+    val moneda: String = "",
+    val primaTotal: Double? = null,
+    val coberturas: List<PolicyCoverage> = emptyList(),
+    val renovable: Boolean = false,
+    val renovacionAutomatica: Boolean = false,
+    val cancelacion: PolicyCancellation? = null,
 )
 
 interface IssuanceRepository {

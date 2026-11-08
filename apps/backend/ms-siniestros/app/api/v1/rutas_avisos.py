@@ -92,6 +92,7 @@ async def registrar_aviso(
         canal=entrada.canal,
         geo=entrada.geo.a_dominio() if entrada.geo else None,
         archivos=evidencia,
+        lugar=(entrada.lugar or "").strip() or None,
         clave_idempotencia=idempotency_key,
     )
     if not creado:

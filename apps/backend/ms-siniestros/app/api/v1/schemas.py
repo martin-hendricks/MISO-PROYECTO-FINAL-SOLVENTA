@@ -49,6 +49,7 @@ class SiniestroSalida(BaseModel):
     poliza_numero: str | None = None
     fecha_hecho: date | None = None
     descripcion: str | None = None
+    lugar: str | None = None
     geo: GeoSalida | None = None
     reserva: Decimal | None = None
     umbral_automatico: Decimal | None = None
@@ -78,6 +79,7 @@ class SiniestroSalida(BaseModel):
             poliza_numero=poliza.numero if poliza else None,
             fecha_hecho=siniestro.fecha_hecho,
             descripcion=siniestro.descripcion,
+            lugar=siniestro.lugar,
             geo=GeoSalida(lat=geo.lat, lng=geo.lng, precision_m=geo.precision_m) if geo else None,
             reserva=siniestro.reserva,
             umbral_automatico=siniestro.umbral_automatico,

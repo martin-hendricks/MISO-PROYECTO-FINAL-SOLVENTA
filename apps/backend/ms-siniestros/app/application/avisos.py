@@ -92,6 +92,7 @@ async def registrar_aviso(
     canal: str,
     geo: Geo | None,
     archivos: list[ArchivoEvidencia],
+    lugar: str | None = None,
     clave_idempotencia: str | None = None,
 ) -> tuple[DetalleSiniestro, bool]:
     """Alta del aviso (N5) con su evidencia (N6). Devuelve (detalle, creado). Con la misma
@@ -111,6 +112,7 @@ async def registrar_aviso(
         descripcion=descripcion,
         canal=canal,
         geo=geo,
+        lugar=lugar,
         clave_idempotencia=clave_idempotencia,
     )
     adjuntos = [Adjunto.desde_archivo(a, siniestro, almacen.bucket) for a in archivos]
