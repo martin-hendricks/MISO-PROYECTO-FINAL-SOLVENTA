@@ -66,11 +66,11 @@ class SiniestroDetalleScreenTest {
         }
         rule.onNodeWithText("Rechazado").assertIsDisplayed()
         rule.onNodeWithTag("claim_reject_reason").assertIsDisplayed()
-        rule.onNodeWithTag("claim_lugar").assertIsDisplayed()
+        rule.onNodeWithTag("claim_lugar", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("claim_pago").assertIsDisplayed()
         rule.onNodeWithTag("claim_history_decidido").assertIsDisplayed()
         rule.onNodeWithTag("claim_evidence_dano.png").performClick()
-        rule.onNodeWithTag("claim_policy").performClick()
+        rule.onNodeWithTag("claim_policy", useUnmergedTree = true).performClick()
         assertEquals("https://example.test/dano.png", openedUrl)
         assertEquals("POL-1", openedPolicy)
     }

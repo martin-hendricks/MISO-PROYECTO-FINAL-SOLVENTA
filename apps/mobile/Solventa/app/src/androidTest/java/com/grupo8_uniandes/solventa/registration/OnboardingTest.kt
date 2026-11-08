@@ -195,6 +195,8 @@ class OnboardingTest {
         rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
         rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
         rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_ingresos").performScrollTo().performTextReplacement("4500000")
+        rule.onNodeWithTag("field_gastos").performScrollTo().performTextReplacement("1200000")
     }
 
     private fun confirmRegion(tag: String) {

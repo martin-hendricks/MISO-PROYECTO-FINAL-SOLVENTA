@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.MainActivity
@@ -62,12 +63,12 @@ class PolizasConsultaTest {
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithText("Protección de dispositivo · Robo y Pantalla")
+            rule.onAllNodesWithText("Protección de dispositivo", useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        rule.onNodeWithText("Protección de dispositivo · Robo y Pantalla").assertIsDisplayed()
-        rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
+        rule.onNodeWithText("Protección de dispositivo", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("action_expiry_notices").performScrollTo().assertIsDisplayed()
     }
 
     private fun openShell() {
@@ -155,7 +156,7 @@ class PolizasListContentTest {
             }
         }
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
     }

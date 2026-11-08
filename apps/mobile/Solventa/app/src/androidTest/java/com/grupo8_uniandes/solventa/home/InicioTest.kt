@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
@@ -42,8 +43,8 @@ class InicioTest {
         show(HomeUiState(panel = HomePanel(policyId = "POL-9")))
         rule.onNodeWithTag("home_policy").performScrollTo().performClick()
         rule.waitForTag("screen_poliza_detalle")
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
-        rule.onNodeWithTag("policy_numero").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-9")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
         rule.onNodeWithTag("action_volver").performClick()
         rule.waitForTag("screen_polizas")
@@ -68,6 +69,7 @@ class InicioTest {
     fun givenOffer_whenAccepted_thenIssuanceShowsThatIdAndHidesTheBar() {
         show(HomeUiState(panel = HomePanel(offerId = "Q-42")))
         rule.onNodeWithTag("action_accept_offer").performScrollTo().performClick()
+        rule.confirmReviewCard()
         rule.waitForTag("screen_issued")
         rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)

@@ -3,9 +3,12 @@ package com.grupo8_uniandes.solventa.ui.shell
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -16,11 +19,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -47,6 +52,7 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaIconButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaListRow
+import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.consent.ConsentSheet
 import com.grupo8_uniandes.solventa.ui.consent.ConsentSurface
 import com.grupo8_uniandes.solventa.ui.consent.ConsentViewModel
@@ -55,9 +61,6 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
 import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
-import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
-import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 
 fun interface BiometricEnrollment {
@@ -138,15 +141,17 @@ fun PerfilScreen(
                 sheetOpen = true
             },
         )
-        SolventaListRow(
-            label = stringResource(R.string.profile_biometric),
-            supporting = stringResource(R.string.profile_biometric_support),
-            testTag = "profile_biometric",
-            trailing = {
-                val label = stringResource(R.string.profile_biometric)
-                Switch(
-                    checked = biometricOn,
-                    onCheckedChange = { enabled ->
+        val biometricLabel = stringResource(R.string.profile_biometric)
+        Column(modifier = Modifier.fillMaxWidth().testTag("profile_biometric")) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SolventaSpacing.minTouch)
+                .padding(horizontal = SolventaSpacing.gutter)
+                .toggleable(
+                    value = biometricOn,
+                    role = Role.Switch,
+                    onValueChange = { enabled ->
                         if (!enabled) {
                             registration.setBiometricUnlock(false)
                             biometricOn = false
@@ -169,12 +174,26 @@ fun PerfilScreen(
                             if (!started) biometricOn = false
                         }
                     },
-                    modifier = Modifier
-                        .semantics { contentDescription = label }
-                        .testTag("profile_biometric_switch"),
                 )
-            },
-        )
+                .semantics(mergeDescendants = true) {}
+                .testTag("profile_biometric_switch"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(biometricLabel, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.profile_biometric_support),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = biometricOn,
+                onCheckedChange = null,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
+        }
+        }
         PermissionKind.entries.forEach { kind ->
             val published = hub.permissions.firstOrNull { it.kind == kind }?.published == true
             SolventaListRow(
