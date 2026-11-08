@@ -25,6 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.dialog
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.R
@@ -267,7 +270,11 @@ private fun PermissionAsk(
                 .padding(SolventaSpacing.gutter),
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s16),
         ) {
-            Text(heading, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                heading,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.semantics { heading() },
+            )
             Text(
                 body,
                 style = MaterialTheme.typography.bodyMedium,
@@ -298,7 +305,8 @@ private fun PermissionAsk(
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier
                     .padding(horizontal = 28.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .semantics { dialog() },
             ) {
                 Column(
                     modifier = Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 12.dp),

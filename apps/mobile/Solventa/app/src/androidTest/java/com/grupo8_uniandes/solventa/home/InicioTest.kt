@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -22,12 +23,19 @@ import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 import java.util.Locale
 
 class InicioTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenPolicyShortcut_whenOpened_thenDetailKeepsPolizasAndVolverReturnsToTheList() {

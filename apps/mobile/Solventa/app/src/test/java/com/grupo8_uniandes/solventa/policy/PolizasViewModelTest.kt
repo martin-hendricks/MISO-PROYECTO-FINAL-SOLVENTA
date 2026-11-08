@@ -139,8 +139,8 @@ class PolizasViewModelTest {
                 )
             }
         }
-        rule.onNodeWithTag("policy_guidance").assertIsDisplayed()
-        rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
+        rule.onNodeWithTag("policy_guidance", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_sync_notice", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").performClick()
         assertEquals(1, notices)
     }

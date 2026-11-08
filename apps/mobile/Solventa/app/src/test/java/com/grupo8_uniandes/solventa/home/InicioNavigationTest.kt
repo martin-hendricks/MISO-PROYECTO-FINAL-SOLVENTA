@@ -103,7 +103,7 @@ class InicioNavigationTest {
         show(HomePanel(policyId = "POL-9"))
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-9")
         rule.onNodeWithText("Avisos de vencimiento").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)

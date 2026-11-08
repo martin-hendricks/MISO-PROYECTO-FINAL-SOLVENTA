@@ -2,7 +2,8 @@ package com.grupo8_uniandes.solventa.ui.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -13,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -50,7 +53,13 @@ fun SolventaChip(
                 Text(label, style = labelStyle)
             }
         },
-        modifier = modifier.testTag(testTag),
+        modifier = modifier
+            .defaultMinSize(
+                minWidth = SolventaSpacing.minTouch,
+                minHeight = SolventaSpacing.minTouch,
+            )
+            .testTag(testTag)
+            .semantics { role = Role.Checkbox },
     )
 }
 
@@ -83,9 +92,13 @@ private fun ChoiceChip(
         onClick = onClick,
         modifier = modifier
             .then(border)
-            .height(32.dp)
+            .heightIn(min = SolventaSpacing.minTouch)
+            .defaultMinSize(minWidth = SolventaSpacing.minTouch)
             .testTag(testTag)
-            .semantics { this.selected = selected },
+            .semantics {
+                role = Role.Checkbox
+                this.selected = selected
+            },
         shape = shape,
         contentPadding = PaddingValues(horizontal = SolventaSpacing.s16, vertical = SolventaSpacing.s8),
         colors = ButtonDefaults.textButtonColors(

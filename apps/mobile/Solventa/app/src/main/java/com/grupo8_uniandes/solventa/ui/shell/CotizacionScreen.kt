@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -221,12 +221,12 @@ private fun InsuranceTypeSelect(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(SolventaSpacing.minTouch)
+                .heightIn(min = SolventaSpacing.minTouch)
                 .clip(fieldShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .border(1.dp, MaterialTheme.colorScheme.outline, fieldShape)
                 .clickable { onMenu(!state.menuOpen) }
-                .semantics { role = Role.DropdownList }
+                .semantics(mergeDescendants = true) { role = Role.DropdownList }
                 .testTag("quote_line")
                 .padding(SolventaSpacing.s12),
             verticalAlignment = Alignment.CenterVertically,
@@ -272,7 +272,7 @@ private fun InsuranceTypeSelect(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .heightIn(min = SolventaSpacing.minTouch)
                             .background(
                                 if (selected) {
                                     MaterialTheme.colorScheme.secondaryContainer
@@ -345,12 +345,12 @@ private fun BrandSelect(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(SolventaSpacing.minTouch)
+                .heightIn(min = SolventaSpacing.minTouch)
                 .clip(fieldShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .border(1.dp, borderColor, fieldShape)
                 .clickable { open = !open }
-                .semantics { role = Role.DropdownList }
+                .semantics(mergeDescendants = true) { role = Role.DropdownList }
                 .testTag("field_brand")
                 .padding(SolventaSpacing.s12),
             verticalAlignment = Alignment.CenterVertically,
@@ -399,7 +399,7 @@ private fun BrandSelect(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .heightIn(min = SolventaSpacing.minTouch)
                             .background(
                                 if (selected) {
                                     MaterialTheme.colorScheme.secondaryContainer

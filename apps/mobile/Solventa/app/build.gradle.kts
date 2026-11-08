@@ -68,6 +68,14 @@ android {
     }
 }
 
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.google.guava:listenablefuture"))
+            .using(module("com.google.guava:listenablefuture:1.0"))
+            .because("Guava 31 asks for the empty 9999 jar, which breaks the strict 1.0 resolution used by Espresso")
+    }
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -98,6 +106,9 @@ dependencies {
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4.accessibility) {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.navigation.testing)
     androidTestImplementation(libs.androidx.junit)
