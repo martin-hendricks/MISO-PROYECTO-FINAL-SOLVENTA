@@ -8,7 +8,16 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.claim.PlatformLocator
+import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimPayment
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
+import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
+import com.grupo8_uniandes.solventa.domain.bff.claim.bytesMissing
+import com.grupo8_uniandes.solventa.domain.bff.claim.storedFiles
 import com.grupo8_uniandes.solventa.ui.capture.LimitedCaptureVideo
 import com.grupo8_uniandes.solventa.ui.capture.evidenceKind
 import com.grupo8_uniandes.solventa.ui.capture.evidenceMime
@@ -16,7 +25,9 @@ import com.grupo8_uniandes.solventa.ui.capture.readFile
 import com.grupo8_uniandes.solventa.ui.capture.readPicked
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -152,6 +163,67 @@ class EvidenceCaptureTest {
         shadow.setProviderEnabled(LocationManager.NETWORK_PROVIDER, false)
 
         assertNull(PlatformLocator(context, timeoutMs = 50).current())
+    }
+
+    @Test
+    fun givenAJpegAliasAndAnEmptyFile_whenRead_thenTheMimeIsNormalizedAndTheFileIsSkipped() {
+        assertEquals("image/jpeg", evidenceMime("image/jpg", "a.jpg"))
+        assertEquals("image/jpeg", evidenceMime("image/pjpeg", "a.jpg"))
+        assertEquals("video/mp4", evidenceMime("video/mp4", "a.mp4"))
+        assertEquals(com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind.VIDEO, evidenceKind("video/mp4"))
+        assertNull(evidenceKind("text/plain"))
+        val empty = File.createTempFile("vacio", ".bin")
+        empty.writeBytes(ByteArray(0))
+        assertNull(readFile(empty))
+        val note = File.createTempFile("nota", ".txt")
+        note.writeBytes(byteArrayOf(1))
+        assertEquals(1, readFile(note)!!.bytes.size)
+    }
+
+    @Test
+    fun givenStoredBytes_whenANoticeAsks_thenMissingAndPresentFilesAreBothRead() {
+        EvidenceBytes.clear()
+        EvidenceBytes.keep("foto.jpg", byteArrayOf(1, 2))
+        val notice = ClaimNotice(
+            poliza = "POL-1",
+            fechaHecho = "2026-11-01",
+            geo = null,
+            adjuntos = listOf(
+                Attachment(AttachmentKind.FOTO, "foto.jpg", tamanoBytes = 2),
+                Attachment(AttachmentKind.SOPORTE, "acta.pdf", tamanoBytes = 4),
+                Attachment(AttachmentKind.RECIBO, "vacio.pdf", tamanoBytes = 0),
+            ),
+        )
+        assertTrue(notice.bytesMissing())
+        val stored = notice.storedFiles()
+        assertEquals(3, stored.size)
+        assertEquals(2, stored[0].size)
+        assertEquals(0, stored[1].size)
+        EvidenceBytes.drop("foto.jpg")
+        assertNull(EvidenceBytes.read("foto.jpg"))
+    }
+
+    @Test
+    fun givenAPaymentThatIsNotParametric_whenStored_thenThereIsNoNotice() {
+        val detail = ClaimDetail(
+            summary = ClaimSummary("SIN-1", "SOAT", "Choque", ClaimStatus.PAGADO, tipo = "asistido"),
+            poliza = null,
+            descripcion = null,
+            lugar = null,
+            geo = null,
+            motivo = null,
+            evidencia = emptyList(),
+            historial = emptyList(),
+            pago = ClaimPayment("CMP", 1.0, "COP", "2026-11-01"),
+            umbral = null,
+        )
+        assertNull(detail.storedPayment())
+        assertNull(detail.copy(pago = null).storedPayment())
+        assertFalse(
+            detail.copy(
+                summary = detail.summary.copy(tipo = "parametrico", estado = ClaimStatus.RECIBIDO),
+            ).storedPayment() != null,
+        )
     }
 
     private fun point(provider: String, lat: Double, lng: Double, accuracy: Float) =

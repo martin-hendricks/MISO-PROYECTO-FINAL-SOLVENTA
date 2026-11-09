@@ -186,6 +186,25 @@ class CotizacionScreenTest {
     }
 
     @Test
+    fun givenSoat_whenShown_thenDisplacementYearAndCityAreVisible() {
+        var lines = mutableListOf<QuoteLine>()
+        show(
+            QuoteUiState(
+                line = QuoteLine.Soat,
+                menuOpen = true,
+                explanation = "La prima usa el cilindraje y la ciudad.",
+                gap = QuoteInput.City,
+            ),
+            onLine = { lines += it },
+        )
+        rule.onNodeWithTag("field_displacement").assertIsDisplayed()
+        rule.onNodeWithTag("field_model_year").assertIsDisplayed()
+        rule.onNodeWithTag("field_city").assertIsDisplayed()
+        rule.onNodeWithTag("quote_explanation").assertIsDisplayed()
+        rule.onNodeWithTag("quote_option_soat").performClick()
+        assertEquals(listOf(QuoteLine.Soat), lines)
+    }
+
     fun givenPayments_whenShown_thenInstallmentFieldsAreVisible() {
         show(QuoteUiState(line = QuoteLine.Payments, gap = QuoteInput.Installment))
         rule.onNodeWithTag("field_installment").assertIsDisplayed()

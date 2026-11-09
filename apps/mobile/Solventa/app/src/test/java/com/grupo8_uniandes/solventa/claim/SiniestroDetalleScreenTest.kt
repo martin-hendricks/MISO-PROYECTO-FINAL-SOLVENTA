@@ -84,4 +84,87 @@ class SiniestroDetalleScreenTest {
         }
         rule.onNodeWithTag("claim_not_found").assertIsDisplayed()
     }
+
+    @Test
+    fun givenASparseClaim_whenShown_thenEmptyEvidenceAndBlankFactsStayHidden() {
+        var retries = 0
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-0",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-0",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.RECIBIDO,
+                            resultado = "aprobado",
+                            fecha = " ",
+                            reserva = null,
+                            moneda = "",
+                        ),
+                        poliza = " ",
+                        descripcion = "",
+                        lugar = " ",
+                        geo = null,
+                        motivo = "   ",
+                        evidencia = emptyList(),
+                        historial = listOf(ClaimHistory("recibido", "", "")),
+                        pago = ClaimPayment("", 0.0, "", ""),
+                        umbral = null,
+                    ),
+                    failed = true,
+                    onRetry = { retries += 1 },
+                    onOpenEvidence = {},
+                )
+            }
+        }
+        rule.onNodeWithTag("claim_no_evidence").assertIsDisplayed()
+        rule.onNodeWithTag("claim_ubicacion", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("claim_pago").assertIsDisplayed()
+        rule.onNodeWithTag("claim_detail_failed").assertIsDisplayed()
+        rule.onNodeWithTag("claim_detail_retry").performClick()
+        assertEquals(1, retries)
+    }
+
+    @Test
+    fun givenABlankEvidenceUrl_whenOpened_thenTheFileDoesNotNavigate() {
+        var opened = "untouched"
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-2",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-2",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.DECIDIDO,
+                            resultado = "aprobado",
+                            fecha = "no-es-fecha",
+                            reserva = 10.0,
+                            moneda = "",
+                        ),
+                        poliza = "POL-1",
+                        descripcion = "Golpe",
+                        lugar = "Calle 1",
+                        geo = null,
+                        motivo = "No aplica",
+                        evidencia = listOf(
+                            ClaimEvidence("nota.txt", "soporte", "text/plain", ""),
+                            ClaimEvidence("foto.jpg", "documento", "image/jpeg", "https://example.test/foto.jpg"),
+                        ),
+                        historial = listOf(ClaimHistory("recibido", "2026-11-01", "Recibido")),
+                        pago = null,
+                        umbral = null,
+                    ),
+                    onOpenEvidence = { opened = it },
+                )
+            }
+        }
+        rule.onNodeWithTag("claim_evidence_nota.txt").performClick()
+        assertEquals("untouched", opened)
+        rule.onNodeWithTag("claim_evidence_foto.jpg").performClick()
+        assertEquals("https://example.test/foto.jpg", opened)
+    }
 }

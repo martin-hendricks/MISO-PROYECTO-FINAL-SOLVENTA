@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -185,6 +186,16 @@ class SiniestrosViewModelTest {
         viewModel.openClaim("SIN-9")
 
         assertEquals(internal, viewModel.state.value.openedClaimId)
+        viewModel.openClaim("SIN-P01")
+        assertEquals("SIN-P01", viewModel.state.value.openedClaimId)
+    }
+
+    @Test
+    fun givenARejectedList_whenLoaded_thenThePhaseFails() {
+        val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Rejected("no")))
+        assertEquals(ClaimsPhase.Failed, viewModel.state.value.phase)
+        viewModel.openClaim(OpenParametricPayment.STORED_ID)
+        assertTrue(viewModel.state.value.openParametric)
     }
 
     private fun reviewRows() = listOf(
