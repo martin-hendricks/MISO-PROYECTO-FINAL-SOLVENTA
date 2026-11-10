@@ -124,6 +124,7 @@ class Siniestro:
     poliza: SnapshotPoliza | None = None
     fecha_hecho: date | None = None
     descripcion: str | None = None
+    lugar: str | None = None
     geo: Geo | None = None
     reserva: Decimal | None = None
     umbral_automatico: Decimal | None = None
@@ -161,6 +162,7 @@ class Siniestro:
         descripcion: str,
         canal: str,
         geo: Geo | None = None,
+        lugar: str | None = None,
         clave_idempotencia: str | None = None,
     ) -> Siniestro:
         """Alta del aviso asistido (N5). Solo valida forma; la vigencia, el monto y el
@@ -171,6 +173,9 @@ class Siniestro:
             raise ReglaDeNegocioViolada("aviso_sin_descripcion", "El aviso requiere una descripción")
         if len(descripcion) > 1000:
             raise ReglaDeNegocioViolada("aviso_descripcion_larga", "La descripción admite hasta 1000 caracteres")
+        lugar_limpio = (lugar or "").strip()
+        if len(lugar_limpio) > 200:
+            raise ReglaDeNegocioViolada("lugar_largo", "El lugar admite hasta 200 caracteres")
         if fecha_hecho > date.today():
             raise ReglaDeNegocioViolada("fecha_hecho_futura", "La fecha del evento no puede ser futura")
         ahora = datetime.now(UTC)
@@ -187,6 +192,7 @@ class Siniestro:
             poliza=poliza,
             fecha_hecho=fecha_hecho,
             descripcion=descripcion,
+            lugar=lugar_limpio or None,
             geo=geo,
             clave_idempotencia=clave_idempotencia,
         )

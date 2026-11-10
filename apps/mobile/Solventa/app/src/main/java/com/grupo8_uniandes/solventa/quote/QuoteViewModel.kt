@@ -135,7 +135,7 @@ class QuoteViewModel(
                 StandInAnswer.Pending -> _state.update {
                     it.copy(pending = true, failed = false, gap = null, explanation = null, readyId = null)
                 }
-                StandInAnswer.Failed -> _state.update {
+                StandInAnswer.Failed, is StandInAnswer.Rejected -> _state.update {
                     it.copy(pending = false, failed = true, gap = null, explanation = null, readyId = null)
                 }
                 is StandInAnswer.Ready -> _state.update {

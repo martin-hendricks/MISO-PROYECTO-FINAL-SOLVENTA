@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -35,7 +36,6 @@ class ListaSiniestrosTest {
                     SiniestrosScreen(
                         claims = reviewRows(),
                         onOpenClaim = {},
-                        onOpenCatalog = {},
                     )
                     SolventaBottomBar(
                         selected = Destination.Siniestros,
@@ -53,7 +53,9 @@ class ListaSiniestrosTest {
         rule.onAllNodesWithText("Pagado").assertCountEquals(2)
         rule.onNodeWithText("SIN-P01").assertIsDisplayed()
         rule.onNodeWithText("Pago automático · pagado").assertIsDisplayed()
-        rule.onNodeWithTag("chip_todos").assertIsSelected()
+        rule.onNodeWithTag("chip_todos").assertIsDisplayed().assertIsSelected()
+        listOf("chip_recibido", "chip_en_evaluacion", "chip_decidido", "chip_enrutado", "chip_pagado")
+            .forEach { tag -> rule.onNodeWithTag(tag).assertIsDisplayed().assertIsNotSelected() }
         rule.onNodeWithText("Inicio").assertIsDisplayed()
         rule.onNodeWithText("Polizas").assertIsDisplayed()
         rule.onNodeWithText("Siniestros").assertIsDisplayed()

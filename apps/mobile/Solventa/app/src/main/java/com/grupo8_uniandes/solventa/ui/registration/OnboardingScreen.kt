@@ -61,7 +61,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
@@ -77,6 +76,8 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaSelectAppearance
 import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
 import com.grupo8_uniandes.solventa.ui.theme.HankenGrotesk
+import com.grupo8_uniandes.solventa.ui.capture.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -524,20 +525,6 @@ private fun passwordRuleColor(typed: Boolean, met: Boolean) = when {
     !typed -> MaterialTheme.colorScheme.outline
     met -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
-}
-
-internal fun captureUri(context: android.content.Context, file: File): Uri {
-    prepareCaptureFile(file)
-    return FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file,
-    )
-}
-
-internal fun prepareCaptureFile(file: File) {
-    file.parentFile?.mkdirs()
-    if (!file.exists()) file.createNewFile()
 }
 
 internal fun decodeDocumentPhoto(bytes: ByteArray): Bitmap? {

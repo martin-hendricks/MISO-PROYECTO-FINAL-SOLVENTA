@@ -45,8 +45,11 @@ fun SolventaSelect(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     appearance: SolventaSelectAppearance = SolventaSelectAppearance.Button,
+    optionTag: (String) -> String = { "option_$it" },
+    fieldTag: String? = null,
+    placeholder: String = "",
 ) {
-    val menuTag = if (expanded) "solventa_select_open" else "solventa_select_closed"
+    val menuTag = fieldTag ?: if (expanded) "solventa_select_open" else "solventa_select_closed"
     if (appearance == SolventaSelectAppearance.Field) {
         DocumentTypeMenu(
             label = label,
@@ -57,6 +60,8 @@ fun SolventaSelect(
             onSelect = onSelect,
             modifier = modifier,
             menuTag = menuTag,
+            optionTag = optionTag,
+            placeholder = placeholder,
         )
         return
     }
@@ -77,7 +82,7 @@ fun SolventaSelect(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(option)
                 }
@@ -96,6 +101,8 @@ private fun DocumentTypeMenu(
     onSelect: (String) -> Unit,
     modifier: Modifier,
     menuTag: String,
+    optionTag: (String) -> String,
+    placeholder: String,
 ) {
     val shape = RoundedCornerShape(8.dp)
     Column(modifier.fillMaxWidth()) {
@@ -119,9 +126,13 @@ private fun DocumentTypeMenu(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = value,
+                text = value.ifBlank { placeholder },
                 style = SolventaTypography.amount,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (value.isBlank() && placeholder.isNotBlank()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 modifier = Modifier.weight(1f),
             )
             Icon(
@@ -140,7 +151,7 @@ private fun DocumentTypeMenu(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(
                         text = option,

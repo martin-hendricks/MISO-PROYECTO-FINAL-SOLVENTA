@@ -24,6 +24,8 @@ data class OfferUiState(
     val expired: Boolean = false,
     val cotizacionId: String = "",
     val ramo: String = "",
+    val prima: Long = 0,
+    val moneda: String = "COP",
 )
 
 class OfferViewModel(
@@ -43,7 +45,8 @@ class OfferViewModel(
             _state.value = OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
             _state.value = when (val answer = showFirmOffer.load(cotizacionId)) {
             StandInAnswer.Pending -> OfferUiState(phase = OfferPhase.Pending, cotizacionId = cotizacionId)
-            StandInAnswer.Failed -> OfferUiState(phase = OfferPhase.Failed, cotizacionId = cotizacionId)
+            StandInAnswer.Failed, is StandInAnswer.Rejected ->
+                OfferUiState(phase = OfferPhase.Failed, cotizacionId = cotizacionId)
             is StandInAnswer.Ready -> answer.value.toUi(region)
             }
         }
@@ -60,6 +63,8 @@ class OfferViewModel(
             expired = expired,
             cotizacionId = cotizacionId,
             ramo = ramo,
+            prima = prima,
+            moneda = moneda,
         )
     }
 

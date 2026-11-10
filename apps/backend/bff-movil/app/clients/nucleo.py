@@ -1,3 +1,4 @@
+import json
 import os
 from contextvars import ContextVar
 
@@ -213,6 +214,33 @@ class ClienteNucleo:
         cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
         return cuerpo if isinstance(cuerpo, list) else []
 
+    def registrar_aviso(
+        self,
+        *,
+        usuario_id: str,
+        datos: dict,
+        archivos: list[tuple],
+        idempotency_key: str,
+    ) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "POST",
+            "/v1/siniestros",
+            data={"datos": json.dumps(datos)},
+            # httpx espera (nombre de campo, archivo). Sin el nombre, el 3-tuple
+            # (filename, bytes, content-type) revienta al armar el multipart.
+            files=[("archivos", archivo) for archivo in archivos],
+            cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    def detalle_siniestro(self, siniestro_id: str, usuario_id: str) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "GET",
+            f"/v1/siniestros/{siniestro_id}/detalle",
+            params={"usuario_id": usuario_id},
+        )
+
     def crear_siniestro(
         self, *, usuario_id: str, poliza: str, poliza_id: str, idempotency_key: str
     ) -> dict:
@@ -268,6 +296,8 @@ class ClienteNucleo:
         json: dict | None = None,
         params: dict | None = None,
         cabeceras: dict | None = None,
+        data: dict | None = None,
+        files: list | None = None,
     ):
         try:
             headers = dict(cabeceras or {})
@@ -278,7 +308,9 @@ class ClienteNucleo:
             if http is None:
                 http = httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S)
                 self._clientes[servicio] = http
-            respuesta = http.request(metodo, ruta, json=json, params=params, headers=headers)
+            respuesta = http.request(
+                metodo, ruta, json=json, params=params, headers=headers, data=data, files=files
+            )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible") from exc
         try:
