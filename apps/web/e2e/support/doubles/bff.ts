@@ -14,7 +14,8 @@ export type Role = 'cliente' | 'asesor' | 'operador';
 
 const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
-const CLIENTES = '**/web/asesor/clientes';
+const CLIENTES = '**/web/operador/clientes**';
+const NOTIFICACIONES = '**/web/operador/notificaciones/**';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
 const PERFIL = '**/web/cliente/perfil';
@@ -129,8 +130,82 @@ export class BffDoubles {
   }
 
   async serveClients(clientes: Client[]): Promise<void> {
-    await this.replaceClients((route) => route.fulfill({ json: { clientes } }));
+    await this.replaceClients((route) =>
+      route.fulfill({
+        json: {
+          clientes: clientes.map((cliente) => ({
+            usuarioId: cliente.clienteId,
+            nombre: cliente.nombre,
+            apellidos: '',
+            email: `${cliente.clienteId.toLowerCase()}@correo.com`,
+            documento: cliente.documento,
+            estado: cliente.estado === 'inactivo' ? 'INACTIVO' : 'ACTIVO',
+            dispositivosActivos: cliente.estado === 'inactivo' ? 0 : 1,
+          })),
+          pagina: 1,
+          hayMas: false,
+        },
+      }),
+    );
     await this.servePendingQuotes();
+  }
+
+  async serveDirectory(
+    clientes: {
+      usuarioId: string;
+      nombre: string;
+      apellidos: string;
+      email: string;
+      documento: string;
+      estado: 'ACTIVO' | 'INACTIVO';
+      dispositivosActivos: number | null;
+    }[],
+  ): Promise<void> {
+    await this.replaceClients((route) =>
+      route.fulfill({ json: { clientes, pagina: 1, hayMas: false } }),
+    );
+    await this.servePendingQuotes();
+  }
+
+  async serveBroadcast(audiencia: {
+    usuarioId: string;
+    nombre: string;
+    apellidos: string;
+    dispositivosActivos: number;
+  }[]): Promise<void> {
+    const historial: {
+      difusionId: string;
+      titulo: string;
+      cuerpo: string;
+      poliza: string | null;
+      creadaEn: string;
+      enviadas: number;
+      fallidas: number;
+      sinDispositivo: number;
+    }[] = [];
+    await this.page.unroute(NOTIFICACIONES);
+    await this.page.route(NOTIFICACIONES, (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/audiencia')) {
+        return route.fulfill({ json: { usuarios: audiencia } });
+      }
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { titulo: string; cuerpo: string; poliza?: string };
+        const item = {
+          difusionId: 'c2d40000-0000-4000-8000-000000000001',
+          titulo: body.titulo,
+          cuerpo: body.cuerpo,
+          poliza: body.poliza ?? null,
+          creadaEn: '2026-11-09T13:05:00Z',
+          enviadas: 2,
+          fallidas: 0,
+          sinDispositivo: 0,
+        };
+        historial.unshift(item);
+        return route.fulfill({ status: 201, json: item });
+      }
+      return route.fulfill({ json: { items: historial } });
+    });
   }
 
   /** Answers the advisor's pending quotes (HU-163) with an empty first page. */

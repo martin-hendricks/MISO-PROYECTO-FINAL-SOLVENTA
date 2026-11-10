@@ -54,6 +54,11 @@ locals {
       topics          = ["BusEventos"]
       consumer_groups = ["notificaciones"]
     }
+    "outbox-relay" = {
+      service_account = "outbox-relay"
+      topics          = ["BusEventos"]
+      consumer_groups = []
+    }
   }
 
   # Unión de ambos conjuntos: todo componente que necesita un rol.
@@ -221,18 +226,21 @@ data "aws_iam_policy_document" "msk" {
     ]
   }
 
-  statement {
-    sid    = "ConsumerGroupAccess"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = length(each.value.consumer_groups) > 0 ? [1] : []
+    content {
+      sid    = "ConsumerGroupAccess"
+      effect = "Allow"
 
-    actions = [
-      "kafka-cluster:AlterGroup",
-      "kafka-cluster:DescribeGroup",
-    ]
+      actions = [
+        "kafka-cluster:AlterGroup",
+        "kafka-cluster:DescribeGroup",
+      ]
 
-    resources = [
-      for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
-    ]
+      resources = [
+        for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
+      ]
+    }
   }
 
   # Los datos en reposo de MSK están cifrados con CMK.

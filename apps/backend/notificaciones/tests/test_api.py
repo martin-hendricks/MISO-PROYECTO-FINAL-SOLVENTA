@@ -151,6 +151,77 @@ def test_token_ajeno_no_ve_datos(client, client_otro, almacen):
     assert client_otro.get(f"{NOTIFICACIONES}/{propia.notificacion_id}").status_code == 404
 
 
+def test_desactivar_por_token_es_idempotente_y_no_toca_otro_usuario(client, client_otro):
+    _registrar_dispositivo(client, token="token-1")
+    _registrar_dispositivo(client_otro, token="token-otro")
+
+    assert client.request("DELETE", DISPOSITIVOS, json={"token": "token-1"}).status_code == 204
+    assert client.request("DELETE", DISPOSITIVOS, json={"token": "token-1"}).status_code == 204
+    assert client.request("DELETE", DISPOSITIVOS, json={"token": ""}).status_code == 422
+
+    reactivado = _registrar_dispositivo(client_otro, token="token-otro")
+    assert reactivado.status_code == 200
+    assert reactivado.json()["activo"] is True
+
+
+def test_audiencia_y_difusion_solo_operador(app, almacen, client):
+    from app.domain.modelos import DispositivoPush
+    from tests.conftest import _Cliente
+
+    dispositivo = DispositivoPush.registrar(USUARIO, "android", "token-audiencia")
+    almacen.dispositivos[dispositivo.dispositivo_id] = dispositivo
+    operador = _Cliente(app, rol="operador")
+    asesor = _Cliente(app, rol="asesor")
+
+    assert client.get(f"{NOTIFICACIONES}/audiencia").status_code == 403
+    assert asesor.get(f"{NOTIFICACIONES}/audiencia").status_code == 403
+    propia = asesor.get(f"{NOTIFICACIONES}/audiencia", params={"usuarioIds": str(USUARIO)})
+    assert propia.status_code == 200
+    assert propia.json()["usuarios"][0]["dispositivosActivos"] == 1
+
+    creada = operador.post(
+        f"{NOTIFICACIONES}/difusiones",
+        json={
+            "titulo": "Aviso",
+            "cuerpo": "Mensaje del operador",
+            "audiencia": {"tipo": "usuarios", "usuarioIds": [str(USUARIO), str(OTRO)]},
+        },
+    )
+    assert creada.status_code == 201
+    assert creada.json()["enviadas"] == 1
+    assert creada.json()["sinDispositivo"] == 1
+    assert operador.get(f"{NOTIFICACIONES}/difusiones").json()["items"][0]["titulo"] == "Aviso"
+    assert (
+        operador.post(
+            f"{NOTIFICACIONES}/difusiones",
+            json={"titulo": " ", "cuerpo": "x", "audiencia": {"tipo": "todos"}},
+        ).status_code
+        == 422
+    )
+    assert asesor.post(
+        f"{NOTIFICACIONES}/difusiones",
+        json={"titulo": "A", "cuerpo": "B", "audiencia": {"tipo": "todos"}},
+    ).status_code == 403
+    demasiados = [str(uuid4()) for _ in range(51)]
+    assert (
+        operador.get(f"{NOTIFICACIONES}/audiencia", params={"usuarioIds": demasiados}).status_code
+        == 422
+    )
+
+    segunda = operador.post(
+        f"{NOTIFICACIONES}/difusiones",
+        json={"titulo": "Segundo", "cuerpo": "Otro aviso", "audiencia": {"tipo": "todos"}},
+    )
+    assert segunda.status_code == 201
+    pagina = operador.get(f"{NOTIFICACIONES}/difusiones", params={"limite": 1})
+    assert [item["titulo"] for item in pagina.json()["items"]] == ["Segundo"]
+    anterior = operador.get(
+        f"{NOTIFICACIONES}/difusiones",
+        params={"limite": 1, "antesDe": pagina.json()["items"][0]["creadaEn"]},
+    )
+    assert [item["titulo"] for item in anterior.json()["items"]] == ["Aviso"]
+
+
 def test_health_metrics_y_correlacion(client):
     salud = client.get("/health", headers={"X-Correlation-Id": "c-123"})
 

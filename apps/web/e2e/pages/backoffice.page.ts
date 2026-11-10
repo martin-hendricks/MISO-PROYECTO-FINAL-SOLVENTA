@@ -3,7 +3,14 @@ import { Page } from 'playwright';
 import { Role } from '../support/doubles/bff';
 import { Client } from '../support/data/generators';
 
-export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos' | 'reportes';
+export type Section =
+  | 'clientes'
+  | 'cotizaciones'
+  | 'polizas'
+  | 'avisos'
+  | 'reportes'
+  | 'metricas'
+  | 'notificaciones';
 
 export class BackofficePage {
   constructor(private readonly page: Page) {}
@@ -43,10 +50,43 @@ export class BackofficePage {
       .getByTestId('top-nav-admin')
       .locator('nav a')
       .allInnerTexts();
+    const role = await this.page.getByTestId('role-selector').getAttribute('data-role');
+    const expected = ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes', 'Métricas'];
+    if (role === 'operador') {
+      expected.push('Notificaciones');
+    }
     assert.deepEqual(
       destinations.map((text) => text.trim()),
-      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes', 'Métricas'],
+      expected,
     );
+  }
+
+  async expectNotificacionesAbsent(): Promise<void> {
+    assert.equal(await this.page.getByTestId('nav-notificaciones').count(), 0);
+  }
+
+  async expectCustomerPush(usuarioId: string, push: 'si' | 'no' | 'desconocido'): Promise<void> {
+    assert.equal(await this.page.getByTestId(`push-${usuarioId}`).getAttribute('data-push'), push);
+  }
+
+  async expectWriteControlsHidden(usuarioId: string): Promise<void> {
+    assert.equal(await this.page.getByTestId('clientes-new').count(), 0);
+    assert.equal(await this.page.getByTestId(`editar-${usuarioId}`).count(), 0);
+    assert.equal(await this.page.getByTestId(`desactivar-${usuarioId}`).count(), 0);
+  }
+
+  async expectCanCreateCustomer(): Promise<void> {
+    await this.page.getByTestId('clientes-new').waitFor({ state: 'visible' });
+  }
+
+  async quoteCustomer(usuarioId: string): Promise<void> {
+    await this.page.getByTestId(`cotizar-${usuarioId}`).click();
+    await this.page.getByTestId('asesor-cotizacion').waitFor({ state: 'visible' });
+  }
+
+  async expectQuoteStarted(usuarioId: string): Promise<void> {
+    await this.page.getByTestId('asesor-cotizacion').waitFor({ state: 'visible' });
+    assert.equal(new URL(this.page.url()).searchParams.get('cliente'), usuarioId);
   }
 
   async expectCurrentSection(name: Section): Promise<void> {

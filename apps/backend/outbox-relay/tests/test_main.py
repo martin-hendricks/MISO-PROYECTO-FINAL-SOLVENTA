@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
+from app.application.relay import ESQUEMAS_PERMITIDOS
 from app.config import Settings
-from app.main import crear_app, main
+from app.main import ESQUEMA_A_ATRIBUTO_CONFIG, crear_app, main
 
 
 def test_crear_app_expone_health():
@@ -86,7 +87,7 @@ async def test_main_arma_solo_los_repositorios_con_url_configurada(monkeypatch):
 
 
 async def test_main_sin_ninguna_url_configurada_no_construye_repositorios(monkeypatch):
-    config = Settings()  # las 6 DATABASE_URL_* quedan vacías por defecto
+    config = Settings()  # todas las DATABASE_URL_* quedan vacías por defecto
     monkeypatch.setattr("app.main.Settings", lambda: config)
     monkeypatch.setattr("app.main.crear_motor", MagicMock())
 
@@ -105,3 +106,35 @@ async def test_main_sin_ninguna_url_configurada_no_construye_repositorios(monkey
     # no publica nada (ya cubierto por ejecutar_ciclo en test_relay.py).
     repositorios_pasados = bucle_relay_mock.await_args.args[0]
     assert repositorios_pasados == []
+
+
+def test_ms_identidad_esta_en_los_esquemas_permitidos():
+    assert "ms_identidad" in ESQUEMAS_PERMITIDOS
+    assert ("ms_identidad", "database_url_ms_identidad") in ESQUEMA_A_ATRIBUTO_CONFIG
+
+
+async def test_main_arma_la_fuente_ms_identidad_cuando_hay_url(monkeypatch):
+    config = Settings(database_url_ms_identidad="postgresql+asyncpg://x/identidad")
+    monkeypatch.setattr("app.main.Settings", lambda: config)
+
+    motor_falso = MagicMock()
+    motor_falso.dispose = AsyncMock()
+    monkeypatch.setattr("app.main.crear_motor", MagicMock(return_value=motor_falso))
+
+    repos_construidos: list[str] = []
+
+    class _RepoFalso:
+        def __init__(self, motor, esquema):
+            repos_construidos.append(esquema)
+
+    monkeypatch.setattr("app.main.RepositorioOutboxSQL", _RepoFalso)
+    publicador_falso = MagicMock()
+    publicador_falso.cerrar = AsyncMock()
+    monkeypatch.setattr("app.main.PublicadorMSK", lambda _config: publicador_falso)
+    monkeypatch.setattr("app.main.bucle_relay", AsyncMock())
+
+    with patch("app.main.uvicorn.Server") as ServerMock:
+        ServerMock.return_value.serve = AsyncMock()
+        await main()
+
+    assert repos_construidos == ["ms_identidad"]

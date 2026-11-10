@@ -2,7 +2,7 @@
   class="empty-state"
   data-testid="no-permission"
   [attr.data-current]="current()"
-  [attr.data-required]="required()"
+  [attr.data-required]="required().join(',')"
 >
   <span class="icon" aria-hidden="true">!</span>
   <h2>{{ 'backoffice.noPermission.title' | translate }}</h2>
@@ -12,7 +12,7 @@
         | translate
           : {
               current: 'backoffice.role.' + current() | translate,
-              required: 'backoffice.role.' + required() | translate,
+              required: 'backoffice.role.' + required()[0] | translate,
             }
     }}
   </p>

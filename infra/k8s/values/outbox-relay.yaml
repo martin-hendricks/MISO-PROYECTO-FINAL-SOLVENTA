@@ -1,0 +1,90 @@
+# outbox-relay — publica los eventos pendientes de cada base al bus.
+#
+# Un solo proceso: lee el outbox de cada servicio y escribe en BusEventos.
+# No atiende tráfico HTTP de negocio; /health sirve para las sondas del chart.
+
+nombre: outbox-relay
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-outbox-relay"
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicas: 1
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 9090
+
+recursos:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "400m"
+    memory: "512Mi"
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 20
+    periodSeconds: 15
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-msk-config
+      nombreLocal: outbox-relay-msk
+    - nombreRemoto: solventa-minimo-polizas-db-credentials
+      nombreLocal: outbox-relay-polizas
+    - nombreRemoto: solventa-minimo-siniestros-db-credentials
+      nombreLocal: outbox-relay-siniestros
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: outbox-relay-compartida
+
+serviceAccount:
+  crear: true
+  nombre: outbox-relay
+  irsa: true
+  roleArn: ""
+
+podDisruptionBudget:
+  habilitado: false
+
+topologySpread:
+  habilitado: false
+  maxSkew: 1
+
+variablesEntorno:
+  - nombre: MSK_TOPIC
+    valor: "BusEventos"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL_MS_POLIZAS
+    nombreSecreto: outbox-relay-polizas
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_SINIESTROS
+    nombreSecreto: outbox-relay-siniestros
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_COTIZACION
+    nombreSecreto: outbox-relay-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_SUSCRIPCION
+    nombreSecreto: outbox-relay-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_PAGOS
+    nombreSecreto: outbox-relay-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_PERFILAMIENTO
+    nombreSecreto: outbox-relay-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_IDENTIDAD
+    nombreSecreto: outbox-relay-compartida
+    claveSecreto: database_url

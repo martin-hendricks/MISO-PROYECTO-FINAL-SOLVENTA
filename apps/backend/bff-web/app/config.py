@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # (SOLV-215). registro.py y sesion.py lo consultan antes de emitir el
     # par de tokens con issue_pair -- ver app/clients/ms_identidad.py.
     ms_identidad_url: str = "http://localhost:8080"
+    # notificaciones: audiencia y difusiones del operador (routers/
+    # operador_notificaciones.py). Mismo Service interno que ya usa bff-movil.
+    ms_notificaciones_url: str = "http://localhost:8080"
     # analitica (HU-68/69): consume BusEventos y agrega métricas de ciclo de
     # vida; bff-web solo reexpone GET /v1/metricas al back-office -- ver
     # app/clients/analitica.py, app/routers/metricas.py.

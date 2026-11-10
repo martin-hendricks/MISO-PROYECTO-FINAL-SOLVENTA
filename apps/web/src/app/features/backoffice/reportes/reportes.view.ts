@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../../core/session/session.service';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { ReporteGenerado, ReportesGateway } from './reportes.gateway';
 import { ReporteTipo, ReportesViewModel } from './reportes.viewmodel';
 
@@ -25,9 +25,9 @@ function haceDiasIso(dias: number): string {
 })
 export class ReportesView {
   private readonly gateway = inject(ReportesGateway);
-  protected readonly required = requiredRole('reportes');
+  protected readonly required = allowedRoles('reportes');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('reportes', this.role());
 
   // HU-62/HU-63 no especifican un selector de rango en el Gherkin -- 30 días
   // hacia atrás es el mismo rango por defecto que ya usa bff-web/ms-polizas

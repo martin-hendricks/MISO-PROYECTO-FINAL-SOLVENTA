@@ -60,8 +60,9 @@ import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.push.PushTarget
 import com.grupo8_uniandes.solventa.ui.region.findActivity
 import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionAvisoScreen
@@ -80,21 +81,37 @@ fun CustomerNavHost(
     originationActive: Boolean = false,
     onSignedOut: () -> Unit = {},
     onInicioVisible: () -> Unit = {},
-    paymentPush: PushNotice? = null,
+    paymentPush: NoticeEntry? = null,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
 ) {
     startSolventaKoin(LocalContext.current)
     LaunchedEffect(paymentPush) {
         val push = paymentPush ?: return@LaunchedEffect
         when (push.destino) {
-            PushDestination.PARAMETRICO ->
+            NoticeDestination.PARAMETRICO ->
                 if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
             // La ruta solo depende del tipo de aviso; qué póliza real coincide
             // se resuelve dentro de la pantalla (AvisoVigenciaViewModel.openPush,
             // vía OpenValidityNotice) contra la lista real de avisos, no aquí.
-            PushDestination.AVISO_VENCIMIENTO -> navController.navigate(AvisoVencimientoRoute)
-            PushDestination.AVISO_RENOVACION -> navController.navigate(AvisoRenovacionRoute)
-            PushDestination.DETALLE_SINIESTRO -> Unit
+            NoticeDestination.AVISO_VENCIMIENTO -> navController.navigate(AvisoVencimientoRoute)
+            NoticeDestination.AVISO_RENOVACION -> navController.navigate(AvisoRenovacionRoute)
+            NoticeDestination.DETALLE_SINIESTRO -> Unit
         }
+    }
+    LaunchedEffect(pushTarget) {
+        val target = pushTarget ?: return@LaunchedEffect
+        when (target) {
+            is PushTarget.PolizaDetalle -> navController.navigate(PolizaDetalleRoute(target.numero))
+            PushTarget.Inicio -> navController.navigate(InicioRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+        onPushHandled()
     }
     NavHost(
         navController = navController,

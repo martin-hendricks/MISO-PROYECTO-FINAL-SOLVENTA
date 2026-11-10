@@ -10,6 +10,7 @@ from .clients.analitica import ClienteAnalitica
 from .clients.ms_cotizacion import ClienteMsCotizacion
 from .clients.ms_identidad import ClienteMsIdentidad
 from .clients.ms_pagos import ClienteMsPagos
+from .clients.notificaciones import ClienteNotificaciones
 from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
 from .clients.ms_siniestros import ClienteMsSiniestros
@@ -111,3 +112,9 @@ def obtener_cliente_suscripcion(request: Request) -> ClienteMsSuscripcion:
 
 def obtener_cliente_identidad(request: Request) -> ClienteMsIdentidad:
     return ClienteMsIdentidad(request.app.state.http_ms_identidad, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_notificaciones(request: Request) -> ClienteNotificaciones:
+    return ClienteNotificaciones(
+        request.app.state.http_notificaciones, getattr(request.state, "correlacion", None)
+    )

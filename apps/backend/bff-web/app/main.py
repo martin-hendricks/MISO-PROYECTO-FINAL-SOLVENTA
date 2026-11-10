@@ -8,7 +8,19 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
-from .routers import asesor, avisos_poliza, cliente, metricas, operador, registro, reportes, sesion, siniestros
+from .routers import (
+    asesor,
+    avisos_poliza,
+    cliente,
+    metricas,
+    operador,
+    operador_clientes,
+    operador_notificaciones,
+    registro,
+    reportes,
+    sesion,
+    siniestros,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +44,9 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_nucleo_s) as http_suscripcion,
         httpx.AsyncClient(base_url=config.ms_identidad_url, timeout=config.timeout_nucleo_s) as http_identidad,
         httpx.AsyncClient(base_url=config.analitica_url, timeout=config.timeout_nucleo_s) as http_analitica,
+        httpx.AsyncClient(
+            base_url=config.ms_notificaciones_url, timeout=config.timeout_nucleo_s
+        ) as http_notificaciones,
     ):
         app.state.http_ms_cotizacion = http_cotizacion
         app.state.http_ms_pagos = http_pagos
@@ -41,6 +56,7 @@ async def lifespan(app: FastAPI):
         app.state.http_ms_suscripcion = http_suscripcion
         app.state.http_ms_identidad = http_identidad
         app.state.http_analitica = http_analitica
+        app.state.http_notificaciones = http_notificaciones
         yield
 
 
@@ -90,6 +106,8 @@ app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
 app.include_router(asesor.router, prefix="/v1")
 app.include_router(operador.router, prefix="/v1")
+app.include_router(operador_clientes.router, prefix="/v1")
+app.include_router(operador_notificaciones.router, prefix="/v1")
 app.include_router(siniestros.router_cliente, prefix="/v1")
 app.include_router(siniestros.router_operador, prefix="/v1")
 

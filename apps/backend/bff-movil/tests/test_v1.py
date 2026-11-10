@@ -221,10 +221,14 @@ class DobleNucleo:
         return self._llamar("polizas_por_vencer", **kwargs) or []
 
     def registrar_dispositivo(self, **kwargs):
+        self.ultimo_estado = self.respuestas.get("registrar_dispositivo_estado", 200)
         return self._llamar("registrar_dispositivo", **kwargs) or {
             "dispositivo_id": "77777777-7777-7777-7777-777777777777",
             "activo": True,
         }
+
+    def desactivar_dispositivo(self, **kwargs):
+        self._llamar("desactivar_dispositivo", **kwargs)
 
 
 @pytest.fixture
@@ -948,7 +952,7 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
         ).status_code
         == 200
     )
-    assert client.get("/v1/cliente/avisos/push", headers=headers).status_code == 200
+    assert client.get("/v1/cliente/avisos/push", headers=headers).status_code == 404
     assert client.get("/v1/cliente/prestadores", headers=headers).status_code == 200
     asistencia = client.post(
         "/v1/cliente/asistencias",
@@ -1577,3 +1581,22 @@ def test_avisos_token_v1_registra_el_dispositivo_en_notificaciones(client, doble
     assert _nombres(doble) == ["registrar_dispositivo"]
     assert doble.llamadas[0]["plataforma"] == "android"
     assert doble.llamadas[0]["token"] == "fcm-1"
+
+
+def test_avisos_token_v1_reenvia_el_estado_del_nucleo_y_el_retiro(client, doble):
+    headers = _auth(client)
+    doble.respuestas["registrar_dispositivo_estado"] = 201
+    alta = client.post(
+        "/v1/cliente/avisos/token",
+        headers=headers,
+        json={"token": "fcm-1", "plataforma": "android"},
+    )
+    assert alta.status_code == 201
+    baja = client.request(
+        "DELETE",
+        "/v1/cliente/avisos/token",
+        headers=headers,
+        json={"token": "fcm-1"},
+    )
+    assert baja.status_code == 204
+    assert _nombres(doble)[-1] == "desactivar_dispositivo"

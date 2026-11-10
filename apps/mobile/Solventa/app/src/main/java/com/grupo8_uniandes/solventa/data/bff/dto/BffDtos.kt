@@ -330,6 +330,9 @@ data class HomeDto(
 data class PushRegistrationDto(val token: String, val plataforma: String)
 
 @Serializable
+data class PushTokenRetiroDto(val token: String)
+
+@Serializable
 enum class PushTypeDto { pago_automatico, vencimiento, renovacion, estado_siniestro }
 
 @Serializable

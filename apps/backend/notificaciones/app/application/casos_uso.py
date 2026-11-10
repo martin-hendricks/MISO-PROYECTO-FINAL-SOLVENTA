@@ -1,17 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.domain.errores import NoEncontrado, ServicioExternoNoDisponible
-from app.domain.modelos import DispositivoPush, Notificacion
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, ServicioExternoNoDisponible
+from app.domain.modelos import Difusion, DispositivoPush, Notificacion, resolver_audiencia
 from app.ports.persistencia import (
     DispositivoDuplicado,
     FabricaUnidadDeTrabajo,
     NotificacionDuplicada,
 )
-from app.ports.push import EnviadorPush
+from app.ports.push import EnviadorPush, EstadoEnvio
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,21 @@ async def desactivar_dispositivo(
             await tx.confirmar()
 
 
+async def desactivar_dispositivo_por_token(
+    uow: FabricaUnidadDeTrabajo, usuario_id: UUID, token: str
+) -> None:
+    """204 aunque el token no exista: el cierre de sesión se puede repetir."""
+    token_limpio = (token or "").strip()
+    if not token_limpio:
+        raise ReglaDeNegocioViolada("token_vacio", "El token del dispositivo es obligatorio")
+    async with uow() as tx:
+        dispositivo = await tx.dispositivos.obtener_por_usuario_token(usuario_id, token_limpio)
+        if dispositivo is not None and dispositivo.activo:
+            dispositivo.desactivar()
+            await tx.dispositivos.actualizar(dispositivo)
+            await tx.confirmar()
+
+
 async def listar_notificaciones(
     uow: FabricaUnidadDeTrabajo,
     usuario_id: UUID,
@@ -113,6 +129,8 @@ async def crear_notificacion(
     titulo: str,
     cuerpo: str,
     destino: str | None = None,
+    poliza: str | None = None,
+    difusion_id: UUID | None = None,
 ) -> Notificacion:
     """Idempotente por (evento_origen_id, canal): repetir el evento no duplica la notificación."""
     nueva = Notificacion.crear(
@@ -123,6 +141,8 @@ async def crear_notificacion(
         titulo=titulo,
         cuerpo=cuerpo,
         destino=destino,
+        poliza=poliza,
+        difusion_id=difusion_id,
     )
 
     async with uow() as tx:
@@ -170,20 +190,32 @@ async def despachar_notificacion(
             return False
 
         try:
-            proveedores = await push.enviar_a_usuario(dispositivos, notificacion)
+            resultados = await push.enviar_a_usuario(dispositivos, notificacion)
         except ServicioExternoNoDisponible:
             notificacion.marcar_fallida()
             await tx.notificaciones.actualizar(notificacion)
             await tx.confirmar()
             return False
 
-        if not proveedores:
+        for resultado in resultados:
+            if resultado.estado != EstadoEnvio.TOKEN_INVALIDO:
+                continue
+            dispositivo = next(
+                (d for d in dispositivos if d.dispositivo_id == resultado.dispositivo_id),
+                None,
+            )
+            if dispositivo is not None and dispositivo.activo:
+                dispositivo.desactivar()
+                await tx.dispositivos.actualizar(dispositivo)
+
+        enviados = [r for r in resultados if r.estado == EstadoEnvio.ENVIADO and r.proveedor_id]
+        if not enviados:
             notificacion.marcar_fallida()
             await tx.notificaciones.actualizar(notificacion)
             await tx.confirmar()
             return False
 
-        notificacion.marcar_enviada(proveedores[0])
+        notificacion.marcar_enviada(enviados[0].proveedor_id)
         await tx.notificaciones.actualizar(notificacion)
         await tx.confirmar()
         return True
@@ -207,3 +239,89 @@ async def despachar_pendientes(
             enviadas += 1
 
     return enviadas
+
+
+@dataclass(frozen=True)
+class ResultadoDifusion:
+    difusion_id: UUID
+    enviadas: int
+    fallidas: int
+    sin_dispositivo: int
+
+
+async def listar_audiencia(
+    uow: FabricaUnidadDeTrabajo, usuario_ids: list[UUID] | None
+) -> list[tuple[UUID, int]]:
+    async with uow() as tx:
+        return await tx.dispositivos.contar_activos(usuario_ids)
+
+
+async def difundir(
+    uow: FabricaUnidadDeTrabajo,
+    push: EnviadorPush,
+    autor_id: UUID,
+    titulo: str,
+    cuerpo: str,
+    tipo_audiencia: str,
+    usuario_ids: list[UUID] | None,
+    poliza: str | None,
+) -> ResultadoDifusion:
+    audiencia, ids = resolver_audiencia(tipo_audiencia, usuario_ids)
+    # Valida título, cuerpo y póliza antes de escribir filas.
+    Difusion.crear(autor_id, titulo, cuerpo, audiencia, destinatarios=0, poliza=poliza)
+
+    async with uow() as tx:
+        conteos = await tx.dispositivos.contar_activos(None if audiencia == "todos" else ids)
+        con_dispositivo = {usuario_id for usuario_id, cantidad in conteos if cantidad > 0}
+        if audiencia == "todos":
+            objetivos = sorted(con_dispositivo, key=str)
+            sin_dispositivo = 0
+            destinatarios = len(objetivos)
+        else:
+            objetivos = [usuario_id for usuario_id in ids if usuario_id in con_dispositivo]
+            sin_dispositivo = len(ids) - len(objetivos)
+            destinatarios = len(ids)
+        difusion = Difusion.crear(
+            autor_id, titulo, cuerpo, audiencia, destinatarios, poliza=poliza
+        )
+        await tx.difusiones.agregar(difusion)
+        creadas: list[Notificacion] = []
+        for usuario_id in objetivos:
+            notificacion = Notificacion.crear(
+                usuario_id=usuario_id,
+                evento_origen_id=None,
+                canal="push",
+                tipo="mensaje_operador",
+                titulo=difusion.titulo,
+                cuerpo=difusion.cuerpo,
+                destino="poliza-detalle" if difusion.poliza else "inicio",
+                poliza=difusion.poliza,
+                difusion_id=difusion.difusion_id,
+            )
+            await tx.notificaciones.agregar(notificacion)
+            creadas.append(notificacion)
+        await tx.confirmar()
+
+    semaforo = asyncio.Semaphore(20)
+
+    async def _enviar(notificacion_id: UUID) -> bool:
+        async with semaforo:
+            return await despachar_notificacion(uow, push, notificacion_id)
+
+    resultados = await asyncio.gather(*[_enviar(n.notificacion_id) for n in creadas])
+    enviadas = sum(1 for ok in resultados if ok)
+    fallidas = len(resultados) - enviadas
+
+    async with uow() as tx:
+        await tx.difusiones.actualizar_totales(
+            difusion.difusion_id, enviadas, fallidas, sin_dispositivo
+        )
+        await tx.confirmar()
+    return ResultadoDifusion(difusion.difusion_id, enviadas, fallidas, sin_dispositivo)
+
+
+async def listar_difusiones(
+    uow: FabricaUnidadDeTrabajo, limite: int, antes_de: datetime | None
+) -> list[Difusion]:
+    async with uow() as tx:
+        return await tx.difusiones.listar(limite, antes_de)

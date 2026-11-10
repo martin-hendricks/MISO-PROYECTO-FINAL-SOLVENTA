@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.seguridad import Llamante, alcance, exigir_llamante
+from app.seguridad import Llamante, alcance, exigir_backoffice, exigir_llamante, exigir_operador
 
 UID = UUID("11111111-1111-1111-1111-111111111111")
 OTRO = UUID("22222222-2222-2222-2222-222222222222")
@@ -69,3 +69,30 @@ def test_rol_desconocido_responde_403():
 def test_operador_conserva_el_usuario_pedido():
     llamante = Llamante(uid=UID, rol="operador", sub="operador@solventa.com")
     assert alcance(llamante, OTRO) == OTRO
+
+
+@pytest.mark.parametrize("rol", ["operador", "asesor"])
+def test_exigir_backoffice_acepta_operador_y_asesor(rol):
+    llamante = Llamante(uid=UID, rol=rol, sub="persona@correo.com")
+    assert exigir_backoffice(llamante) is llamante
+
+
+@pytest.mark.parametrize("rol", ["cliente", "visitante"])
+def test_exigir_backoffice_rechaza_otros_roles(rol):
+    llamante = Llamante(uid=UID, rol=rol, sub="persona@correo.com")
+    with pytest.raises(HTTPException) as exc:
+        exigir_backoffice(llamante)
+    assert exc.value.status_code == 403
+
+
+def test_exigir_operador_acepta_operador():
+    llamante = Llamante(uid=UID, rol="operador", sub="operador@solventa.com")
+    assert exigir_operador(llamante) is llamante
+
+
+@pytest.mark.parametrize("rol", ["asesor", "cliente"])
+def test_exigir_operador_rechaza_asesor_y_cliente(rol):
+    llamante = Llamante(uid=UID, rol=rol, sub="persona@correo.com")
+    with pytest.raises(HTTPException) as exc:
+        exigir_operador(llamante)
+    assert exc.value.status_code == 403

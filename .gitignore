@@ -21,6 +21,7 @@ coverage/
 # Android
 *.iml
 .gradle/
+apps/mobile/Solventa/app/google-services.json
 /local.properties
 /.idea/
 .cxx/

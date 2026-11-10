@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
+
 import bcrypt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from .errores import CredencialesInvalidas, CuentaInactiva
+from .errores import CredencialesInvalidas, CuentaInactiva, ReglaDeNegocioViolada
 
 # Costo de bcrypt: 12 es el default moderno recomendado (ni tan barato que
 # sea crackeable en GPU, ni tan caro que convierta el login en un cuello de
@@ -17,10 +20,25 @@ _COSTO_BCRYPT = 12
 
 class EstadoUsuario(StrEnum):
     ACTIVO = "ACTIVO"
-    # No hay flujo de bloqueo/inactivación en el alcance de hoy (SOLV-215 no
-    # pide suspensión de cuentas), pero el campo existe en el schema oficial
-    # y el dominio deja la puerta abierta para cuando exista esa HU.
     INACTIVO = "INACTIVO"
+
+
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@dataclass(frozen=True)
+class EventoDominio:
+    tipo: str
+    agregado_id: UUID
+    payload: dict
+    id: UUID = field(default_factory=uuid4)
+
+
+def _texto_persona(valor: str, codigo: str, etiqueta: str) -> str:
+    limpio = valor.strip()
+    if not 1 <= len(limpio) <= 80:
+        raise ReglaDeNegocioViolada(codigo, f"{etiqueta} debe tener entre 1 y 80 caracteres")
+    return limpio
 
 
 def _hash_password(password_plano: str) -> str:
@@ -90,6 +108,34 @@ class Usuario:
     def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:
         self.nombre = nombre.strip()
         self.apellidos = apellidos.strip()
+
+    def editar(self, *, nombre: str, apellidos: str, email: str) -> None:
+        self.nombre = _texto_persona(nombre, "nombre_invalido", "El nombre")
+        self.apellidos = _texto_persona(apellidos, "apellidos_invalidos", "Los apellidos")
+        correo = email.strip().lower()
+        if len(correo) > 254 or not _EMAIL.fullmatch(correo):
+            raise ReglaDeNegocioViolada("email_invalido", "El correo no es válido")
+        self.email = correo
+
+    def inactivar(self) -> EventoDominio | None:
+        if self.estado is EstadoUsuario.INACTIVO:
+            return None
+        self.estado = EstadoUsuario.INACTIVO
+        return self._evento_estado("UsuarioInactivado")
+
+    def activar(self) -> EventoDominio | None:
+        if self.estado is EstadoUsuario.ACTIVO:
+            return None
+        self.estado = EstadoUsuario.ACTIVO
+        return self._evento_estado("UsuarioReactivado")
+
+    def _evento_estado(self, tipo: str) -> EventoDominio:
+        ocurrido_en = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        return EventoDominio(
+            tipo=tipo,
+            agregado_id=self.id,
+            payload={"usuario_id": str(self.id), "ocurrido_en": ocurrido_en},
+        )
 
     def verificar_password(self, password_plano: str) -> bool:
         return _verificar_password(password_plano, self.password_hash)

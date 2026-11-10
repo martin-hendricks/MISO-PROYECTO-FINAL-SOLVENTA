@@ -1,12 +1,18 @@
 package com.grupo8_uniandes.solventa
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import com.grupo8_uniandes.solventa.data.region.readAppliedLanguageTag
+import com.grupo8_uniandes.solventa.domain.push.PushTarget
+import com.grupo8_uniandes.solventa.domain.push.pushTargetFrom
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.ui.shell.CustomerShell
 import com.grupo8_uniandes.solventa.ui.shell.SplashHoldMillis
@@ -14,6 +20,12 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import java.util.Locale
 
 class MainActivity : FragmentActivity() {
+    private var pushTarget by mutableStateOf<PushTarget?>(null)
+    internal var deliveredPush: PushTarget? = null
+        private set
+    internal val pendingPush: PushTarget?
+        get() = pushTarget
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.withAppliedRegion())
     }
@@ -21,6 +33,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pushTarget = savedInstanceState?.readPushTarget()
+        consumePushIntent(intent)
         val splashHoldMillis = intent.getLongExtra(EXTRA_SPLASH_HOLD_MILLIS, SplashHoldMillis)
         val startupSession = if (intent.getBooleanExtra(EXTRA_EXISTING_ACCOUNT, false)) {
             StartupSession.ExistingAccount
@@ -35,6 +49,7 @@ class MainActivity : FragmentActivity() {
         val openConsent = intent.getBooleanExtra(EXTRA_OPEN_CONSENT, false)
         val resumeProfile = intent.getBooleanExtra(EXTRA_RESUME_PROFILE, false)
         val signedOut = intent.getBooleanExtra(EXTRA_SIGNED_OUT, false)
+        val askPush = intent.getBooleanExtra(EXTRA_ASK_PUSH, false)
         if (openHome) {
             intent.removeExtra(EXTRA_OPEN_HOME)
         }
@@ -51,6 +66,9 @@ class MainActivity : FragmentActivity() {
         if (resumeProfile) {
             intent.removeExtra(EXTRA_RESUME_PROFILE)
         }
+        if (askPush) {
+            intent.removeExtra(EXTRA_ASK_PUSH)
+        }
         setContent {
             SolventaTheme {
                 CustomerShell(
@@ -63,9 +81,43 @@ class MainActivity : FragmentActivity() {
                     openConsent = openConsent,
                     resumeProfile = resumeProfile,
                     signedOut = signedOut,
+                    askPush = askPush,
+                    pushTarget = pushTarget,
+                    onPushHandled = { pushTarget = null },
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumePushIntent(intent)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        when (val target = pushTarget) {
+            is PushTarget.PolizaDetalle -> {
+                outState.putString(STATE_PUSH_DESTINO, "poliza-detalle")
+                outState.putString(STATE_PUSH_POLIZA, target.numero)
+            }
+            PushTarget.Inicio -> outState.putString(STATE_PUSH_DESTINO, "inicio")
+            null -> Unit
+        }
+    }
+
+    private fun consumePushIntent(source: Intent?) {
+        if (source == null) return
+        if (!source.hasExtra(EXTRA_PUSH_DESTINO) && !source.hasExtra(EXTRA_PUSH_POLIZA)) return
+        val target = pushTargetFrom(
+            source.getStringExtra(EXTRA_PUSH_DESTINO),
+            source.getStringExtra(EXTRA_PUSH_POLIZA),
+        )
+        deliveredPush = target
+        pushTarget = target
+        source.removeExtra(EXTRA_PUSH_DESTINO)
+        source.removeExtra(EXTRA_PUSH_POLIZA)
     }
 
     companion object {
@@ -79,7 +131,21 @@ class MainActivity : FragmentActivity() {
         const val EXTRA_OPEN_CONSENT = "com.grupo8_uniandes.solventa.OPEN_CONSENT"
         const val EXTRA_RESUME_PROFILE = "com.grupo8_uniandes.solventa.RESUME_PROFILE"
         const val EXTRA_SIGNED_OUT = "com.grupo8_uniandes.solventa.SIGNED_OUT"
+        const val EXTRA_ASK_PUSH = "com.grupo8_uniandes.solventa.ASK_PUSH"
+        const val EXTRA_PUSH_DESTINO = "com.grupo8_uniandes.solventa.PUSH_DESTINO"
+        const val EXTRA_PUSH_POLIZA = "com.grupo8_uniandes.solventa.PUSH_POLIZA"
+
+        internal const val STATE_PUSH_DESTINO = "com.grupo8_uniandes.solventa.STATE_PUSH_DESTINO"
+        internal const val STATE_PUSH_POLIZA = "com.grupo8_uniandes.solventa.STATE_PUSH_POLIZA"
     }
+}
+
+private fun Bundle.readPushTarget(): PushTarget? {
+    if (!containsKey(MainActivity.STATE_PUSH_DESTINO)) return null
+    return pushTargetFrom(
+        getString(MainActivity.STATE_PUSH_DESTINO),
+        getString(MainActivity.STATE_PUSH_POLIZA),
+    )
 }
 
 private fun Context.withAppliedRegion(): Context {

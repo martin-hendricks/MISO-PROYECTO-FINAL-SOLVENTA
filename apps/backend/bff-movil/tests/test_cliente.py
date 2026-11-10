@@ -67,8 +67,7 @@ def test_hipoteca_avisos_inicio_push_y_asistencia(client):
         json={"token": "fcm-stub", "plataforma": "android"},
     )
     assert token.status_code == 200
-    push = client.get("/cliente/avisos/push", headers=headers).json()
-    assert push["destino"] == "aviso-vencimiento"
+    assert client.get("/cliente/avisos/push", headers=headers).status_code == 404
     providers = client.get("/cliente/prestadores", headers=headers).json()
     assert providers["prestadores"][0]["id"] == "PR-1"
     assistance = client.post(

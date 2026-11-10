@@ -1,7 +1,9 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.dependencies import obtener_verificador_kyc
+from app.domain.modelos import EstadoUsuario, Usuario
 from app.infrastructure.kyc import VerificadorKYCStub
+from tests.conftest import token_de
 
 BODY_ALTA = {
     "tipo_documento": "CC",
@@ -125,9 +127,124 @@ def test_autenticacion_es_insensible_a_mayusculas_en_el_email(client):
     assert respuesta.status_code == 200
 
 
-def test_consultar_y_actualizar_perfil(client):
-    from tests.conftest import token_de
+def _poner(almacen, i, **extra):
+    usuario = Usuario(
+        id=uuid4(),
+        tipo_documento="CC",
+        numero_documento=extra.get("numero_documento", f"doc-{i}-{uuid4().hex[:6]}"),
+        email=extra.get("email", f"u{i}-{uuid4().hex[:6]}@correo.com"),
+        password_hash="x",
+        estado=extra.get("estado", EstadoUsuario.ACTIVO),
+        nombre=extra.get("nombre", f"Nom{i:02d}"),
+        apellidos=extra.get("apellidos", f"Ape{i:02d}"),
+        rol=extra.get("rol", "cliente"),
+    )
+    almacen.usuarios[usuario.id] = usuario
+    return usuario
 
+
+def _auth(rol: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token_de(str(uuid4()), rol)}"}
+
+
+def test_listar_clientes_solo_backoffice_y_solo_rol_cliente(client, almacen):
+    cliente = _poner(almacen, 1, nombre="Laura", apellidos="Pena", email="laura@correo.com", numero_documento="52448901")
+    inactivo = _poner(almacen, 2, estado=EstadoUsuario.INACTIVO, apellidos="Pena", nombre="Zoe")
+    _poner(almacen, 3, rol="operador", nombre="Laura", apellidos="Pena", email="ops@correo.com")
+
+    assert client.get("/v1/usuarios", params={"rol": "cliente"}, headers=_auth("cliente")).status_code == 403
+    assert client.get("/v1/usuarios", params={"rol": "asesor"}).status_code == 422
+    assert client.get("/v1/usuarios", params={"rol": "cliente", "q": "a"}).json()["codigo"] == "consulta_corta"
+    assert client.get("/v1/usuarios", params={"rol": "cliente", "ids": [str(uuid4()) for _ in range(51)]}).status_code == 422
+
+    asesor = client.get("/v1/usuarios", params={"rol": "cliente"}, headers=_auth("asesor"))
+    assert asesor.status_code == 200
+    ids = {item["usuario_id"] for item in asesor.json()["usuarios"]}
+    assert str(cliente.id) in ids and str(inactivo.id) in ids
+    assert all(item["rol"] == "cliente" for item in asesor.json()["usuarios"])
+
+    solo_activos = client.get("/v1/usuarios", params={"rol": "cliente", "estado": "ACTIVO"})
+    assert {item["usuario_id"] for item in solo_activos.json()["usuarios"]} == {str(cliente.id)}
+
+    por_nombre = client.get("/v1/usuarios", params={"rol": "cliente", "q": "LAURA"})
+    assert [item["usuario_id"] for item in por_nombre.json()["usuarios"]] == [str(cliente.id)]
+    por_documento = client.get("/v1/usuarios", params={"rol": "cliente", "q": "2448"})
+    assert [item["usuario_id"] for item in por_documento.json()["usuarios"]] == [str(cliente.id)]
+    por_correo = client.get("/v1/usuarios", params={"rol": "cliente", "q": "LAURA@"})
+    assert [item["usuario_id"] for item in por_correo.json()["usuarios"]] == [str(cliente.id)]
+    por_apellido = client.get("/v1/usuarios", params={"rol": "cliente", "q": "pena"})
+    assert [item["usuario_id"] for item in por_apellido.json()["usuarios"]] == [str(cliente.id), str(inactivo.id)]
+
+    solo_esos = client.get("/v1/usuarios", params={"rol": "cliente", "ids": [str(cliente.id)]})
+    assert solo_esos.json()["hay_mas"] is False
+    assert [item["usuario_id"] for item in solo_esos.json()["usuarios"]] == [str(cliente.id)]
+
+
+def test_listar_clientes_pagina_de_20_con_hay_mas(client, almacen):
+    for indice in range(21):
+        _poner(almacen, indice)
+
+    primera = client.get("/v1/usuarios", params={"rol": "cliente", "pagina": 1}).json()
+    segunda = client.get("/v1/usuarios", params={"rol": "cliente", "pagina": 2}).json()
+
+    assert primera["pagina"] == 1 and primera["hay_mas"] is True and len(primera["usuarios"]) == 20
+    assert [item["apellidos"] for item in primera["usuarios"]] == [f"Ape{indice:02d}" for indice in range(20)]
+    assert segunda["hay_mas"] is False and len(segunda["usuarios"]) == 1
+    assert segunda["usuarios"][0]["apellidos"] == "Ape20"
+
+    pedidas = [_poner(almacen, 100 + indice) for indice in range(25)]
+    por_ids = client.get(
+        "/v1/usuarios", params={"rol": "cliente", "ids": [str(usuario.id) for usuario in pedidas]}
+    ).json()
+    assert por_ids["hay_mas"] is False and len(por_ids["usuarios"]) == 25
+
+
+def test_editar_y_cambiar_estado_solo_operador(client, almacen):
+    creado = _crear(client, nombre="Camila", apellidos="Restrepo").json()
+    otro = _crear(client, email="otro@correo.com", numero_documento="99887766").json()
+    usuario_id = creado["usuario_id"]
+    cuerpo = {"nombre": "Ana", "apellidos": "Lopez", "email": "ANA@correo.com"}
+
+    for rol in ("cliente", "asesor"):
+        assert client.patch(f"/v1/usuarios/{usuario_id}", json=cuerpo, headers=_auth(rol)).status_code == 403
+        assert (
+            client.post(f"/v1/usuarios/{usuario_id}/estado", json={"estado": "INACTIVO"}, headers=_auth(rol)).status_code
+            == 403
+        )
+
+    editado = client.patch(f"/v1/usuarios/{usuario_id}", json=cuerpo)
+    assert editado.status_code == 200
+    assert editado.json()["email"] == "ana@correo.com"
+    assert editado.json()["nombre"] == "Ana"
+
+    duplicado = client.patch(
+        f"/v1/usuarios/{usuario_id}",
+        json={"nombre": "Ana", "apellidos": "Lopez", "email": "OTRO@correo.com"},
+    )
+    assert duplicado.status_code == 409
+    assert duplicado.json()["codigo"] == "conflicto"
+
+    assert client.patch(f"/v1/usuarios/{uuid4()}", json=cuerpo).status_code == 404
+    assert client.patch(f"/v1/usuarios/{usuario_id}", json={**cuerpo, "nombre": ""}).status_code == 422
+    assert client.patch(f"/v1/usuarios/{usuario_id}", json={**cuerpo, "nombre": "n" * 81}).status_code == 422
+    assert client.patch(f"/v1/usuarios/{usuario_id}", json={**cuerpo, "email": "no-es-correo"}).status_code == 422
+
+    almacen.usuarios[UUID(otro["usuario_id"])].rol = "asesor"
+    assert client.patch(f"/v1/usuarios/{otro['usuario_id']}", json=cuerpo).status_code == 404
+    assert client.post(f"/v1/usuarios/{otro['usuario_id']}/estado", json={"estado": "INACTIVO"}).status_code == 404
+
+    igual = client.post(f"/v1/usuarios/{usuario_id}/estado", json={"estado": "ACTIVO"})
+    assert igual.status_code == 200 and igual.json()["estado"] == "ACTIVO"
+    assert almacen.outbox == []
+
+    inactivo = client.post(f"/v1/usuarios/{usuario_id}/estado", json={"estado": "INACTIVO"})
+    assert inactivo.status_code == 200 and inactivo.json()["estado"] == "INACTIVO"
+    assert almacen.outbox[0].tipo == "UsuarioInactivado"
+    assert client.post(f"/v1/usuarios/{usuario_id}/estado", json={"estado": "BLOQUEADO"}).status_code == 422
+    assert client.post(f"/v1/usuarios/{uuid4()}/estado", json={"estado": "INACTIVO"}).status_code == 404
+
+
+def test_consultar_y_actualizar_perfil(client):
     creado = _crear(client, nombre="Camila", apellidos="Restrepo").json()
     usuario_id = creado["usuario_id"]
     propio = {"Authorization": f"Bearer {token_de(usuario_id, 'cliente')}"}

@@ -23,6 +23,7 @@ class ContenidoNotificacion:
     titulo: str
     cuerpo: str
     destino: str
+    poliza: str | None = None
 
 
 def _texto(payload: dict, clave: str) -> str | None:
@@ -49,6 +50,8 @@ def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
 
     sujeto = _sujeto(evento.payload)
     fin_vigencia = _texto(evento.payload, "fin_vigencia")
+    numero = _texto(evento.payload, "numero")
+    destino = "poliza-detalle" if numero else "inicio"
 
     if evento.tipo == "PolizaEmitida":
         cuerpo = (
@@ -60,7 +63,8 @@ def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
             tipo="poliza_emitida",
             titulo="Tu póliza fue emitida",
             cuerpo=cuerpo,
-            destino="aviso-vigencia",
+            destino=destino,
+            poliza=numero,
         )
 
     if evento.tipo == "PolizaRenovada":
@@ -73,7 +77,8 @@ def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
             tipo="poliza_renovada",
             titulo="Tu póliza fue renovada",
             cuerpo=cuerpo,
-            destino="aviso-vigencia",
+            destino=destino,
+            poliza=numero,
         )
 
     if evento.tipo == "PolizaModificada":
@@ -81,7 +86,8 @@ def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
             tipo="poliza_modificada",
             titulo="Actualizamos tus coberturas",
             cuerpo=f"{sujeto} tiene nuevas coberturas.",
-            destino="poliza-detalle",
+            destino=destino,
+            poliza=numero,
         )
 
     cuerpo = f"{sujeto} fue cancelada."
@@ -92,8 +98,22 @@ def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
         tipo="poliza_cancelada",
         titulo="Tu póliza fue cancelada",
         cuerpo=cuerpo,
-        destino="poliza-detalle",
+        destino=destino,
+        poliza=numero,
     )
+
+
+async def _desactivar_dispositivos(uow: FabricaUnidadDeTrabajo, evento: EventoBus) -> None:
+    try:
+        usuario_id = UUID(str(evento.payload.get("usuario_id")))
+    except (TypeError, ValueError, AttributeError):
+        logger.warning("usuario_inactivado_invalido", extra={"evento_id": str(evento.evento_id)})
+        return
+    async with uow() as tx:
+        if not await tx.eventos.consumir(evento.evento_id, evento.tipo):
+            return
+        await tx.dispositivos.desactivar_de_usuario(usuario_id)
+        await tx.confirmar()
 
 
 async def manejar_evento(
@@ -105,6 +125,15 @@ async def manejar_evento(
     notificación ni el push. Nunca propaga excepciones para no detener el
     consumo de la partición.
     """
+    if evento.tipo == "UsuarioInactivado":
+        try:
+            await _desactivar_dispositivos(uow, evento)
+        except Exception:
+            logger.exception(
+                "error_desactivando_dispositivos", extra={"evento_id": str(evento.evento_id)}
+            )
+        return None
+
     contenido = construir_contenido(evento)
     if contenido is None:
         logger.warning(
@@ -132,6 +161,7 @@ async def manejar_evento(
             titulo=contenido.titulo,
             cuerpo=contenido.cuerpo,
             destino=contenido.destino,
+            poliza=contenido.poliza,
         )
         if notificacion.estado == EstadoNotificacion.PENDIENTE.value:
             await despachar_notificacion(uow, push, notificacion.notificacion_id)

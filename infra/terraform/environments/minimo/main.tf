@@ -109,7 +109,8 @@ module "secrets" {
   }
 
   # ms-siniestros lo recibe como S3_EVIDENCIAS_BUCKET vía External Secrets.
-  evidencias_bucket_name = module.s3_evidencias.bucket_id
+  evidencias_bucket_name          = module.s3_evidencias.bucket_id
+  msk_bootstrap_brokers_sasl_iam  = module.msk.bootstrap_brokers_sasl_iam
 
   tags = var.extra_tags
 }

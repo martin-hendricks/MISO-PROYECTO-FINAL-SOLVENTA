@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import MetaData, Numeric, String, func, select
+from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -14,14 +16,15 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
-from app.domain.modelos import EstadoUsuario, Usuario
-from app.ports.persistencia import CuentaYaExiste
+from app.domain.modelos import EstadoUsuario, EventoDominio, Usuario
+from app.ports.persistencia import TAMANO_PAGINA_CLIENTES, CuentaYaExiste
 
 ESQUEMA = "ms_identidad"
 
 
 class Base(DeclarativeBase):
     metadata = MetaData(schema=ESQUEMA)
+    type_annotation_map = {datetime: DateTime(timezone=True)}
 
 
 class UsuarioFila(Base):
@@ -38,6 +41,17 @@ class UsuarioFila(Base):
     ingresos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     gastos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     rol: Mapped[str] = mapped_column(String, default="cliente")
+
+
+class OutboxFila(Base):
+    __tablename__ = "outbox_evento"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    tipo: Mapped[str]
+    agregado_id: Mapped[UUID]
+    payload: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+    publicado_en: Mapped[datetime | None]
 
 
 def _fila(usuario: Usuario) -> UsuarioFila:
@@ -107,6 +121,53 @@ class RepositorioUsuariosSQL:
         fila.email = usuario.email
         fila.estado = usuario.estado.value
 
+    async def listar_clientes(
+        self,
+        estado: str | None,
+        q: str | None,
+        ids: list[UUID] | None,
+        pagina: int,
+    ) -> tuple[list[Usuario], bool]:
+        tamano = len(ids) if ids else TAMANO_PAGINA_CLIENTES
+        consulta = select(UsuarioFila).where(UsuarioFila.rol == "cliente")
+        if estado:
+            consulta = consulta.where(UsuarioFila.estado == estado)
+        if q:
+            patron = _patron_ilike(q)
+            consulta = consulta.where(
+                or_(
+                    UsuarioFila.nombre.ilike(patron, escape="\\"),
+                    UsuarioFila.apellidos.ilike(patron, escape="\\"),
+                    UsuarioFila.email.ilike(patron, escape="\\"),
+                    UsuarioFila.numero_documento.ilike(patron, escape="\\"),
+                )
+            )
+        if ids:
+            consulta = consulta.where(UsuarioFila.usuario_id.in_(ids))
+        consulta = (
+            consulta.order_by(UsuarioFila.apellidos, UsuarioFila.nombre, UsuarioFila.usuario_id)
+            .offset((pagina - 1) * tamano)
+            .limit(tamano + 1)
+        )
+        filas = (await self._s.scalars(consulta)).all()
+        hay_mas = len(filas) > tamano
+        return [_a_dominio(fila) for fila in filas[:tamano]], hay_mas
+
+
+def _patron_ilike(q: str) -> str:
+    escapado = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escapado}%"
+
+
+class OutboxSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def agregar(self, evento: EventoDominio) -> None:
+        self._s.add(
+            OutboxFila(id=evento.id, tipo=evento.tipo, agregado_id=evento.agregado_id, payload=evento.payload)
+        )
+
 
 class UnidadDeTrabajoSQL:
     def __init__(self, fabrica: async_sessionmaker[AsyncSession]) -> None:
@@ -115,6 +176,7 @@ class UnidadDeTrabajoSQL:
     async def __aenter__(self) -> UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.usuarios = RepositorioUsuariosSQL(self._sesion)
+        self.outbox = OutboxSQL(self._sesion)
         return self
 
     async def __aexit__(self, *exc: object) -> None:

@@ -59,6 +59,66 @@ class NotificacionSalida(BaseModel):
         )
 
 
+class TokenEntrada(BaseModel):
+    token: str
+
+
+class AudienciaUsuarioSalida(BaseModel):
+    usuarioId: UUID
+    dispositivosActivos: int
+
+
+class AudienciaSalida(BaseModel):
+    usuarios: list[AudienciaUsuarioSalida]
+
+
+class AudienciaEntrada(BaseModel):
+    tipo: str
+    usuarioIds: list[UUID] = []
+
+
+class DifusionEntrada(BaseModel):
+    titulo: str
+    cuerpo: str
+    audiencia: AudienciaEntrada
+    poliza: str | None = None
+
+
+class DifusionSalida(BaseModel):
+    difusionId: UUID
+    titulo: str
+    cuerpo: str
+    poliza: str | None
+    creadaEn: datetime
+    enviadas: int
+    fallidas: int
+    sinDispositivo: int
+
+    @classmethod
+    def desde(cls, difusion) -> "DifusionSalida":
+        return cls(
+            difusionId=difusion.difusion_id,
+            titulo=difusion.titulo,
+            cuerpo=difusion.cuerpo,
+            poliza=difusion.poliza,
+            creadaEn=difusion.creada_en,
+            enviadas=difusion.enviadas,
+            fallidas=difusion.fallidas,
+            sinDispositivo=difusion.sin_dispositivo,
+        )
+
+
+class DifusionCreadaSalida(BaseModel):
+    difusionId: UUID
+    enviadas: int
+    fallidas: int
+    sinDispositivo: int
+
+
+class HistorialSalida(BaseModel):
+    items: list[DifusionSalida]
+
+
 class ErrorSalida(BaseModel):
     codigo: str
     mensaje: str

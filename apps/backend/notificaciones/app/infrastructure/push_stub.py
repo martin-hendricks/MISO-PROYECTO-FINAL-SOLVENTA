@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.domain.errores import ServicioExternoNoDisponible
 from app.domain.modelos import DispositivoPush, Notificacion
+from app.ports.push import EstadoEnvio, ResultadoEnvio
 
 
 class PushStub:
@@ -21,5 +22,12 @@ class PushStub:
 
     async def enviar_a_usuario(
         self, dispositivos: list[DispositivoPush], notificacion: Notificacion
-    ) -> list[str]:
-        return [await self.enviar(dispositivo, notificacion) for dispositivo in dispositivos]
+    ) -> list[ResultadoEnvio]:
+        return [
+            ResultadoEnvio(
+                dispositivo.dispositivo_id,
+                EstadoEnvio.ENVIADO.value,
+                await self.enviar(dispositivo, notificacion),
+            )
+            for dispositivo in dispositivos
+        ]

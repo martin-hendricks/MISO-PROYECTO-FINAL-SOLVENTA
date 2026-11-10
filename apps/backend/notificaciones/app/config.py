@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     push_proveedor: str = "stub"
     push_stub_fallar: bool = False
+    fcm_credenciales_json: str = ""
 
     # Debe coincidir con el `consumer_groups` del rol IRSA (infra/terraform).
     msk_bootstrap_brokers: str = ""

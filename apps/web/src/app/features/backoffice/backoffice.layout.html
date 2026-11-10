@@ -2,7 +2,7 @@
   <p class="brand">{{ 'shell.portal' | translate }}</p>
   <span class="tag" data-testid="backoffice-tag">{{ 'backoffice.tag' | translate }}</span>
   <nav [attr.aria-label]="'backoffice.nav.label' | translate">
-    @for (section of sections; track section) {
+    @for (section of sections(); track section) {
       <a
         [routerLink]="['/cms', section]"
         routerLinkActive="active"

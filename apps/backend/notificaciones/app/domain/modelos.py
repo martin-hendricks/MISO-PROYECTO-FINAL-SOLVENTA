@@ -33,6 +33,8 @@ class Notificacion:
     titulo: str
     cuerpo: str
     destino: str | None
+    poliza: str | None
+    difusion_id: UUID | None
     estado: str
     creada_en: datetime
     enviada_en: datetime | None = None
@@ -49,6 +51,8 @@ class Notificacion:
         titulo: str,
         cuerpo: str,
         destino: str | None = None,
+        poliza: str | None = None,
+        difusion_id: UUID | None = None,
         ahora: datetime | None = None,
     ) -> Notificacion:
         try:
@@ -57,19 +61,31 @@ class Notificacion:
             raise ReglaDeNegocioViolada("canal_invalido", f"Canal '{canal}' no soportado") from exc
         if not tipo.strip():
             raise ReglaDeNegocioViolada("tipo_vacio", "El tipo de notificación es obligatorio")
-        if not titulo.strip():
+        titulo_limpio = titulo.strip()
+        cuerpo_limpio = cuerpo.strip()
+        if not titulo_limpio:
             raise ReglaDeNegocioViolada("titulo_vacio", "El título de la notificación es obligatorio")
-        if not cuerpo.strip():
+        if not cuerpo_limpio:
             raise ReglaDeNegocioViolada("cuerpo_vacio", "El cuerpo de la notificación es obligatorio")
+        if len(titulo_limpio) > 80:
+            raise ReglaDeNegocioViolada("titulo_largo", "El título admite como máximo 80 caracteres")
+        if len(cuerpo_limpio) > 240:
+            raise ReglaDeNegocioViolada("cuerpo_largo", "El cuerpo admite como máximo 240 caracteres")
+        poliza_limpia = poliza.strip() if poliza and poliza.strip() else None
+        destino_limpio = destino.strip() if destino and destino.strip() else None
+        if destino_limpio == "poliza-detalle" and poliza_limpia is None:
+            destino_limpio = "inicio"
         return cls(
             notificacion_id=uuid4(),
             usuario_id=usuario_id,
             evento_origen_id=evento_origen_id,
             canal=canal_normalizado,
             tipo=tipo.strip(),
-            titulo=titulo.strip(),
-            cuerpo=cuerpo.strip(),
-            destino=destino.strip() if destino and destino.strip() else None,
+            titulo=titulo_limpio,
+            cuerpo=cuerpo_limpio,
+            destino=destino_limpio,
+            poliza=poliza_limpia,
+            difusion_id=difusion_id,
             estado=EstadoNotificacion.PENDIENTE.value,
             creada_en=ahora or datetime.now(UTC),
         )
@@ -141,3 +157,87 @@ class DispositivoPush:
     def desactivar(self, ahora: datetime | None = None) -> None:
         self.activo = False
         self.actualizado_en = ahora or datetime.now(UTC)
+
+
+MAX_AUDIENCIA = 500
+
+
+def resolver_audiencia(tipo: str, usuario_ids: list[UUID] | None) -> tuple[str, list[UUID]]:
+    """Normaliza la audiencia de una difusión. `todos` ignora la lista."""
+    tipo_limpio = (tipo or "").strip().lower()
+    if tipo_limpio == "todos":
+        return "todos", []
+    if tipo_limpio != "usuarios":
+        raise ReglaDeNegocioViolada("audiencia_invalida", "La audiencia debe ser todos o usuarios")
+    vistos: list[UUID] = []
+    for usuario_id in usuario_ids or []:
+        if usuario_id not in vistos:
+            vistos.append(usuario_id)
+    if not vistos:
+        raise ReglaDeNegocioViolada("audiencia_vacia", "La audiencia no puede estar vacía")
+    if len(vistos) > MAX_AUDIENCIA:
+        raise ReglaDeNegocioViolada(
+            "audiencia_larga", f"La audiencia admite como máximo {MAX_AUDIENCIA} usuarios"
+        )
+    return "usuarios", vistos
+
+
+@dataclass
+class Difusion:
+    difusion_id: UUID
+    autor_id: UUID
+    titulo: str
+    cuerpo: str
+    poliza: str | None
+    audiencia: str
+    destinatarios: int
+    enviadas: int
+    fallidas: int
+    sin_dispositivo: int
+    creada_en: datetime
+
+    @classmethod
+    def crear(
+        cls,
+        autor_id: UUID,
+        titulo: str,
+        cuerpo: str,
+        audiencia: str,
+        destinatarios: int,
+        poliza: str | None = None,
+        ahora: datetime | None = None,
+    ) -> Difusion:
+        # Reusa los topes de Notificacion sin persistir una fila.
+        muestra = Notificacion.crear(
+            usuario_id=autor_id,
+            evento_origen_id=None,
+            canal="push",
+            tipo="mensaje_operador",
+            titulo=titulo,
+            cuerpo=cuerpo,
+            destino="poliza-detalle" if poliza else "inicio",
+            poliza=poliza,
+        )
+        return cls(
+            difusion_id=uuid4(),
+            autor_id=autor_id,
+            titulo=muestra.titulo,
+            cuerpo=muestra.cuerpo,
+            poliza=muestra.poliza,
+            audiencia=audiencia,
+            destinatarios=destinatarios,
+            enviadas=0,
+            fallidas=0,
+            sin_dispositivo=0,
+            creada_en=ahora or datetime.now(UTC),
+        )
+
+    def registrar_totales(self, enviadas: int, fallidas: int, sin_dispositivo: int) -> None:
+        if enviadas + fallidas + sin_dispositivo != self.destinatarios:
+            raise ReglaDeNegocioViolada(
+                "totales_inconsistentes",
+                "enviadas, fallidas y sin dispositivo deben sumar los destinatarios",
+            )
+        self.enviadas = enviadas
+        self.fallidas = fallidas
+        self.sin_dispositivo = sin_dispositivo

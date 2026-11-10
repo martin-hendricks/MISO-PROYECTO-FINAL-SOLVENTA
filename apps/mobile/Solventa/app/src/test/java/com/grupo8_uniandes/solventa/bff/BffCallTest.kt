@@ -427,9 +427,17 @@ class BffCallTest {
         enqueue(PublishedSamples.PUSH_REGISTRATION)
         val push = RemotePushRepository(api(), gate)
         assertTrue(push.register(PushRegistration("fcm-stub", "android")) is StandInAnswer.Ready)
-        enqueue(PublishedSamples.PUSH_NOTICE)
-        val notice = push.notice() as StandInAnswer.Ready
-        assertEquals("Tu póliza vence", notice.value.titulo)
+        val registered = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.MILLISECONDS) }
+            .first { it.path.orEmpty().contains("avisos/token") }
+        assertEquals("POST", registered.method)
+        assertTrue(registered.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(registered.body.readUtf8().contains("\"plataforma\":\"android\""))
+        server.enqueue(MockResponse().setResponseCode(204))
+        assertTrue(push.unregister("fcm-stub") is StandInAnswer.Ready)
+        val deleted = server.takeRequest()
+        assertEquals("DELETE", deleted.method)
+        assertTrue(deleted.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(deleted.body.readUtf8().contains("fcm-stub"))
 
         enqueue(PublishedSamples.PROVIDERS)
         val assistance = RemoteAssistanceRepository(api(), gate)

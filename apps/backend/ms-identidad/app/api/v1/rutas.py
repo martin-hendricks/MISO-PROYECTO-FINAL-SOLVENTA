@@ -1,15 +1,24 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.application import casos_uso
 from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import LlamanteDep, alcance
+from app.seguridad import Llamante, LlamanteDep, alcance, exigir_backoffice, exigir_operador
 
-from .schemas import AutenticarEntrada, CrearUsuarioEntrada, ErrorSalida, PerfilEntrada, UsuarioSalida
+from .schemas import (
+    AutenticarEntrada,
+    CrearUsuarioEntrada,
+    EditarClienteEntrada,
+    ErrorSalida,
+    EstadoEntrada,
+    ListaUsuariosSalida,
+    PerfilEntrada,
+    UsuarioSalida,
+)
 
 router = APIRouter(prefix="/v1/usuarios", tags=["usuarios"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
@@ -41,6 +50,27 @@ async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
     return UsuarioSalida.desde(usuario)
 
 
+@router.get("", response_model=ListaUsuariosSalida, responses=ERRORES)
+async def listar(
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_backoffice)],
+    rol: Annotated[str, Query()],
+    estado: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    ids: Annotated[list[UUID] | None, Query()] = None,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+):
+    """Lista cuentas con rol cliente. Operador y asesor; el cliente recibe 403."""
+    usuarios, hay_mas = await casos_uso.listar_clientes(
+        uow, rol=rol, estado=estado, q=q, ids=ids, pagina=pagina
+    )
+    return ListaUsuariosSalida(
+        usuarios=[UsuarioSalida.desde(usuario) for usuario in usuarios],
+        pagina=pagina,
+        hay_mas=hay_mas,
+    )
+
+
 @router.post("/autenticacion", response_model=UsuarioSalida, responses=ERRORES)
 async def autenticacion(entrada: AutenticarEntrada, uow: Uow):
     """Valida credenciales (SOLV-215). 401 indistinguible si el correo no
@@ -69,4 +99,28 @@ async def actualizar_perfil(usuario_id: UUID, entrada: PerfilEntrada, uow: Uow, 
     usuario = await casos_uso.actualizar_perfil(
         uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos
     )
+    return UsuarioSalida.desde(usuario)
+
+
+@router.patch("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)
+async def editar(
+    usuario_id: UUID,
+    entrada: EditarClienteEntrada,
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_operador)],
+):
+    usuario = await casos_uso.editar_cliente(
+        uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos, email=entrada.email
+    )
+    return UsuarioSalida.desde(usuario)
+
+
+@router.post("/{usuario_id}/estado", response_model=UsuarioSalida, responses=ERRORES)
+async def cambiar_estado(
+    usuario_id: UUID,
+    entrada: EstadoEntrada,
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_operador)],
+):
+    usuario = await casos_uso.cambiar_estado_cliente(uow, usuario_id, entrada.estado)
     return UsuarioSalida.desde(usuario)

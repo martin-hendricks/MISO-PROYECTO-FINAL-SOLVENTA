@@ -19,7 +19,8 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 | `09_ms_pagos.sql` | `ms_pagos` | `medio_pago`, `pago`, `transaccion_pasarela` |
 | `10_ms_parametrico.sql` | `ms_parametrico` | `evento_parametrico` |
 | `11_analitica.sql` | `analitica` | `evento_analitico` |
-| `12_notificaciones.sql` | `notificaciones` | `notificacion` |
+| `12_notificaciones.sql` | `notificaciones` | `notificacion`, `difusion`, `evento_consumido` (las dos últimas viven en `apps/backend/notificaciones/db/02_push_fcm.sql`) |
+| `05_estado_outbox.sql` (en `apps/backend/ms-identidad/db/`) | `ms_identidad` | `outbox_evento` |
 | `13_ms_siniestros_parametrico.sql` | `ms_siniestros` (extensión) | `siniestro`, `siniestro_transicion`, `evento_parametrico`, `evaluacion_umbral`, `pago_parametrico`, `outbox_evento`* |
 | `14_ms_siniestros_aviso_asistido.sql` | `ms_siniestros` (extensión) | columnas del aviso asistido en `siniestro`, `parametro_ramo`, `siniestro_adjunto`, `siniestro_decision`, `pago_siniestro`, `pago_siniestro_intento` |
 

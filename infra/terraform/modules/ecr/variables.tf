@@ -26,6 +26,7 @@ variable "repositories" {
     "api-socios",
     "analitica",
     "notificaciones",
+    "outbox-relay",
   ]
 }
 

@@ -3,14 +3,17 @@ from collections.abc import Iterable
 from uuid import UUID
 
 from app.domain.errores import ServicioExternoNoDisponible
-from app.domain.modelos import DispositivoPush, Notificacion
+from app.domain.modelos import Difusion, DispositivoPush, Notificacion
 from app.ports.persistencia import DispositivoDuplicado, NotificacionDuplicada
+from app.ports.push import EstadoEnvio, ResultadoEnvio
 
 
 class AlmacenEnMemoria:
     def __init__(self) -> None:
         self.notificaciones: dict[UUID, Notificacion] = {}
         self.dispositivos: dict[UUID, DispositivoPush] = {}
+        self.difusiones: dict[UUID, Difusion] = {}
+        self.eventos_consumidos: set[UUID] = set()
         self.chocar_notificacion: Notificacion | None = None
         self.chocar_dispositivo: DispositivoPush | None = None
 
@@ -103,6 +106,24 @@ class _Dispositivos:
     async def actualizar(self, dispositivo):
         self._uow.dispositivos_pendientes[dispositivo.dispositivo_id] = dispositivo
 
+    async def contar_activos(self, usuario_ids=None):
+        conteo: dict[UUID, int] = {}
+        for dispositivo in self._vista().values():
+            if not dispositivo.activo:
+                continue
+            if usuario_ids is not None and dispositivo.usuario_id not in usuario_ids:
+                continue
+            conteo[dispositivo.usuario_id] = conteo.get(dispositivo.usuario_id, 0) + 1
+        return sorted(conteo.items(), key=lambda par: str(par[0]))
+
+    async def desactivar_de_usuario(self, usuario_id):
+        from datetime import UTC, datetime
+
+        for dispositivo in list(self._vista().values()):
+            if dispositivo.usuario_id == usuario_id and dispositivo.activo:
+                dispositivo.desactivar(datetime.now(UTC))
+                self._uow.dispositivos_pendientes[dispositivo.dispositivo_id] = dispositivo
+
 
 class UnidadDeTrabajoEnMemoria:
     def __init__(self, almacen: AlmacenEnMemoria) -> None:
@@ -111,6 +132,8 @@ class UnidadDeTrabajoEnMemoria:
         self.dispositivos_pendientes: dict[UUID, DispositivoPush] = {}
         self.notificaciones = _Notificaciones(self)
         self.dispositivos = _Dispositivos(self)
+        self.difusiones = _Difusiones(self)
+        self.eventos = _Eventos(self)
 
     async def __aenter__(self):
         return self
@@ -148,11 +171,60 @@ class PushDoble:
 
     async def enviar_a_usuario(
         self, dispositivos: list[DispositivoPush], notificacion: Notificacion
-    ) -> list[str]:
+    ) -> list[ResultadoEnvio]:
         self.llamadas.append(
             ([d.dispositivo_id for d in dispositivos], notificacion.notificacion_id)
         )
-        return [await self.enviar(d, notificacion) for d in dispositivos]
+        if self.fallar:
+            raise ServicioExternoNoDisponible("push doble no disponible")
+        invalidos = getattr(self, "tokens_invalidos", set())
+        resultados = []
+        for dispositivo in dispositivos:
+            if dispositivo.token in invalidos:
+                resultados.append(
+                    ResultadoEnvio(dispositivo.dispositivo_id, EstadoEnvio.TOKEN_INVALIDO.value)
+                )
+                continue
+            resultados.append(
+                ResultadoEnvio(
+                    dispositivo.dispositivo_id,
+                    EstadoEnvio.ENVIADO.value,
+                    await self.enviar(dispositivo, notificacion),
+                )
+            )
+        return resultados
+
+
+class _Difusiones:
+    def __init__(self, uow: UnidadDeTrabajoEnMemoria) -> None:
+        self._uow = uow
+
+    async def agregar(self, difusion: Difusion) -> None:
+        self._uow.almacen.difusiones[difusion.difusion_id] = difusion
+
+    async def actualizar_totales(self, difusion_id, enviadas, fallidas, sin_dispositivo) -> None:
+        difusion = self._uow.almacen.difusiones[difusion_id]
+        difusion.registrar_totales(enviadas, fallidas, sin_dispositivo)
+
+    async def listar(self, limite, antes_de=None):
+        filas = [
+            d
+            for d in self._uow.almacen.difusiones.values()
+            if antes_de is None or d.creada_en < antes_de
+        ]
+        filas.sort(key=lambda d: d.creada_en, reverse=True)
+        return filas[:limite]
+
+
+class _Eventos:
+    def __init__(self, uow: UnidadDeTrabajoEnMemoria) -> None:
+        self._uow = uow
+
+    async def consumir(self, evento_id, tipo) -> bool:
+        if evento_id in self._uow.almacen.eventos_consumidos:
+            return False
+        self._uow.almacen.eventos_consumidos.add(evento_id)
+        return True
 
 
 def sembrar_notificaciones(almacen: AlmacenEnMemoria, notificaciones: Iterable[Notificacion]) -> None:

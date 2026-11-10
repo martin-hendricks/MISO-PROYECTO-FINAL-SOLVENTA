@@ -58,3 +58,18 @@ class DependenciaNoDisponible(ErrorDominio):
 
     def __init__(self, servicio: str) -> None:
         super().__init__(f"No fue posible consultar {servicio}")
+
+
+class Conflicto(ErrorDominio):
+    """El cambio choca con otra cuenta, por ejemplo un correo ya registrado."""
+
+    codigo = "conflicto"
+
+    def __init__(self, mensaje: str = "La operación entra en conflicto") -> None:
+        super().__init__(mensaje)
+
+
+class ReglaDeNegocioViolada(ErrorDominio):
+    def __init__(self, codigo: str, mensaje: str) -> None:
+        super().__init__(mensaje)
+        self.codigo = codigo

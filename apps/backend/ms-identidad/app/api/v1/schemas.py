@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -20,6 +21,16 @@ class CrearUsuarioEntrada(BaseModel):
 class PerfilEntrada(BaseModel):
     nombre: str = Field(min_length=1, max_length=80)
     apellidos: str = Field(min_length=1, max_length=80)
+
+
+class EditarClienteEntrada(BaseModel):
+    nombre: str = Field(min_length=1, max_length=80)
+    apellidos: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=254)
+
+
+class EstadoEntrada(BaseModel):
+    estado: Literal["ACTIVO", "INACTIVO"]
 
 
 class AutenticarEntrada(BaseModel):
@@ -53,6 +64,12 @@ class UsuarioSalida(BaseModel):
             gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
         )
+
+
+class ListaUsuariosSalida(BaseModel):
+    usuarios: list[UsuarioSalida]
+    pagina: int
+    hay_mas: bool
 
 
 class ErrorSalida(BaseModel):

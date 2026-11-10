@@ -1,9 +1,9 @@
 package com.grupo8_uniandes.solventa.domain.bff.claim
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 
 data class ParametricNotice(
     val asunto: String,
@@ -29,7 +29,7 @@ class OpenParametricPayment(
         return review
     }
 
-    fun open(push: PushNotice): ParametricNotice? = if (opens(push)) review else null
+    fun open(push: NoticeEntry): ParametricNotice? = if (opens(push)) review else null
 
     fun receipt(notice: ParametricNotice) = ParametricReceipt(
         asunto = notice.asunto,
@@ -59,17 +59,17 @@ class OpenParametricPayment(
             lineaDepositada = DEPOSITED,
         )
 
-        fun reviewPush(poliza: String = "POL-88219-CO") = PushNotice(
-            tipo = PushType.PAGO_AUTOMATICO,
+        fun reviewPush(poliza: String = "POL-88219-CO") = NoticeEntry(
+            tipo = NoticeKind.PAGO_AUTOMATICO,
             titulo = HEADING,
             cuerpo = TRIGGER,
-            destino = PushDestination.PARAMETRICO,
+            destino = NoticeDestination.PARAMETRICO,
             poliza = poliza,
         )
 
-        fun opens(push: PushNotice): Boolean =
-            push.tipo == PushType.PAGO_AUTOMATICO &&
-                push.destino == PushDestination.PARAMETRICO &&
+        fun opens(push: NoticeEntry): Boolean =
+            push.tipo == NoticeKind.PAGO_AUTOMATICO &&
+                push.destino == NoticeDestination.PARAMETRICO &&
                 push.titulo == HEADING &&
                 push.cuerpo == TRIGGER
     }

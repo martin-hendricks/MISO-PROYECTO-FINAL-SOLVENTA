@@ -9,8 +9,6 @@ import { CLIENTES } from './clientes.testing';
 import { ClientesView } from './clientes.view';
 
 describe('ClientesView', () => {
-  const URL = '/web/asesor/clientes';
-
   function render(role: Role) {
     TestBed.configureTestingModule({
       imports: [ClientesView],
@@ -26,45 +24,54 @@ describe('ClientesView', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
-    const element = (testId: string) =>
-      host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+    const element = (testId: string) => host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
     return { fixture, http, host, element };
+  }
+
+  function listado(role: Role = 'operador') {
+    const rendered = render(role);
+    const request = rendered.http.expectOne(
+      (candidate) =>
+        candidate.url === '/web/operador/clientes' && candidate.params.get('pagina') === '1',
+    );
+    request.flush({ clientes: CLIENTES, pagina: 1, hayMas: false });
+    rendered.fixture.detectChanges();
+    return rendered;
   }
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('shows the client KPIs and the read-only list for the advisor', () => {
-    const { fixture, http, host, element } = render('asesor');
+  it('shows push states and hides write controls for the advisor', () => {
+    const { element } = listado('asesor');
+    const activo = CLIENTES[0].usuarioId;
+    const sinPush = CLIENTES[1].usuarioId;
+    const desconocido = CLIENTES[2].usuarioId;
 
-    expect(element('clientes-loading')).not.toBeNull();
-    http.expectOne(URL).flush({ clientes: CLIENTES });
-    fixture.detectChanges();
-
-    expect(element('kpi-active')?.querySelector('.kpi-value')?.textContent).toBe('4');
-    expect(element('kpi-web')?.querySelector('.kpi-value')?.textContent).toBe('3');
-    expect(element('kpi-android')?.querySelector('.kpi-value')?.textContent).toBe('2');
-    expect(element('kpi-pendingConsent')?.querySelector('.kpi-value')?.textContent).toBe('1');
-    expect(host.querySelectorAll('tbody tr').length).toBe(5);
-    expect(element('cliente-CLI-22')?.textContent).toContain('Inactivo');
-    expect(element('cliente-CLI-22')?.textContent).toContain('Revocado');
-    expect((element('clientes-new') as HTMLButtonElement).disabled).toBeTrue();
+    expect(element(`push-${activo}`)?.getAttribute('data-push')).toBe('si');
+    expect(element(`push-${sinPush}`)?.textContent).toContain('No');
+    expect(element(`push-${desconocido}`)?.textContent).toContain('Desconocido');
+    expect(element('clientes-new')).toBeNull();
+    expect(element(`editar-${activo}`)).toBeNull();
+    expect(element(`desactivar-${activo}`)).toBeNull();
+    expect(element(`cotizar-${activo}`)?.getAttribute('href')).toContain(`cliente=${activo}`);
+    expect(element(`cotizar-${desconocido}`)).toBeNull();
   });
 
-  it('opens a quote prefilled with an active client and none for an inactive one', () => {
-    const { fixture, http, element } = render('asesor');
-    http.expectOne(URL).flush({ clientes: CLIENTES });
+  it('lets the operator open the create form', () => {
+    const { fixture, element } = listado('operador');
+
+    element('clientes-new')!.click();
     fixture.detectChanges();
 
-    expect(element('cotizar-CLI-18')?.getAttribute('href')).toBe(
-      '/cms/cotizaciones/nueva?cliente=CLI-18&nombre=Andr%C3%A9s%20G%C3%B3mez&documento=1020334556',
-    );
-    expect(element('cotizar-CLI-22')).toBeNull();
+    expect(element('clientes-form')).not.toBeNull();
+    expect((element('clientes-save') as HTMLButtonElement).disabled).toBeTrue();
   });
 
-  it('shows the empty state when the portfolio has no clients', () => {
+  it('shows the empty state when the page has no clients', () => {
     const { fixture, http, element } = render('asesor');
-
-    http.expectOne(URL).flush({ clientes: [] });
+    http
+      .expectOne((candidate) => candidate.url === '/web/operador/clientes')
+      .flush({ clientes: [], pagina: 1, hayMas: false });
     fixture.detectChanges();
 
     expect(element('clientes-empty')).not.toBeNull();
@@ -73,23 +80,16 @@ describe('ClientesView', () => {
 
   it('offers to retry in the same view when the list fails', () => {
     const { fixture, http, element } = render('asesor');
-    http.expectOne(URL).error(new ProgressEvent('error'));
+    http.expectOne((candidate) => candidate.url === '/web/operador/clientes').error(new ProgressEvent('error'));
     fixture.detectChanges();
 
     element('clientes-retry')!.click();
-    http.expectOne(URL).flush({ clientes: CLIENTES });
+    http
+      .expectOne((candidate) => candidate.url === '/web/operador/clientes')
+      .flush({ clientes: CLIENTES, pagina: 1, hayMas: false });
     fixture.detectChanges();
 
     expect(element('clientes-error')).toBeNull();
     expect(element('clientes-table')).not.toBeNull();
-  });
-
-  it('keeps the list from the operator without calling the BFF', () => {
-    const { http, element } = render('operador');
-
-    http.expectNone(URL);
-    expect(element('section-clientes')?.getAttribute('data-state')).toBe('no-permission');
-    expect(element('no-permission')?.getAttribute('data-required')).toBe('asesor');
-    expect(element('clientes-new')).toBeNull();
   });
 });

@@ -27,9 +27,9 @@ import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -339,11 +339,11 @@ class CustomerNavHostTest {
     @Test
     fun givenARenewalPush_whenItArrives_thenTheRenewalNoticeOpens() {
         val holder = arrayOfNulls<NavHostController>(1)
-        val renewal = PushNotice(
-            tipo = PushType.RENOVACION,
+        val renewal = NoticeEntry(
+            tipo = NoticeKind.RENOVACION,
             titulo = "Renovación vigente",
             cuerpo = "Hasta 12 mar 2028",
-            destino = PushDestination.AVISO_RENOVACION,
+            destino = NoticeDestination.AVISO_RENOVACION,
             poliza = OpenValidityNotice.POLICY,
         )
         show(holder, paymentPush = renewal)
@@ -375,7 +375,7 @@ class CustomerNavHostTest {
         holder: Array<NavHostController?> = arrayOfNulls(1),
         homeState: HomeUiState = HomeUiState(),
         start: Any = InicioRoute,
-        paymentPush: PushNotice? = null,
+        paymentPush: NoticeEntry? = null,
     ) {
         rule.setContent {
             val owner = remember {

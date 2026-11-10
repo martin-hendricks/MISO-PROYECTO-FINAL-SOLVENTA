@@ -1,8 +1,21 @@
+from uuid import uuid4
+
 import pytest
 
 from app.application import casos_uso
-from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, DependenciaNoDisponible, IdentidadNoVerificada
+from app.domain.errores import (
+    Conflicto,
+    CredencialesInvalidas,
+    CuentaDuplicada,
+    CuentaInactiva,
+    DependenciaNoDisponible,
+    IdentidadNoVerificada,
+    NoEncontrado,
+    ReglaDeNegocioViolada,
+)
+from app.domain.modelos import EstadoUsuario
 from app.infrastructure.kyc import VerificadorKYCStub
+from app.ports.persistencia import CuentaYaExiste
 
 
 async def _crear(
@@ -128,3 +141,85 @@ async def test_autenticar_con_password_incorrecto_es_credenciales_invalidas(uow)
 async def test_autenticar_email_inexistente_es_credenciales_invalidas(uow):
     with pytest.raises(CredencialesInvalidas):
         await casos_uso.autenticar_usuario(uow, email="nadie@correo.com", password_plano="clave-secreta-123")
+
+
+async def test_cambiar_estado_escribe_un_evento_y_bloquea_el_login(uow, almacen):
+    creado = await _crear(uow, email="camila@correo.com", password="clave-secreta-123")
+
+    inactivo = await casos_uso.cambiar_estado_cliente(uow, creado.id, "INACTIVO")
+
+    assert inactivo.estado is EstadoUsuario.INACTIVO
+    assert len(almacen.outbox) == 1
+    evento = almacen.outbox[0]
+    assert evento.tipo == "UsuarioInactivado"
+    assert evento.agregado_id == creado.id
+    assert evento.payload["usuario_id"] == str(creado.id)
+    assert "ocurrido_en" in evento.payload
+    with pytest.raises(CuentaInactiva):
+        await casos_uso.autenticar_usuario(uow, email="camila@correo.com", password_plano="clave-secreta-123")
+
+    await casos_uso.cambiar_estado_cliente(uow, creado.id, "INACTIVO")
+    assert len(almacen.outbox) == 1
+
+    activo = await casos_uso.cambiar_estado_cliente(uow, creado.id, "ACTIVO")
+    assert activo.estado is EstadoUsuario.ACTIVO
+    assert almacen.outbox[-1].tipo == "UsuarioReactivado"
+    assert almacen.outbox[-1].payload["usuario_id"] == str(creado.id)
+    assert (await casos_uso.autenticar_usuario(uow, email="camila@correo.com", password_plano="clave-secreta-123")).id == creado.id
+
+
+async def test_el_estado_y_el_evento_se_confirman_en_la_misma_unidad_de_trabajo(uow, almacen):
+    creado = await _crear(uow)
+    almacen.chocar_en_proximo_commit = True
+
+    with pytest.raises(CuentaYaExiste):
+        await casos_uso.cambiar_estado_cliente(uow, creado.id, "INACTIVO")
+
+    assert almacen.usuarios[creado.id].estado is EstadoUsuario.ACTIVO
+    assert almacen.outbox == []
+
+
+async def test_editar_cliente_normaliza_el_correo_y_rechaza_duplicado(uow, almacen):
+    uno = await _crear(uow, email="uno@correo.com", documento="1")
+    await _crear(uow, email="dos@correo.com", documento="2")
+
+    editado = await casos_uso.editar_cliente(
+        uow, uno.id, nombre=" Ana ", apellidos=" Lopez ", email=" ANA@correo.com "
+    )
+    assert editado.email == "ana@correo.com"
+    assert almacen.usuarios[uno.id].nombre == "Ana"
+
+    with pytest.raises(Conflicto):
+        await casos_uso.editar_cliente(uow, uno.id, nombre="Ana", apellidos="Lopez", email="DOS@correo.com")
+    assert almacen.usuarios[uno.id].email == "ana@correo.com"
+
+
+async def test_editar_o_cambiar_estado_de_desconocido_o_no_cliente_es_404(uow, almacen):
+    with pytest.raises(NoEncontrado):
+        await casos_uso.editar_cliente(uow, uuid4(), nombre="Ana", apellidos="Lopez", email="ana@correo.com")
+
+    creado = await _crear(uow, email="staff@correo.com", documento="9")
+    almacen.usuarios[creado.id].rol = "operador"
+    with pytest.raises(NoEncontrado):
+        await casos_uso.cambiar_estado_cliente(uow, creado.id, "INACTIVO")
+    assert almacen.outbox == []
+
+
+async def test_listar_clientes_rechaza_rol_consulta_e_ids(uow):
+    with pytest.raises(ReglaDeNegocioViolada) as rol:
+        await casos_uso.listar_clientes(uow, rol="asesor", estado=None, q=None, ids=None, pagina=1)
+    assert rol.value.codigo == "rol_no_soportado"
+
+    with pytest.raises(ReglaDeNegocioViolada) as corta:
+        await casos_uso.listar_clientes(uow, rol="cliente", estado=None, q="a", ids=None, pagina=1)
+    assert corta.value.codigo == "consulta_corta"
+
+    with pytest.raises(ReglaDeNegocioViolada) as larga:
+        await casos_uso.listar_clientes(uow, rol="cliente", estado=None, q="x" * 81, ids=None, pagina=1)
+    assert larga.value.codigo == "consulta_larga"
+
+    with pytest.raises(ReglaDeNegocioViolada) as ids:
+        await casos_uso.listar_clientes(
+            uow, rol="cliente", estado=None, q=None, ids=[uuid4() for _ in range(51)], pagina=1
+        )
+    assert ids.value.codigo == "ids_largos"

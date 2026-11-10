@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
 
 from ..clients.nucleo import DETALLE_INCOMPLETA, token_saliente
@@ -100,6 +100,10 @@ class Hipoteca(BaseModel):
 class PushToken(BaseModel):
     token: str
     plataforma: str
+
+
+class PushTokenRetiro(BaseModel):
+    token: str
 
 
 class Asistencia(BaseModel):
@@ -915,23 +919,21 @@ def guardar_perfil(
 
 
 @router.post("/avisos/token")
-def registrar_token(body: PushToken, request: Request) -> dict:
+def registrar_token(body: PushToken, request: Request, response: Response) -> dict:
     if es_v1(request):
         # notificaciones resuelve usuario_id del JWT reenviado (token_saliente,
         # middleware reenviar_token en main.py), no hace falta pasarlo aquí.
-        request.app.state.nucleo.registrar_dispositivo(plataforma=body.plataforma, token=body.token)
+        nucleo = request.app.state.nucleo
+        nucleo.registrar_dispositivo(plataforma=body.plataforma, token=body.token)
+        response.status_code = getattr(nucleo, "ultimo_estado", 200)
     return {"estado": "aceptada", "plataforma": body.plataforma}
 
 
-@router.get("/avisos/push")
-def push() -> dict:
-    return {
-        "tipo": "vencimiento",
-        "titulo": "Tu póliza vence",
-        "cuerpo": "En 7 días",
-        "destino": "aviso-vencimiento",
-        "poliza": "POL-88219-CO",
-    }
+@router.delete("/avisos/token", status_code=204)
+def retirar_token(body: PushTokenRetiro, request: Request) -> Response:
+    if es_v1(request):
+        request.app.state.nucleo.desactivar_dispositivo(token=body.token)
+    return Response(status_code=204)
 
 
 @router.get("/prestadores")

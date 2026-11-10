@@ -124,7 +124,7 @@ def test_sin_rol_el_bff_asigna_asesor(client):
     )
     headers = {"Authorization": f"Bearer {response.json()['accessToken']}"}
     assert response.status_code == 200
-    assert client.get("/v1/asesor/clientes", headers=headers).status_code == 200
+    assert client.get("/v1/asesor/cartera", headers=headers).status_code == 200
     assert client.get("/v1/operador/avisos", headers=headers).status_code == 403
 
 
@@ -135,7 +135,7 @@ def test_sin_rol_la_cuenta_de_operador_entra_como_operador(client):
     )
     headers = {"Authorization": f"Bearer {response.json()['accessToken']}"}
     assert client.get("/v1/operador/avisos", headers=headers).status_code == 200
-    assert client.get("/v1/asesor/clientes", headers=headers).status_code == 403
+    assert client.get("/v1/asesor/cartera", headers=headers).status_code == 403
 
 
 def test_cuenta_corporativa_pidiendo_rol_cliente_es_401(client):
@@ -176,4 +176,4 @@ def test_sin_rol_una_cuenta_no_corporativa_entra_como_cliente(client):
     )
     headers = {"Authorization": f"Bearer {response.json()['accessToken']}"}
     assert response.status_code == 200
-    assert client.get("/v1/asesor/clientes", headers=headers).status_code == 403
+    assert client.get("/v1/asesor/cartera", headers=headers).status_code == 403

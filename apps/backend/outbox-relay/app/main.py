@@ -31,6 +31,7 @@ ESQUEMA_A_ATRIBUTO_CONFIG: tuple[tuple[str, str], ...] = (
     ("ms_perfilamiento", "database_url_ms_perfilamiento"),
     ("ms_polizas", "database_url_ms_polizas"),
     ("ms_siniestros", "database_url_ms_siniestros"),
+    ("ms_identidad", "database_url_ms_identidad"),
 )
 
 

@@ -6,7 +6,7 @@ import { DatePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { Cobertura, PolizasBackofficeGateway } from './polizas-backoffice.gateway';
 import { PolizaBackofficeDetalleViewModel } from './poliza-backoffice-detalle.viewmodel';
 
@@ -39,9 +39,9 @@ export class PolizaBackofficeDetalleView {
   private readonly gateway = inject(PolizasBackofficeGateway);
   private readonly router = inject(Router);
   protected readonly numero = inject(ActivatedRoute).snapshot.paramMap.get('numero');
-  protected readonly required = requiredRole('polizas');
+  protected readonly required = allowedRoles('polizas');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('polizas', this.role());
 
   protected readonly busqueda = signal('');
   protected readonly dialogoCancelarAbierto = signal(false);

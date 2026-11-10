@@ -4,7 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { DatePipe, DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { AsesorEmisionGateway } from './asesor-emision.gateway';
 import { AsesorEmisionViewModel } from './asesor-emision.viewmodel';
 
@@ -22,9 +22,9 @@ export class AsesorEmisionView {
   protected readonly cotizacionId = this.route.paramMap.get('cotizacionId')!;
   protected readonly clienteId = this.route.queryParamMap.get('cliente');
   protected readonly valid = !!this.clienteId;
-  protected readonly required = requiredRole('cotizaciones');
+  protected readonly required = allowedRoles('cotizaciones');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('cotizaciones', this.role());
   protected readonly vm = new AsesorEmisionViewModel(
     () =>
       this.gateway.decide({

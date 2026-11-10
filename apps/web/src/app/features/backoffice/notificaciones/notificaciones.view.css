@@ -1,0 +1,26 @@
+.ficha {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.ficha label,
+.ficha fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ficha input,
+.ficha textarea {
+  padding: 12px 16px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 12px;
+  font: inherit;
+  background: var(--sv-surface);
+}
+
+.ficha textarea {
+  min-height: 120px;
+}

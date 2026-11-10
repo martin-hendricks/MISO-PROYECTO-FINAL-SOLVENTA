@@ -26,7 +26,6 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toRecord
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRegistration
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRejection
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
-import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toParts
 import com.grupo8_uniandes.solventa.data.bff.mapping.toResult
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRevocation
@@ -66,7 +65,7 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalSave
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.data.bff.dto.PushTokenRetiroDto
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
@@ -408,10 +407,17 @@ class RemotePushRepository(
     private val gate: BffGate,
 ) : PushRepository {
     override suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
-        gate.call { api.registerPush(registration.toDto()).toRegistration() }
+        gate.call {
+            val response = api.registerPush(registration.toDto())
+            if (!response.isSuccessful) throw HttpException(response)
+            registration
+        }
 
-    override suspend fun notice(): StandInAnswer<PushNotice> =
-        gate.call { api.pushNotice().toNotice() }
+    override suspend fun unregister(token: String): StandInAnswer<Unit> =
+        gate.call {
+            val response = api.unregisterPush(PushTokenRetiroDto(token))
+            if (!response.isSuccessful) throw HttpException(response)
+        }
 }
 
 class RemoteAssistanceRepository(
