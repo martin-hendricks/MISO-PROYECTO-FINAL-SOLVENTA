@@ -8,7 +8,7 @@ Contrato: `specs/001-bff-unit-checks/contracts/bff-web.md`
 
 ## Contrato Pact con el núcleo (HU-88)
 
-`bff-web` es consumidor de `ms-cotizacion`. `tests/contract/test_contrato_ms_cotizacion.py` declara el recorrido de catálogo, cotización, reconsulta, aceptación (aceptada y rechazada) y la consulta por oferta de la billetera, y genera `pacts/bff-web-ms-cotizacion.json`, que se versiona en el repo. Cada interacción exige solo los campos que leen las traducciones de `routers/cliente.py`: si el BFF empieza a leer un campo nuevo, el test falla hasta que se agregue al pacto.
+`bff-web` es consumidor de `ms-cotizacion`. `tests/contract/test_contrato_ms_cotizacion.py` declara el recorrido de catálogo, cotización, reconsulta, aceptación (aceptada y rechazada) y la consulta por oferta de la lista de pólizas. `GET /v1/cliente/billetera` lee los depósitos en `ms-siniestros` (`GET /v1/pagos-recibidos`), y genera `pacts/bff-web-ms-cotizacion.json`, que se versiona en el repo. Cada interacción exige solo los campos que leen las traducciones de `routers/cliente.py`: si el BFF empieza a leer un campo nuevo, el test falla hasta que se agregue al pacto.
 
 ```bash
 pip install -e ".[test,contract]"

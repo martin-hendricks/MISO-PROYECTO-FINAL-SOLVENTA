@@ -1,9 +1,9 @@
 package com.grupo8_uniandes.solventa.domain.bff.issuance
 
 interface PolicyMemory {
-    fun readWallet(): List<WalletEntry>?
+    fun readPolicies(): List<PolicyEntry>?
 
-    fun writeWallet(entries: List<WalletEntry>)
+    fun writePolicies(entries: List<PolicyEntry>)
 
     fun readDetail(numero: String): PolicyDetail?
 
@@ -11,12 +11,12 @@ interface PolicyMemory {
 }
 
 class InMemoryPolicyStore : PolicyMemory {
-    private var wallet: List<WalletEntry>? = null
+    private var wallet: List<PolicyEntry>? = null
     private val details = mutableMapOf<String, PolicyDetail>()
 
-    override fun readWallet(): List<WalletEntry>? = wallet
+    override fun readPolicies(): List<PolicyEntry>? = wallet
 
-    override fun writeWallet(entries: List<WalletEntry>) {
+    override fun writePolicies(entries: List<PolicyEntry>) {
         wallet = entries
     }
 

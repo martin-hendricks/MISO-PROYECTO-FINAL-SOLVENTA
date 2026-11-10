@@ -22,7 +22,7 @@ Feature: Customer portal navigation
   Scenario: Hamburger menu on 390
     Given the customer is on a 390 canvas
     When the customer opens the menu
-    Then the navigation menu shows the same four destinations
+    Then the navigation menu shows the same five destinations
     And closing the overlay does not change the page
 
   @HU-107 @SOLV-231

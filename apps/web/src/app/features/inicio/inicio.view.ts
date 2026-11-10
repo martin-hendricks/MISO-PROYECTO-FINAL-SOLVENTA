@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DateTimePipe } from '../../core/i18n/format';
+import { BilleteraGateway } from '../billetera/billetera.gateway';
 import { InicioGateway } from './inicio.gateway';
 import { InicioViewModel } from './inicio.viewmodel';
 
@@ -14,7 +15,12 @@ import { InicioViewModel } from './inicio.viewmodel';
 })
 export class InicioView {
   private readonly gateway = inject(InicioGateway);
-  protected readonly vm = new InicioViewModel(() => this.gateway.load());
+  private readonly billetera = inject(BilleteraGateway);
+  protected readonly vm = new InicioViewModel(
+    () => this.gateway.load(),
+    () => new Date(),
+    () => this.billetera.list(),
+  );
 
   constructor() {
     this.vm.load();

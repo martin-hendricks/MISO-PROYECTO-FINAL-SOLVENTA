@@ -29,6 +29,10 @@ describe('ParametricoView', () => {
     expect(host.textContent).toContain('80 mm');
     expect(host.textContent).toContain('1.200.000');
     expect(host.textContent).toContain('Apagado. Opta esa póliza a renovar su prima.');
+    expect(host.textContent).toContain('Ver en billetera');
+    expect(
+      host.querySelector('[data-testid="parametrico-ver-billetera"]')?.getAttribute('href'),
+    ).toBe('/billetera');
     const checkbox = host.querySelector<HTMLInputElement>('[data-testid="parametrico-renovacion"]')!;
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event('change'));

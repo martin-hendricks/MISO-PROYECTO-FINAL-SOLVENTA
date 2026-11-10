@@ -2,13 +2,13 @@ package com.grupo8_uniandes.solventa.domain.bff.claim
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 
 class PoliciesInForce(
     private val issuance: IssuanceRepository,
 ) {
-    suspend operator fun invoke(): List<WalletEntry> {
-        val wallet = issuance.wallet()
+    suspend operator fun invoke(): List<PolicyEntry> {
+        val wallet = issuance.policies()
         return if (wallet is StandInAnswer.Ready) {
             wallet.value.filter { it.canReportClaim() }
         } else {
@@ -17,7 +17,7 @@ class PoliciesInForce(
     }
 }
 
-fun WalletEntry.canReportClaim(): Boolean =
+fun PolicyEntry.canReportClaim(): Boolean =
     estado.trim().lowercase() in claimReportStates
 
 // ms-polizas answers VIGENTE. por_vencer is still in force. vencida and cancelada are not.

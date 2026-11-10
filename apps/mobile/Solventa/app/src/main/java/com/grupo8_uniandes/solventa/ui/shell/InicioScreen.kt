@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -39,6 +40,8 @@ fun InicioScreen(
     onOpenPolicy: (String) -> Unit = {},
     onOpenClaim: (String) -> Unit = {},
     onOpenMortgage: () -> Unit = {},
+    walletLine: String? = null,
+    onOpenWallet: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val panel = state.panel
@@ -105,14 +108,25 @@ fun InicioScreen(
                 }
             }
         }
-        panel.claimId?.let { claimId ->
+        if (panel.claimId != null || !walletLine.isNullOrBlank()) {
             HomeSection {
                 HomeSectionLabel(R.string.home_section_claims)
-                SolventaCard(
-                    onClick = { onOpenClaim(claimId) },
-                    testTag = "home_claim",
-                ) {
-                    Text(text = claimId, style = SolventaTypography.amount)
+                walletLine?.let { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .testTag("home_billetera")
+                            .clickable(onClick = onOpenWallet),
+                    )
+                }
+                panel.claimId?.let { claimId ->
+                    SolventaCard(
+                        onClick = { onOpenClaim(claimId) },
+                        testTag = "home_claim",
+                    ) {
+                        Text(text = claimId, style = SolventaTypography.amount)
+                    }
                 }
             }
         }

@@ -10,7 +10,9 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.bffJson
+import com.grupo8_uniandes.solventa.data.bff.mapping.toDeposit
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
+import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toHome
@@ -33,6 +35,9 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toTokens
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
@@ -49,7 +54,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
@@ -238,11 +243,11 @@ class RemoteIssuanceRepository(
             else -> StandInAnswer.Failed
         }
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> =
+    override suspend fun policies(): StandInAnswer<List<PolicyEntry>> =
         try {
             gate.flush()
-            val entries = api.wallet().toEntries()
-            cache.writeWallet(entries)
+            val entries = api.policies().toEntries()
+            cache.writePolicies(entries)
             StandInAnswer.Ready(entries)
         } catch (_: IOException) {
             StandInAnswer.Failed
@@ -447,6 +452,26 @@ class RemoteRenewalPreferenceRepository(
             RenewalSave.Failed
         } catch (_: SerializationException) {
             RenewalSave.Failed
+        }
+    }
+}
+
+class RemoteDepositRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : DepositRepository {
+    override suspend fun wallet(): StandInAnswer<Wallet> = gate.call { api.billetera().toWallet() }
+
+    override suspend fun deposit(id: String): StandInAnswer<Deposit> {
+        gate.flush()
+        return try {
+            StandInAnswer.Ready(api.movimiento(id).toDeposit())
+        } catch (error: HttpException) {
+            if (error.code() == 404) StandInAnswer.Rejected("not_found") else StandInAnswer.Failed
+        } catch (_: IOException) {
+            StandInAnswer.Failed
+        } catch (_: SerializationException) {
+            StandInAnswer.Failed
         }
     }
 }

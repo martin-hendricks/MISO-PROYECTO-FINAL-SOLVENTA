@@ -214,6 +214,18 @@ export const routes: Routes = [
             (m) => m.SiniestroDetalleView,
           ),
       },
+      {
+        path: 'billetera',
+        loadComponent: () =>
+          import('./features/billetera/lista/billetera-lista.view').then((m) => m.BilleteraListaView),
+      },
+      {
+        path: 'billetera/:id',
+        loadComponent: () =>
+          import('./features/billetera/detalle/billetera-detalle.view').then(
+            (m) => m.BilleteraDetalleView,
+          ),
+      },
       destino('perfil', 'perfil'),
       {
         path: 'vida-crediticia',

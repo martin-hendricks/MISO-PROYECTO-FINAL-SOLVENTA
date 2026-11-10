@@ -4,6 +4,9 @@ import android.content.Context
 import com.grupo8_uniandes.solventa.data.bff.MobileBff
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositMemory
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.InMemoryDepositStore
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryClaimHold
@@ -41,6 +44,8 @@ class BffRuntime private constructor(
     val memory: PolicyMemory,
     val claimHold: ClaimHold,
     val renewal: RenewalPreferenceRepository,
+    val deposits: DepositRepository,
+    val depositMemory: DepositMemory,
 ) {
     companion object {
         fun standIn(): BffRuntime {
@@ -61,6 +66,8 @@ class BffRuntime private constructor(
                 InMemoryPolicyStore(),
                 MemoryClaimHold(),
                 StandInRenewalPreferenceRepository(),
+                bff.deposits,
+                InMemoryDepositStore(),
             )
         }
 
@@ -85,6 +92,8 @@ class BffRuntime private constructor(
                 BffPolicyMemory(cache),
                 CachedClaimHold(cache),
                 RemoteRenewalPreferenceRepository(api, gate),
+                RemoteDepositRepository(api, gate),
+                BffDepositMemory(cache),
             )
         }
     }

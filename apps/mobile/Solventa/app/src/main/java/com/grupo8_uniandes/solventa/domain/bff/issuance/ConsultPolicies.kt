@@ -3,7 +3,7 @@ package com.grupo8_uniandes.solventa.domain.bff.issuance
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 
 data class PolicyListResult(
-    val policies: List<WalletEntry>,
+    val policies: List<PolicyEntry>,
     val notice: Boolean,
     val empty: Boolean,
 )
@@ -21,15 +21,15 @@ class ConsultPolicies(
     private var staleList = false
     private val staleDetails = mutableSetOf<String>()
 
-    suspend fun list(): PolicyListResult = when (val answer = issuance.wallet()) {
+    suspend fun list(): PolicyListResult = when (val answer = issuance.policies()) {
         is StandInAnswer.Ready -> {
-            memory.writeWallet(answer.value)
+            memory.writePolicies(answer.value)
             val notice = staleList
             staleList = false
             PolicyListResult(answer.value, notice = notice, empty = answer.value.isEmpty())
         }
         StandInAnswer.Failed, is StandInAnswer.Rejected -> {
-            val saved = memory.readWallet()
+            val saved = memory.readPolicies()
             if (saved != null) {
                 staleList = true
                 PolicyListResult(saved, notice = false, empty = saved.isEmpty())
@@ -61,7 +61,7 @@ class ConsultPolicies(
 
     private fun reconcile(numero: String, detail: PolicyDetail): PolicyDetail {
         if (detail.numero != numero) {
-            val entry = memory.readWallet()?.firstOrNull { it.numero == numero }
+            val entry = memory.readPolicies()?.firstOrNull { it.numero == numero }
             if (entry != null) {
                 return PolicyDetail(entry.numero, entry.ramo, entry.resumen, entry.estado, entry.venceEn, queHacer = "")
             }

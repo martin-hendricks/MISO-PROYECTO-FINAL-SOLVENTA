@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.data.bff
 
 import com.grupo8_uniandes.solventa.data.bff.mock.MockAssistanceRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockDepositRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockClaimRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockHomeBffRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
@@ -26,4 +27,5 @@ class MobileBff(
     val home: MockHomeBffRepository = MockHomeBffRepository(),
     val push: MockPushRepository = MockPushRepository(),
     val assistance: MockAssistanceRepository = MockAssistanceRepository(),
+    val deposits: MockDepositRepository = MockDepositRepository(),
 )

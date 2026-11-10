@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.bff
 
 import com.grupo8_uniandes.solventa.data.bff.MobileBff
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceGeoDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
@@ -37,8 +38,8 @@ import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushTypeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletEntryDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PolicyEntryDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
@@ -48,6 +49,9 @@ import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
+import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
+import java.math.BigDecimal
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
@@ -128,8 +132,8 @@ class SampleMappingTest {
         assertEquals("Protección de dispositivo", issued.ramo)
         assertEquals("vigente", issued.estado)
         assertEquals("2027-03-12", issued.venceEn)
-        val wallet = bff.issuance.wallet().ready()
-        assertEquals(wallet, bff.issuance.wallet().ready())
+        val wallet = bff.issuance.policies().ready()
+        assertEquals(wallet, bff.issuance.policies().ready())
         assertEquals(2, wallet.size)
         val entry = wallet.first()
         assertEquals("POL-88219-CO", entry.numero)
@@ -370,8 +374,8 @@ class SampleMappingTest {
         assertEquals("oferta_vigente", OfferOutDto("COT-1042", "Protección de dispositivo", "oferta_vigente", 89_000L, "COP", "2026-10-01").estado)
         assertEquals("COT-1042", IdDto("COT-1042").cotizacionId)
         assertEquals("vigente", IssuedDto("POL-88219-CO", "Protección de dispositivo", "vigente", "2027-03-12").estado)
-        val entry = WalletEntryDto("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")
-        assertEquals(entry.numero, WalletDto(listOf(entry)).polizas.single().numero)
+        val entry = PolicyEntryDto("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")
+        assertEquals(entry.numero, PoliciesDto(listOf(entry)).polizas.single().numero)
         assertEquals("Robo y Pantalla", DetailDto("POL-88219-CO", "Protección de dispositivo", "Robo y Pantalla", "vigente", "2027-03-12", "Toma la foto del daño y anota fecha y lugar.").resumen)
         val geo = GeoDto(4.6533, -74.0836, 12)
         assertEquals(12, geo.precisionM)
@@ -441,6 +445,13 @@ class SampleMappingTest {
         assertEquals("CC", echoed.tipoDocumento)
         val notice = ClaimNotice("POL-9", "2026-03-12", null, emptyList())
         assertNull(notice.toDto().geo)
+    }
+
+    @Test
+    fun billeteraSampleMapsAutomaticPayments() {
+        val wallet = decode<BilleteraDto>(PublishedSamples.BILLETERA)!!.toWallet()
+        assertEquals(BigDecimal("1070000.00"), wallet.totalRecibido)
+        assertEquals(DepositType.Automatic, wallet.movimientos[1].tipo)
     }
 
     private fun <T> StandInAnswer<T>.ready(): T {

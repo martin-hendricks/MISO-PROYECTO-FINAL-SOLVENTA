@@ -1,0 +1,49 @@
+<section data-testid="billetera-detalle" [attr.data-state]="vm.status()">
+  <a class="back" routerLink="/billetera" data-testid="billetera-volver">{{
+    'billetera.atras' | translate
+  }}</a>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status">{{ 'billetera.loading' | translate }}</p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="billetera-detalle-error">
+        <p>{{ 'billetera.error' | translate }}</p>
+        <button type="button" class="outlined" (click)="vm.load()">
+          {{ 'billetera.reintentar' | translate }}
+        </button>
+      </div>
+    }
+    @case ('notFound') {
+      <div class="empty-state" data-testid="billetera-detalle-ausente">
+        <p>{{ 'billetera.detalle.notFound' | translate }}</p>
+      </div>
+    }
+    @default {
+      @let m = vm.movimiento()!;
+      <h1>{{ 'billetera.detalle.title' | translate }}</h1>
+      <p class="subtitle">{{ 'billetera.detalle.lead' | translate }}</p>
+      <dl class="datos">
+        <dt>{{ 'billetera.detalle.ramo' | translate }}</dt>
+        <dd>{{ m.ramo }}@if (m.resumen) { · {{ m.resumen }} }</dd>
+        <dt>{{ 'billetera.detalle.evento' | translate }}</dt>
+        <dd>{{ m.resumen }}</dd>
+        <dt>{{ 'billetera.detalle.monto' | translate }}</dt>
+        <dd class="amount" data-testid="billetera-detalle-monto">{{ m.monto | svMoney: m.moneda }}</dd>
+        <dt>{{ 'billetera.detalle.comprobante' | translate }}</dt>
+        <dd>{{ m.comprobante }}</dd>
+        <dt>{{ 'billetera.detalle.estado' | translate }}</dt>
+        <dd>{{ 'billetera.detalle.depositado' | translate }} · {{ 'billetera.tipo.' + m.tipo | translate }}</dd>
+        <dt>{{ 'billetera.detalle.poliza' | translate }}</dt>
+        <dd>{{ m.poliza }}</dd>
+      </dl>
+      <div class="actions">
+        <a class="outlined" routerLink="/billetera">{{ 'billetera.volver' | translate }}</a>
+        <a class="outlined" [routerLink]="vm.destinoSiniestro(m)" data-testid="billetera-ver-siniestro">{{
+          'billetera.verSiniestro' | translate
+        }}</a>
+      </div>
+    }
+  }
+</section>

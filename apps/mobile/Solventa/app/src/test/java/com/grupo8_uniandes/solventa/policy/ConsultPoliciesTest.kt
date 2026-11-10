@@ -8,7 +8,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.issuance.detailMeta
 import com.grupo8_uniandes.solventa.domain.bff.issuance.guidanceFor
 import com.grupo8_uniandes.solventa.domain.bff.issuance.listBody
@@ -61,7 +61,7 @@ class ConsultPoliciesTest {
         assertEquals("amparo de vida", opened.resumen)
         assertEquals("", guidanceFor(opened))
         assertEquals("Por vencer · en 7 días", detailMeta(opened))
-        val other = WalletEntry("POL-1", "otro ramo", "resto", "otro", "2027-03-12")
+        val other = PolicyEntry("POL-1", "otro ramo", "resto", "otro", "2027-03-12")
         assertEquals("otro", listMeta(other))
         assertEquals(
             "Vigente · vence 12 mar 2027",
@@ -99,7 +99,7 @@ class ConsultPoliciesTest {
             object : IssuanceRepository {
                 override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed as StandInAnswer<IssuedPolicy>
                 override suspend fun rejected() = StandInAnswer.Failed as StandInAnswer<IssueRejection>
-                override suspend fun wallet() = StandInAnswer.Failed as StandInAnswer<List<WalletEntry>>
+                override suspend fun policies() = StandInAnswer.Failed as StandInAnswer<List<PolicyEntry>>
                 override suspend fun detail(numero: String) = detail
             },
             InMemoryPolicyStore(),
@@ -113,13 +113,13 @@ class ConsultPoliciesTest {
 
     @Test
     fun givenASavedConsultation_whenTheNextReadFails_thenTheSavedCoverageRemains() = runBlocking {
-        var wallet: StandInAnswer<List<WalletEntry>> = StandInAnswer.Ready(reviewWallet())
+        var wallet: StandInAnswer<List<PolicyEntry>> = StandInAnswer.Ready(reviewWallet())
         var detail: StandInAnswer<PolicyDetail> = deviceDetail()
         val consult = ConsultPolicies(
             object : IssuanceRepository {
                 override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed as StandInAnswer<IssuedPolicy>
                 override suspend fun rejected() = StandInAnswer.Failed as StandInAnswer<IssueRejection>
-                override suspend fun wallet() = wallet
+                override suspend fun policies() = wallet
                 override suspend fun detail(numero: String) = detail
             },
             InMemoryPolicyStore(),
@@ -149,12 +149,12 @@ class ConsultPoliciesTest {
 
     @Test
     fun givenAFailureThenAReadyRead_whenListed_thenTheNoticeFollowsOnlyThatRecovery() = runBlocking {
-        var wallet: StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
+        var wallet: StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed
         val consult = ConsultPolicies(
             object : IssuanceRepository {
                 override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed as StandInAnswer<IssuedPolicy>
                 override suspend fun rejected() = StandInAnswer.Failed as StandInAnswer<IssueRejection>
-                override suspend fun wallet() = wallet
+                override suspend fun policies() = wallet
                 override suspend fun detail(numero: String) = StandInAnswer.Failed
             },
             InMemoryPolicyStore(),
@@ -171,8 +171,8 @@ class ConsultPoliciesTest {
 }
 
 private fun reviewWallet() = listOf(
-    WalletEntry("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12"),
-    WalletEntry("POL-11002-CO", "Microseguro de vida", "amparo de vida", "por_vencer", "2026-11-06"),
+    PolicyEntry("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12"),
+    PolicyEntry("POL-11002-CO", "Microseguro de vida", "amparo de vida", "por_vencer", "2026-11-06"),
 )
 
 private fun deviceDetail() = StandInAnswer.Ready(
@@ -187,14 +187,14 @@ private fun deviceDetail() = StandInAnswer.Ready(
 )
 
 private fun scripted(
-    wallet: StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed,
+    wallet: StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed,
     detail: StandInAnswer<PolicyDetail> = StandInAnswer.Failed,
 ) = object : IssuanceRepository {
     override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
 
     override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = wallet
+    override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = wallet
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = detail
 }

@@ -13,6 +13,7 @@ from app.domain.modelos import (
     EventoDominio,
     EventoParametrico,
     PagoParametrico,
+    PagoRecibido,
     ResultadoDecision,
     Siniestro,
     TipoSiniestro,
@@ -48,6 +49,10 @@ class RepositorioSiniestros(Protocol):
     async def filtrar(self, filtro: FiltroSiniestros) -> list[Siniestro]: ...
 
     async def listar_abiertos_por_poliza(self, poliza_id: UUID) -> list[Siniestro]: ...
+
+    async def listar_pagos_recibidos(self, usuario_id: UUID) -> list[PagoRecibido]: ...
+
+    async def obtener_pago_recibido(self, siniestro_id: UUID, usuario_id: UUID) -> PagoRecibido | None: ...
 
     async def contar_avisos_de_poliza_desde(self, poliza_id: UUID, desde: datetime, excluir: UUID) -> int: ...
 

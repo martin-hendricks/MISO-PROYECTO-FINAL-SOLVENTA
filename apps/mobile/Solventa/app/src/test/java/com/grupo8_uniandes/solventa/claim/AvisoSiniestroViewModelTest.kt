@@ -18,7 +18,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
@@ -94,7 +94,7 @@ class AvisoSiniestroViewModelTest {
         assertEquals(listOf("POL-1", "POL-3", "POL-5"), PoliciesInForce(wallet).invoke().map { it.numero })
         assertEquals("Vida", PoliciesInForce(wallet).invoke()[1].ramo)
         wallet.fail = true
-        assertEquals(emptyList<WalletEntry>(), PoliciesInForce(wallet).invoke())
+        assertEquals(emptyList<PolicyEntry>(), PoliciesInForce(wallet).invoke())
         val viewModel = AvisoSiniestroViewModel(
             OpenClaimNotice(QuietClaims(), MemoryClaimHold()) { "key-1" },
             PoliciesInForce(ScriptedWallet(onlyOne = true)),
@@ -127,20 +127,20 @@ class AvisoSiniestroViewModelTest {
     ) : IssuanceRepository {
         override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
         override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
-        override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = if (fail) {
+        override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = if (fail) {
             StandInAnswer.Failed
         } else {
             StandInAnswer.Ready(
                 if (onlyOne) {
-                    listOf(WalletEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"))
+                    listOf(PolicyEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"))
                 } else {
                     listOf(
-                        WalletEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"),
-                        WalletEntry("POL-2", "SOAT", "moto", "vencida", "2020-01-01"),
-                        WalletEntry("POL-3", "Vida", "amparo", "por_vencer", "2026-12-01"),
-                        WalletEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
-                        WalletEntry("POL-5", "SOAT", "moto", "VIGENTE", "2027-06-01"),
-                        WalletEntry("POL-6", "SOAT", "moto", "CANCELADA", "2027-06-01"),
+                        PolicyEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"),
+                        PolicyEntry("POL-2", "SOAT", "moto", "vencida", "2020-01-01"),
+                        PolicyEntry("POL-3", "Vida", "amparo", "por_vencer", "2026-12-01"),
+                        PolicyEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
+                        PolicyEntry("POL-5", "SOAT", "moto", "VIGENTE", "2027-06-01"),
+                        PolicyEntry("POL-6", "SOAT", "moto", "CANCELADA", "2027-06-01"),
                     )
                 },
             )

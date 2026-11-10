@@ -54,6 +54,8 @@ import com.grupo8_uniandes.solventa.domain.startup.RestoredSession
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.navigation.BilleteraRoute
+import com.grupo8_uniandes.solventa.navigation.DepositoRoute
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
 import com.grupo8_uniandes.solventa.navigation.OfertaHipotecarioRoute
 import com.grupo8_uniandes.solventa.navigation.Destination
@@ -489,6 +491,8 @@ private fun routeTitle(route: Any): String = when (route) {
     EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
     is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
     AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
+    BilleteraRoute -> stringResource(R.string.destination_billetera)
+    is DepositoRoute -> stringResource(R.string.billetera_shell_deposito)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
 }

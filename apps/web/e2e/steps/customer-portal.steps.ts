@@ -116,8 +116,8 @@ When('the customer opens the menu', async function (this: PortalWorld) {
   await this.shell.openMenu();
 });
 
-Then('the navigation menu shows the same four destinations', async function (this: PortalWorld) {
-  await this.shell.expectMenuShowsFourDestinations();
+Then('the navigation menu shows the same five destinations', async function (this: PortalWorld) {
+  await this.shell.expectMenuShowsFiveDestinations();
 });
 
 Then('closing the overlay does not change the page', async function (this: PortalWorld) {

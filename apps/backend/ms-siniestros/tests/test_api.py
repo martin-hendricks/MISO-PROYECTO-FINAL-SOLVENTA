@@ -1,4 +1,7 @@
+from decimal import Decimal
 from uuid import uuid4
+
+from .conftest import cabecera
 
 
 def _ingerir(client, evento_id="evt-1", **extra):
@@ -42,6 +45,8 @@ def test_reingesta_del_mismo_evento_devuelve_200_y_no_duplica(client):
     assert segundo.json()["siniestro"]["id"] == primero.json()["siniestro"]["id"]
     assert segundo.json()["pago"]["pagado_en"] == primero.json()["pago"]["pagado_en"]
     assert segundo.json()["pago"]["monto"] == primero.json()["pago"]["monto"]
+    assert segundo.json()["pago"]["comprobante"] == primero.json()["pago"]["comprobante"]
+    assert primero.json()["pago"]["comprobante"].startswith("CMP-")
     assert segundo.json()["procesado"] is False
 
 
@@ -181,3 +186,45 @@ def test_siniestros_abiertos_requiere_poliza_id(client):
     respuesta = client.get("/v1/siniestros/abiertos")
 
     assert respuesta.status_code == 422
+
+
+def test_pagos_recibidos_respeta_rol_y_dueno(client):
+    dueno = uuid4()
+    creado = _ingerir(
+        client,
+        evento_id="evt-billetera-api",
+        monto_pago="180000.00",
+        usuario_id=str(dueno),
+        ramo="clima-vuelos",
+        poliza_numero="POL-11002-CO",
+        descripcion="retraso de vuelo",
+    ).json()
+    siniestro_id = creado["siniestro"]["id"]
+
+    como_dueno = client.get("/v1/pagos-recibidos", headers=cabecera("cliente", dueno))
+    assert como_dueno.status_code == 200
+    cuerpo = como_dueno.json()
+    assert cuerpo["moneda"] == "COP"
+    assert Decimal(cuerpo["total"]) == Decimal("180000.00")
+    assert cuerpo["pagos"][0]["siniestro_id"] == siniestro_id
+    assert cuerpo["pagos"][0]["tipo"] == "parametrico"
+    assert cuerpo["pagos"][0]["ramo"] == "clima-vuelos"
+
+    ajeno = client.get(
+        "/v1/pagos-recibidos", params={"usuario_id": str(uuid4())}, headers=cabecera("cliente", dueno)
+    )
+    assert ajeno.status_code == 404
+    assert client.get(f"/v1/pagos-recibidos/{siniestro_id}", headers=cabecera("cliente", uuid4())).status_code == 404
+    assert client.get("/v1/pagos-recibidos", headers=cabecera("operador")).status_code == 422
+    assert client.get("/v1/pagos-recibidos", headers=cabecera("asesor")).status_code == 422
+    assert client.get("/v1/pagos-recibidos", headers={"Authorization": ""}).status_code == 401
+    # Un rol fuera de cliente/asesor/operador se rechaza al validar el token.
+    assert client.get("/v1/pagos-recibidos", headers=cabecera("admin")).status_code == 401
+    assert _ingerir(client, evento_id="evt-largo", ramo="x" * 61).status_code == 422
+
+
+def test_cliente_sin_pagos_recibe_total_cero(client):
+    respuesta = client.get("/v1/pagos-recibidos", headers=cabecera("cliente", uuid4()))
+    assert respuesta.status_code == 200
+    assert respuesta.json()["pagos"] == []
+    assert Decimal(respuesta.json()["total"]) == Decimal("0.00")

@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
+import com.grupo8_uniandes.solventa.billetera.BilleteraViewModel
+import com.grupo8_uniandes.solventa.billetera.DepositoViewModel
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.DetailPhase
 import com.grupo8_uniandes.solventa.claim.ParametricTarget
@@ -43,13 +45,20 @@ import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
 import com.grupo8_uniandes.solventa.ui.shell.OfertaHipotecarioScreen
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositMemory
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.formatPremium
+import org.koin.core.context.GlobalContext
+import com.grupo8_uniandes.solventa.ui.shell.BilleteraScreen
+import com.grupo8_uniandes.solventa.ui.shell.DepositoScreen
 import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
 import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
@@ -118,8 +127,12 @@ fun CustomerNavHost(
         startDestination = startDestination,
         modifier = modifier.padding(contentPadding),
     ) {
-        composable<InicioRoute> {
-            LaunchedEffect(Unit) { onInicioVisible() }
+        composable<InicioRoute> { entry ->
+            val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
+            LaunchedEffect(reload) { onInicioVisible() }
+            val billetera: BilleteraViewModel = koinViewModel()
+            val wallet by billetera.state.collectAsState()
+            val newest = wallet.wallet?.movimientos?.maxByOrNull { it.depositadoEn }
             InicioScreen(
                 state = homeState,
                 onNewQuote = { navController.navigate(CotizacionRoute()) },
@@ -132,6 +145,11 @@ fun CustomerNavHost(
                     navController.openParentThen(SiniestrosRoute, SiniestroDetalleRoute(claimId))
                 },
                 onOpenMortgage = { navController.navigate(OfertaHipotecarioRoute) },
+                walletLine = newest?.let { deposit ->
+                    val amount = formatPremium(deposit.monto, deposit.moneda.ifBlank { "COP" }, Region.Colombia)
+                    "${deposit.siniestroId} · $amount depositados"
+                },
+                onOpenWallet = { navController.openDestination(Destination.Billetera) },
             )
         }
         composable<OfertaHipotecarioRoute> {
@@ -199,10 +217,11 @@ fun CustomerNavHost(
                 region = region,
             )
         }
-        composable<PolizasRoute> {
+        composable<PolizasRoute> { entry ->
             val viewModel: PolizasViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
-            LaunchedEffect(Unit) { viewModel.refresh() }
+            val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
+            LaunchedEffect(reload) { viewModel.refresh() }
             PolizasScreen(
                 policies = state.policies,
                 phase = state.phase,
@@ -249,10 +268,11 @@ fun CustomerNavHost(
                 onLeave = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
         }
-        composable<SiniestrosRoute> {
+        composable<SiniestrosRoute> { entry ->
             val viewModel: SiniestrosViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
-            LaunchedEffect(Unit) { viewModel.refresh() }
+            val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
+            LaunchedEffect(reload) { viewModel.refresh() }
             LaunchedEffect(state.openedClaimId) {
                 val id = state.openedClaimId ?: return@LaunchedEffect
                 if (state.openParametric) {
@@ -382,6 +402,10 @@ fun CustomerNavHost(
                     onBack = { navController.popBackStack() },
                     renewalChecked = state.renewalChecked,
                     onRenewal = viewModel::setRenewal,
+                    onOpenWallet = {
+                        val claimId = ParametricTarget.claimId.ifBlank { OpenParametricPayment.STORED_ID }
+                        navController.openWalletFor(claimId)
+                    },
                     onDownload = {
                         val receipt = viewModel.offerReceipt() ?: return@ParametricoScreen
                         val text = listOf(receipt.asunto, receipt.disparo, receipt.lineaDepositada)
@@ -411,12 +435,59 @@ fun CustomerNavHost(
                     val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     runCatching { context.startActivity(view) }
                 },
+                onOpenWallet = {
+                    navController.openWalletFor(detail.claim?.summary?.siniestroId ?: route.claimId)
+                },
             )
         }
-        composable<PerfilRoute> {
+        composable<BilleteraRoute> { entry ->
+            val viewModel: BilleteraViewModel = koinViewModel()
+            val state by viewModel.state.collectAsState()
+            val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
+            LaunchedEffect(reload) { viewModel.refresh() }
+            BilleteraScreen(
+                state = state,
+                onChip = viewModel::select,
+                onOpen = { id -> navController.navigate(DepositoRoute(id)) },
+                onRetry = { viewModel.refresh() },
+                onClaims = { navController.navigate(SiniestrosRoute) },
+            )
+        }
+        composable<DepositoRoute> { entry ->
+            val route = entry.toRoute<DepositoRoute>()
+            val viewModel: DepositoViewModel = koinViewModel { parametersOf(route.id) }
+            val state by viewModel.state.collectAsState()
+            val context = LocalContext.current
+            DepositoScreen(
+                state = state,
+                onBack = { navController.popBackStack() },
+                onRetry = viewModel::load,
+                onClaim = {
+                    if (viewModel.openClaim() == null) return@DepositoScreen
+                    val deposit = state.deposit ?: return@DepositoScreen
+                    if (deposit.tipo == DepositType.Automatic) {
+                        ParametricTarget.claimId = deposit.siniestroId
+                        navController.openParentThen(SiniestrosRoute, ParametricoRoute)
+                    } else {
+                        navController.openParentThen(SiniestrosRoute, SiniestroDetalleRoute(deposit.siniestroId))
+                    }
+                },
+                onDownload = {
+                    val text = state.deposit?.comprobante ?: return@DepositoScreen
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    runCatching { context.startActivity(Intent.createChooser(share, null)) }
+                },
+            )
+        }
+        composable<PerfilRoute> { entry ->
+            val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
             PerfilScreen(
                 originationActive = originationActive,
                 onSignedOut = onSignedOut,
+                reloadKey = reload,
             )
         }
         composable<ConfirmacionTarjetaRoute> { entry ->
@@ -531,6 +602,8 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
         destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
+        destination.hasRoute<BilleteraRoute>() -> BilleteraRoute
+        destination.hasRoute<DepositoRoute>() -> toRoute<DepositoRoute>()
         destination.hasRoute<PerfilRoute>() -> PerfilRoute
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
         destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
@@ -540,41 +613,24 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
     }
 }
 
-fun NavHostController.openDestination(destination: Destination) {
-    if (destination == Destination.Polizas) {
-        reopenPolizas()
-        return
-    }
-    val current = currentBackStackEntry?.toSolventaRoute()
-    val currentParent = current?.let { selectedDestination(it) }
-    val currentMode = current?.let { shellMode(it, signedIn = true) }
-    if (currentParent == destination && currentMode == ShellMode.Root) return
-    if (currentParent == destination && popBackStack(destination.rootRoute(), inclusive = false)) {
-        return
-    }
-    navigate(destination.rootRoute()) {
-        popUpTo(graph.findStartDestination().id) {
-            saveState = true
-        }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
+internal const val TAB_RELOAD = "solventa.tab.reload"
 
-fun NavHostController.showClaimsList() {
-    if (popBackStack(SiniestrosRoute, inclusive = false)) return
-    navigate(SiniestrosRoute) {
+fun NavHostController.openDestination(destination: Destination) {
+    val route = destination.rootRoute()
+    popBackStack(route, inclusive = true)
+    navigate(route) {
         popUpTo(graph.findStartDestination().id) {
             saveState = true
         }
         launchSingleTop = true
         restoreState = false
     }
+    currentBackStackEntry?.savedStateHandle?.set(TAB_RELOAD, System.nanoTime())
 }
 
-private fun NavHostController.reopenPolizas() {
-    popBackStack(PolizasRoute, inclusive = true)
-    navigate(PolizasRoute) {
+fun NavHostController.showClaimsList() {
+    if (popBackStack(SiniestrosRoute, inclusive = false)) return
+    navigate(SiniestrosRoute) {
         popUpTo(graph.findStartDestination().id) {
             saveState = true
         }
@@ -590,6 +646,15 @@ fun NavHostController.leaveIssuance(route: Any) {
         }
         launchSingleTop = true
     }
+}
+
+private fun NavHostController.openWalletFor(siniestroId: String) {
+    val id = runCatching {
+        GlobalContext.get().get<DepositMemory>().read()?.wallet?.movimientos
+            ?.firstOrNull { it.siniestroId == siniestroId }?.id
+    }.getOrNull()
+    if (id.isNullOrBlank()) openDestination(Destination.Billetera)
+    else openParentThen(BilleteraRoute, DepositoRoute(id))
 }
 
 private fun NavHostController.openParentThen(parent: Any, child: Any) {

@@ -88,6 +88,25 @@ describe('InicioViewModel', () => {
     expect(viewModel.status()).toBe('empty');
   });
 
+  it('shows the wallet link only when there is a deposit', () => {
+    const withDeposit = new InicioViewModel(
+      () => of(INICIO),
+      () => new Date(),
+      () => of({ movimientos: [{}] }),
+    );
+    withDeposit.load();
+    expect(withDeposit.deposits()).toBe(1);
+
+    const failed = new InicioViewModel(
+      () => of(INICIO),
+      () => new Date(),
+      () => throwError(() => new Error('caido')),
+    );
+    failed.load();
+    expect(failed.deposits()).toBe(0);
+    expect(failed.status()).toBe('ready');
+  });
+
   it('recovers on retry after a failure', () => {
     let attempts = 0;
     const viewModel = new InicioViewModel(() =>

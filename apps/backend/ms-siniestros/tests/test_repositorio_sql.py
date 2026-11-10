@@ -79,3 +79,65 @@ async def test_siniestros_abiertos_de_poliza_persisten_y_excluyen_pagados(uow, a
     abiertos = await casos_uso.listar_siniestros_abiertos_de_poliza(uow, poliza_id)
 
     assert [s.id for s in abiertos] == [abierto.siniestro.id]
+
+
+async def test_pagos_recibidos_le_pertenecen_al_dueno(uow, adaptador_desembolso):
+    from pathlib import Path
+
+    migracion = Path(__file__).resolve().parents[1] / "db" / "07_pago_parametrico_comprobante.sql"
+    async with uow() as tx:
+        await tx._sesion.execute(text(migracion.read_text()))
+        await tx.confirmar()
+
+    dueno = uuid4()
+    evento = f"it-billetera-{uuid4()}"
+    primero = await casos_uso.recibir_evento_parametrico(
+        uow,
+        adaptador_desembolso,
+        evento,
+        Decimal("100"),
+        Decimal("80"),
+        True,
+        Decimal("180000.00"),
+        usuario_id=dueno,
+        ramo="clima-vuelos",
+        poliza_numero="POL-11002-CO",
+        descripcion="retraso de vuelo",
+    )
+    segundo = await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, evento, Decimal("100"), Decimal("80"), True, Decimal("180000.00")
+    )
+
+    assert segundo.pago.comprobante == primero.pago.comprobante
+    billetera = await casos_uso.listar_pagos_recibidos(uow, dueno)
+    assert billetera.total == Decimal("180000.00")
+    assert billetera.pagos[0].comprobante == primero.pago.comprobante
+    assert billetera.pagos[0].ramo == "clima-vuelos"
+    assert (await casos_uso.listar_pagos_recibidos(uow, uuid4())).pagos == []
+
+
+async def test_pagos_recibidos_persisten_comprobante_y_no_duplican(uow, adaptador_desembolso):
+    dueno = uuid4()
+    evento_id = f"it-billetera-{uuid4()}"
+    primero = await casos_uso.recibir_evento_parametrico(
+        uow,
+        adaptador_desembolso,
+        evento_id,
+        Decimal("100"),
+        Decimal("80"),
+        True,
+        Decimal("180000.00"),
+        usuario_id=dueno,
+        ramo="clima-vuelos",
+        poliza_numero="POL-11002-CO",
+        descripcion="retraso de vuelo",
+    )
+    await casos_uso.recibir_evento_parametrico(
+        uow, adaptador_desembolso, evento_id, Decimal("100"), Decimal("80"), True, Decimal("180000.00")
+    )
+
+    billetera = await casos_uso.listar_pagos_recibidos(uow, dueno)
+
+    assert len(billetera.pagos) == 1
+    assert billetera.pagos[0].comprobante == primero.pago.comprobante
+    assert billetera.total == Decimal("180000.00")

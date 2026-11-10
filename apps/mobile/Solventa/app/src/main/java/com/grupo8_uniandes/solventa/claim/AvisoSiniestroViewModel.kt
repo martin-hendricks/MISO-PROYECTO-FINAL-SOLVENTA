@@ -9,7 +9,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticeProblems
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.PoliciesInForce
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +25,7 @@ data class AvisoUiState(
     val sending: Boolean = false,
     val queued: Boolean = false,
     val fileRejected: Boolean = false,
-    val policyOptions: List<WalletEntry> = emptyList(),
+    val policyOptions: List<PolicyEntry> = emptyList(),
     val policiesLoaded: Boolean = false,
     val locating: Boolean = false,
 )
@@ -35,7 +35,7 @@ class AvisoSiniestroViewModel(
     private val policiesInForce: PoliciesInForce? = null,
     private val locator: DeviceLocator? = null,
 ) : ViewModel() {
-    private var policyOptions: List<WalletEntry> = emptyList()
+    private var policyOptions: List<PolicyEntry> = emptyList()
     private var policiesLoaded = false
     private var locating = false
     private var fileRejected = false

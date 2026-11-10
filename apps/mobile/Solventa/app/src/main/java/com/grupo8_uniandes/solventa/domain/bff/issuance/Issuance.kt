@@ -14,7 +14,7 @@ data class IssueRejection(
     val motivo: String,
 )
 
-data class WalletEntry(
+data class PolicyEntry(
     val numero: String,
     val ramo: String,
     val resumen: String,
@@ -56,7 +56,7 @@ interface IssuanceRepository {
 
     suspend fun rejected(): StandInAnswer<IssueRejection>
 
-    suspend fun wallet(): StandInAnswer<List<WalletEntry>>
+    suspend fun policies(): StandInAnswer<List<PolicyEntry>>
 
     suspend fun detail(numero: String): StandInAnswer<PolicyDetail>
 }

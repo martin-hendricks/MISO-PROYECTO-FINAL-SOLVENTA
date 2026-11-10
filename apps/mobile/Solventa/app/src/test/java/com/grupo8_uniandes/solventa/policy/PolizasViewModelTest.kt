@@ -16,7 +16,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -71,7 +71,7 @@ class PolizasViewModelTest {
     @Test
     fun givenAFailedWallet_whenShown_thenSol0001IsAbsent() {
         val viewModel = PolizasViewModel(scripted(wallet = StandInAnswer.Failed))
-        assertEquals(WalletPhase.Failed, viewModel.state.value.phase)
+        assertEquals(PoliciesPhase.Failed, viewModel.state.value.phase)
         assertTrue(viewModel.state.value.policies.isEmpty())
 
         rule.setContent {
@@ -113,7 +113,7 @@ class PolizasViewModelTest {
             SolventaTheme {
                 PolizasScreen(
                     policies = emptyList(),
-                    phase = WalletPhase.Pending,
+                    phase = PoliciesPhase.Pending,
                     onOpenPolicy = {},
                     onNewQuote = {},
                 )
@@ -304,30 +304,30 @@ class PolizasViewModelTest {
 
     @Test
     fun givenLoadedRows_whenALaterRefreshFails_thenTheRowsStay() {
-        var answer: StandInAnswer<List<WalletEntry>> = StandInAnswer.Ready(listOf(publishedRow()))
+        var answer: StandInAnswer<List<PolicyEntry>> = StandInAnswer.Ready(listOf(publishedRow()))
         val viewModel = PolizasViewModel(
             object : IssuanceRepository {
                 override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
 
                 override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
 
-                override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = answer
+                override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = answer
 
                 override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
             },
         )
-        assertEquals(WalletPhase.Ready, viewModel.state.value.phase)
+        assertEquals(PoliciesPhase.Ready, viewModel.state.value.phase)
         answer = StandInAnswer.Failed
 
         viewModel.refresh()
 
-        assertEquals(WalletPhase.Ready, viewModel.state.value.phase)
+        assertEquals(PoliciesPhase.Ready, viewModel.state.value.phase)
         assertEquals("POL-88219-CO", viewModel.state.value.policies.single().numero)
     }
 
     @Test
     fun givenALoadInFlight_whenRefreshAgain_thenTheFirstCallFinishes() {
-        val gate = CompletableDeferred<StandInAnswer<List<WalletEntry>>>()
+        val gate = CompletableDeferred<StandInAnswer<List<PolicyEntry>>>()
         var calls = 0
         val viewModel = PolizasViewModel(
             object : IssuanceRepository {
@@ -335,7 +335,7 @@ class PolizasViewModelTest {
 
                 override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
 
-                override suspend fun wallet(): StandInAnswer<List<WalletEntry>> {
+                override suspend fun policies(): StandInAnswer<List<PolicyEntry>> {
                     calls += 1
                     return gate.await()
                 }
@@ -349,7 +349,7 @@ class PolizasViewModelTest {
 
         assertEquals(1, calls)
         gate.complete(StandInAnswer.Ready(listOf(publishedRow())))
-        assertEquals(WalletPhase.Ready, viewModel.state.value.phase)
+        assertEquals(PoliciesPhase.Ready, viewModel.state.value.phase)
         assertEquals("POL-88219-CO", viewModel.state.value.policies.single().numero)
     }
 
@@ -357,7 +357,7 @@ class PolizasViewModelTest {
     fun givenAPendingWallet_whenItLoads_thenTheListStaysEmpty() {
         val viewModel = PolizasViewModel(scripted(wallet = StandInAnswer.Pending))
 
-        assertEquals(WalletPhase.Pending, viewModel.state.value.phase)
+        assertEquals(PoliciesPhase.Pending, viewModel.state.value.phase)
         assertTrue(viewModel.state.value.policies.isEmpty())
     }
 
@@ -394,7 +394,7 @@ class PolizasViewModelTest {
         assertEquals("Toma la foto del daño y anota fecha y lugar.", viewModel.state.value.queHacer)
     }
 
-    private fun publishedRow() = WalletEntry(
+    private fun publishedRow() = PolicyEntry(
         numero = "POL-88219-CO",
         ramo = "Protección de dispositivo",
         resumen = "Robo, Pantalla, Hurto",
@@ -403,7 +403,7 @@ class PolizasViewModelTest {
     )
 
     private fun scripted(
-        wallet: StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed,
+        wallet: StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed,
         detail: StandInAnswer<PolicyDetail> = StandInAnswer.Failed,
     ) = object : IssuanceRepository {
         var asked: String? = null
@@ -412,7 +412,7 @@ class PolizasViewModelTest {
 
         override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
 
-        override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = wallet
+        override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = wallet
 
         override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> {
             asked = numero

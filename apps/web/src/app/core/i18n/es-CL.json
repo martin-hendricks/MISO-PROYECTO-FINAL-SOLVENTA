@@ -9,7 +9,8 @@
       "perfil": "Perfil",
       "label": "Navegación principal",
       "open": "Abrir menú",
-      "close": "Cerrar menú"
+      "close": "Cerrar menú",
+      "billetera": "Billetera"
     },
     "signOut": "Cerrar sesión"
   },
@@ -89,9 +90,12 @@
   "polizas": {
     "lista": {
       "title": "Pólizas",
-      "subtitle": "Billetera de coberturas vigentes y por vencer.",
+      "subtitle": "Tus coberturas vigentes y por vencer.",
       "loading": "Cargando tus pólizas…",
-      "error": { "body": "No pudimos cargar tus pólizas.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos cargar tus pólizas.",
+        "retry": "Reintentar"
+      },
       "empty": {
         "title": "Aún no tienes pólizas",
         "body": "Cuando emitas una póliza la verás aquí."
@@ -101,7 +105,10 @@
       "title": "Avisos de vencimiento",
       "subtitle": "Pólizas vigentes que vencen pronto.",
       "loading": "Cargando tus avisos…",
-      "error": { "body": "No pudimos cargar tus avisos.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos cargar tus avisos.",
+        "retry": "Reintentar"
+      },
       "empty": {
         "title": "No tienes avisos",
         "body": "Ninguna de tus pólizas vence pronto."
@@ -113,7 +120,10 @@
       "back": "Volver",
       "title": "Póliza {{producto}}",
       "loading": "Cargando la póliza…",
-      "error": { "body": "No pudimos cargar la póliza.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos cargar la póliza.",
+        "retry": "Reintentar"
+      },
       "notFound": {
         "title": "No encontramos esta póliza",
         "body": "Revisa el número o vuelve a tu lista de pólizas.",
@@ -131,7 +141,10 @@
       "estado": "Estado",
       "prima": "Prima"
     },
-    "estado": { "VIGENTE": "Vigente", "CANCELADA": "Cancelada" }
+    "estado": {
+      "VIGENTE": "Vigente",
+      "CANCELADA": "Cancelada"
+    }
   },
   "emision": {
     "irInicio": "Ir al inicio",
@@ -142,7 +155,7 @@
     },
     "emitida": {
       "title": "Póliza emitida",
-      "subtitle": "{{producto}} ya está en tu billetera.",
+      "subtitle": "{{producto}} ya está en tus pólizas.",
       "verPoliza": "Ver mi póliza",
       "renovacion": "Pago de renovación automática",
       "renovacionAyuda": "Apagado. Renueva la prima de esta póliza. No cobra ahora."
@@ -152,8 +165,14 @@
       "subtitle": "La suscripción rechazó esta oferta. Puedes cotizar de nuevo.",
       "motivo": "Motivo"
     },
-    "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
-    "expired": { "body": "La oferta venció.", "action": "Nueva cotización" },
+    "error": {
+      "body": "No pudimos completar la emisión.",
+      "retry": "Reintentar"
+    },
+    "expired": {
+      "body": "La oferta venció.",
+      "action": "Nueva cotización"
+    },
     "revoked": {
       "body": "Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.",
       "action": "Nueva cotización"
@@ -201,7 +220,8 @@
     "poliza": "Póliza relacionada",
     "explicacion": "Activar la renovación no repite el pago ni cobra la prima.",
     "renovacionAyuda": "Apagado. Opta esa póliza a renovar su prima.",
-    "volver": "Volver a siniestros"
+    "volver": "Volver a siniestros",
+    "verEnBilletera": "Ver en billetera"
   },
   "login": {
     "customer": {
@@ -295,14 +315,23 @@
     },
     "polizas": {
       "title": "Pólizas",
-      "buscar": { "label": "Número de póliza", "action": "Buscar" },
+      "buscar": {
+        "label": "Número de póliza",
+        "action": "Buscar"
+      },
       "loading": "Consultando la póliza…",
       "notFound": {
         "title": "No encontramos esa póliza",
         "body": "Verifica el número e intenta de nuevo."
       },
-      "error": { "body": "No pudimos consultar la póliza.", "retry": "Reintentar" },
-      "estado": { "vigente": "Vigente", "cancelada": "Cancelada" },
+      "error": {
+        "body": "No pudimos consultar la póliza.",
+        "retry": "Reintentar"
+      },
+      "estado": {
+        "vigente": "Vigente",
+        "cancelada": "Cancelada"
+      },
       "venceEn": "Vence en",
       "prima": "Prima",
       "siniestrosAbiertos": "Siniestros abiertos",
@@ -377,7 +406,10 @@
         "cotizarOtro": "Cotizar otro producto",
         "volverCartera": "Volver a la cartera"
       },
-      "error": { "body": "No pudimos completar este paso.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos completar este paso.",
+        "retry": "Reintentar"
+      },
       "invalid": {
         "title": "Falta la oferta o el cliente",
         "body": "Abre la emisión desde la cotización del cliente."
@@ -919,7 +951,48 @@
       "pago": "Pago realizado",
       "evidencia": "Evidencia adjunta",
       "sinEvidencia": "Sin evidencia",
-      "historial": "Historial del caso"
+      "historial": "Historial del caso",
+      "verEnBilletera": "Ver en billetera"
+    }
+  },
+  "billetera": {
+    "title": "Billetera",
+    "subtitle": "Dinero ya depositado por siniestros pagados.",
+    "loading": "Cargando depósitos…",
+    "recibido": "RECIBIDO",
+    "count": "{{n}} depósitos",
+    "inicioLink": "Ver billetera",
+    "column": {
+      "aviso": "Aviso",
+      "ramo": "Ramo",
+      "tipo": "Tipo",
+      "monto": "Monto",
+      "comprobante": "Comprobante",
+      "fecha": "Fecha"
+    },
+    "tipo": {
+      "asistido": "Asistido",
+      "pago_automatico": "Pago automático"
+    },
+    "empty": "Cuando Solventa pague un siniestro, el depósito aparece aquí.",
+    "verSiniestros": "Ver siniestros",
+    "error": "No pudimos cargar tu billetera.",
+    "reintentar": "Reintentar",
+    "atras": "← Volver",
+    "volver": "Volver a billetera",
+    "verSiniestro": "Ver siniestro",
+    "detalle": {
+      "title": "Depósito",
+      "lead": "Solventa ya depositó este monto. El comprobante no cambia si el pago se reintenta.",
+      "ramo": "Ramo y evento",
+      "evento": "Evento",
+      "poliza": "Póliza relacionada",
+      "monto": "Monto depositado",
+      "comprobante": "Comprobante",
+      "estado": "Estado",
+      "depositado": "Depositado",
+      "estadoValor": "Depositado · {{tipo}}",
+      "notFound": "No encontramos ese depósito."
     }
   }
 }

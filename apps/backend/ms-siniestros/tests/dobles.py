@@ -11,6 +11,7 @@ from app.domain.modelos import (
     EventoDominio,
     EventoParametrico,
     PagoParametrico,
+    PagoRecibido,
     Siniestro,
 )
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
@@ -96,6 +97,54 @@ class _RepoSiniestros:
             key=lambda s: s.creado_en,
         )
         return [deepcopy(s) for s in filas[:limite]]
+
+    def _pago_recibido(self, siniestro, monto, comprobante, clave, pagado_en):
+        poliza = siniestro.poliza
+        return PagoRecibido(
+            siniestro_id=siniestro.id,
+            numero=siniestro.numero,
+            tipo=siniestro.tipo,
+            ramo=(poliza.ramo or None) if poliza else None,
+            poliza_numero=(poliza.numero or None) if poliza else None,
+            descripcion=siniestro.descripcion,
+            monto=monto,
+            comprobante=comprobante,
+            clave=clave,
+            pagado_en=pagado_en,
+        )
+
+    async def _de(self, usuario_id):
+        pagos_asistidos = {**self._uow.almacen.pagos_siniestro, **self._uow.pagos_siniestro_pendientes}
+        intentos = self._uow.almacen.intentos_pago + self._uow.intentos_pendientes
+        parametricos = {**self._uow.almacen.pagos, **self._uow.pagos_pendientes}
+        encontrados = []
+        for siniestro in self._vista().values():
+            if siniestro.usuario_id != usuario_id or siniestro.estado is not EstadoSiniestro.PAGADO:
+                continue
+            if siniestro.tipo is TipoSiniestro.ASISTIDO:
+                pago = pagos_asistidos.get(siniestro.id)
+                ejecutado = any(
+                    i.siniestro_id == siniestro.id and i.resultado == "ejecutado" for i in intentos
+                )
+                if pago is None or not ejecutado:
+                    continue
+                encontrados.append(
+                    self._pago_recibido(siniestro, pago.monto, pago.comprobante, pago.clave_idempotencia, pago.pagado_en)
+                )
+            else:
+                pago = next((p for p in parametricos.values() if p.siniestro_id == siniestro.id), None)
+                if pago is None:
+                    continue
+                encontrados.append(
+                    self._pago_recibido(siniestro, pago.monto, pago.comprobante, pago.evento_id, pago.pagado_en)
+                )
+        return sorted(encontrados, key=lambda p: (-p.pagado_en.timestamp(), str(p.siniestro_id)))
+
+    async def listar_pagos_recibidos(self, usuario_id):
+        return await self._de(usuario_id)
+
+    async def obtener_pago_recibido(self, siniestro_id, usuario_id):
+        return next((p for p in await self._de(usuario_id) if p.siniestro_id == siniestro_id), None)
 
     async def listar_abiertos_por_poliza(self, poliza_id):
         return [

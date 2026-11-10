@@ -17,6 +17,7 @@ CQRS: separación comando/consulta pendiente de aplicar según el resultado del 
 | HU-34 · Disparar pago paramétrico (stub) | [SOLV-127](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-127) | Si el umbral se cumple, dispara un desembolso simulado sin intervención humana, idempotente por `evento_id`, y mueve el siniestro a `pagado`. |
 | HU-157 · Aviso de siniestro en el portal y back-office | [SOLV-256](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-256) | Alta del aviso asistido con evidencia en S3 (N5/N6), motor de reglas que aprueba y paga el bajo monto, rechaza lo objetivo o retiene para el operador (N15), cola del operador con decisión auditada (HU-26/27), perito (HU-28) y pago de bajo monto idempotente (HU-29). |
 | HU-160 · Lista de siniestros en el portal | [SOLV-259](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-259) | `GET /v1/siniestros?usuario_id=` y `GET /v1/siniestros/{id}/detalle?usuario_id=` (el cliente nunca ve un siniestro ajeno). |
+| Billetera · depósitos recibidos | SOLV-144 / SOLV-145 | `GET /v1/pagos-recibidos` y `GET /v1/pagos-recibidos/{id}`: pagos ejecutados del cliente (asistido con intento `ejecutado`, o paramétrico pagado). El evento paramétrico acepta `usuario_id`, `ramo` (máx. 60), `poliza_numero` (máx. 60) y `descripcion` (máx. 200), todos opcionales. `pago_parametrico.comprobante` es `CMP-` + 10 hex y no cambia en una reingesta. |
 
 ### Estados del siniestro (HU-30)
 
@@ -27,6 +28,12 @@ recibido -> en_evaluacion -> decidido -> enrutado -> pagado
 ```
 
 No existe transición directa a `pagado` sin pasar por `decidido`, ni manera de retroceder a `recibido`. `Siniestro.cambiar_estado` valida antes de mutar: una transición inválida lanza `TransicionInvalida` sin dejar el agregado en un estado intermedio ni confirmar la transacción (`app/application/casos_uso.py::cambiar_estado_siniestro`). Cada transición queda en `siniestro_transicion` con `ocurrido_en` y `origen` (de quién/qué vino el cambio), reconstruyendo la traza completa.
+
+### Billetera (`GET /v1/pagos-recibidos`)
+
+Lectura de los depósitos ya ejecutados de un cliente. Entra un siniestro `pagado` con `pago_siniestro` y al menos un intento `ejecutado`, o un siniestro `pagado` con `pago_parametrico`. El monto es el del pago, nunca la reserva. El total es la suma en `Decimal` y el orden es `pagado_en` descendente. Un paramétrico sin `usuario_id` se paga igual y no aparece en ninguna billetera.
+
+`POST /v1/eventos-parametricos` acepta, opcionales, `usuario_id`, `ramo` (hasta 60), `poliza_numero` (hasta 60) y `descripcion` (hasta 200). El pago paramétrico guarda `comprobante` (`CMP-` y diez hex del id), único y estable ante una reingesta. Migración: `db/07_pago_parametrico_comprobante.sql`.
 
 ### Evento paramétrico (HU-32)
 

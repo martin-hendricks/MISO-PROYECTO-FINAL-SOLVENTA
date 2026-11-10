@@ -45,6 +45,12 @@ data object MapaPrestadoresRoute
 data object AsistenciaSitioRoute
 
 @Serializable
+data object BilleteraRoute
+
+@Serializable
+data class DepositoRoute(val id: String)
+
+@Serializable
 data object PerfilRoute
 
 @Serializable

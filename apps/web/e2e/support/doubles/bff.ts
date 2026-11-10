@@ -18,6 +18,8 @@ const CLIENTES = '**/web/operador/clientes**';
 const NOTIFICACIONES = '**/web/operador/notificaciones/**';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
+const BILLETERA = '**/web/cliente/billetera';
+const BILLETERA_DETALLE = '**/web/cliente/billetera/*';
 const PERFIL = '**/web/cliente/perfil';
 const POLIZAS_LISTA = '**/web/cliente/polizas';
 const POLIZA_DETALLE = '**/web/cliente/polizas/*';
@@ -222,6 +224,28 @@ export class BffDoubles {
     await this.replaceClients((route) =>
       route.fulfill({ status: 503, json: { detail: 'Servicio no disponible' } }),
     );
+  }
+
+  async failWallet(): Promise<void> {
+    await this.page.unroute(BILLETERA);
+    await this.page.route(BILLETERA, (route) =>
+      route.fulfill({ status: 503, json: { codigo: 'servicio_no_disponible' } }),
+    );
+  }
+
+  async serveWallet(body: unknown): Promise<void> {
+    await this.page.unroute(BILLETERA);
+    await this.page.route(BILLETERA, (route) => route.fulfill({ json: body }));
+    await this.page.unroute(BILLETERA_DETALLE);
+    await this.page.route(BILLETERA_DETALLE, (route) => {
+      const id = route.request().url().split('/').pop();
+      const movimientos = (body as { movimientos?: { id: string }[] }).movimientos ?? [];
+      const fila = movimientos.find((m) => m.id === id);
+      if (!fila) {
+        return route.fulfill({ status: 404, json: { codigo: 'no_encontrado' } });
+      }
+      return route.fulfill({ json: fila });
+    });
   }
 
   async serveHome(home: Home): Promise<void> {

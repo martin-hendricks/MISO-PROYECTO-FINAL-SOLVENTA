@@ -23,8 +23,12 @@ import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
+import com.grupo8_uniandes.solventa.data.bff.mock.MockClaimRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockDepositRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
@@ -165,6 +169,51 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Polizas)
         rule.waitForIdle()
         assertTrue(wallet.walletLoads > afterReturn)
+    }
+
+    @Test
+    fun givenATab_whenTappedAgain_thenThatTabLoadsAgain() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        var homeLoads = 0
+        show(holder, onInicioVisible = { homeLoads += 1 })
+        val nav = holder[0]!!
+        rule.waitForIdle()
+        val homeAfterStart = homeLoads
+        assertTrue(homeAfterStart > 0)
+
+        nav.openDestination(Destination.Inicio)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        assertTrue(homeLoads > homeAfterStart)
+
+        val deposits = GlobalContext.get().get<DepositRepository>() as MockDepositRepository
+        nav.openDestination(Destination.Billetera)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_billetera").assertIsDisplayed()
+        val walletAfterOpen = deposits.loads
+        assertTrue(walletAfterOpen > 0)
+        nav.openDestination(Destination.Billetera)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_billetera").assertIsDisplayed()
+        assertTrue(deposits.loads > walletAfterOpen)
+
+        val claims = GlobalContext.get().get<ClaimRepository>() as MockClaimRepository
+        nav.openDestination(Destination.Siniestros)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        val claimsAfterOpen = claims.listLoads
+        assertTrue(claimsAfterOpen > 0)
+        nav.openDestination(Destination.Siniestros)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        assertTrue(claims.listLoads > claimsAfterOpen)
+
+        nav.openDestination(Destination.Perfil)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+        nav.openDestination(Destination.Perfil)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
     }
 
     @Test
@@ -376,6 +425,7 @@ class CustomerNavHostTest {
         homeState: HomeUiState = HomeUiState(),
         start: Any = InicioRoute,
         paymentPush: NoticeEntry? = null,
+        onInicioVisible: () -> Unit = {},
     ) {
         rule.setContent {
             val owner = remember {
@@ -393,6 +443,7 @@ class CustomerNavHostTest {
                         contentPadding = PaddingValues(0.dp),
                         startDestination = start,
                         paymentPush = paymentPush,
+                        onInicioVisible = onInicioVisible,
                     )
                 }
             }

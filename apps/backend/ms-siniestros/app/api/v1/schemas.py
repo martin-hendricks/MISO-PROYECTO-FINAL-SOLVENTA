@@ -19,6 +19,10 @@ class EventoParametricoEntrada(BaseModel):
     # (ver GET /v1/siniestros/abiertos). Opcional: el stub de ingesta no
     # siempre la conoce.
     poliza_id: UUID | None = None
+    usuario_id: UUID | None = None
+    ramo: str | None = Field(default=None, max_length=60)
+    poliza_numero: str | None = Field(default=None, max_length=60)
+    descripcion: str | None = Field(default=None, max_length=200)
 
 
 class TransicionSalida(BaseModel):
@@ -104,6 +108,8 @@ class PagoSalida(BaseModel):
     siniestro_id: UUID
     monto: Decimal
     pagado_en: datetime
+    comprobante: str
+    comprobante: str
 
 
 class ResultadoIngestaSalida(BaseModel):
@@ -131,6 +137,7 @@ class ResultadoIngestaSalida(BaseModel):
                     siniestro_id=resultado.pago.siniestro_id,
                     monto=resultado.pago.monto,
                     pagado_en=resultado.pago.pagado_en,
+                    comprobante=resultado.pago.comprobante,
                 )
                 if resultado.pago is not None
                 else None

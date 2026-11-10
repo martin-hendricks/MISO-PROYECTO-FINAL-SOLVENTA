@@ -9,6 +9,21 @@ import { InicioViewModel } from './inicio.viewmodel';
 
 describe('InicioView', () => {
   const URL = '/web/cliente/inicio';
+  const WALLET = '/web/cliente/billetera';
+  const EMPTY_WALLET = { moneda: 'COP', totalRecibido: 0, movimientos: [] };
+
+  function flushWallet(
+    http: HttpTestingController,
+    body: object | 'error' = EMPTY_WALLET,
+  ): void {
+    for (const request of http.match(WALLET)) {
+      if (body === 'error') {
+        request.flush({}, { status: 503, statusText: 'Unavailable' });
+      } else {
+        request.flush(body);
+      }
+    }
+  }
 
   function render() {
     TestBed.configureTestingModule({
@@ -23,13 +38,20 @@ describe('InicioView', () => {
     const fixture = TestBed.createComponent(InicioView);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    flushWallet(http);
     const host = fixture.nativeElement as HTMLElement;
     const element = (testId: string) =>
       host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
     return { fixture, http, host, element };
   }
 
-  afterEach(() => TestBed.inject(HttpTestingController).verify());
+  afterEach(() => {
+    const http = TestBed.inject(HttpTestingController);
+    http
+      .match((req) => req.url.includes('/cliente/billetera'))
+      .forEach((req) => req.flush({ moneda: 'COP', totalRecibido: 0, movimientos: [] }));
+    http.verify();
+  });
 
   it('shows the cards of the aggregate with their shortcuts', () => {
     const { fixture, http, host, element } = render();
@@ -41,6 +63,7 @@ describe('InicioView', () => {
     const offers = host.querySelectorAll('[data-testid="inicio-offer"]');
     const claims = host.querySelectorAll('[data-testid="inicio-claim"]');
     expect(offers.length).toBe(1);
+    expect(element('inicio-billetera')).toBeNull();
     expect(claims.length).toBe(1);
     expect(element('inicio-offer-summary')).toBeNull();
     expect(element('inicio-offer')?.textContent).toContain(
@@ -164,9 +187,42 @@ describe('InicioView', () => {
 
     element('inicio-retry')!.click();
     http.expectOne(URL).flush(INICIO);
+    flushWallet(http);
     fixture.detectChanges();
 
     expect(element('inicio-error')).toBeNull();
     expect(element('inicio-offer')).not.toBeNull();
+    expect(element('inicio-billetera')).toBeNull();
+  });
+
+  it('links to the wallet only when a deposit exists', () => {
+    TestBed.configureTestingModule({
+      imports: [InicioView],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        ...provideSolventaI18n(),
+      ],
+    });
+    const fixture = TestBed.createComponent(InicioView);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(URL).flush(INICIO_VACIO);
+    flushWallet(http, {
+      moneda: 'COP',
+      totalRecibido: 890000,
+      movimientos: [{ id: 'dep-1' }],
+    });
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '[data-testid="inicio-billetera"]',
+    );
+    expect(link?.getAttribute('href')).toBe('/billetera');
+    expect(link?.textContent).toContain('Ver billetera');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="inicio-empty"]'),
+    ).not.toBeNull();
   });
 });
