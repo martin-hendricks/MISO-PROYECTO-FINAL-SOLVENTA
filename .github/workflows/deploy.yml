@@ -62,6 +62,7 @@ on:
       - "infra/k8s/platform/target-group-bindings.yaml"
       - "infra/k8s/platform/run-migrations.sh"
       - "infra/k8s/platform/migraciones-job.yaml"
+      - "infra/k8s/platform/observability/**"
       - ".github/workflows/deploy.yml"
   # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
   # tras un cambio de infraestructura que no toca ningún path del trigger de
@@ -275,6 +276,63 @@ jobs:
       - name: Verificar rollout
         run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
 
+  # Despliega Prometheus + Grafana + kube-state-metrics en el namespace
+  # solventa-observability (infra/k8s/platform/observability/). Job aparte
+  # de "deploy": no es parte de la matrix de microservicios (no tiene
+  # Dockerfile propio, son imágenes públicas ya construidas) y solo necesita
+  # correr una vez, no por servicio. needs: bootstrap porque el namespace
+  # solventa-observability y el ClusterSecretStore deben existir antes.
+  deploy-observability:
+    name: deploy observabilidad (prometheus + grafana)
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Aplicar RBAC, ConfigMaps y Deployments
+        run: |
+          kubectl apply -f infra/k8s/platform/observability/prometheus-rbac.yaml
+          kubectl apply -f infra/k8s/platform/observability/prometheus-configmap.yaml
+          kubectl apply -f infra/k8s/platform/observability/prometheus-deployment.yaml
+          kubectl apply -f infra/k8s/platform/observability/kube-state-metrics.yaml
+          kubectl apply -f infra/k8s/platform/observability/grafana-provisioning-datasources.yaml
+          kubectl apply -f infra/k8s/platform/observability/grafana-externalsecret.yaml
+
+      # El ConfigMap de dashboards se genera en el pipeline, igual que
+      # <servicio>-migrations más abajo: los JSON quedan versionados en
+      # infra/k8s/platform/observability/dashboards/, el ConfigMap es un
+      # artefacto derivado, no una fuente a mantener en el repo.
+      - name: Generar ConfigMap de dashboards
+        run: |
+          kubectl create configmap grafana-dashboards \
+            --namespace solventa-observability \
+            --from-file=infra/k8s/platform/observability/dashboards/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Esperar credenciales de Grafana (ExternalSecret)
+        run: |
+          kubectl wait --for=condition=Ready --timeout=60s \
+            externalsecret/grafana-admin -n solventa-observability
+
+      - name: Desplegar Grafana
+        run: kubectl apply -f infra/k8s/platform/observability/grafana-deployment.yaml
+
+      - name: Verificar rollout
+        run: |
+          kubectl rollout status deployment/prometheus -n solventa-observability --timeout=120s
+          kubectl rollout status deployment/kube-state-metrics -n solventa-observability --timeout=120s
+          kubectl rollout status deployment/grafana -n solventa-observability --timeout=120s
+
   # Job aparte, no un paso dentro de "deploy": TargetGroupBinding es un
   # único manifiesto para todos los servicios
   # (infra/k8s/platform/target-group-bindings.yaml), no uno por entrada de
@@ -291,7 +349,7 @@ jobs:
   # un target group YA EXISTENTE, sin crear ningún ALB.
   register-target-groups:
     name: registrar en el target group del ALB
-    needs: deploy
+    needs: [deploy, deploy-observability]
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
     steps:
@@ -333,3 +391,10 @@ jobs:
 
           export API_SOCIOS_TARGET_GROUP_ARN BFF_WEB_TARGET_GROUP_ARN BFF_MOVIL_TARGET_GROUP_ARN
           envsubst < infra/k8s/platform/target-group-bindings.yaml | kubectl apply -f -
+
+          GRAFANA_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-grafana-tg \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+
+          export GRAFANA_TARGET_GROUP_ARN
+          envsubst < infra/k8s/platform/observability/target-group-binding-grafana.yaml | kubectl apply -f -

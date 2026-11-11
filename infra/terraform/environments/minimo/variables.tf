@@ -421,6 +421,17 @@ variable "alb_routes" {
       ]
       priority = 40
     }
+    # Grafana (namespace solventa-observability, ver
+    # infra/k8s/platform/observability/). Mismo mecanismo que los 14
+    # microservicios: una entrada más de ALB, sin Ingress ni ALB nuevo (ver
+    # odd/tasks/observabilidad-prometheus-grafana.md -- un Ingress crearía
+    # un segundo ALB al que el API Gateway nunca llega).
+    grafana = {
+      port              = 3000
+      paths             = ["/observabilidad/grafana", "/observabilidad/grafana/*"]
+      health_check_path = "/api/health"
+      priority          = 50
+    }
   }
 }
 

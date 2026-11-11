@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import (
     VENTANA_GRACIA_DIAS,
     Cobertura,
@@ -16,6 +17,12 @@ from app.domain.modelos import (
     poliza_modificada,
     poliza_por_vencer,
     poliza_renovada,
+)
+from app.metricas_negocio import (
+    AVISOS_VENCIMIENTO_JOB_LATENCIA,
+    CANCELACIONES,
+    EMISION_LATENCIA,
+    RENOVACIONES,
 )
 from app.ports.firma import FirmaElectronica
 from app.ports.persistencia import FabricaUnidadDeTrabajo, PolizaYaEmitida
@@ -50,6 +57,20 @@ def _hoy() -> date:
 
 
 async def emitir_poliza(
+    uow: FabricaUnidadDeTrabajo,
+    suscripciones: VerificadorSuscripcion,
+    cobros: VerificadorCobro,
+    firma: FirmaElectronica,
+    solicitud: SolicitudEmision,
+) -> Emision:
+    inicio = time.perf_counter()
+    try:
+        return await _emitir_poliza(uow, suscripciones, cobros, firma, solicitud)
+    finally:
+        EMISION_LATENCIA.observe(time.perf_counter() - inicio)
+
+
+async def _emitir_poliza(
     uow: FabricaUnidadDeTrabajo,
     suscripciones: VerificadorSuscripcion,
     cobros: VerificadorCobro,
@@ -159,10 +180,15 @@ async def renovar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nueva_fin
     la ventana de gracia tras vencer."""
     async with uow() as tx:
         poliza = await _obtener_o_fallar(tx, poliza_id)
-        poliza.renovar(nueva_fin_vigencia, _hoy())
+        try:
+            poliza.renovar(nueva_fin_vigencia, _hoy())
+        except TransicionInvalida:
+            RENOVACIONES.labels("rechazada").inc()
+            raise
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_renovada(poliza))
         await tx.confirmar()
+        RENOVACIONES.labels("exitosa").inc()
         return poliza
 
 
@@ -203,6 +229,7 @@ async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: 
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_cancelada(poliza))
         await tx.confirmar()
+        CANCELACIONES.inc()
         return poliza
 
 
@@ -235,16 +262,20 @@ async def generar_avisos_vencimiento(
     solo deduplica por (evento_origen_id, canal), y cada evento nuevo trae
     un evento_origen_id distinto, así que sí despacharía un push repetido.
     """
+    inicio = time.perf_counter()
     generados = 0
-    async with uow() as tx:
-        por_vencer = await tx.polizas.listar_por_vencer(_hoy(), _hoy() + timedelta(days=dias))
-        for poliza in por_vencer:
-            if await tx.outbox.existe_para_agregado("PolizaPorVencer", poliza.id):
-                continue
-            await tx.outbox.agregar(poliza_por_vencer(poliza))
-            generados += 1
-        await tx.confirmar()
-    return generados
+    try:
+        async with uow() as tx:
+            por_vencer = await tx.polizas.listar_por_vencer(_hoy(), _hoy() + timedelta(days=dias))
+            for poliza in por_vencer:
+                if await tx.outbox.existe_para_agregado("PolizaPorVencer", poliza.id):
+                    continue
+                await tx.outbox.agregar(poliza_por_vencer(poliza))
+                generados += 1
+            await tx.confirmar()
+        return generados
+    finally:
+        AVISOS_VENCIMIENTO_JOB_LATENCIA.observe(time.perf_counter() - inicio)
 
 
 async def generar_reporte_regulador(
