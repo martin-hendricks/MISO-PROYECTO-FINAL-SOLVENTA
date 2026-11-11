@@ -6,6 +6,7 @@
     <string name="destination_siniestros">Siniestros</string>
     <string name="destination_perfil">Perfil</string>
     <string name="action_back">Volver</string>
+    <string name="status_loading">Cargando</string>
     <string name="action_new_quote">Nueva cotización</string>
     <string name="action_view_policy">Ver póliza</string>
     <string name="action_accept_offer">Aceptar oferta</string>

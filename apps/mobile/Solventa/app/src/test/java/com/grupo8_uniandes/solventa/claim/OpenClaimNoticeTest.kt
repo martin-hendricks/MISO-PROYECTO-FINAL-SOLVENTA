@@ -7,6 +7,8 @@ import com.grupo8_uniandes.solventa.data.bff.remote.CachedClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
+import com.grupo8_uniandes.solventa.domain.bff.claim.accepted
+import com.grupo8_uniandes.solventa.domain.bff.claim.problems
 import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
@@ -16,6 +18,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryClaimHold
+import com.grupo8_uniandes.solventa.domain.bff.claim.NoticeArchive
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
 import kotlinx.coroutines.runBlocking
@@ -180,6 +183,48 @@ class OpenClaimNoticeTest {
         notice.setGeotag(false)
         assertNull(notice.draft.geo)
         assertFalse(notice.draft.geotag)
+    }
+
+    @Test
+    fun givenOfferedPolicies_whenOneIsChosen_thenABlankOrSingleNumberSticks() {
+        val notice = open()
+        notice.offerPolicies(listOf("POL-1", "POL-2"))
+        assertEquals("", notice.review().poliza)
+        notice.revise(poliza = "POL-2")
+        notice.offerPolicies(listOf("POL-2"))
+        assertEquals("POL-2", notice.review().poliza)
+        notice.offerPolicies(emptyList())
+        assertEquals("", notice.review().poliza)
+        val tooBig = Attachment(AttachmentKind.FOTO, "grande.jpg", "image/jpeg", 11L * 1024 * 1024)
+        val empty = Attachment(AttachmentKind.SOPORTE, "vacio.bin", "application/octet-stream", 0)
+        assertFalse(tooBig.accepted())
+        assertTrue(empty.accepted())
+        assertFalse(notice.attachFile(tooBig))
+        notice.revise(poliza = "POL-1")
+        notice.offerPolicies(listOf("POL-1", "POL-2"))
+        assertEquals("POL-1", notice.review().poliza)
+        val long = "a".repeat(1001)
+        val problems = notice.review().copy(descripcion = long, lugar = "x".repeat(201))
+            .problems(java.time.LocalDate.parse("2026-11-08"), listOf("POL-1"), attempted = true)
+        assertTrue(problems.description)
+        assertTrue(problems.place)
+        assertFalse(problems.canContinue)
+    }
+
+    @Test
+    fun givenAnArchive_whenTheNoticeIsSent_thenTheArchiveIsCleared() = runBlocking {
+        var cleared = 0
+        val archive = object : NoticeArchive {
+            override fun keep(key: String, notice: ClaimNotice, files: List<ByteArray>) = Unit
+            override fun clear() {
+                cleared += 1
+            }
+        }
+        val notice = OpenClaimNotice(RecordingClaims(), MemoryClaimHold(), archive)
+        assertNull(notice.send())
+        notice.attachFile(file(AttachmentKind.FOTO, "foto.jpg", "image/jpeg"))
+        assertEquals("SIN-441", notice.send()?.siniestroId)
+        assertEquals(1, cleared)
     }
 
     @Test

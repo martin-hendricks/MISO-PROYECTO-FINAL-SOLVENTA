@@ -286,6 +286,34 @@ class AvisoSiniestroScreenTest {
     }
 
     @Test
+    fun givenLifeClimateOrAnotherLine_whenChosen_thenTheExplanationFollowsThatRamo() {
+        var ramo by mutableStateOf("Vida hipotecario")
+        rule.setContent {
+            var policy by remember { mutableStateOf("") }
+            SolventaTheme {
+                AvisoSiniestroScreen(
+                    policies = listOf(WalletEntry("POL-9", ramo, "ramo", "vigente", "2027-01-01")),
+                    policiesLoaded = true,
+                    sentences = listOf(policy, "2026-11-01", "Hecho", "Calle 72"),
+                    onRevise = { next, _, _, _ -> policy = next },
+                    onContinue = {},
+                    onCancel = {},
+                )
+            }
+        }
+        fun choose(explanation: String) {
+            rule.onNodeWithTag("claim_policy").performClick()
+            rule.onNodeWithTag("claim_policy_option_POL-9").performClick()
+            rule.onNodeWithText(explanation).assertIsDisplayed()
+        }
+        choose("Adjunta el soporte de la persona cubierta.")
+        ramo = "Clima y vuelos"
+        choose("Clima y vuelos: indica el evento que superó el umbral.")
+        ramo = "Hogar"
+        choose("Los datos y la evidencia siguen el ramo Hogar.")
+    }
+
+    @Test
     fun givenTheCatalog_whenReportIsChosen_thenTheCallbackRuns() {
         var reported = false
         rule.setContent {

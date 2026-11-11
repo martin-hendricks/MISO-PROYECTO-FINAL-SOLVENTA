@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -20,6 +21,7 @@ import com.grupo8_uniandes.solventa.MainActivity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -27,6 +29,12 @@ import org.junit.runner.RunWith
 class SplashVisibleTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenColdStart_whenAppOpens_thenWordmarkWithoutNavigationBar() {
@@ -48,6 +56,12 @@ class SplashFirstUseTest {
     @get:Rule
     val rule = createEmptyComposeRule()
 
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
+
     @Test
     fun givenFirstUse_whenStartupFinishes_thenIdiomaRegion() {
         clearRegionPrefs()
@@ -66,6 +80,12 @@ class SplashFirstUseTest {
 class SplashExistingAccountTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenExistingAccount_whenStartupFinishes_thenInicio() {
@@ -87,6 +107,12 @@ class SplashExistingAccountTest {
 class SplashPermissionTest {
     @get:Rule
     val rule = createAndroidComposeRule<MainActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenInstall_whenPackageInspected_thenNoPhotosAndLocationIsDeclared() {

@@ -1,14 +1,20 @@
 package com.grupo8_uniandes.solventa.ui.region
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomSheet
@@ -30,23 +36,36 @@ fun IdiomaRegionSheet(
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val sheetHeight = if (maxHeight == Dp.Infinity) Modifier else Modifier.height(maxHeight)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(SolventaSpacing.gutter),
+                .then(sheetHeight)
+                .navigationBarsPadding()
+                .padding(SolventaSpacing.gutter)
+                .padding(bottom = SolventaSpacing.minTouch),
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
         ) {
-            Text(
-                text = stringResource(R.string.idioma_helper),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            regionOptions().forEach { option ->
-                RegionOptionRow(
-                    option = option,
-                    selected = option.region == draft,
-                    onSelect = { onSelect(option.region) },
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+            ) {
+                Text(
+                    text = stringResource(R.string.idioma_helper),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                regionOptions().forEach { option ->
+                    RegionOptionRow(
+                        option = option,
+                        selected = option.region == draft,
+                        onSelect = { onSelect(option.region) },
+                    )
+                }
             }
             SolventaButton(
                 text = stringResource(R.string.action_listo),
@@ -55,6 +74,7 @@ fun IdiomaRegionSheet(
                 modifier = Modifier.fillMaxWidth(),
                 testTag = "action_listo",
             )
+        }
         }
     }
 }

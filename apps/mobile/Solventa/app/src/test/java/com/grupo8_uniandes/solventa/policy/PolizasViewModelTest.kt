@@ -13,6 +13,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
@@ -157,16 +158,148 @@ class PolizasViewModelTest {
                 )
             }
         }
-        rule.onNodeWithTag("policy_guidance").assertIsDisplayed()
-        rule.onNodeWithTag("policy_vigencia").assertIsDisplayed()
-        rule.onNodeWithTag("policy_prima").assertIsDisplayed()
-        rule.onNodeWithTag("policy_coverage_Robo").assertIsDisplayed()
-        rule.onNodeWithTag("policy_deductible_Pantalla").assertIsDisplayed()
-        rule.onNodeWithTag("renewal_checkbox").assertIsDisplayed()
-        rule.onNodeWithTag("policy_claim_SIN-1").assertIsDisplayed()
-        rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
+        rule.onNodeWithTag("policy_guidance", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_vigencia", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_prima", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_coverage_Robo", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_deductible_Pantalla", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("renewal_checkbox", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_claim_SIN-1", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_sync_notice", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("action_expiry_notices").performClick()
         assertEquals(1, notices)
+    }
+
+    @Test
+    fun givenACancelledPolicy_whenShown_thenTheRefundAndTheEmptyClaimsStay() {
+        var opened = ""
+        var reported = 0
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        detail = PolicyDetail(
+                            numero = "POL-9",
+                            ramo = "SOAT motocicleta",
+                            resumen = "Sin coberturas detalladas",
+                            estado = "CANCELADA",
+                            venceEn = "no-es-fecha",
+                            queHacer = "",
+                            inicioVigencia = "   ",
+                            finVigencia = null,
+                            moneda = "",
+                            primaTotal = null,
+                            coberturas = emptyList(),
+                            renovable = false,
+                            cancelacion = PolicyCancellation(
+                                motivo = "Fin del contrato",
+                                canceladaEn = "2026-11-01",
+                                devolucionEstimada = 12_000.0,
+                            ),
+                        ),
+                        claims = emptyList(),
+                    ),
+                    onOpenClaim = { opened = it },
+                    onReportClaim = { reported += 1 },
+                )
+            }
+        }
+        rule.onNodeWithText("Sin coberturas detalladas", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Cancelada", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Fin del contrato", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_refund", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_claims_empty").assertIsDisplayed()
+        rule.onNodeWithTag("action_report_claim").performClick()
+        assertEquals(1, reported)
+        assertEquals("", opened)
+    }
+
+    @Test
+    fun givenOnlyAnEndDate_whenShown_thenThatDateIsTheVigencia() {
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        detail = PolicyDetail(
+                            numero = "POL-2",
+                            ramo = "Vida",
+                            resumen = "x",
+                            estado = "por_vencer",
+                            venceEn = "",
+                            queHacer = "",
+                            inicioVigencia = null,
+                            finVigencia = "2027-01-01",
+                            moneda = "MXN",
+                            primaTotal = 10.0,
+                            coberturas = listOf(PolicyCoverage("Vida", 1.0, 0.0)),
+                            cancelacion = PolicyCancellation("  ", "", null),
+                        ),
+                    ),
+                )
+            }
+        }
+        rule.onNodeWithTag("policy_vigencia", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Por vencer", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("policy_prima", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun givenNoDatesAndAnUnknownStatus_whenShown_thenTheRawStatusStays() {
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        requested = "POL-3",
+                        detail = PolicyDetail(
+                            numero = "POL-3",
+                            ramo = "Vida",
+                            resumen = "Sin fechas",
+                            estado = "suspendida",
+                            venceEn = " ",
+                            queHacer = "",
+                            inicioVigencia = "",
+                            finVigencia = null,
+                        ),
+                    ),
+                )
+            }
+        }
+        rule.onNodeWithText("suspendida", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("Sin fechas", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun givenOnlyAStartDate_whenShown_thenTheVigenciaStaysEmpty() {
+        var opened = ""
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        detail = PolicyDetail(
+                            numero = "POL-4",
+                            ramo = "Vida",
+                            resumen = "Inicio",
+                            estado = "vigente",
+                            venceEn = " ",
+                            queHacer = "",
+                            inicioVigencia = "2026-03-12",
+                            finVigencia = null,
+                            cancelacion = PolicyCancellation("no", "2026-01-01", 1.0),
+                        ),
+                        claims = listOf(
+                            ClaimSummary("SIN-4", "Vida", "hecho", ClaimStatus.RECIBIDO),
+                        ),
+                    ),
+                    onOpenClaim = { opened = it },
+                )
+            }
+        }
+        rule.onNodeWithTag("policy_claim_SIN-4", useUnmergedTree = true).performClick()
+        assertEquals("SIN-4", opened)
     }
 
     @Test

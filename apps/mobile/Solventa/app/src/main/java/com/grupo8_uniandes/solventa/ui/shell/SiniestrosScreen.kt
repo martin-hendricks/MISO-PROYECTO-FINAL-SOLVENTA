@@ -17,6 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
@@ -59,7 +62,9 @@ fun SiniestrosScreen(
                 Text(
                     text = stringResource(R.string.load_failed),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.testTag("load_failed"),
+                    modifier = Modifier
+                        .testTag("load_failed")
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                 )
                 SolventaButton(
                     text = stringResource(R.string.claim_retry),

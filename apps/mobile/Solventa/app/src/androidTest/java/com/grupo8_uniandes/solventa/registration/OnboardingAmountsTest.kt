@@ -4,19 +4,27 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 class OnboardingAmountsTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenANewAccount_whenTheScreenIsShown_thenIncomeAndSpendingAreEmpty() {
@@ -41,12 +49,12 @@ class OnboardingAmountsTest {
         }
         rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Ingresos y gastos mensuales en COP. El ingreso debe ser mayor que cero.").assertIsDisplayed()
-        rule.onNodeWithText("Ingresos mensuales").assertIsDisplayed()
-        rule.onNodeWithText("Mayor que cero · COP").assertIsDisplayed()
-        rule.onNodeWithText("Gastos mensuales").assertIsDisplayed()
-        rule.onNodeWithText("Monto mensual en COP").assertIsDisplayed()
-        rule.onNodeWithTag("field_ingresos").assertIsDisplayed()
-        rule.onNodeWithTag("field_gastos").assertIsDisplayed()
+        rule.onNodeWithText("Ingresos mensuales").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Mayor que cero · COP").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Gastos mensuales").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Monto mensual en COP").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("field_ingresos").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("field_gastos").performScrollTo().assertIsDisplayed()
         rule.onAllNodesWithText("$4.500.000").assertCountEquals(0)
         rule.onAllNodesWithText("$1.200.000").assertCountEquals(0)
         rule.onNodeWithText("Continuar").assertIsNotEnabled()

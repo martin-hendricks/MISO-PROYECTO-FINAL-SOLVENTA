@@ -80,6 +80,28 @@ class BffCallTest {
     }
 
     @Test
+    fun givenANewOwner_whenRetained_thenABlankUidKeepsTheCache() {
+        cache.retainOwner(null)
+        cache.retainOwner(" ")
+        cache.retainOwner("ana")
+        cache.retainOwner("ana")
+        cache.writeDetail(
+            PolicyDetail(
+                numero = "POL-1",
+                ramo = "SOAT",
+                resumen = "Moto",
+                estado = "CANCELADA",
+                venceEn = "2027-01-01",
+                queHacer = "",
+                cancelacion = com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation("Fin", "2026-11-01", 10.0),
+            ),
+        )
+        assertEquals("POL-1", cache.readDetail("POL-1")?.numero)
+        cache.retainOwner("luis")
+        assertNull(cache.readDetail("POL-1"))
+    }
+
+    @Test
     fun givenAReadableBody_whenTheHostAnswers_thenDegradedAndEmptyOriginationStayReady() = runBlocking {
         enqueue(PublishedSamples.MORTGAGE_DEGRADED)
         val mortgage = RemoteMortgageRepository(api(), gate).offer(CreditProfile(180_000_000, 180, true))

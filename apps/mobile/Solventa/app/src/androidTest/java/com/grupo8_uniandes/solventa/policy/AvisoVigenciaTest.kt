@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -23,12 +24,18 @@ import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.AvisoVigenciaScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 class AvisoVigenciaTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenAPolicyAboutToExpire_whenTheNoticeIsShown_thenTheCustomerCannotRenew() {

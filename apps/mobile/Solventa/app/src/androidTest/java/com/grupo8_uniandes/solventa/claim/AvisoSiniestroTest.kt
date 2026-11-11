@@ -22,12 +22,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.core.app.ActivityOptionsCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import com.grupo8_uniandes.solventa.R
@@ -47,6 +49,7 @@ import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionAvisoScreen
 import com.grupo8_uniandes.solventa.ui.shell.EvidenciaAvisoScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -54,6 +57,11 @@ import java.io.File
 class AvisoSiniestroTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenACurrentPolicy_whenTheNoticeIsSent_thenSin441ShowsOnceAndSiniestrosStaysSelected() {
@@ -98,9 +106,9 @@ class AvisoSiniestroTest {
     @Test
     fun givenLocationAndCamera_whenTheyAreDenied_thenTheNoticeStaysOpen() {
         show(permissions = listOf(false, true, false))
-        rule.onNodeWithTag("claim_geotag").performClick()
-        rule.onNodeWithText("Permiso denegado").assertIsDisplayed()
-        rule.onNodeWithText("Puedes enviar el aviso sin geoetiqueta").assertIsDisplayed()
+        rule.onNodeWithTag("claim_geotag").performScrollTo().performClick()
+        rule.onNodeWithText("Permiso denegado").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Puedes enviar el aviso sin geoetiqueta").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("claim_geotag").performClick()
         rule.onNodeWithTag("claim_geotag").performClick()
         rule.onNodeWithText("GPS 4.6533, -74.0836 · ±12 m").assertIsDisplayed()

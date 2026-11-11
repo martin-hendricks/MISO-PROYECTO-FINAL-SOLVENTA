@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
@@ -53,6 +55,7 @@ fun PolizaDetalleScreen(
         Text(
             text = stringResource(R.string.policy_detail_title),
             style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() },
         )
         SolventaCard {
             Text(

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -14,15 +15,22 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 class OfertaHipotecarioTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenTheReviewOffer_whenOpened_thenPremiumAndCoverageAreVisible() {
@@ -46,6 +54,7 @@ class OfertaHipotecarioTest {
     fun givenTheReviewOffer_whenAccepted_thenExistingIssuanceOpens() {
         openOffer()
         rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.confirmReviewCard()
         rule.waitForIssuance()
         rule.onAllNodesWithText("Consentimiento Vida Crediticia").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
@@ -76,8 +85,8 @@ class OfertaHipotecarioTest {
     @Test
     fun givenTheReviewOffer_whenMarksAreUsed_thenTheScreenStays() {
         openOffer()
-        rule.onNodeWithTag("mortgage_offer_chevron").assertHasNoClickAction()
-        rule.onNodeWithTag("mortgage_identity_mark").assertHasNoClickAction()
+        rule.onNodeWithTag("mortgage_offer_chevron", useUnmergedTree = true).assertHasNoClickAction()
+        rule.onNodeWithTag("mortgage_identity_mark", useUnmergedTree = true).assertHasNoClickAction()
         rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
     }
 
@@ -90,7 +99,7 @@ class OfertaHipotecarioTest {
         rule.onNodeWithTag("tab_Perfil").assertIsDisplayed()
         rule.onAllNodesWithTag("notification_bell").assertCountEquals(0)
         rule.onAllNodesWithText("Permitir").assertCountEquals(0)
-        rule.onNodeWithTag("mortgage_identity_mark").assertHasNoClickAction()
+        rule.onNodeWithTag("mortgage_identity_mark", useUnmergedTree = true).assertHasNoClickAction()
         rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
     }
 
