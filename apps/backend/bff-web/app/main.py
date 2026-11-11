@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
+from .observabilidad import instrumentar
 from .routers import asesor, avisos_poliza, cliente, metricas, operador, registro, reportes, sesion, siniestros
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="bff-web", lifespan=lifespan)
 app.state.config = config
+instrumentar(app)
 
 # El API Gateway (infra/terraform/modules/edge) ya agrega headers CORS a la
 # respuesta, pero no responde el preflight por sí mismo: un OPTIONS que
