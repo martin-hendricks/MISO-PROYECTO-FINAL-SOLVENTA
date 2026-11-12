@@ -3,6 +3,10 @@ package com.grupo8_uniandes.solventa.di
 import android.content.Context
 import com.grupo8_uniandes.solventa.BuildConfig
 import com.grupo8_uniandes.solventa.data.bff.remote.BffRuntime
+import com.grupo8_uniandes.solventa.data.claim.ClaimReplay
+import com.grupo8_uniandes.solventa.data.claim.DeviceRenewal
+import com.grupo8_uniandes.solventa.data.claim.EncryptedNoticeStore
+import com.grupo8_uniandes.solventa.data.claim.PlatformLocator
 import com.grupo8_uniandes.solventa.data.consent.SharedPrefsConsentRepository
 import com.grupo8_uniandes.solventa.data.home.StandInHomeRepository
 import com.grupo8_uniandes.solventa.data.profile.AndroidDevicePermissionReader
@@ -13,8 +17,12 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
+import com.grupo8_uniandes.solventa.domain.bff.claim.DeviceLocator
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.LocalRenewal
+import com.grupo8_uniandes.solventa.domain.bff.claim.NoticeArchive
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.PoliciesInForce
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
@@ -48,6 +56,7 @@ import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
+import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
@@ -86,7 +95,11 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single { AcceptOffer(get()) }
     single<ClaimRepository> { get<BffRuntime>().claim }
     single<ClaimHold> { get<BffRuntime>().claimHold }
-    single { OpenClaimNotice(get(), get()) }
+    single { EncryptedNoticeStore(androidContext(), "solventa-clave-1") }
+    single<NoticeArchive> { get<EncryptedNoticeStore>() }
+    single { ClaimReplay(get(), get()) }
+    single<LocalRenewal> { DeviceRenewal(androidContext()) }
+    single { OpenClaimNotice(get(), get(), get()) }
     single { OpenParametricPayment(get()) }
     single<PaymentRepository> { get<BffRuntime>().payment }
     single<MortgageRepository> { get<BffRuntime>().mortgage }
@@ -134,13 +147,18 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
         OfferViewModel(get(), cotizacionId, region)
     }
     viewModel { PolizasViewModel(get(), get()) }
-    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get()) }
+    viewModel { (numero: String) -> PolizaDetalleViewModel(get(), numero, get(), get()) }
     viewModel { (offerId: String) -> IssuanceViewModel(get(), offerId) }
-    viewModel { ConfirmacionTarjetaViewModel() }
+    viewModel { (offerId: String, prima: Long, moneda: String) ->
+        ConfirmacionTarjetaViewModel(prima, moneda, offerId, get())
+    }
     viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
-    viewModel { AvisoSiniestroViewModel(get()) }
-    viewModel { ParametricoViewModel(get()) }
+    viewModel { (claimId: String) -> SiniestroDetalleViewModel(get(), claimId) }
+    single { PoliciesInForce(get()) }
+    single<DeviceLocator> { PlatformLocator(androidContext()) }
+    viewModel { AvisoSiniestroViewModel(get(), get(), get()) }
+    viewModel { ParametricoViewModel(get(), get(), get()) }
     viewModel { AvisoVigenciaViewModel(get()) }
 }
 

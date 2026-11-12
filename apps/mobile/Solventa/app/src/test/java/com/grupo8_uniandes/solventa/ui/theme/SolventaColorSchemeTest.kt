@@ -3,9 +3,12 @@ package com.grupo8_uniandes.solventa.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.grupo8_uniandes.solventa.ui.components.fieldHelperColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.pow
 
 class SolventaColorSchemeTest {
     @Test
@@ -59,5 +62,27 @@ class SolventaColorSchemeTest {
         assertEquals(36.sp, SolventaTypography.material.headlineMedium.lineHeight)
         assertEquals(FontWeight.SemiBold, SolventaTypography.material.headlineMedium.fontWeight)
         assertEquals(HankenGrotesk, SolventaTypography.material.headlineMedium.fontFamily)
+        assertEquals(12.sp, SolventaTypography.material.labelMedium.fontSize)
+        assertEquals(HankenGrotesk, SolventaTypography.material.labelMedium.fontFamily)
     }
+
+    @Test
+    fun helperContrastMeetsAaAndOutlineDoesNot() {
+        val scheme = solventaLightColorScheme()
+        assertEquals(scheme.onSurfaceVariant, fieldHelperColor(isError = false, scheme))
+        assertTrue(contrast(scheme.onSurfaceVariant, scheme.surface) >= 4.5)
+        assertTrue(contrast(scheme.outline, scheme.surface) < 4.5)
+    }
+}
+
+private fun contrast(foreground: Color, background: Color): Double {
+    fun channel(value: Float): Double {
+        val scaled = value.toDouble()
+        return if (scaled <= 0.04045) scaled / 12.92 else ((scaled + 0.055) / 1.055).pow(2.4)
+    }
+    fun luminance(color: Color): Double =
+        0.2126 * channel(color.red) + 0.7152 * channel(color.green) + 0.0722 * channel(color.blue)
+    val lighter = maxOf(luminance(foreground), luminance(background))
+    val darker = minOf(luminance(foreground), luminance(background))
+    return (lighter + 0.05) / (darker + 0.05)
 }

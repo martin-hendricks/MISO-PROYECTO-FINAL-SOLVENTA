@@ -2,6 +2,9 @@ package com.grupo8_uniandes.solventa.policy
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.issuance.ConsultPolicies
 import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
@@ -55,22 +58,23 @@ enum class PolicyPhase { Pending, Failed, Ready }
 
 data class PolicyDetailUiState(
     val phase: PolicyPhase = PolicyPhase.Pending,
-    val numero: String = "",
-    val ramo: String = "",
-    val resumen: String = "",
-    val estado: String = "",
-    val venceEn: String = "",
-    val queHacer: String = "",
+    val requested: String = "",
+    val detail: PolicyDetail? = null,
     val notice: Boolean = false,
-)
+    val claims: List<ClaimSummary> = emptyList(),
+) {
+    val numero: String get() = detail?.numero ?: requested
+    val queHacer: String get() = detail?.queHacer.orEmpty()
+}
 
 class PolizaDetalleViewModel(
     issuance: IssuanceRepository,
     private val numero: String,
     memory: PolicyMemory = InMemoryPolicyStore(),
+    private val claims: ClaimRepository? = null,
 ) : ViewModel() {
     private val consult = ConsultPolicies(issuance, memory)
-    private val _state = MutableStateFlow(PolicyDetailUiState(numero = numero))
+    private val _state = MutableStateFlow(PolicyDetailUiState(requested = numero))
     val state: StateFlow<PolicyDetailUiState> = _state.asStateFlow()
 
     init {
@@ -79,23 +83,29 @@ class PolizaDetalleViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _state.value = PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
+            _state.value = PolicyDetailUiState(phase = PolicyPhase.Pending, requested = numero)
             val result = consult.open(numero)
+            val related = claimsFor(numero)
             _state.value = when {
-                result.detail != null -> result.detail.toUi().copy(notice = result.notice)
-                result.missing -> PolicyDetailUiState(phase = PolicyPhase.Failed, numero = numero)
-                else -> PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
+                result.detail != null -> PolicyDetailUiState(
+                    phase = PolicyPhase.Ready,
+                    requested = numero,
+                    detail = result.detail,
+                    notice = result.notice,
+                    claims = related,
+                )
+                result.missing -> PolicyDetailUiState(phase = PolicyPhase.Failed, requested = numero)
+                else -> PolicyDetailUiState(phase = PolicyPhase.Pending, requested = numero)
             }
         }
     }
 
-    private fun PolicyDetail.toUi() = PolicyDetailUiState(
-        phase = PolicyPhase.Ready,
-        numero = numero,
-        ramo = ramo,
-        resumen = resumen,
-        estado = estado,
-        venceEn = venceEn,
-        queHacer = queHacer,
-    )
+    private suspend fun claimsFor(numero: String): List<ClaimSummary> {
+        val answer = claims?.list() ?: return emptyList()
+        return if (answer is StandInAnswer.Ready) {
+            answer.value.filter { it.poliza == numero }
+        } else {
+            emptyList()
+        }
+    }
 }

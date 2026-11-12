@@ -10,6 +10,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.MortgageRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.PaymentsRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.SoatRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAnswers
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAttempt
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
@@ -121,6 +122,25 @@ class RequestFirmOfferTest {
             gap(request, QuoteLine.Travel, QuoteAnswers(destination = "Bogotá", duration = "0")),
         )
         assertEquals(0, repository.quotes)
+    }
+
+    @Test
+    fun givenSoatAnswers_whenSubmitted_thenDisplacementYearAndCityAreSent() {
+        val repository = RecordingOfferRepository()
+        val request = RequestFirmOffer(repository)
+        assertEquals(
+            SoatRisk(150, 2024, "Bogotá"),
+            sent(
+                request,
+                repository,
+                QuoteLine.Soat,
+                QuoteAnswers(displacement = "150", modelYear = "2024", city = "Bogotá"),
+            ),
+        )
+        assertEquals(QuoteInput.Displacement, gap(request, QuoteLine.Soat, QuoteAnswers(modelYear = "2024", city = "Bogotá")))
+        assertEquals(QuoteInput.ModelYear, gap(request, QuoteLine.Soat, QuoteAnswers(displacement = "150", city = "Bogotá")))
+        assertEquals(QuoteInput.City, gap(request, QuoteLine.Soat, QuoteAnswers(displacement = "150", modelYear = "2024")))
+        assertEquals(1, repository.quotes)
     }
 
     private fun sent(

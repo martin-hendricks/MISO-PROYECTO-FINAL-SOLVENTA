@@ -1,6 +1,6 @@
 # ms-siniestros
 
-Aviso, evaluación, aprobación y pago de siniestros; automatización de siniestros paramétricos.
+Aviso, evaluación, aprobación y pago de siniestros (asistido y paramétrico), con evidencia en S3 y aprobación asíncrona por motor de reglas.
 
 **Stack:** Python (FastAPI)
 **ASRs relevantes:** EC-LAT-11 (consulta de estado, p95 ≤ 150ms — ver `experiments/ha-08-lectura-siniestro`), EC-DISP-02
@@ -15,6 +15,8 @@ CQRS: separación comando/consulta pendiente de aplicar según el resultado del 
 | HU-32 · Recibir evento paramétrico (stub) | [SOLV-125](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-125) | `POST /v1/eventos-parametricos` ingiere un evento simulado (id + valor comparable) de forma idempotente por `evento_id`, persistido antes de evaluarse. |
 | HU-33 · Evaluar umbral paramétrico | [SOLV-126](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-126) | Compara el valor del evento contra un umbral que viaja en la misma solicitud; evaluación determinista, con el resultado (umbral, valor, decisión, motivo) siempre persistido. |
 | HU-34 · Disparar pago paramétrico (stub) | [SOLV-127](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-127) | Si el umbral se cumple, dispara un desembolso simulado sin intervención humana, idempotente por `evento_id`, y mueve el siniestro a `pagado`. |
+| HU-157 · Aviso de siniestro en el portal y back-office | [SOLV-256](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-256) | Alta del aviso asistido con evidencia en S3 (N5/N6), motor de reglas que aprueba y paga el bajo monto, rechaza lo objetivo o retiene para el operador (N15), cola del operador con decisión auditada (HU-26/27), perito (HU-28) y pago de bajo monto idempotente (HU-29). |
+| HU-160 · Lista de siniestros en el portal | [SOLV-259](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-259) | `GET /v1/siniestros?usuario_id=` y `GET /v1/siniestros/{id}/detalle?usuario_id=` (el cliente nunca ve un siniestro ajeno). |
 
 ### Estados del siniestro (HU-30)
 
@@ -39,6 +41,38 @@ La evaluación es determinista: `EvaluacionUmbral.evaluar(evento, umbral, poliza
 ### Pago paramétrico (HU-34)
 
 Si la evaluación decide pagar, `disparar_pago_parametrico` dispara el desembolso **sin intervención humana** a través del puerto `AdaptadorDesembolso` (`app/ports/pagos.py`). La implementación provista, `AdaptadorDesembolsoStub` (`app/infrastructure/pagos.py`), es un stub sustituible: solo registra el desembolso en memoria, sin red de pagos real. Sustituir el stub por una pasarela real (p. ej. `ms-pagos`) no requiere cambiar `application/` ni `domain/`, solo cumplir el `Protocol`. El pago es idempotente por `evento_id` (`UNIQUE` en `pago_parametrico.evento_id`): reprocesar el mismo evento no genera un segundo desembolso, se conserva el original. Al pagar, el siniestro transiciona a `pagado` usando la máquina de estados de HU-30, con monto y marca de tiempo persistidos en `pago_parametrico`.
+
+### Siniestro asistido (HU-157) — aprobación asíncrona
+
+Lectura del enunciado que aplica: §2.2 "pago de siniestros de **bajo monto** de forma automática"; §5.1 #3 "se evalúa, se aprueba y se paga **o se enruta a un perito**"; §6.4 / `EC-SEG-08` el caso marcado por el antifraude queda **retenido con traza**. No hay meta de latencia para aprobar (solo para consultar el estado), así que la decisión es asíncrona:
+
+```
+POST /v1/siniestros (multipart)  ->  S3 + siniestro RECIBIDO  ->  201 al instante
+worker (cada WORKER_INTERVALO_SEGUNDOS, FOR UPDATE SKIP LOCKED)
+  -> EN_EVALUACION -> motor de reglas (app/domain/motor_reglas.py)
+       aprobado  -> DECIDIDO[aprobado] -> pago stub idempotente -> PAGADO   (sin humano)
+       rechazado -> DECIDIDO[rechazado]   (póliza no vigente / hecho fuera de vigencia)
+       revision  -> EN_EVALUACION + requiere_revision  -> cola del operador
+operador: /decision (aprobar|rechazar con motivo) · /perito · /pago (bajo monto, HU-29)
+```
+
+- **Motor de reglas** (determinista, sin red, evalúa todas las reglas para la auditoría): `poliza_vigente` y `fecha_en_vigencia` rechazan; `ramo_parametrizado`, `evidencia_adjunta`, `sin_avisos_duplicados` (antifraude, ventana por ramo) y `monto_bajo_umbral` retienen. Si el motor falla, el caso queda retenido (nunca se pierde).
+- **Parametría** (`parametro_ramo`): reserva por ramo y umbral de aprobación automática. La reserva nunca supera la suma asegurada. Semilla: `proteccion-dispositivo` 420.000 (bajo el umbral de 500.000, se aprueba solo), `vida-crediticia` 3.200.000 y `soat-motocicleta` 890.000 (van a revisión).
+- **Estados**: se conserva el modelo único de HU-30 y se agrega `resultado` (aprobado/rechazado) dentro de `decidido`. Con `aprobado` vale `decidido -> pagado`; `rechazado` es terminal; `en_evaluacion -> enrutado` es el perito. Los paramétricos (sin `resultado`) siguen con la tabla original.
+- **Evidencia (N6)**: PNG, JPG, PDF o MP4, máx. 10 MB y 5 archivos. Primero se sube a S3 y después se confirma la transacción: si S3 falla, responde 503 y no queda aviso a medias. La llave es `siniestros/{siniestro_id}/{adjunto_id}` (no usa el nombre del cliente). La tabla `siniestro_adjunto` guarda bucket, llave, tipo, tamaño y SHA-256 ligados al usuario y al siniestro; las URLs de lectura se firman al consultar y expiran (`URL_EVIDENCIA_EXPIRA_SEGUNDOS`).
+- **Idempotencia**: `Idempotency-Key` en el alta (un reintento devuelve el mismo aviso con 200) y clave determinista del pago (un reintento devuelve el mismo comprobante y queda en `pago_siniestro_intento` como `reintento_idempotente`).
+- **Seguridad**: todas las rutas exigen el JWT que reenvía el BFF (`SOLVENTA_TOKEN_SECRET`). Solo un `cliente` avisa y solo a su nombre (`usuario_id` del cuerpo = `uid` del token); el cliente solo lista y consulta lo suyo (ajeno -> 404); decidir, perito, pago y forzar el motor son solo del `operador`, y la auditoría guarda el `sub` del token como actor.
+- **Póliza**: igual que HU-33, ms-siniestros no llama a ms-polizas; el BFF envía la foto de la póliza (dueño, vigencia, ramo) en el aviso.
+- **Eventos**: `AvisoSiniestroRecibido`, `SiniestroDecidido`, `SiniestroRetenido` y `PagoSiniestroRealizado` quedan en el outbox para el push de estado (N7) cuando exista el publicador del outbox (N12). El worker no depende de ese publicador.
+
+| Endpoint | Uso |
+| --- | --- |
+| `POST /v1/siniestros` | Alta multipart: parte `datos` (JSON `AvisoEntrada`) + parte `archivos`. |
+| `GET /v1/siniestros?usuario_id=&tipo=&estado=&resultado=&requiere_revision=` | Mis siniestros y chips de la cola. Sin filtros: lista completa (comportamiento previo). |
+| `GET /v1/siniestros/{id}/detalle[?usuario_id=]` | Detalle con evidencia firmada, decisiones auditadas, pago, intentos y `clave_pago`. |
+| `POST /v1/siniestros/{id}/decision` · `/perito` · `/pago` | Acciones del operador (HU-27/28/29). |
+| `POST /v1/siniestros/evaluaciones-pendientes` | Fuerza una pasada del motor sin esperar al worker (operación y E2E). |
+| `GET /v1/parametros-ramo` | Parametría vigente. |
 
 ## Estructura (hexagonal)
 
@@ -73,6 +107,11 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/solventa` | Almacén propio del servicio |
 | `DB_POOL_SIZE` | `10` | Conexiones por réplica |
 | `LOG_LEVEL` | `INFO` | |
+| `S3_EVIDENCIAS_BUCKET` | vacío | Bucket de evidencia. Vacío = almacén en memoria (solo desarrollo). |
+| `AWS_REGION` | `us-east-1` | Región del bucket. En EKS las credenciales llegan por IRSA. |
+| `S3_ENDPOINT_URL` / `S3_ENDPOINT_PUBLICO` | — | Solo local: endpoint del doble de S3 y el que usa el navegador para las URLs firmadas. |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_CREAR_BUCKET` | — | Solo local (LocalStack). |
+| `WORKER_EVALUACION_HABILITADO` / `WORKER_INTERVALO_SEGUNDOS` | `true` / `2.0` | Worker asíncrono del motor. |
 
 ## Pruebas (HU-85)
 
@@ -98,11 +137,11 @@ docker build --target test -t ms-siniestros:test . && docker run --rm ms-siniest
 ## Ejecutar con Docker (HU-71)
 
 ```bash
-docker compose up --build          # servicio en :8080 + PostgreSQL 16 con el DDL de db/
+docker compose up --build          # servicio en :8080 + PostgreSQL 16 con el DDL de db/ + S3 local (LocalStack) en :4566
 ```
 
 La imagen fija el runtime (`python:3.12.7-slim-bookworm`, nunca `latest`) y corre con un usuario sin privilegios (uid 1000). El puerto 8080 y el uid son los que espera el chart `infra/k8s/charts/microservicio`; con `uvicorn` local sin Docker el servicio sigue en :8000.
 
 ## Despliegue
 
-Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/08_ms_siniestros.sql` (reclamación manual) y `db/schema/13_ms_siniestros_parametrico.sql` (extensión aditiva de HU-30/32/33/34) del repo; el schema `ms_siniestros` vive en la instancia compartida que provisiona Terraform. Sobre ella se aplican, en orden, los archivos de `db/` de este servicio.
+Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/08_ms_siniestros.sql` (reclamación manual) y `db/schema/13_ms_siniestros_parametrico.sql` (extensión aditiva de HU-30/32/33/34) y `db/schema/14_ms_siniestros_aviso_asistido.sql` (siniestro asistido, HU-157; copia local `db/05_ms_siniestros_aviso_asistido.sql`) del repo; las tablas `reclamacion`/`evidencia_siniestro`/`evaluacion_siniestro` del DDL 08 quedan sin uso; el schema `ms_siniestros` vive en la instancia compartida que provisiona Terraform. Sobre ella se aplican, en orden, los archivos de `db/` de este servicio.

@@ -118,3 +118,17 @@ variablesEntornoSecreto:
   - nombre: DATABASE_URL_READ
     nombreSecreto: ms-polizas-db
     claveSecreto: database_url
+
+# HU-67: job diario que genera el evento PolizaPorVencer para las pólizas
+# que entran en la ventana de aviso (app/jobs/avisos_vencimiento.py, ya
+# construido e idempotente por evento -- ver generar_avisos_vencimiento en
+# app/application/casos_uso.py). Mismo release de Helm que el Deployment
+# (un solo `helm upgrade --install ms-polizas` en .github/workflows/
+# deploy.yml instala ambos recursos), así que reusa automáticamente la
+# misma imagen/secretos/ServiceAccount del Deployment de arriba.
+cronJob:
+  habilitado: true
+  # 06:00 UTC = 01:00 America/Bogota -- fuera de horario pico, antes de que
+  # el operador empiece su jornada a revisar vencimientos del día.
+  horario: "0 6 * * *"
+  comando: ["python", "-m", "app.jobs.avisos_vencimiento"]

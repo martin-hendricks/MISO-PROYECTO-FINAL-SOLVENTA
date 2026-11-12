@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -55,12 +56,27 @@ class SiniestrosViewModelTest {
                 SiniestrosScreen(
                     claims = listOf(publishedRow()),
                     onOpenClaim = { opened += it },
-                    onOpenCatalog = {},
                 )
             }
         }
         rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
         assertEquals(listOf("SIN-441"), opened)
+    }
+
+    @Test
+    fun givenAnInternalId_whenTheRowIsTapped_thenThatIdIsOpened() {
+        val internal = "11111111-1111-1111-1111-111111111111"
+        val opened = mutableListOf<String>()
+        rule.setContent {
+            SolventaTheme {
+                SiniestrosScreen(
+                    claims = listOf(publishedRow().copy(id = internal)),
+                    onOpenClaim = { opened += it },
+                )
+            }
+        }
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        assertEquals(listOf(internal), opened)
     }
 
     @Test
@@ -83,7 +99,6 @@ class SiniestrosViewModelTest {
                     claims = viewModel.state.value.claims,
                     failed = viewModel.state.value.phase == ClaimsPhase.Failed,
                     onOpenClaim = {},
-                    onOpenCatalog = {},
                 )
             }
         }
@@ -147,6 +162,40 @@ class SiniestrosViewModelTest {
         assertEquals("SIN-441", viewModel.state.value.openedClaimId)
         viewModel.consumeOpenedClaim()
         assertEquals(null, viewModel.state.value.openedClaimId)
+    }
+
+    @Test
+    fun givenAVisibleNumber_whenOpened_thenTheDetailUsesTheInternalId() {
+        val internal = "11111111-1111-1111-1111-111111111111"
+        val viewModel = SiniestrosViewModel(
+            scripted(
+                StandInAnswer.Ready(
+                    listOf(
+                        ClaimSummary(
+                            siniestroId = "SIN-9",
+                            ramo = "SOAT motocicleta",
+                            resumen = "Choque",
+                            estado = ClaimStatus.EN_EVALUACION,
+                            id = internal,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        viewModel.openClaim("SIN-9")
+
+        assertEquals(internal, viewModel.state.value.openedClaimId)
+        viewModel.openClaim("SIN-P01")
+        assertEquals("SIN-P01", viewModel.state.value.openedClaimId)
+    }
+
+    @Test
+    fun givenARejectedList_whenLoaded_thenThePhaseFails() {
+        val viewModel = SiniestrosViewModel(scripted(StandInAnswer.Rejected("no")))
+        assertEquals(ClaimsPhase.Failed, viewModel.state.value.phase)
+        viewModel.openClaim(OpenParametricPayment.STORED_ID)
+        assertTrue(viewModel.state.value.openParametric)
     }
 
     private fun reviewRows() = listOf(

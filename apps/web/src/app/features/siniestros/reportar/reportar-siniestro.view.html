@@ -1,0 +1,251 @@
+<section data-testid="reportar-siniestro" [attr.data-paso]="vm.paso()">
+  @switch (vm.paso()) {
+    @case ('formulario') {
+      <a class="back" routerLink="/siniestros" data-testid="reportar-volver">
+        <span aria-hidden="true">←</span> {{ 'siniestros.volver' | translate }}
+      </a>
+      <div class="page-head">
+        <div>
+          <h1>
+            {{ 'siniestros.reportar.title' | translate }}
+            @if (vm.ramoSeleccionado(); as ramo) {
+              · {{ ramo }}
+            }
+          </h1>
+          <p class="subtitle">{{ 'siniestros.reportar.subtitle' | translate }}</p>
+        </div>
+      </div>
+
+      @switch (vm.polizasStatus()) {
+        @case ('loading') {
+          <p class="subtitle" role="status">
+            {{ 'siniestros.reportar.cargandoPolizas' | translate }}
+          </p>
+        }
+        @case ('error') {
+          <div class="empty-state" role="alert" data-testid="reportar-polizas-error">
+            <p>{{ 'siniestros.reportar.errorPolizas' | translate }}</p>
+            <button type="button" class="outlined" (click)="vm.cargarPolizas()">
+              {{ 'siniestros.reintentar' | translate }}
+            </button>
+          </div>
+        }
+        @case ('sin-polizas') {
+          <div class="empty-state" data-testid="reportar-sin-polizas">
+            <h2>{{ 'siniestros.reportar.sinPolizas.title' | translate }}</h2>
+            <p>{{ 'siniestros.reportar.sinPolizas.body' | translate }}</p>
+          </div>
+        }
+        @default {
+          <div class="dos-columnas">
+            <form class="tarjeta" novalidate (submit)="$event.preventDefault(); vm.continuar()">
+              <label for="aviso-poliza">{{ 'siniestros.reportar.poliza' | translate }}</label>
+              <select
+                id="aviso-poliza"
+                data-testid="aviso-poliza"
+                [value]="vm.poliza()"
+                [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().poliza"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().poliza ? 'aviso-poliza-error' : null
+                "
+                (change)="vm.poliza.set($any($event.target).value)"
+              >
+                <option value="">{{ 'siniestros.reportar.elegirPoliza' | translate }}</option>
+                @for (poliza of vm.polizas(); track poliza.numero) {
+                  <option [value]="poliza.numero">
+                    {{ poliza.producto }} · {{ poliza.numero }}
+                  </option>
+                }
+              </select>
+              @if (vm.intentoContinuar() && vm.errores().poliza) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-poliza-error"
+                  data-testid="aviso-poliza-error"
+                >
+                  {{ 'siniestros.reportar.error.poliza' | translate }}
+                </p>
+              }
+
+              <label for="aviso-fecha">{{ 'siniestros.reportar.fecha' | translate }}</label>
+              <input
+                id="aviso-fecha"
+                data-testid="aviso-fecha"
+                type="date"
+                [max]="vm.hoy"
+                [value]="vm.fechaHecho()"
+                [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().fechaHecho"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().fechaHecho ? 'aviso-fecha-error' : null
+                "
+                (input)="vm.fechaHecho.set($any($event.target).value)"
+              />
+              @if (vm.intentoContinuar() && vm.errores().fechaHecho) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-fecha-error"
+                  data-testid="aviso-fecha-error"
+                >
+                  {{ 'siniestros.reportar.error.fecha' | translate }}
+                </p>
+              }
+
+              <label for="aviso-descripcion">{{
+                'siniestros.reportar.descripcion' | translate
+              }}</label>
+              <textarea
+                id="aviso-descripcion"
+                data-testid="aviso-descripcion"
+                maxlength="1000"
+                rows="3"
+                [value]="vm.descripcion()"
+                [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().descripcion"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().descripcion
+                    ? 'aviso-descripcion-error'
+                    : null
+                "
+                (input)="vm.descripcion.set($any($event.target).value)"
+              ></textarea>
+              @if (vm.intentoContinuar() && vm.errores().descripcion) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-descripcion-error"
+                  data-testid="aviso-descripcion-error"
+                >
+                  {{ 'siniestros.reportar.error.descripcion' | translate }}
+                </p>
+              }
+
+              <button type="submit" class="filled bloque" data-testid="aviso-continuar">
+                {{ 'siniestros.reportar.continuar' | translate }}
+              </button>
+            </form>
+
+            <aside class="tarjeta">
+              <h2>{{ 'siniestros.reportar.queAdjuntar.title' | translate }}</h2>
+              <p class="subtitle">{{ 'siniestros.reportar.queAdjuntar.body' | translate }}</p>
+            </aside>
+          </div>
+        }
+      }
+    }
+
+    @case ('evidencia') {
+      <button
+        type="button"
+        class="back enlace"
+        data-testid="evidencia-volver"
+        (click)="vm.volverAlFormulario()"
+      >
+        <span aria-hidden="true">←</span> {{ 'siniestros.volver' | translate }}
+      </button>
+      <div class="page-head">
+        <div>
+          <h1>{{ 'siniestros.evidencia.title' | translate }}</h1>
+          <p class="subtitle">{{ 'siniestros.evidencia.subtitle' | translate }}</p>
+        </div>
+      </div>
+
+      <div
+        class="dropzone"
+        data-testid="evidencia-dropzone"
+        [class.arrastrando]="arrastrando()"
+        (dragover)="alArrastrar($event)"
+        (dragleave)="arrastrando.set(false)"
+        (drop)="alSoltar($event)"
+      >
+        @if (vm.archivo(); as archivo) {
+          <p class="archivo" data-testid="evidencia-archivo">{{ archivo.name }}</p>
+        } @else {
+          <p>{{ 'siniestros.evidencia.suelta' | translate }}</p>
+        }
+        <p class="subtitle">{{ 'siniestros.evidencia.formatos' | translate }}</p>
+        <label class="outlined" for="evidencia-input">{{
+          'siniestros.evidencia.elegir' | translate
+        }}</label>
+        <input
+          id="evidencia-input"
+          data-testid="evidencia-input"
+          class="visualmente-oculto"
+          type="file"
+          accept="image/png,image/jpeg,application/pdf"
+          (change)="alElegir($event)"
+        />
+      </div>
+      @if (vm.errorArchivo(); as error) {
+        <p class="hint-error" role="alert" data-testid="evidencia-error">
+          {{ 'siniestros.evidencia.error.' + error | translate }}
+        </p>
+      }
+
+      <p
+        class="subtitle ubicacion"
+        data-testid="evidencia-ubicacion"
+        [attr.data-state]="vm.ubicacionStatus()"
+      >
+        {{ 'siniestros.evidencia.ubicacion.' + vm.ubicacionStatus() | translate }}
+      </p>
+      @if (vm.ubicacionStatus() !== 'guardada') {
+        <button
+          type="button"
+          class="tonal"
+          data-testid="evidencia-usar-ubicacion"
+          [disabled]="vm.ubicacionStatus() === 'solicitando'"
+          (click)="vm.usarUbicacion()"
+        >
+          {{ 'siniestros.evidencia.usarUbicacion' | translate }}
+        </button>
+      }
+
+      @switch (vm.envio()) {
+        @case ('error') {
+          <p class="hint-error" role="alert" data-testid="evidencia-envio-error">
+            {{ 'siniestros.evidencia.errorEnvio' | translate }}
+          </p>
+        }
+        @case ('rechazado') {
+          <p class="hint-error" role="alert" data-testid="evidencia-rechazo">{{ vm.rechazo() }}</p>
+        }
+      }
+
+      <div>
+        <button
+          type="button"
+          class="filled"
+          data-testid="evidencia-enviar"
+          [disabled]="!vm.puedeEnviar()"
+          (click)="vm.enviar()"
+        >
+          {{
+            (vm.envio() === 'enviando'
+              ? 'siniestros.evidencia.enviando'
+              : 'siniestros.evidencia.enviar'
+            ) | translate
+          }}
+        </button>
+      </div>
+    }
+
+    @default {
+      <!-- enviado -->
+      @let recibido = vm.recibido()!;
+      <div class="empty-state confirmacion" role="status" data-testid="aviso-recibido">
+        <h1>{{ 'siniestros.confirmacion.title' | translate }}</h1>
+        <p class="mono" data-testid="aviso-recibido-id">{{ recibido.siniestroId }}</p>
+        <p>{{ 'siniestros.confirmacion.body' | translate }}</p>
+        <div class="acciones">
+          <a class="filled" routerLink="/siniestros" data-testid="aviso-recibido-mis-siniestros">
+            {{ 'siniestros.confirmacion.misSiniestros' | translate }}
+          </a>
+          <a class="outlined" routerLink="/inicio" data-testid="aviso-recibido-inicio">
+            {{ 'siniestros.confirmacion.inicio' | translate }}
+          </a>
+        </div>
+      </div>
+    }
+  }
+</section>

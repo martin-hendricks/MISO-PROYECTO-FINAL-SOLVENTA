@@ -1,12 +1,8 @@
 package com.grupo8_uniandes.solventa.navigation
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,6 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
+import com.grupo8_uniandes.solventa.claim.DetailPhase
+import com.grupo8_uniandes.solventa.claim.ParametricTarget
+import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.issuance.ConfirmacionTarjetaViewModel
@@ -61,7 +60,6 @@ import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
-import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.ui.region.findActivity
@@ -90,10 +88,11 @@ fun CustomerNavHost(
         when (push.destino) {
             PushDestination.PARAMETRICO ->
                 if (OpenParametricPayment.opens(push)) navController.navigate(ParametricoRoute)
-            PushDestination.AVISO_VENCIMIENTO ->
-                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoVencimientoRoute)
-            PushDestination.AVISO_RENOVACION ->
-                if (push.poliza == OpenValidityNotice.POLICY) navController.navigate(AvisoRenovacionRoute)
+            // La ruta solo depende del tipo de aviso; qué póliza real coincide
+            // se resuelve dentro de la pantalla (AvisoVigenciaViewModel.openPush,
+            // vía OpenValidityNotice) contra la lista real de avisos, no aquí.
+            PushDestination.AVISO_VENCIMIENTO -> navController.navigate(AvisoVencimientoRoute)
+            PushDestination.AVISO_RENOVACION -> navController.navigate(AvisoRenovacionRoute)
             PushDestination.DETALLE_SINIESTRO -> Unit
         }
     }
@@ -126,7 +125,11 @@ fun CustomerNavHost(
             val offer = remember(region) { ShowMortgageOffer(region).show() }
             OfertaHipotecarioScreen(
                 offer = offer,
-                onAccept = { navController.navigate(ConfirmacionTarjetaRoute()) },
+                onAccept = {
+                    navController.navigate(
+                        ConfirmacionTarjetaRoute(prima = offer.prima, moneda = offer.moneda),
+                    )
+                },
                 onReviewLater = { navController.popBackStack() },
             )
         }
@@ -140,7 +143,11 @@ fun CustomerNavHost(
             val state by viewModel.state.collectAsState()
             VerOfertaScreen(
                 state = state,
-                onAccept = { offerId -> navController.navigate(ConfirmacionTarjetaRoute(offerId)) },
+                onAccept = { offerId ->
+                    navController.navigate(
+                        ConfirmacionTarjetaRoute(offerId, state.prima, state.moneda),
+                    )
+                },
                 onQuoteAgain = { navController.navigate(CotizacionRoute(route.cotizacionId)) },
                 onDecline = { navController.popBackStack(InicioRoute, inclusive = false) },
             )
@@ -192,8 +199,18 @@ fun CustomerNavHost(
             val viewModel: PolizaDetalleViewModel = koinViewModel { parametersOf(route.policyId) }
             val state by viewModel.state.collectAsState()
             val avisos: AvisoVigenciaViewModel = koinViewModel()
+            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(route.policyId) }
+            val renewalState by renewal.state.collectAsState()
+            LaunchedEffect(state.detail?.renovacionAutomatica) {
+                state.detail?.let { renewal.adopt(it.renovacionAutomatica) }
+            }
             PolizaDetalleScreen(
                 state = state,
+                renewalChecked = renewalState.checked,
+                renewalMissing = renewalState.missing,
+                onRenewal = renewal::onChecked,
+                onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
+                onReportClaim = { navController.navigate(AvisoSiniestroRoute) },
                 onExpiryNotices = {
                     avisos.requestExpiry(route.policyId) { reading ->
                         if (reading != null) navController.navigate(AvisoVencimientoRoute)
@@ -218,36 +235,27 @@ fun CustomerNavHost(
         composable<SiniestrosRoute> {
             val viewModel: SiniestrosViewModel = koinViewModel()
             val state by viewModel.state.collectAsState()
-            val context = LocalContext.current
-            val locationPermission = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { granted ->
-                if (granted) navController.navigate(MapaPrestadoresRoute)
-            }
             LaunchedEffect(Unit) { viewModel.refresh() }
             LaunchedEffect(state.openedClaimId) {
                 val id = state.openedClaimId ?: return@LaunchedEffect
-                if (id == OpenParametricPayment.STORED_ID) {
+                if (state.openParametric) {
                     navController.navigate(ParametricoRoute)
-                    viewModel.consumeOpenedClaim()
+                } else {
+                    navController.navigate(SiniestroDetalleRoute(id))
                 }
+                viewModel.consumeOpenedClaim()
             }
             SiniestrosScreen(
-                claims = state.claims,
+                claims = state.visible,
+                chip = state.chip,
+                onChip = viewModel::selectChip,
+                filterMiss = state.phase == ClaimsPhase.Ready &&
+                    state.claims.isNotEmpty() &&
+                    state.visible.isEmpty(),
                 failed = state.phase == ClaimsPhase.Failed,
+                onRetry = viewModel::refresh,
                 onOpenClaim = viewModel::openClaim,
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
-                onOpenCatalog = {
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (granted) {
-                        navController.navigate(MapaPrestadoresRoute)
-                    } else {
-                        locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
-                },
             )
         }
         composable<MapaPrestadoresRoute> {
@@ -275,10 +283,27 @@ fun CustomerNavHost(
         composable<AvisoSiniestroRoute> {
             val viewModel = avisoViewModel()
             LaunchedEffect(Unit) { viewModel.reopen() }
+            val aviso by viewModel.state.collectAsState()
             AvisoSiniestroScreen(
+                sentences = listOf(
+                    aviso.draft.poliza,
+                    aviso.draft.fechaHecho,
+                    aviso.draft.descripcion,
+                    aviso.draft.lugar,
+                ),
+                problems = aviso.problems,
+                policies = aviso.policyOptions,
+                policiesLoaded = aviso.policiesLoaded,
+                geotag = aviso.draft.geotag,
+                geo = aviso.draft.geo,
+                locationDenied = aviso.draft.locationDenied,
+                locating = aviso.locating,
+                onRevise = viewModel::revise,
+                onToggleGeotag = viewModel::toggleGeotag,
+                onUseLocation = viewModel::useCurrentLocation,
+                onLocationDenied = viewModel::denyCurrentLocation,
                 onContinue = {
-                    viewModel.continueToCamera()
-                    navController.navigate(EvidenciaAvisoRoute)
+                    if (viewModel.continueToEvidence()) navController.navigate(EvidenciaAvisoRoute)
                 },
                 onCancel = {
                     viewModel.cancel()
@@ -289,60 +314,57 @@ fun CustomerNavHost(
         composable<EvidenciaAvisoRoute> {
             val viewModel = avisoViewModel()
             val state by viewModel.state.collectAsState()
-            LaunchedEffect(state.phase) {
-                if (state.phase == NoticePhase.Evidence) {
-                    viewModel.attachVideo()
-                    viewModel.attachReceipt()
-                }
-                if (state.phase == NoticePhase.Confirmation) {
-                    navController.navigate(ConfirmacionAvisoRoute(state.receiptId))
+            LaunchedEffect(state.receiptId) {
+                if (state.phase == NoticePhase.Confirmation && state.receiptId.isNotBlank()) {
+                    navController.navigate(ConfirmacionAvisoRoute(state.receiptId)) {
+                        popUpTo(AvisoSiniestroRoute) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             }
             EvidenciaAvisoScreen(
-                phase = state.phase,
                 draft = state.draft,
-                onAllowCamera = viewModel::allowCamera,
-                onDenyCamera = viewModel::denyCamera,
-                onDismissCamera = viewModel::dismissCamera,
-                onAllowPhotos = viewModel::allowPhotos,
-                onDenyPhotos = viewModel::denyPhotos,
-                onAllowLocation = viewModel::allowLocation,
-                onDenyLocation = viewModel::denyLocation,
-                onDismissLocation = viewModel::dismissLocation,
-                onOpenLocation = viewModel::openLocation,
-                onChoosePhotos = viewModel::choosePhotos,
+                onAttach = { attachment, bytes -> viewModel.attach(attachment, bytes) },
+                onRemove = viewModel::remove,
+                onCameraDenied = viewModel::markCameraDenied,
                 onSend = viewModel::send,
                 onQueue = viewModel::queue,
-                onAttach = viewModel::attachSupport,
+                sending = state.sending,
+                queued = state.queued,
+                rejection = state.rejection,
+                fileRejected = state.fileRejected,
             )
         }
         composable<ConfirmacionAvisoRoute> { entry ->
             val route = entry.toRoute<ConfirmacionAvisoRoute>()
+            val notice = avisoViewModel()
             ConfirmacionAvisoScreen(
                 siniestroId = route.siniestroId,
                 onMyClaims = {
-                    navController.popBackStack(SiniestrosRoute, inclusive = false)
+                    notice.reopen()
+                    navController.showClaimsList()
                 },
                 onHome = {
-                    navController.popBackStack(InicioRoute, inclusive = false)
+                    notice.reopen()
+                    navController.leaveIssuance(InicioRoute)
                 },
             )
         }
         composable<ParametricoRoute> {
             val viewModel: ParametricoViewModel = koinViewModel()
-            val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(OpenParametricPayment.POLICY) }
             val state by viewModel.state.collectAsState()
-            val renewalState by renewal.state.collectAsState()
             val context = LocalContext.current
-            LaunchedEffect(Unit) { viewModel.load() }
+            LaunchedEffect(Unit) {
+                val id = ParametricTarget.claimId
+                if (id.isNotBlank()) viewModel.loadStored(id) else viewModel.load()
+            }
             val notice = state.notice
             if (notice != null) {
                 ParametricoScreen(
                     notice = notice,
                     onBack = { navController.popBackStack() },
-                    renewalChecked = renewalState.checked,
-                    renewalMissing = renewalState.missing,
-                    onRenewal = renewal::onChecked,
+                    renewalChecked = state.renewalChecked,
+                    onRenewal = viewModel::setRenewal,
                     onDownload = {
                         val receipt = viewModel.offerReceipt() ?: return@ParametricoScreen
                         val text = listOf(receipt.asunto, receipt.disparo, receipt.lineaDepositada)
@@ -358,9 +380,20 @@ fun CustomerNavHost(
         }
         composable<SiniestroDetalleRoute> { entry ->
             val route = entry.toRoute<SiniestroDetalleRoute>()
+            val viewModel: SiniestroDetalleViewModel = koinViewModel { parametersOf(route.claimId) }
+            val detail by viewModel.state.collectAsState()
+            val context = LocalContext.current
             SiniestroDetalleScreen(
                 claimId = route.claimId,
-                onBack = { navController.popBackStack() },
+                claim = detail.claim,
+                missing = detail.phase == DetailPhase.Missing,
+                failed = detail.phase == DetailPhase.Failed,
+                onRetry = viewModel::load,
+                onOpenPolicy = { numero -> navController.navigate(PolizaDetalleRoute(numero)) },
+                onOpenEvidence = { url ->
+                    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    runCatching { context.startActivity(view) }
+                },
             )
         }
         composable<PerfilRoute> {
@@ -371,7 +404,9 @@ fun CustomerNavHost(
         }
         composable<ConfirmacionTarjetaRoute> { entry ->
             val route = entry.toRoute<ConfirmacionTarjetaRoute>()
-            val viewModel: ConfirmacionTarjetaViewModel = koinViewModel()
+            val viewModel: ConfirmacionTarjetaViewModel = koinViewModel {
+                parametersOf(route.offerId, route.prima, route.moneda)
+            }
             val state by viewModel.state.collectAsState()
             ConfirmacionTarjetaScreen(
                 state = state,
@@ -497,8 +532,7 @@ fun NavHostController.openDestination(destination: Destination) {
     val currentParent = current?.let { selectedDestination(it) }
     val currentMode = current?.let { shellMode(it, signedIn = true) }
     if (currentParent == destination && currentMode == ShellMode.Root) return
-    if (currentParent == destination) {
-        popBackStack(destination.rootRoute(), inclusive = false)
+    if (currentParent == destination && popBackStack(destination.rootRoute(), inclusive = false)) {
         return
     }
     navigate(destination.rootRoute()) {
@@ -507,6 +541,17 @@ fun NavHostController.openDestination(destination: Destination) {
         }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+fun NavHostController.showClaimsList() {
+    if (popBackStack(SiniestrosRoute, inclusive = false)) return
+    navigate(SiniestrosRoute) {
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = false
     }
 }
 

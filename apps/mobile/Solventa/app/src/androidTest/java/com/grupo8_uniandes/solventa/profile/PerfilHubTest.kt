@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +25,12 @@ import org.junit.runner.RunWith
 class PerfilHubTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     private lateinit var scenario: ActivityScenario<MainActivity>
 

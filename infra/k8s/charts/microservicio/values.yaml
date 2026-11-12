@@ -151,6 +151,9 @@ externalSecrets:
 serviceAccount:
   crear: true
   nombre: ""
+  # true = el componente tiene rol en modules/irsa_aplicacion: el workflow de
+  # CD rellena roleArn por convención (solventa-minimo-<servicio>-irsa).
+  irsa: false
   roleArn: ""
 
 # PodDisruptionBudget: protege la disponibilidad mínima durante
@@ -193,3 +196,26 @@ prometheus:
   scrape: true
   path: /metrics
   port: metrics
+
+# CronJob opcional: corre un comando puntual en la misma imagen del
+# componente (p. ej. un job batch que termina, a diferencia del Deployment
+# que sirve tráfico de forma continua) según un horario cron. Deshabilitado
+# por defecto -- no afecta a ningún componente existente del chart. Reusa
+# imagen/recursos/externalSecrets/variablesEntorno/serviceAccount ya
+# definidos arriba; solo agrega lo propio de un Job (comando, horario,
+# política de reintentos).
+cronJob:
+  habilitado: false
+  # Formato cron estándar de 5 campos (UTC, hora del cluster).
+  horario: "0 6 * * *"
+  # Comando que reemplaza el ENTRYPOINT/CMD de la imagen para esta corrida
+  # puntual (ej. ["python", "-m", "app.jobs.mi_job"]).
+  comando: []
+  concurrencyPolicy: Forbid
+  # Cuántas corridas (exitosas/fallidas) conserva el historial para `kubectl
+  # get jobs`/`logs` -- más allá de eso Kubernetes las recicla.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  # Si una corrida se cuelga, no la deja viva para siempre.
+  activeDeadlineSeconds: 600
+  backoffLimit: 2

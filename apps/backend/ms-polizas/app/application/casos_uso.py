@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import (
+    VENTANA_GRACIA_DIAS,
     Cobertura,
     ConstanciaFirma,
     Poliza,
@@ -13,11 +15,26 @@ from app.domain.modelos import (
     poliza_cancelada,
     poliza_emitida,
     poliza_modificada,
+    poliza_por_vencer,
     poliza_renovada,
+)
+from app.metricas_negocio import (
+    AVISOS_VENCIMIENTO_JOB_LATENCIA,
+    CANCELACIONES,
+    EMISION_LATENCIA,
+    RENOVACIONES,
 )
 from app.ports.firma import FirmaElectronica
 from app.ports.persistencia import FabricaUnidadDeTrabajo, PolizaYaEmitida
 from app.ports.precondiciones import VerificadorCobro, VerificadorSuscripcion
+from app.ports.reportes import GeneradorReportes, ReporteGenerado
+
+# HU-119: ventana de aviso de vencimiento. Se reusa la misma constante que
+# VENTANA_GRACIA_DIAS (30, HU-59) -- aunque conceptualmente son dos cosas
+# distintas (avisar ANTES de vencer vs. tolerar renovar DESPUÉS de vencida),
+# el mismo horizonte de 30 días es razonable para ambas y evita introducir un
+# segundo número mágico que el Gherkin de notices.feature no especifica.
+DIAS_AVISO_VENCIMIENTO_DEFECTO = VENTANA_GRACIA_DIAS
 
 
 @dataclass(frozen=True)
@@ -40,6 +57,20 @@ def _hoy() -> date:
 
 
 async def emitir_poliza(
+    uow: FabricaUnidadDeTrabajo,
+    suscripciones: VerificadorSuscripcion,
+    cobros: VerificadorCobro,
+    firma: FirmaElectronica,
+    solicitud: SolicitudEmision,
+) -> Emision:
+    inicio = time.perf_counter()
+    try:
+        return await _emitir_poliza(uow, suscripciones, cobros, firma, solicitud)
+    finally:
+        EMISION_LATENCIA.observe(time.perf_counter() - inicio)
+
+
+async def _emitir_poliza(
     uow: FabricaUnidadDeTrabajo,
     suscripciones: VerificadorSuscripcion,
     cobros: VerificadorCobro,
@@ -149,10 +180,15 @@ async def renovar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, nueva_fin
     la ventana de gracia tras vencer."""
     async with uow() as tx:
         poliza = await _obtener_o_fallar(tx, poliza_id)
-        poliza.renovar(nueva_fin_vigencia, _hoy())
+        try:
+            poliza.renovar(nueva_fin_vigencia, _hoy())
+        except TransicionInvalida:
+            RENOVACIONES.labels("rechazada").inc()
+            raise
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_renovada(poliza))
         await tx.confirmar()
+        RENOVACIONES.labels("exitosa").inc()
         return poliza
 
 
@@ -193,4 +229,72 @@ async def cancelar_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID, motivo: 
         await tx.polizas.actualizar(poliza)
         await tx.outbox.agregar(poliza_cancelada(poliza))
         await tx.confirmar()
+        CANCELACIONES.inc()
         return poliza
+
+
+async def listar_polizas_por_vencer(
+    uow: FabricaUnidadDeTrabajo,
+    usuario_id: UUID | None = None,
+    dias: int = DIAS_AVISO_VENCIMIENTO_DEFECTO,
+) -> list[Poliza]:
+    """HU-119: pólizas VIGENTE cuya fin_vigencia cae en los próximos `dias`
+    días desde hoy (incluido). `usuario_id=None` lista de todos los
+    usuarios -- uso reservado a asesor/operador (ver alcance() en seguridad.py)."""
+    hoy = _hoy()
+    async with uow() as tx:
+        return await tx.polizas.listar_por_vencer(hoy, hoy + timedelta(days=dias), usuario_id)
+
+
+async def generar_avisos_vencimiento(
+    uow: FabricaUnidadDeTrabajo, dias: int = DIAS_AVISO_VENCIMIENTO_DEFECTO
+) -> int:
+    """HU-67: orquestador de ciclo de vida -- job periódico (ver
+    app/jobs/avisos_vencimiento.py) que cierra el loop ms-polizas ->
+    outbox-relay -> notificaciones sin que nadie llame GET /v1/polizas/
+    por-vencer a mano. Reusa listar_polizas_por_vencer (HU-119) en vez de
+    duplicar la query.
+
+    Idempotente por póliza: si ya existe un evento "PolizaPorVencer" para
+    esa póliza en el outbox (de una corrida anterior), no genera otro. Sin
+    esto, correr el job a diario mientras la póliza sigue dentro de la
+    ventana de `dias` generaría un push nuevo cada día -- notificaciones
+    solo deduplica por (evento_origen_id, canal), y cada evento nuevo trae
+    un evento_origen_id distinto, así que sí despacharía un push repetido.
+    """
+    inicio = time.perf_counter()
+    generados = 0
+    try:
+        async with uow() as tx:
+            por_vencer = await tx.polizas.listar_por_vencer(_hoy(), _hoy() + timedelta(days=dias))
+            for poliza in por_vencer:
+                if await tx.outbox.existe_para_agregado("PolizaPorVencer", poliza.id):
+                    continue
+                await tx.outbox.agregar(poliza_por_vencer(poliza))
+                generados += 1
+            await tx.confirmar()
+        return generados
+    finally:
+        AVISOS_VENCIMIENTO_JOB_LATENCIA.observe(time.perf_counter() - inicio)
+
+
+async def generar_reporte_regulador(
+    uow: FabricaUnidadDeTrabajo, reportes: GeneradorReportes, desde: date, hasta: date
+) -> ReporteGenerado:
+    """HU-62: extracto interno de pólizas emitidas en el rango para el
+    regulador. El núcleo solo reúne los datos; el adaptador decide el
+    formato del archivo (nunca SFC real)."""
+    async with uow() as tx:
+        polizas = await tx.polizas.listar_emitidas_entre(desde, hasta)
+    return await reportes.reporte_regulador(polizas, desde, hasta)
+
+
+async def generar_reporte_reaseguradora(
+    uow: FabricaUnidadDeTrabajo, reportes: GeneradorReportes, desde: date, hasta: date
+) -> ReporteGenerado:
+    """HU-63: extracto de cartera (pólizas canceladas, con su devolución
+    estimada) en el rango para la reaseguradora. El adaptador decide el
+    formato del archivo (nunca ACORD real)."""
+    async with uow() as tx:
+        canceladas = await tx.polizas.listar_canceladas_entre(desde, hasta)
+    return await reportes.reporte_reaseguradora(canceladas, desde, hasta)

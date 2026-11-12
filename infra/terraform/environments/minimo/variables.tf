@@ -317,8 +317,8 @@ variable "node_group_b_desired_size" {
 
 variable "node_group_b_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo B."
-  default     = 6
+  description = "Nodos máximos del Grupo B. Subido de 6 a 8 (HA-pr#179/180): con los 12 microservicios al tope de 6 nodos t3.small, el RollingUpdate default (maxSurge 25%) de varios Deployments actualizándose casi simultáneamente no tenía margen para el pod 'surge' + el viejo coexistiendo, y los rollouts fallaban con 'timed out waiting for the condition' / '1 old replicas are pending termination'."
+  default     = 8
 }
 
 variable "enable_external_secrets" {
@@ -420,6 +420,22 @@ variable "alb_routes" {
         "/bff-movil/v1/cliente",
       ]
       priority = 40
+    }
+    # Grafana (namespace solventa-observability, ver
+    # infra/k8s/platform/observability/). Mismo mecanismo que los 14
+    # microservicios: una entrada más de ALB, sin Ingress ni ALB nuevo (ver
+    # odd/tasks/observabilidad-prometheus-grafana.md -- un Ingress crearía
+    # un segundo ALB al que el API Gateway nunca llega).
+    grafana = {
+      port = 3000
+      # Sin "/*" explícito: aws_lb_listener_rule.routes ya agrega el wildcard
+      # al path_pattern (infra/terraform/modules/alb/main.tf:187) y al Name
+      # del tag (línea 191) -- un "*" literal aquí duplica el wildcard y
+      # además rompe el patrón de tags de AWS (no permite "*"), como en las
+      # demás entradas de este mapa (api-socios, bff-web, bff-movil).
+      paths             = ["/observabilidad/grafana"]
+      health_check_path = "/api/health"
+      priority          = 50
     }
   }
 }

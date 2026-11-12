@@ -45,6 +45,8 @@ class ClienteServicio:
         params: dict | None = None,
         cabeceras: dict | None = None,
         timeout: float | None = None,
+        data: dict | None = None,
+        files: list | None = None,
     ) -> httpx.Response:
         try:
             respuesta = await self._http.request(
@@ -52,6 +54,8 @@ class ClienteServicio:
                 ruta,
                 json=json,
                 params=params,
+                data=data,
+                files=files,
                 headers={**self._cabeceras, **_autorizacion(), **(cabeceras or {})},
                 timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
             )

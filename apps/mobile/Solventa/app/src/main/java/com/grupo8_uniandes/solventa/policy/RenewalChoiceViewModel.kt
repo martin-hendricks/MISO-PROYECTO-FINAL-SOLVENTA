@@ -20,8 +20,15 @@ class RenewalChoiceViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(RenewalChoiceUi())
     val state: StateFlow<RenewalChoiceUi> = _state.asStateFlow()
+    private var touched = false
+
+    fun adopt(enabled: Boolean) {
+        if (touched) return
+        _state.value = RenewalChoiceUi(checked = enabled, missing = false)
+    }
 
     fun onChecked(enabled: Boolean) {
+        touched = true
         val previous = _state.value.checked
         _state.value = RenewalChoiceUi(checked = enabled, missing = false)
         viewModelScope.launch {

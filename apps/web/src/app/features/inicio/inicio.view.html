@@ -32,8 +32,10 @@
     @default {
       @if (vm.panel().policy; as policy) {
         <div class="summary">
-          <article class="card" data-testid="inicio-policy">
-            <p class="card-label">{{ 'inicio.policy.label' | translate }}</p>
+          <article class="card" aria-labelledby="inicio-policy-label" data-testid="inicio-policy">
+            <p class="card-label" id="inicio-policy-label">
+              {{ 'inicio.policy.label' | translate }}
+            </p>
             <p class="card-body">{{ policy.ramo }} · {{ policy.numero }}</p>
             <p class="card-face">{{ 'inicio.estado.' + policy.estado | translate }}</p>
             <div class="actions">
@@ -51,8 +53,8 @@
       @if (vm.panel().offer || vm.panel().vidaCrediticia || vm.panel().claim) {
         <div class="detail">
           @if (vm.panel().offer; as offer) {
-            <article class="panel" data-testid="inicio-offer">
-              <h2>{{ 'inicio.offer.readyTitle' | translate }}</h2>
+            <article class="panel" aria-labelledby="inicio-offer-title" data-testid="inicio-offer">
+              <h2 id="inicio-offer-title">{{ 'inicio.offer.readyTitle' | translate }}</h2>
               <p class="lead">
                 {{ 'inicio.offer.readyBody' | translate: { ramo: offer.ramo } }}
               </p>
@@ -82,20 +84,32 @@
           @if (vm.panel().vidaCrediticia || vm.panel().claim) {
             <div class="side">
               @if (vm.panel().vidaCrediticia) {
-                <article class="panel" data-testid="inicio-vida-crediticia">
-                  <h2>{{ 'inicio.vidaCrediticia.label' | translate }}</h2>
+                <article
+                  class="panel"
+                  aria-labelledby="inicio-vida-title"
+                  data-testid="inicio-vida-crediticia"
+                >
+                  <h2 id="inicio-vida-title">{{ 'inicio.vidaCrediticia.label' | translate }}</h2>
                   <p class="lead">{{ 'inicio.vidaCrediticia.body' | translate }}</p>
                   <p class="face">{{ 'inicio.vidaCrediticia.estado' | translate }}</p>
                   <div class="actions">
-                    <a class="outlined" routerLink="/vida-crediticia" data-testid="inicio-vida-link">
+                    <a
+                      class="outlined"
+                      routerLink="/vida-crediticia"
+                      data-testid="inicio-vida-link"
+                    >
                       {{ 'inicio.vidaCrediticia.link' | translate }}
                     </a>
                   </div>
                 </article>
               }
               @if (vm.panel().claim; as claim) {
-                <article class="panel next" data-testid="inicio-claim">
-                  <h2>{{ 'inicio.claim.next' | translate }}</h2>
+                <article
+                  class="panel next"
+                  aria-labelledby="inicio-claim-title"
+                  data-testid="inicio-claim"
+                >
+                  <h2 id="inicio-claim-title">{{ 'inicio.claim.next' | translate }}</h2>
                   <p class="face">{{ 'inicio.estado.' + claim.estado | translate }}</p>
                   <p class="lead">
                     {{ 'inicio.claim.nextBody' | translate: { id: claim.siniestroId } }}

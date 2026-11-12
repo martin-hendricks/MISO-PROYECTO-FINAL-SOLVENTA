@@ -55,6 +55,8 @@ class ListClaimsTest {
     fun givenAStandingWithoutDisplayText_whenRead_thenTheStatusWordMatchesTheCase() {
         assertEquals("Recibido", summary(ClaimStatus.RECIBIDO).statusWords())
         assertEquals("Decidido", summary(ClaimStatus.DECIDIDO).statusWords())
+        assertEquals("Rechazado", summary(ClaimStatus.DECIDIDO).copy(resultado = "rechazado").statusWords())
+        assertEquals("Aprobado", summary(ClaimStatus.DECIDIDO).copy(resultado = "aprobado").statusWords())
         assertEquals("Enrutado", summary(ClaimStatus.ENRUTADO).statusWords())
         val drawn = summary(ClaimStatus.EN_EVALUACION)
         assertEquals(null, drawn.estadoTexto)

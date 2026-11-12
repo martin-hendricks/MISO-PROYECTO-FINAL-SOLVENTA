@@ -16,15 +16,18 @@
 #   8000 bff-web         8001 ms-suscripcion   8002 ms-pagos
 #   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
 #   8006 api-socios      8007 bff-movil        8009 ms-cotizacion
-#   8010 ms-identidad
+#   8010 ms-identidad     4566 S3 local (LocalStack, evidencia de siniestros)
+#   8008 grafana (admin/admin, o anónimo como Viewer) · 9090 prometheus
 #
 # bff-web queda en :8000 a propósito: apps/web/proxy.conf.json (el dev
 # server de Angular, "pnpm start") reenvía /web -> http://localhost:8000/v1
 # -- ver apps/web/src/app/core/api/api-base-url.ts. Si corres el frontend en
 # local contra este compose, no cambies ese mapeo.
 #
-# 8008 queda libre. bff-movil y bff-web son pares: ambos llaman al núcleo
-# y ninguno llama al otro.
+# bff-movil y bff-web son pares: ambos llaman al núcleo y ninguno llama al
+# otro. Observabilidad (ver ./observability/): mismas métricas de negocio
+# que infra/k8s/platform/observability/, con Prometheus apuntando a targets
+# estáticos (sin kubernetes_sd_configs -- no hay API server que preguntar).
 #
 # Ambiente de integración con dobles (HU-88): ningún servicio llama a un
 # tercero real. Open Finance, Open Data, perfil de riesgo, KYC y pasarela
@@ -225,11 +228,36 @@ services:
       SERVICE_NAME: ms-siniestros
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-siniestros:5432/solventa
       SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
+      # Evidencia de siniestros (HU-157) en el doble de S3. El navegador abre las URLs
+      # firmadas contra localhost:4566 (S3_ENDPOINT_PUBLICO), no contra el host interno.
+      S3_EVIDENCIAS_BUCKET: solventa-local-evidencias-siniestros
+      S3_ENDPOINT_URL: http://s3-local:4566
+      S3_ENDPOINT_PUBLICO: http://localhost:4566
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_CREAR_BUCKET: "true"
     ports:
       - "8005:8080"
     depends_on:
       db-siniestros:
         condition: service_healthy
+      s3-local:
+        condition: service_healthy
+
+  # Doble de S3 (LocalStack, solo el servicio s3) para la evidencia de siniestros. En AWS
+  # es el bucket del módulo terraform s3_evidencias, con credenciales por IRSA.
+  s3-local:
+    image: localstack/localstack:3.8.1
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
 
   ms-identidad:
     build:
@@ -315,3 +343,36 @@ services:
       - ms-siniestros
       - ms-suscripcion
       - ms-identidad
+
+  # Observabilidad local: mismo stack que infra/k8s/platform/observability/
+  # (Prometheus + Grafana con datasource/dashboards provisionados sin pasos
+  # manuales), pero con targets estáticos en vez de kubernetes_sd_configs --
+  # no hay API server de Kubernetes que preguntar en Docker Compose, mismo
+  # enfoque que experiments/ha-01/ha-08. Las queries de los 2 dashboards de
+  # negocio son idénticas a las de K8s (las métricas no cambian con la
+  # plataforma); el dashboard de infraestructura es distinto porque aquí no
+  # hay kube-state-metrics.
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "8008:3000"
+    depends_on:
+      - prometheus

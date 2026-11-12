@@ -25,24 +25,6 @@ router = APIRouter(
 
 Operador = Annotated[dict, Depends(require_roles("operador"))]
 
-# Mapea la decisión del operador (vocabulario del canal web) al estado real
-# del enum EstadoSiniestro de ms-siniestros (ver
-# apps/backend/ms-siniestros/app/domain/modelos.py). El dominio de
-# ms-siniestros modela un único estado "decidido" como el paso siguiente a
-# "en_evaluacion" -- NO distingue aprobado/rechazado con valores de enum
-# separados ni expone un campo adicional para esa distinción binaria. Hasta
-# que ms-siniestros agregue ese campo (p.ej. un "resultado" dentro de la
-# transición), tanto aprobar como rechazar se traducen al mismo estado
-# "decidido" en el núcleo; el motivo de rechazo que captura el canal web hoy
-# no tiene dónde persistirse del lado de ms-siniestros.
-_DECISION_A_ESTADO = {"aprobar": "decidido", "rechazar": "decidido"}
-
-
-class Decision(BaseModel):
-    siniestroId: str
-    decision: str
-    motivo: str | None = None
-
 
 class Ciclo(BaseModel):
     numero: str
@@ -66,76 +48,8 @@ class Ciclo(BaseModel):
     nuevaFinVigencia: date | None = None
 
 
-@router.get("/avisos")
-async def cola(
-    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
-) -> dict:
-    """Integración real con ms-siniestros (GET /v1/siniestros).
-
-    TODO: ms-siniestros no filtra por operador/cola -- GET /v1/siniestros
-    devuelve la lista completa del servicio (hasta `limite`), sin noción de
-    "cola asignada a este operador". Mientras ms-siniestros no ofrezca ese
-    filtro, el BFF expone la lista completa tal cual.
-
-    TODO: el shape del canal web espera "poliza" y "ramo" por aviso, pero el
-    modelo de ms-siniestros (ver app/domain/modelos.py) no tiene esos campos
-    -- un Siniestro solo referencia evento_id, no una póliza ni un ramo.
-    Hace falta que ms-siniestros se relacione con ms-polizas (o que el BFF
-    componga con una llamada adicional a ms-polizas) para resolver esos
-    datos. Por ahora se devuelven como placeholder explícito (cadena vacía),
-    nunca como un valor inventado que parezca real.
-    """
-    siniestros = await cliente_siniestros.listar()
-    return {
-        "avisos": [
-            {
-                "siniestroId": str(s["id"]),
-                "poliza": "",
-                "ramo": "",
-                "estado": s["estado"],
-            }
-            for s in siniestros
-        ]
-    }
-
-
-@router.post("/avisos/decision")
-async def decidir(
-    body: Decision,
-    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
-) -> dict:
-    """Integración real con ms-siniestros (POST /v1/siniestros/{id}/estado).
-
-    Ver _DECISION_A_ESTADO: tanto aprobar como rechazar hoy mapean al mismo
-    estado "decidido" del enum EstadoSiniestro, porque ese es el único estado
-    que el dominio de ms-siniestros modela como sucesor de "en_evaluacion".
-    Si la transición no es válida para el estado actual del siniestro (p.ej.
-    ya está "decidido" o más adelante en el flujo), ms-siniestros responde
-    409 (TransicionInvalida) y ese error se propaga tal cual vía los
-    exception handlers de main.py.
-    """
-    if body.decision not in _DECISION_A_ESTADO:
-        raise HTTPException(status_code=400, detail="Decision no permitida")
-    if body.decision == "rechazar" and not body.motivo:
-        raise HTTPException(status_code=400, detail="Motivo requerido")
-
-    try:
-        siniestro_id = UUID(body.siniestroId)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="siniestroId invalido") from exc
-
-    estado = _DECISION_A_ESTADO[body.decision]
-    actualizado = await cliente_siniestros.cambiar_estado(
-        siniestro_id=siniestro_id,
-        estado=estado,
-        origen="operador",
-    )
-    return {
-        "siniestroId": str(actualizado["id"]),
-        "decision": body.decision,
-        "motivo": body.motivo,
-        "estado": actualizado["estado"],
-    }
+# HU-26/27/28/29: la cola de avisos, la decisión, el perito y el pago viven en
+# routers/siniestros.py (router_operador), integrados con el siniestro asistido real.
 
 
 def _poliza_salida(
@@ -154,6 +68,11 @@ def _poliza_salida(
         "estado": poliza["estado"].lower(),
         "venceEn": poliza.get("fin_vigencia", ""),
         "prima": poliza["prima"],
+        # HU-60: ms-polizas ya devuelve esto (PolizaSalida.coberturas), pero
+        # _poliza_salida nunca lo exponía al canal web -- sin esto, el
+        # back-office no puede precargar los valores actuales antes de
+        # modificarlos.
+        "coberturas": poliza.get("coberturas", []),
         "renovable": poliza["renovable"],
         "devolucionEstimada": poliza.get("devolucion_estimada"),
         "canceladaEn": poliza.get("cancelada_en"),

@@ -172,6 +172,49 @@ class RepositorioPolizasSQL:
     async def ofertas_con_poliza(self, oferta_ids: list[UUID]) -> set[UUID]:
         return set(await self._s.scalars(select(PolizaFila.oferta_id).where(PolizaFila.oferta_id.in_(oferta_ids))))
 
+    async def listar_por_vencer(
+        self, hoy: date, hasta: date, usuario_id: UUID | None = None
+    ) -> list[Poliza]:
+        """HU-119: VIGENTE con fin_vigencia en [hoy, hasta]. No usa la
+        ventana de gracia de renovar() -- esto es el aviso ANTES de vencer,
+        no la tolerancia para renovar después de vencida."""
+        condiciones = [
+            PolizaFila.estado == EstadoPoliza.VIGENTE.value,
+            PolizaFila.fin_vigencia >= hoy,
+            PolizaFila.fin_vigencia <= hasta,
+        ]
+        if usuario_id is not None:
+            condiciones.append(PolizaFila.usuario_id == usuario_id)
+        filas = await self._s.scalars(
+            select(PolizaFila).where(*condiciones).order_by(PolizaFila.fin_vigencia)
+        )
+        return [await self._con_coberturas(fila) for fila in filas]
+
+    async def listar_emitidas_entre(self, desde: date, hasta: date) -> list[Poliza]:
+        """HU-62: extracto para el regulador -- pólizas cuya vigencia inició
+        en el rango, sin importar su estado actual."""
+        filas = await self._s.scalars(
+            select(PolizaFila)
+            .where(PolizaFila.inicio_vigencia >= desde, PolizaFila.inicio_vigencia <= hasta)
+            .order_by(PolizaFila.inicio_vigencia)
+        )
+        return [await self._con_coberturas(fila) for fila in filas]
+
+    async def listar_canceladas_entre(self, desde: date, hasta: date) -> list[Poliza]:
+        """HU-63: extracto de cartera para la reaseguradora -- pólizas
+        canceladas en el rango (la devolución estimada ya persistida es el
+        dato de siniestralidad/cartera disponible en este servicio)."""
+        filas = await self._s.scalars(
+            select(PolizaFila)
+            .where(
+                PolizaFila.estado == EstadoPoliza.CANCELADA.value,
+                PolizaFila.cancelada_en >= desde,
+                PolizaFila.cancelada_en <= hasta,
+            )
+            .order_by(PolizaFila.cancelada_en)
+        )
+        return [await self._con_coberturas(fila) for fila in filas]
+
     async def siguiente_secuencia(self) -> int:
         return int(await self._s.scalar(SECUENCIA_NUMERO.next_value()))
 
@@ -288,6 +331,14 @@ class OutboxSQL:
         self._s.add(
             OutboxFila(id=evento.id, tipo=evento.tipo, agregado_id=evento.agregado_id, payload=evento.payload)
         )
+
+    async def existe_para_agregado(self, tipo: str, agregado_id: UUID) -> bool:
+        fila = await self._s.scalar(
+            select(OutboxFila.id)
+            .where(OutboxFila.tipo == tipo, OutboxFila.agregado_id == agregado_id)
+            .limit(1)
+        )
+        return fila is not None
 
 
 class UnidadDeTrabajoSQL:

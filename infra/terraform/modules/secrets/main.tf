@@ -187,14 +187,14 @@ resource "aws_secretsmanager_secret_version" "bff_web_token" {
   }
 }
 
-# --- bff-movil token secret ---
+# --- bff-movil token secret (sin uso) ---
 #
-# Mismo rol que bff_web_token_secret (firma los JWT de sesión, esta vez de
-# apps/backend/bff-movil/app/dependencies.py), pero independiente: cada BFF
-# solo firma y valida sus propios tokens (confirmado en el código, ninguno
-# valida tokens emitidos por el otro), así que no hay necesidad de
-# compartir el secreto -- y mantenerlos separados limita el blast radius si
-# uno se compromete.
+# bff-movil firma con el mismo SOLVENTA_TOKEN_SECRET que bff-web
+# (aws_secretsmanager_secret.bff_web_token). El BFF reenvía el JWT del
+# cliente y ms-polizas, ms-cotizacion, ms-identidad y ms-siniestros lo
+# verifican con esa clave; un secreto distinto hace fallar esas llamadas
+# con 401 "Token invalido". Este recurso se conserva para no borrar el
+# secreto ya creado en Secrets Manager. No volver a montarlo en el pod.
 resource "random_password" "bff_movil_token_secret" {
   length  = 48
   special = false
@@ -212,6 +212,66 @@ resource "aws_secretsmanager_secret" "bff_movil_token" {
 resource "aws_secretsmanager_secret_version" "bff_movil_token" {
   secret_id     = aws_secretsmanager_secret.bff_movil_token.id
   secret_string = jsonencode({ SOLVENTA_TOKEN_SECRET = random_password.bff_movil_token_secret.result })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+# --- ms-siniestros: configuración publicada por Terraform ---
+#
+# El nombre del bucket de evidencia lleva un sufijo aleatorio (módulo
+# s3_evidencias) y el workflow de CD no puede leer `terraform output` (el
+# state es local, ver .github/workflows/deploy.yml). Se publica aquí y
+# External Secrets lo proyecta al pod, igual que SOLVENTA_TOKEN_SECRET: la
+# clave del JSON es el nombre exacto de la env var, así que basta con listar
+# el secreto en externalSecrets.remoteSecrets de values/ms-siniestros.yaml.
+# No es un dato sensible; se usa Secrets Manager porque es el único backend
+# del ClusterSecretStore (infra/k8s/platform/clustersecretstore.yaml).
+resource "aws_secretsmanager_secret" "siniestros_config" {
+  name                    = "${var.project_name}-${var.environment}-siniestros-config"
+  description             = "Configuracion no sensible de ms-siniestros (S3_EVIDENCIAS_BUCKET), proyectada por External Secrets"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-siniestros-config" })
+}
+
+resource "aws_secretsmanager_secret_version" "siniestros_config" {
+  secret_id = aws_secretsmanager_secret.siniestros_config.id
+  # Sin ignore_changes a propósito: si el bucket se recrea con otro sufijo, el
+  # secreto debe seguirlo en el siguiente apply.
+  secret_string = jsonencode({ S3_EVIDENCIAS_BUCKET = var.evidencias_bucket_name })
+}
+
+# --- Grafana: credenciales de administrador ---
+#
+# Mismo patrón que bff_web_token: una contraseña aleatoria estable (no
+# rotada en cada apply gracias a ignore_changes) para que un redeploy del
+# pod de Grafana no invalide la sesión del admin. External Secrets la
+# proyecta al pod vía infra/k8s/platform/observability/grafana-externalsecret.yaml,
+# con dataFrom.extract (ambas claves del JSON ya coinciden con las env vars
+# GF_SECURITY_ADMIN_USER/GF_SECURITY_ADMIN_PASSWORD que Grafana espera).
+resource "random_password" "grafana_admin_password" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "grafana_admin" {
+  name                    = "${var.project_name}-${var.environment}-grafana-admin"
+  description             = "Credenciales de administrador de Grafana (GF_SECURITY_ADMIN_USER/PASSWORD)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-grafana-admin" })
+}
+
+resource "aws_secretsmanager_secret_version" "grafana_admin" {
+  secret_id = aws_secretsmanager_secret.grafana_admin.id
+  secret_string = jsonencode({
+    GF_SECURITY_ADMIN_USER     = "admin"
+    GF_SECURITY_ADMIN_PASSWORD = random_password.grafana_admin_password.result
+  })
 
   lifecycle {
     ignore_changes = [secret_string]

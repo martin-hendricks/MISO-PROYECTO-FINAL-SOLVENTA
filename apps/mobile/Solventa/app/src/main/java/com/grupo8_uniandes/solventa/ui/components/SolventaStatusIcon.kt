@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.R
@@ -36,7 +37,9 @@ fun SolventaStatusIcon(
         SolventaStatus.Processing -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(
-        modifier = modifier.testTag("solventa_status_${status.name.lowercase()}"),
+        modifier = modifier
+            .testTag("solventa_status_${status.name.lowercase()}")
+            .semantics(mergeDescendants = true) {},
         horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
     ) {

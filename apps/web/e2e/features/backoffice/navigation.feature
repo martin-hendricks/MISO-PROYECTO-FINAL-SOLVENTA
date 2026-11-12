@@ -3,12 +3,12 @@ Feature: Back-office navigation
 
   Scenario: The advisor lands on Clientes
     Given an asesor signed in to the back-office
-    Then the back-office shows its four destinations
+    Then the back-office shows its six destinations
     And the clientes destination is the current one
 
   Scenario: The operator lands on Avisos
     Given an operador signed in to the back-office
-    Then the back-office shows its four destinations
+    Then the back-office shows its six destinations
     And the avisos destination is the current one
 
   Scenario: The advisor moves to another destination

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -13,6 +14,7 @@ from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_r
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima, evaluar_idoneidad
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
+from app.metricas_negocio import COTIZACION_LATENCIA, OFERTAS
 from app.ports.catalogo import CatalogoProductos
 from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
@@ -127,54 +129,59 @@ async def cotizar(
 ) -> RegistroOferta:
     """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
     flujo de recibir_solicitud, sin exigir una segunda llamada."""
-    async with uow() as tx:
-        existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
-        if existente is not None:
-            oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
-            return RegistroOferta(existente, oferta_existente, creada=False)
+    inicio = time.perf_counter()
+    try:
+        async with uow() as tx:
+            existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
+            if existente is not None:
+                oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
+                return RegistroOferta(existente, oferta_existente, creada=False)
 
-    solicitud = SolicitudCotizacion.crear(
-        idempotency_key,
-        usuario_id,
-        socio_id,
-        consentimiento_id,
-        producto,
-        canal,
-        datos_riesgo,
-        catalogo,
-        asesor_id=asesor_id,
-        cliente_ref=cliente_ref,
-    )
-    # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
-    # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
-    regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
-    resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
-    definicion = catalogo.obtener(producto)
-    oferta = Oferta.emitir(
-        solicitud,
-        regla,
-        resultado,
-        factor,
-        definicion.codigos_coberturas,
-        timedelta(minutes=config.oferta_vigencia_minutos),
-    )
-    solicitud.marcar_cotizada()
+        solicitud = SolicitudCotizacion.crear(
+            idempotency_key,
+            usuario_id,
+            socio_id,
+            consentimiento_id,
+            producto,
+            canal,
+            datos_riesgo,
+            catalogo,
+            asesor_id=asesor_id,
+            cliente_ref=cliente_ref,
+        )
+        # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
+        # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
+        regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
+        resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
+        definicion = catalogo.obtener(producto)
+        oferta = Oferta.emitir(
+            solicitud,
+            regla,
+            resultado,
+            factor,
+            definicion.codigos_coberturas,
+            timedelta(minutes=config.oferta_vigencia_minutos),
+        )
+        solicitud.marcar_cotizada()
 
-    async with uow() as tx:
-        await tx.solicitudes.agregar(solicitud)
-        await tx.ofertas.agregar(oferta)
-        await tx.outbox.agregar(solicitud_recibida(solicitud))
-        await tx.outbox.agregar(oferta_emitida(oferta))
-        try:
-            await tx.confirmar()
-            return RegistroOferta(solicitud, oferta, creada=True)
-        except ClaveIdempotenciaDuplicada:
-            pass
+        async with uow() as tx:
+            await tx.solicitudes.agregar(solicitud)
+            await tx.ofertas.agregar(oferta)
+            await tx.outbox.agregar(solicitud_recibida(solicitud))
+            await tx.outbox.agregar(oferta_emitida(oferta))
+            try:
+                await tx.confirmar()
+                OFERTAS.labels("creada").inc()
+                return RegistroOferta(solicitud, oferta, creada=True)
+            except ClaveIdempotenciaDuplicada:
+                pass
 
-    async with uow() as tx:
-        ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
-        ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
-    return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
+        async with uow() as tx:
+            ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
+            ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
+        return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
+    finally:
+        COTIZACION_LATENCIA.observe(time.perf_counter() - inicio)
 
 
 @dataclass(frozen=True)
@@ -353,5 +360,7 @@ async def aceptar_oferta(
     solicitud, oferta, creada = await _registrar_aceptacion(
         uow, cotizacion_id, aceptacion_key, usuario_id
     )
+    if creada:
+        OFERTAS.labels("aceptada").inc()
     decision = await suscripciones.evaluar(solicitud.id, perfil_id, score)
     return Aceptacion(solicitud, oferta, decision, creada)

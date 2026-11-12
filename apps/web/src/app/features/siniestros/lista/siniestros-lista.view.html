@@ -1,0 +1,78 @@
+<section data-testid="siniestros-lista" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <div>
+      <h1>{{ 'siniestros.lista.title' | translate }}</h1>
+      <p class="subtitle">{{ 'siniestros.lista.subtitle' | translate }}</p>
+    </div>
+    <a class="filled" routerLink="/siniestros/nuevo" data-testid="siniestros-reportar">
+      {{ 'siniestros.lista.reportar' | translate }}
+    </a>
+  </div>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="siniestros-loading">
+        {{ 'siniestros.lista.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="siniestros-error">
+        <p>{{ 'siniestros.lista.error' | translate }}</p>
+        <button type="button" class="outlined" data-testid="siniestros-retry" (click)="vm.load()">
+          {{ 'siniestros.reintentar' | translate }}
+        </button>
+      </div>
+    }
+    @case ('empty') {
+      <div class="empty-state" data-testid="siniestros-empty">
+        <h2>{{ 'siniestros.lista.empty.title' | translate }}</h2>
+        <p>{{ 'siniestros.lista.empty.body' | translate }}</p>
+      </div>
+    }
+    @default {
+      <div class="table-scroll">
+        <table data-testid="siniestros-table">
+          <caption class="visually-hidden">
+            {{
+              'siniestros.lista.title' | translate
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'siniestros.column.aviso' | translate }}</th>
+              <th scope="col">{{ 'siniestros.column.ramo' | translate }}</th>
+              <th scope="col">{{ 'siniestros.column.fecha' | translate }}</th>
+              <th scope="col">{{ 'siniestros.column.estado' | translate }}</th>
+              <th scope="col">{{ 'siniestros.column.reserva' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (siniestro of vm.siniestros(); track siniestro.id) {
+              <tr [attr.data-testid]="'siniestro-' + siniestro.siniestroId">
+                <th scope="row" class="mono">
+                  <a [routerLink]="['/siniestros', siniestro.id]">{{ siniestro.siniestroId }}</a>
+                </th>
+                <td>{{ siniestro.ramo }}</td>
+                <td>{{ siniestro.fecha ? (siniestro.fecha | svDate) : '—' }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [attr.data-estado]="siniestro.resultado ?? siniestro.estado"
+                    >{{ claveEstado(siniestro.estado, siniestro.resultado) | translate }}</span
+                  >
+                </td>
+                <td class="mono amount">
+                  {{
+                    siniestro.reserva !== null
+                      ? (siniestro.reserva | svMoney: siniestro.moneda)
+                      : '—'
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

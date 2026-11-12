@@ -60,8 +60,32 @@ hpa:
           value: 1
           periodSeconds: 60
 
+# SOLVENTA_TOKEN_SECRET: notificaciones valida el Bearer que bff-movil
+# reenvía (app/seguridad.py, exigir_llamante) con el mismo secreto que ya
+# usan bff-web/bff-movil/ms-polizas/etc. (solventa-minimo-bff-web-token,
+# tras el cambio en infra/k8s/values/bff-movil.yaml que unificó los
+# secretos) -- sin esto, POST /v1/notificaciones/dispositivos responde 500
+# "SOLVENTA_TOKEN_SECRET no configurado" para cualquier llamada autenticada.
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: notificaciones-token
+      # Sin `claves`: se usa dataFrom.extract (ver mismo comentario en
+      # infra/k8s/values/bff-web.yaml).
+    # notificaciones-db: notificaciones tiene su propio esquema
+    # (db/01_notificaciones.sql, CREATE SCHEMA notificaciones) pero, igual
+    # que analitica/ms-perfilamiento, sin instancia RDS propia -- vive en
+    # DBCompartida. El workflow de CD detecta automáticamente el paso de
+    # migraciones por la carpeta db/ existente y espera un ExternalSecret
+    # llamado exactamente "<servicio>-db" (.github/workflows/deploy.yml);
+    # sin esta entrada faltaba por completo (mismo gap encontrado y
+    # corregido en analitica.yaml).
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: notificaciones-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -85,3 +109,8 @@ variablesEntorno:
     valor: "AWS_MSK_IAM"
   - nombre: MSK_CONSUMER_GROUP
     valor: "notificaciones-cg"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: notificaciones-db
+    claveSecreto: database_url

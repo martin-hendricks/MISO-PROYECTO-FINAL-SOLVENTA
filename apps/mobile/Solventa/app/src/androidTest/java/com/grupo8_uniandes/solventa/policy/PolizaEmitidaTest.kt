@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -24,6 +25,11 @@ class PolizaEmitidaTest {
     val rule = createEmptyComposeRule()
 
     private lateinit var scenario: ActivityScenario<MainActivity>
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun leaveSplash() {
@@ -59,7 +65,7 @@ class PolizaEmitidaTest {
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-88219-CO")
     }
 
     @Test

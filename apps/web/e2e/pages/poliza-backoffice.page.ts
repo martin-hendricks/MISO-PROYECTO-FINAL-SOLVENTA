@@ -69,4 +69,21 @@ export class PolizaBackofficePage {
     const texto = await registro.innerText();
     assert.ok(texto.includes(operador), `expected cancellation record to include operador "${operador}"`);
   }
+
+  async modificarPrimeraCobertura(nombre: string): Promise<void> {
+    await this.page.getByTestId('poliza-backoffice-modificar').click();
+    await this.page.getByTestId('poliza-backoffice-coberturas-form').waitFor({ state: 'visible' });
+    await this.page.getByTestId('poliza-backoffice-cobertura-nombre-0').fill(nombre);
+    const response = this.page.waitForResponse((res) => res.url().includes('/operador/polizas/ciclo'));
+    await this.page.getByTestId('poliza-backoffice-coberturas-guardar').click();
+    await response;
+    await this.page.getByTestId('poliza-backoffice-coberturas-form').waitFor({ state: 'detached' });
+  }
+
+  async expectCoberturaVisible(nombre: string): Promise<void> {
+    await this.page
+      .getByTestId('poliza-backoffice-coberturas')
+      .filter({ hasText: nombre })
+      .waitFor({ state: 'visible' });
+  }
 }

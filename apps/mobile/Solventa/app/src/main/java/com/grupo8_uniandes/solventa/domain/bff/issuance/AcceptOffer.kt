@@ -26,7 +26,7 @@ class AcceptOffer(
             when (val answer = issuance.accept(cotizacionId)) {
                 is StandInAnswer.Ready -> AcceptOutcome.Issued(answer.value)
                 StandInAnswer.Pending -> AcceptOutcome.Waiting
-                StandInAnswer.Failed -> when (val refusal = issuance.rejected()) {
+                StandInAnswer.Failed, is StandInAnswer.Rejected -> when (val refusal = issuance.rejected()) {
                     is StandInAnswer.Ready -> AcceptOutcome.Refused(refusal.value)
                     else -> AcceptOutcome.Unavailable
                 }

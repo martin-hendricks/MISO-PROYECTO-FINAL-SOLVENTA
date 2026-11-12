@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { PolizaOperador, rechazoDePoliza } from './polizas-backoffice.gateway';
+import { Cobertura, PolizaOperador, rechazoDePoliza } from './polizas-backoffice.gateway';
 
 export type PolizaBackofficeStatus = 'loading' | 'ready' | 'not-found' | 'error';
 export type AccionPoliza = 'idle' | 'enviando' | 'hecho' | 'rechazado';
@@ -22,6 +22,7 @@ export class PolizaBackofficeDetalleViewModel {
     private readonly source: () => Observable<PolizaOperador | null>,
     private readonly renovarSource: () => Observable<PolizaOperador>,
     private readonly cancelarSource: (motivo: string) => Observable<PolizaOperador>,
+    private readonly modificarCoberturasSource: (coberturas: Cobertura[]) => Observable<PolizaOperador>,
   ) {}
 
   load(): void {
@@ -54,6 +55,21 @@ export class PolizaBackofficeDetalleViewModel {
   cancelar(motivo: string): void {
     this.accionState.set('enviando');
     this.cancelarSource(motivo).subscribe({
+      next: (poliza) => {
+        this.polizaState.set(poliza);
+        this.accionState.set('hecho');
+      },
+      error: (error: unknown) => {
+        const rechazo = rechazoDePoliza(error);
+        this.rechazoState.set(rechazo?.mensaje ?? null);
+        this.accionState.set(rechazo ? 'rechazado' : 'idle');
+      },
+    });
+  }
+
+  modificarCoberturas(coberturas: Cobertura[]): void {
+    this.accionState.set('enviando');
+    this.modificarCoberturasSource(coberturas).subscribe({
       next: (poliza) => {
         this.polizaState.set(poliza);
         this.accionState.set('hecho');

@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.ListClaims
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.claim.filtered
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,11 +19,19 @@ import kotlin.coroutines.coroutineContext
 
 enum class ClaimsPhase { Pending, Failed, Ready }
 
+object ParametricTarget {
+    var claimId: String = ""
+}
+
 data class ClaimsUiState(
     val phase: ClaimsPhase = ClaimsPhase.Pending,
     val claims: List<ClaimSummary> = emptyList(),
     val openedClaimId: String? = null,
-)
+    val chip: ClaimStatus? = null,
+    val openParametric: Boolean = false,
+) {
+    val visible: List<ClaimSummary> get() = claims.filtered(chip)
+}
 
 class SiniestrosViewModel(
     claims: ClaimRepository,
@@ -41,14 +52,28 @@ class SiniestrosViewModel(
             coroutineContext.ensureActive()
             _state.value = when (answer) {
                 StandInAnswer.Pending -> _state.value.copy(phase = ClaimsPhase.Pending)
-                StandInAnswer.Failed -> _state.value.copy(phase = ClaimsPhase.Failed)
-                is StandInAnswer.Ready -> ClaimsUiState(phase = ClaimsPhase.Ready, claims = answer.value)
+                StandInAnswer.Failed, is StandInAnswer.Rejected -> _state.value.copy(phase = ClaimsPhase.Failed)
+                is StandInAnswer.Ready -> ClaimsUiState(
+                    phase = ClaimsPhase.Ready,
+                    claims = answer.value,
+                    chip = _state.value.chip,
+                )
             }
         }
     }
 
+    fun selectChip(chip: ClaimStatus?) {
+        _state.value = _state.value.copy(chip = chip)
+    }
+
     fun openClaim(id: String) {
-        _state.value = _state.value.copy(openedClaimId = id)
+        val claim = _state.value.claims.find { it.id == id || it.siniestroId == id }
+        val detailId = claim?.id ?: id
+        val parametric = id == OpenParametricPayment.STORED_ID ||
+            detailId == OpenParametricPayment.STORED_ID ||
+            (claim?.tipo == "parametrico" && claim.estado == ClaimStatus.PAGADO)
+        ParametricTarget.claimId = if (parametric && detailId != OpenParametricPayment.STORED_ID) detailId else ""
+        _state.value = _state.value.copy(openedClaimId = detailId, openParametric = parametric)
     }
 
     fun consumeOpenedClaim() {

@@ -97,6 +97,18 @@
         "body": "Cuando emitas una póliza la verás aquí."
       }
     },
+    "avisos": {
+      "title": "Avisos de vencimiento",
+      "subtitle": "Pólizas vigentes que vencen pronto.",
+      "loading": "Cargando tus avisos…",
+      "error": { "body": "No pudimos cargar tus avisos.", "retry": "Reintentar" },
+      "empty": {
+        "title": "No tienes avisos",
+        "body": "Ninguna de tus pólizas vence pronto."
+      },
+      "venceEl": "Vence el",
+      "verPoliza": "Ver póliza"
+    },
     "detalle": {
       "back": "Volver",
       "title": "Póliza {{producto}}",
@@ -265,7 +277,9 @@
       "clientes": "Clientes",
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
-      "avisos": "Avisos"
+      "avisos": "Avisos",
+      "reportes": "Reportes",
+      "metricas": "Métricas"
     },
     "role": {
       "label": "Rol:",
@@ -292,6 +306,7 @@
       "prima": "Prima",
       "siniestrosAbiertos": "Siniestros abiertos",
       "renovar": "Renovar",
+      "acciones": "Acciones de la póliza",
       "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
       "cancelar": "Cancelar póliza",
       "confirmCancelar": {
@@ -305,6 +320,18 @@
         "motivo": "Motivo",
         "operador": "Operador",
         "devolucion": "Devolución estimada"
+      },
+      "coberturas": {
+        "title": "Coberturas",
+        "empty": "Esta póliza no tiene coberturas registradas.",
+        "modificar": "Modificar coberturas",
+        "nombre": "Nombre",
+        "suma": "Suma asegurada",
+        "deducible": "Deducible",
+        "agregar": "Agregar cobertura",
+        "quitar": "Quitar",
+        "guardar": "Guardar cambios",
+        "acciones": "Acciones de coberturas"
       }
     },
     "emision": {
@@ -453,6 +480,7 @@
       "continuar": "Continuar emisión",
       "anterior": "Anterior",
       "siguiente": "Siguiente",
+      "paginacion": "Paginación de cotizaciones",
       "aviso": {
         "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
       },
@@ -467,7 +495,137 @@
       }
     },
     "avisos": {
-      "title": "Avisos de siniestro"
+      "title": "Avisos de siniestro",
+      "subtitle": "Cola de revisión del operador. Los casos se ordenan por antigüedad del aviso.",
+      "filtrar": "Filtrar avisos por estado",
+      "filtro": {
+        "pendientes": "Pendientes",
+        "aprobados": "Aprobados",
+        "rechazados": "Rechazados",
+        "todos": "Todos"
+      },
+      "loading": "Cargando la cola…",
+      "error": "No pudimos cargar la cola de avisos.",
+      "actualizar": "Actualizar",
+      "vacia": {
+        "title": "Cola al día",
+        "body": "No hay avisos pendientes de revisión."
+      },
+      "column": {
+        "aviso": "Aviso",
+        "cliente": "Cliente",
+        "poliza": "Póliza",
+        "recibido": "Recibido",
+        "estado": "Estado"
+      },
+      "estado": {
+        "en_revision": "En revisión",
+        "aprobado": "Aprobada",
+        "rechazado": "Rechazada",
+        "enrutado": "Con perito",
+        "pagado": "Pagada",
+        "recibido": "Recibida",
+        "en_evaluacion": "En evaluación"
+      },
+      "caso": {
+        "loading": "Cargando el caso…",
+        "error": "No pudimos cargar el caso."
+      },
+      "detalle": {
+        "ocurrencia": "Ocurrencia",
+        "ubicacion": "Ubicación",
+        "sinUbicacion": "Sin geoetiqueta",
+        "monto": "Monto estimado",
+        "descripcion": "Descripción",
+        "porQue": "Por qué está en revisión:",
+        "evidencia": "Evidencia adjunta",
+        "auditoria": "Auditoría de decisiones",
+        "beneficiario": "Beneficiario"
+      },
+      "auditoria": {
+        "aprobado": "Aprobado",
+        "rechazado": "Rechazado",
+        "revision": "Enviado a revisión",
+        "enrutado": "Enrutado a perito",
+        "motor": "Motor de reglas"
+      },
+      "aprobar": "Aprobar",
+      "rechazar": "Rechazar",
+      "perito": "Enrutar a perito",
+      "pagar": "Pagar siniestro",
+      "verPago": "Ver pago",
+      "errorAccion": "No se pudo completar la acción. Intenta de nuevo.",
+      "dialogo": {
+        "aprobar": {
+          "title": "Aprobar aviso {{aviso}}",
+          "advertencia": "La decisión queda registrada con tu usuario y se notifica al cliente. No se puede deshacer.",
+          "cta": "Aprobar aviso"
+        },
+        "rechazar": {
+          "title": "Rechazar aviso {{aviso}}",
+          "advertencia": "El cliente recibe el motivo. Esta acción no se puede deshacer.",
+          "cta": "Rechazar aviso"
+        },
+        "perito": {
+          "title": "Enrutar aviso {{aviso}} a perito",
+          "advertencia": "El caso sale de la cola y queda en estado Con perito.",
+          "cta": "Enrutar a perito"
+        }
+      },
+      "pago": {
+        "volver": "Aviso {{aviso}}",
+        "title": "Pago de siniestro de bajo monto",
+        "subtitle": "Pago automático para montos bajo el umbral. No requiere autorización adicional.",
+        "confirmacion": "Confirmación de pago",
+        "monto": "Monto a pagar",
+        "umbral": "Umbral automático",
+        "clave": "Clave idempotencia",
+        "comprobante": "Comprobante",
+        "confirmar": "Confirmar pago",
+        "yaRealizado": "Pago ya realizado",
+        "reintento": "Reintento: se devolvió el mismo comprobante, sin un segundo desembolso.",
+        "volverAviso": "Volver al aviso",
+        "trazabilidad": "Trazabilidad",
+        "pendiente": "Pendiente de desembolso",
+        "intento": {
+          "ejecutado": "Desembolso ejecutado",
+          "reintento_idempotente": "Reintento idempotente"
+        }
+      }
+    },
+    "reportes": {
+      "title": "Reportes",
+      "subtitle": "Extractos internos para el regulador y la reaseguradora. El contenido lo define un adaptador interno, no el formato real (SFC/ACORD).",
+      "generar": "Generar",
+      "descargar": "Descargar",
+      "error": "No pudimos generar el reporte.",
+      "regulador": {
+        "title": "Reporte al regulador",
+        "body": "Extracto interno de pólizas y siniestros de los últimos 30 días."
+      },
+      "reaseguradora": {
+        "title": "Extracto para la reaseguradora",
+        "body": "Cartera y siniestralidad de las pólizas canceladas en los últimos 30 días."
+      }
+    },
+    "metricas": {
+      "title": "Métricas",
+      "subtitle": "Conteos agregados de pólizas emitidas, renovadas, modificadas, canceladas y por vencer, de los últimos 30 días.",
+      "cargando": "Cargando métricas…",
+      "vacio": "No hay eventos registrados en este rango.",
+      "error": "No pudimos cargar las métricas.",
+      "columna": {
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "cantidad": "Cantidad"
+      },
+      "tipo": {
+        "PolizaEmitida": "Emitidas",
+        "PolizaRenovada": "Renovadas",
+        "PolizaModificada": "Modificadas",
+        "PolizaCancelada": "Canceladas",
+        "PolizaPorVencer": "Por vencer"
+      }
     },
     "pending": {
       "title": "Sección en preparación",
@@ -631,5 +789,103 @@
     "selecciona": "Selecciona una opción",
     "si": "Sí",
     "no": "No"
+  },
+  "siniestros": {
+    "volver": "Volver",
+    "reintentar": "Reintentar",
+    "estado": {
+      "recibido": "Recibido",
+      "en_evaluacion": "En evaluación",
+      "decidido": "Decidido",
+      "aprobado": "Aprobado",
+      "rechazado": "Rechazado",
+      "enrutado": "Con perito",
+      "pagado": "Pagado"
+    },
+    "column": {
+      "aviso": "Aviso",
+      "ramo": "Ramo",
+      "fecha": "Fecha",
+      "estado": "Estado",
+      "reserva": "Reserva"
+    },
+    "lista": {
+      "title": "Siniestros",
+      "subtitle": "Avisos en evaluación, pagados y cerrados. Cada fila muestra ramo y estado.",
+      "reportar": "Reportar siniestro",
+      "loading": "Cargando tus siniestros…",
+      "error": "No pudimos cargar tus siniestros.",
+      "empty": {
+        "title": "No tienes siniestros",
+        "body": "Cuando reportes un siniestro lo verás aquí con su estado."
+      }
+    },
+    "reportar": {
+      "title": "Reportar siniestro",
+      "subtitle": "Completa el aviso. Los datos y la evidencia dependen del ramo de la póliza que elijas.",
+      "cargandoPolizas": "Cargando tus pólizas…",
+      "errorPolizas": "No pudimos cargar tus pólizas.",
+      "sinPolizas": {
+        "title": "No tienes pólizas vigentes",
+        "body": "Para reportar un siniestro necesitas una póliza vigente."
+      },
+      "poliza": "Póliza y ramo",
+      "elegirPoliza": "Elige una póliza",
+      "fecha": "Fecha del evento",
+      "descripcion": "Descripción",
+      "error": {
+        "poliza": "Selecciona una póliza.",
+        "fecha": "Elige una fecha válida que no sea futura.",
+        "descripcion": "Describe lo que ocurrió."
+      },
+      "completa": "Elige la póliza, una fecha que no sea futura y describe lo ocurrido.",
+      "continuar": "Continuar a evidencia",
+      "queAdjuntar": {
+        "title": "Qué adjuntar en este ramo",
+        "body": "En web no usamos la cámara del sistema. Sube el certificado o el soporte en PNG, JPG o PDF. En Protección de dispositivo se pide la foto del daño."
+      }
+    },
+    "evidencia": {
+      "title": "Evidencia del siniestro",
+      "subtitle": "Arrastra un archivo o selecciónalo. La ubicación del navegador es opcional.",
+      "suelta": "Suelta el archivo aquí o elige desde tu equipo",
+      "formatos": "PNG, JPG o PDF · máx. 10 MB",
+      "elegir": "Elegir archivo",
+      "error": {
+        "tipo": "El archivo debe ser PNG, JPG o PDF.",
+        "tamano": "El archivo supera los 10 MB."
+      },
+      "ubicacion": {
+        "pendiente": "Ubicación del navegador: pendiente · no es un diálogo de Android.",
+        "solicitando": "Solicitando la ubicación al navegador…",
+        "guardada": "Ubicación guardada.",
+        "bloqueada": "Ubicación bloqueada: el aviso sigue sin geoetiqueta."
+      },
+      "usarUbicacion": "Usar ubicación del navegador",
+      "enviar": "Enviar aviso",
+      "enviando": "Enviando…",
+      "errorEnvio": "No pudimos enviar el aviso. Intenta de nuevo: no se duplicará."
+    },
+    "confirmacion": {
+      "title": "Aviso recibido",
+      "body": "Lo estamos evaluando. Verás el nuevo estado en Mis siniestros.",
+      "misSiniestros": "Ver mis siniestros",
+      "inicio": "Ir a inicio"
+    },
+    "detalle": {
+      "loading": "Cargando el siniestro…",
+      "error": "No pudimos cargar el siniestro.",
+      "notFound": "No encontramos este siniestro",
+      "motivo": "Motivo del rechazo:",
+      "poliza": "Póliza",
+      "fecha": "Fecha del evento",
+      "descripcion": "Descripción",
+      "ubicacion": "Ubicación",
+      "sinUbicacion": "Sin geoetiqueta",
+      "pago": "Pago realizado",
+      "evidencia": "Evidencia adjunta",
+      "sinEvidencia": "Sin evidencia",
+      "historial": "Historial del caso"
+    }
   }
 }

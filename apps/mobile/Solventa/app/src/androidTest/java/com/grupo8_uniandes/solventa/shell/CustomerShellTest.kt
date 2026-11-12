@@ -6,12 +6,14 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import android.content.Intent
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -30,6 +32,11 @@ class CustomerShellTest {
     val rule = createEmptyComposeRule()
 
     private lateinit var scenario: ActivityScenario<MainActivity>
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun leaveSplash() {
@@ -157,8 +164,8 @@ class CustomerShellTest {
         rule.onNodeWithText("Cancelar").performClick()
         rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
-        rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("action_expiry_notices").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("solventa_card").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onAllNodesWithText("SOL-0001").assertCountEquals(0)

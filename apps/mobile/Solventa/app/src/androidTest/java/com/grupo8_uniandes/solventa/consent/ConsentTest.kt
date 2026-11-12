@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -53,6 +54,12 @@ import org.junit.runner.RunWith
 class ConsentTest {
     @get:Rule
     val rule = createAndroidComposeRule<MainActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun resetStores() {
@@ -132,6 +139,12 @@ class ConsentTest {
 class ConsentProfileTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun seedAccount() {

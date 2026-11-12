@@ -1,10 +1,11 @@
 package com.grupo8_uniandes.solventa.navigation
 
-import android.Manifest
-import android.app.Application
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.test.core.app.ApplicationProvider
-import org.robolectric.Shadows.shadowOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import com.grupo8_uniandes.solventa.claim.CannedEvidenceRegistry
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
@@ -127,7 +129,7 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-88219-CO")
 
         nav.openDestination(Destination.Polizas)
         rule.waitForIdle()
@@ -166,13 +168,12 @@ class CustomerNavHostTest {
     }
 
     @Test
-    fun givenLocationAllowed_whenTheCatalogOpens_thenAssistanceReturnsToTheCatalog() {
-        shadowOf(ApplicationProvider.getApplicationContext<Application>())
-            .grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION)
+    fun givenTheCatalog_whenAssistanceIsCancelled_thenTheCatalogReturns() {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, start = SiniestrosRoute)
+        holder[0]!!.navigate(MapaPrestadoresRoute)
+        rule.waitForIdle()
 
-        rule.onNodeWithTag("action_open_catalog").performClick()
         rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
         rule.onNodeWithText("Taller Norte").assertIsDisplayed()
         assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
@@ -198,10 +199,11 @@ class CustomerNavHostTest {
         rule.onNodeWithText("Reportar siniestro").performClick()
         rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
         assertEquals(AvisoSiniestroRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        fillClaimNotice()
         rule.onNodeWithText("Continuar a evidencia").performClick()
         rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
         assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
-        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Enviar aviso").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
@@ -214,8 +216,9 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onNodeWithText("Reportar siniestro").performClick()
+        fillClaimNotice()
         rule.onNodeWithText("Continuar a evidencia").performClick()
-        rule.onNodeWithText("Mientras usas la app").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
         rule.onNodeWithText("Enviar aviso").performClick()
         rule.waitForIdle()
         rule.onNodeWithText("Ir al inicio").performClick()
@@ -227,6 +230,42 @@ class CustomerNavHostTest {
         rule.onNodeWithText("Cancelar").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAPolicy_whenTheNoticeIsSent_thenVerMisAvisosOpensTheClaimsList() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = PolizaDetalleRoute(OpenValidityNotice.POLICY))
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_report_claim").performClick()
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText("Ver mis avisos").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        assertEquals(SiniestrosRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+    }
+
+    @Test
+    fun givenAPolicy_whenTheNoticeIsSent_thenIrAlInicioOpensHome() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = PolizaDetalleRoute(OpenValidityNotice.POLICY))
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_report_claim").performClick()
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        assertEquals(InicioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
     }
 
     @Test
@@ -319,7 +358,8 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
+        rule.onNodeWithText("SIN-441").assertIsDisplayed()
     }
 
     @Test
@@ -338,17 +378,33 @@ class CustomerNavHostTest {
         paymentPush: PushNotice? = null,
     ) {
         rule.setContent {
+            val owner = remember {
+                object : ActivityResultRegistryOwner {
+                    override val activityResultRegistry = CannedEvidenceRegistry()
+                }
+            }
             SolventaTheme {
                 val controller = rememberNavController()
                 holder[0] = controller
-                CustomerNavHost(
-                    navController = controller,
-                    homeState = homeState,
-                    contentPadding = PaddingValues(0.dp),
-                    startDestination = start,
-                    paymentPush = paymentPush,
-                )
+                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                    CustomerNavHost(
+                        navController = controller,
+                        homeState = homeState,
+                        contentPadding = PaddingValues(0.dp),
+                        startDestination = start,
+                        paymentPush = paymentPush,
+                    )
+                }
             }
         }
+    }
+
+    private fun fillClaimNotice() {
+        rule.waitForIdle()
+        rule.onNodeWithTag("claim_policy").performClick()
+        rule.onNodeWithTag("claim_policy_option_POL-88219-CO").performClick()
+        rule.onNodeWithTag("claim_date").performClick()
+        rule.onNodeWithText("Aceptar").performClick()
+        rule.onNodeWithTag("claim_description").performTextInput("Choque")
     }
 }

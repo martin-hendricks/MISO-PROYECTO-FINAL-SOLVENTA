@@ -59,8 +59,28 @@ hpa:
           value: 1
           periodSeconds: 120
 
+# SOLVENTA_TOKEN_SECRET valida el Bearer de /v1/metricas (rol operador) --
+# mismo secreto compartido por todo el ecosistema (bff-web, notificaciones,
+# ms-polizas, etc.). Sin esto, cualquier llamada autenticada responde 500
+# "SOLVENTA_TOKEN_SECRET no configurado" (mismo patrón ya visto y corregido
+# en notificaciones.yaml).
+#
+# analitica-db: analitica tiene su propio esquema (db/01_analitica.sql,
+# CREATE SCHEMA analitica) pero, igual que ms-perfilamiento/ms-cotizacion, sin
+# instancia RDS propia -- vive en DBCompartida. El workflow de CD detecta
+# automáticamente el paso de migraciones por la carpeta db/ existente y
+# espera un ExternalSecret llamado exactamente "<servicio>-db"
+# (.github/workflows/deploy.yml); sin esta entrada faltaba por completo.
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: analitica-token
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: analitica-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -83,3 +103,8 @@ variablesEntorno:
     valor: "AWS_MSK_IAM"
   - nombre: MSK_CONSUMER_GROUP
     valor: "analitica-cg"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: analitica-db
+    claveSecreto: database_url

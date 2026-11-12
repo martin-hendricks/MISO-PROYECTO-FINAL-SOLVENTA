@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 @Composable
@@ -30,6 +33,9 @@ fun SolventaListRow(
             .heightIn(min = SolventaSpacing.minTouch)
             .padding(horizontal = SolventaSpacing.gutter)
             .testTag(testTag)
+            .semantics(mergeDescendants = true) {
+                if (onClick != null) role = Role.Button
+            }
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {

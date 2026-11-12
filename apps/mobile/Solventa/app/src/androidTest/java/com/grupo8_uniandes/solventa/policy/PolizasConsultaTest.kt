@@ -5,15 +5,18 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.policy.PolicyDetailUiState
 import com.grupo8_uniandes.solventa.policy.PolicyPhase
@@ -23,11 +26,18 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.After
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 
 class PolizasConsultaTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     private var scenario: ActivityScenario<MainActivity>? = null
 
@@ -53,12 +63,12 @@ class PolizasConsultaTest {
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithText("Protección de dispositivo · Robo y Pantalla")
+            rule.onAllNodesWithText("Protección de dispositivo", useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         }
-        rule.onNodeWithText("Protección de dispositivo · Robo y Pantalla").assertIsDisplayed()
-        rule.onNodeWithTag("action_expiry_notices").assertIsDisplayed()
+        rule.onNodeWithText("Protección de dispositivo", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithTag("action_expiry_notices").performScrollTo().assertIsDisplayed()
     }
 
     private fun openShell() {
@@ -74,6 +84,12 @@ class PolizasConsultaTest {
 class PolizasListContentTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenNoPolicies_whenTheListIsShown_thenTheEmptyPromptReplacesTheCards() {
@@ -126,19 +142,21 @@ class PolizasListContentTest {
                 PolizaDetalleScreen(
                     state = PolicyDetailUiState(
                         phase = PolicyPhase.Ready,
-                        numero = "POL-88219-CO",
-                        ramo = "Protección de dispositivo",
-                        resumen = "Robo y Pantalla",
-                        estado = "vigente",
-                        venceEn = "2027-03-12",
-                        queHacer = "guia",
+                        detail = PolicyDetail(
+                            numero = "POL-88219-CO",
+                            ramo = "Protección de dispositivo",
+                            resumen = "Robo y Pantalla",
+                            estado = "vigente",
+                            venceEn = "2027-03-12",
+                            queHacer = "guia",
+                        ),
                         notice = true,
                     ),
                 )
             }
         }
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("policy_sync_notice").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_sync").assertCountEquals(0)
     }
