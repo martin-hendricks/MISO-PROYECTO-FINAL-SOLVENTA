@@ -418,6 +418,12 @@ variable "alb_routes" {
         "/bff-movil/v1/sesion",
         "/bff-movil/v1/registro",
         "/bff-movil/v1/cliente",
+        # Swagger propio bajo /bff-movil/v1 (apps/backend/bff-movil/app/main.py,
+        # docs_bff_movil/openapi_bff_movil) -- el ALB no recorta el prefijo, así
+        # que el /docs y /openapi.json que FastAPI monta en la raíz nunca son
+        # alcanzables vía el API Gateway sin esta entrada.
+        "/bff-movil/v1/docs",
+        "/bff-movil/v1/openapi.json",
       ]
       priority = 40
     }
