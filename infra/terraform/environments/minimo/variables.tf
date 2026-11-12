@@ -317,8 +317,8 @@ variable "node_group_b_desired_size" {
 
 variable "node_group_b_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo B."
-  default     = 6
+  description = "Nodos máximos del Grupo B. Subido de 6 a 8 (HA-pr#179/180): con los 12 microservicios al tope de 6 nodos t3.small, el RollingUpdate default (maxSurge 25%) de varios Deployments actualizándose casi simultáneamente no tenía margen para el pod 'surge' + el viejo coexistiendo, y los rollouts fallaban con 'timed out waiting for the condition' / '1 old replicas are pending termination'."
+  default     = 8
 }
 
 variable "enable_external_secrets" {
