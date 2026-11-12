@@ -427,8 +427,13 @@ variable "alb_routes" {
     # odd/tasks/observabilidad-prometheus-grafana.md -- un Ingress crearía
     # un segundo ALB al que el API Gateway nunca llega).
     grafana = {
-      port              = 3000
-      paths             = ["/observabilidad/grafana", "/observabilidad/grafana/*"]
+      port = 3000
+      # Sin "/*" explícito: aws_lb_listener_rule.routes ya agrega el wildcard
+      # al path_pattern (infra/terraform/modules/alb/main.tf:187) y al Name
+      # del tag (línea 191) -- un "*" literal aquí duplica el wildcard y
+      # además rompe el patrón de tags de AWS (no permite "*"), como en las
+      # demás entradas de este mapa (api-socios, bff-web, bff-movil).
+      paths             = ["/observabilidad/grafana"]
       health_check_path = "/api/health"
       priority          = 50
     }
