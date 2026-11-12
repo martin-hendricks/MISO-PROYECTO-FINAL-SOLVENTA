@@ -44,7 +44,6 @@ fun MapaPrestadoresScreen(
                 .padding(SolventaSpacing.gutter),
             verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
         ) {
-            ClaimChips()
             rows.forEachIndexed { index, row ->
                 SolventaCard(
                     onClick = onOpenAssistance,

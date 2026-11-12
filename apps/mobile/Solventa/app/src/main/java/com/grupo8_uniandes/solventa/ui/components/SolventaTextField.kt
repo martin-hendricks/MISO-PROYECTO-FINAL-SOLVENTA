@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -39,10 +40,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +63,18 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 enum class SolventaFieldStyle {
     Outlined,
     Filled,
+}
+
+internal fun fieldHelperColor(isError: Boolean, scheme: ColorScheme): Color =
+    if (isError) scheme.error else scheme.onSurfaceVariant
+
+private fun Modifier.fieldSemantics(
+    isError: Boolean,
+    helper: String,
+    visualTransformation: VisualTransformation,
+): Modifier = semantics {
+    if (isError) error(helper)
+    if (visualTransformation is PasswordVisualTransformation) password()
 }
 
 enum class SolventaFieldState {
@@ -98,14 +119,24 @@ fun SolventaTextField(
         )
         return
     }
-    val fieldModifier = modifier.fillMaxWidth().testTag(testTag ?: "solventa_text_field")
     val isError = state == SolventaFieldState.Error
+    val fieldModifier = modifier
+        .fillMaxWidth()
+        .testTag(testTag ?: "solventa_text_field")
+        .fieldSemantics(isError = isError, helper = helper, visualTransformation = visualTransformation)
     val readOnly = state == SolventaFieldState.ReadOnly
     val labelContent: @Composable () -> Unit = { Text(label) }
     val helperContent: @Composable (() -> Unit)? = if (helper.isEmpty()) {
         null
     } else {
-        { Text(helper) }
+        {
+            Text(
+                helper,
+                modifier = Modifier.semantics {
+                    if (isError) liveRegion = LiveRegionMode.Polite
+                },
+            )
+        }
     }
     val placeholderContent: @Composable (() -> Unit)? = if (placeholder.isEmpty()) {
         null
@@ -176,7 +207,7 @@ private fun ExternalLabelField(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(SolventaSpacing.minTouch)
+                .heightIn(min = SolventaSpacing.minTouch)
                 .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .border(1.dp, borderColor, shape)
@@ -190,6 +221,7 @@ private fun ExternalLabelField(
                 val fieldModifier = Modifier
                     .weight(1f)
                     .testTag(testTag ?: "solventa_text_field")
+                    .fieldSemantics(isError = isError, helper = helper, visualTransformation = visualTransformation)
                 val fieldStyle = SolventaTypography.amount.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -234,10 +266,9 @@ private fun ExternalLabelField(
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                 ),
-                color = if (isError) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.outline
+                color = fieldHelperColor(isError, MaterialTheme.colorScheme),
+                modifier = Modifier.semantics {
+                    if (isError) liveRegion = LiveRegionMode.Polite
                 },
             )
         }
@@ -300,7 +331,7 @@ private fun PlaceholderBox(
             Text(
                 text = placeholder,
                 style = SolventaTypography.amount.copy(
-                    color = MaterialTheme.colorScheme.outline,
+                    color = fieldHelperColor(isError = false, MaterialTheme.colorScheme),
                 ),
                 maxLines = 1,
             )

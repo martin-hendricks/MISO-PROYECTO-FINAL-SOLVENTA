@@ -58,6 +58,8 @@ class ConfirmacionTarjetaFormatTest {
                 )
             }
         }
+        rule.onNodeWithText("Prima").assertIsDisplayed()
+        rule.onAllNodesWithText("Prima $42.000 COP").assertCountEquals(0)
         rule.onNodeWithText("Camila Restrepo").assertIsDisplayed()
         rule.onNodeWithText("4242 4242 4242 4242").assertIsDisplayed()
         rule.onNodeWithText("08").assertIsDisplayed()
@@ -71,6 +73,27 @@ class ConfirmacionTarjetaFormatTest {
         rule.onNodeWithText("08").assertIsDisplayed()
         rule.onNodeWithText("Mes").assertIsDisplayed()
         rule.onNodeWithText("Año").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenTheOfferPremium_whenTheCardOpens_thenItShowsThatAmount() {
+        val viewModel = ConfirmacionTarjetaViewModel(prima = 128_500, moneda = "COP")
+        rule.setContent {
+            SolventaTheme {
+                ConfirmacionTarjetaScreen(
+                    state = viewModel.state.value,
+                    onTitular = {},
+                    onNumero = {},
+                    onMes = {},
+                    onAnio = {},
+                    onCodigo = {},
+                    onConfirm = {},
+                    onBackToOffer = {},
+                    onLeave = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Prima $128.500 COP").assertIsDisplayed()
     }
 
     @Test

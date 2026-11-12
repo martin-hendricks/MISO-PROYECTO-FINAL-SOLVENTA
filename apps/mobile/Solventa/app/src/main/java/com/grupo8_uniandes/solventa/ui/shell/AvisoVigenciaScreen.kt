@@ -33,6 +33,12 @@ fun AvisoVigenciaScreen(
         ValidityKind.EXPIRY -> stringResource(R.string.action_understood)
         ValidityKind.RENEWAL -> stringResource(R.string.action_go_home)
     }
+    val banner = when (reading.kind) {
+        ValidityKind.EXPIRY -> reading.venceEn
+            ?.let { stringResource(R.string.notice_expiry_banner, reading.poliza, it) }
+            ?: stringResource(R.string.notice_expiry_banner_no_date, reading.poliza)
+        ValidityKind.RENEWAL -> stringResource(R.string.notice_renewal_banner, reading.poliza)
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -41,7 +47,7 @@ fun AvisoVigenciaScreen(
         verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
     ) {
         SolventaBanner(
-            message = reading.banner,
+            message = banner,
             style = SolventaBannerStyle.Info,
         )
         SolventaButton(

@@ -61,6 +61,7 @@ class AvisoEntrada(BaseModel):
     poliza: PolizaAvisoEntrada
     fecha_hecho: date
     descripcion: str = Field(min_length=1, max_length=1000)
+    lugar: str | None = Field(default=None, max_length=200)
     geo: GeoEntrada | None = None
     tipos_adjuntos: list[str] = Field(default_factory=list)
 

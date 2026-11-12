@@ -42,7 +42,7 @@ class OfertaHipotecarioScreenTest {
         rule.onNodeWithText("$89.500 COP / mes").assertIsDisplayed()
         rule.onNodeWithText("Aceptar oferta").assertIsDisplayed()
         rule.onNodeWithText("Revisar despues").assertIsDisplayed()
-        rule.onNodeWithTag("mortgage_offer_chevron").assertHasNoClickAction()
+        rule.onNodeWithTag("mortgage_offer_chevron", useUnmergedTree = true).assertHasNoClickAction()
         rule.onNodeWithTag("action_accept_mortgage").performClick()
         rule.onNodeWithTag("action_review_later").performClick()
         assertEquals(1, accepted)

@@ -8,6 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.clients.analitica import ClienteAnalitica
 from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_pagos import ClienteMsPagos
@@ -16,6 +17,7 @@ from app.clients.ms_polizas import ClienteMsPolizas
 from app.clients.ms_siniestros import ClienteMsSiniestros
 from app.clients.ms_suscripcion import ClienteMsSuscripcion
 from app.dependencies import (
+    obtener_cliente_analitica,
     obtener_cliente_cotizacion,
     obtener_cliente_identidad,
     obtener_cliente_pagos,
@@ -91,6 +93,11 @@ def nucleo_suscripcion() -> NucleoSimulado:
 
 
 @pytest.fixture
+def nucleo_analitica() -> NucleoSimulado:
+    return NucleoSimulado()
+
+
+@pytest.fixture
 def nucleo_identidad() -> NucleoSimulado:
     # A diferencia del default generico 404 de NucleoSimulado, alta y
     # autenticacion exitosas son el caso feliz mas comun en los tests de
@@ -134,6 +141,7 @@ def client(
     nucleo_siniestros,
     nucleo_suscripcion,
     nucleo_identidad,
+    nucleo_analitica,
 ) -> TestClient:
     http_cotizacion = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_cotizacion), base_url="http://ms-cotizacion")
     http_pagos = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_pagos), base_url="http://ms-pagos")
@@ -150,6 +158,9 @@ def client(
     http_identidad = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_identidad), base_url="http://ms-identidad"
     )
+    http_analitica = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_analitica), base_url="http://analitica"
+    )
 
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http_cotizacion, "corr-test")
     app.dependency_overrides[obtener_cliente_pagos] = lambda: ClienteMsPagos(http_pagos, "corr-test")
@@ -162,6 +173,7 @@ def client(
         http_suscripcion, "corr-test"
     )
     app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(http_identidad, "corr-test")
+    app.dependency_overrides[obtener_cliente_analitica] = lambda: ClienteAnalitica(http_analitica, "corr-test")
     try:
         with TestClient(app) as test_client:
             yield test_client

@@ -1,3 +1,4 @@
+import json
 import os
 from contextvars import ContextVar
 
@@ -17,6 +18,7 @@ SERVICIOS = {
     "ms-perfilamiento": "MS_PERFILAMIENTO_URL",
     "ms-siniestros": "MS_SINIESTROS_URL",
     "ms-suscripcion": "MS_SUSCRIPCION_URL",
+    "notificaciones": "MS_NOTIFICACIONES_URL",
 }
 
 
@@ -193,6 +195,14 @@ class ClienteNucleo:
             params={"usuario_id": usuario_id, "limite": limite},
         )
 
+    def polizas_por_vencer(self, *, usuario_id: str, dias: int = 30) -> list:
+        return self._pedir(
+            "ms-polizas",
+            "GET",
+            "/v1/polizas/por-vencer",
+            params={"usuario_id": usuario_id, "dias": dias},
+        )
+
     def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict:
         return self._pedir(
             "ms-polizas",
@@ -209,6 +219,33 @@ class ClienteNucleo:
     def listar_siniestros(self, *, usuario_id: str) -> list:
         cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
         return cuerpo if isinstance(cuerpo, list) else []
+
+    def registrar_aviso(
+        self,
+        *,
+        usuario_id: str,
+        datos: dict,
+        archivos: list[tuple],
+        idempotency_key: str,
+    ) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "POST",
+            "/v1/siniestros",
+            data={"datos": json.dumps(datos)},
+            # httpx espera (nombre de campo, archivo). Sin el nombre, el 3-tuple
+            # (filename, bytes, content-type) revienta al armar el multipart.
+            files=[("archivos", archivo) for archivo in archivos],
+            cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    def detalle_siniestro(self, siniestro_id: str, usuario_id: str) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "GET",
+            f"/v1/siniestros/{siniestro_id}/detalle",
+            params={"usuario_id": usuario_id},
+        )
 
     def crear_siniestro(
         self, *, usuario_id: str, poliza: str, poliza_id: str, idempotency_key: str
@@ -238,6 +275,18 @@ class ClienteNucleo:
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
+    def registrar_dispositivo(self, *, plataforma: str, token: str) -> dict:
+        """POST /v1/notificaciones/dispositivos: upsert por (usuario_id, token)
+        -- notificaciones resuelve el usuario_id del JWT reenviado (`uid`),
+        no de un parámetro explícito. Devuelve 201 (nuevo) o 200 (ya existía),
+        ambos manejados igual por _pedir (solo falla en >=400)."""
+        return self._pedir(
+            "notificaciones",
+            "POST",
+            "/v1/notificaciones/dispositivos",
+            json={"plataforma": plataforma, "token": token},
+        )
+
     def _base(self, servicio: str) -> str:
         base = (self._urls.get(servicio) or "").strip().rstrip("/")
         if not base:
@@ -253,6 +302,8 @@ class ClienteNucleo:
         json: dict | None = None,
         params: dict | None = None,
         cabeceras: dict | None = None,
+        data: dict | None = None,
+        files: list | None = None,
     ):
         try:
             headers = dict(cabeceras or {})
@@ -263,7 +314,9 @@ class ClienteNucleo:
             if http is None:
                 http = httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S)
                 self._clientes[servicio] = http
-            respuesta = http.request(metodo, ruta, json=json, params=params, headers=headers)
+            respuesta = http.request(
+                metodo, ruta, json=json, params=params, headers=headers, data=data, files=files
+            )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible") from exc
         try:

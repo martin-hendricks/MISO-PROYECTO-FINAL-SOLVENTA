@@ -175,7 +175,8 @@
                   [attr.aria-selected]="vm.seleccionado() === aviso.id"
                   tabindex="0"
                   (click)="vm.seleccionar(aviso.id)"
-                  (keydown.enter)="vm.seleccionar(aviso.id)"
+                  (keydown.enter)="onSeleccionar($any($event), aviso.id)"
+                  (keydown.space)="onSeleccionar($any($event), aviso.id)"
                 >
                   <th scope="row" class="mono">{{ aviso.siniestroId }}</th>
                   <td class="mono corto">{{ aviso.clienteId }}</td>

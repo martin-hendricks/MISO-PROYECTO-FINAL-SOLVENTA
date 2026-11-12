@@ -32,6 +32,11 @@
     @default {
       <div class="table-scroll">
         <table data-testid="siniestros-table">
+          <caption class="visually-hidden">
+            {{
+              'siniestros.lista.title' | translate
+            }}
+          </caption>
           <thead>
             <tr>
               <th scope="col">{{ 'siniestros.column.aviso' | translate }}</th>

@@ -27,6 +27,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toRegistration
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRejection
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
+import com.grupo8_uniandes.solventa.data.bff.mapping.toParts
 import com.grupo8_uniandes.solventa.data.bff.mapping.toResult
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRevocation
 import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
@@ -37,10 +38,12 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.claim.bytesMissing
 import com.grupo8_uniandes.solventa.domain.bff.home.BffHome
 import com.grupo8_uniandes.solventa.domain.bff.home.HomeBffRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
@@ -107,7 +110,7 @@ class BffGate(private val api: MobileBffApi, private val cache: BffCache) {
     suspend fun flush(): Boolean {
         val pending = cache.readClaim() ?: return true
         return try {
-            api.notify(pending.key, pending.notice.toDto())
+            api.notify(pending.key, pending.notice.toParts())
             cache.clearClaim()
             true
         } catch (_: IOException) {
@@ -212,6 +215,7 @@ class RemoteOfferRepository(
         val answer = gate.call { api.acceptQuote(newIdempotencyKey(), cotizacionId).toAccepted() }
         return when (answer) {
             is StandInAnswer.Ready -> if (answer.value.estado == "aceptada") answer else StandInAnswer.Failed
+            is StandInAnswer.Rejected -> StandInAnswer.Failed
             else -> answer
         }
     }
@@ -318,15 +322,20 @@ class RemoteClaimRepository(
     ): StandInAnswer<ClaimReceipt> {
         if (idempotencyKey == null && !gate.flush()) return StandInAnswer.Failed
         val key = idempotencyKey ?: newIdempotencyKey()
+        if (notice.bytesMissing()) return StandInAnswer.Failed
         return try {
-            val receipt = api.notify(key, notice.toDto()).toReceipt()
+            val receipt = api.notify(key, notice.toParts()).toReceipt()
             if (cache.readClaim()?.key == key) cache.clearClaim()
             StandInAnswer.Ready(receipt)
         } catch (_: IOException) {
             cache.writeClaim(PendingClaim(key, notice))
             StandInAnswer.Failed
-        } catch (_: HttpException) {
-            StandInAnswer.Failed
+        } catch (error: HttpException) {
+            if (error.code() == 422 || error.code() == 409) {
+                StandInAnswer.Rejected(error.response()?.errorBody()?.string().orEmpty())
+            } else {
+                StandInAnswer.Failed
+            }
         } catch (_: SerializationException) {
             StandInAnswer.Failed
         }
@@ -334,6 +343,19 @@ class RemoteClaimRepository(
 
     override suspend fun list(): StandInAnswer<List<ClaimSummary>> =
         gate.call { api.claims().toSummaries() }
+
+    override suspend fun detail(id: String): StandInAnswer<ClaimDetail> {
+        if (!gate.flush()) return StandInAnswer.Failed
+        return try {
+            StandInAnswer.Ready(api.claim(id).toDetail())
+        } catch (_: IOException) {
+            StandInAnswer.Failed
+        } catch (error: HttpException) {
+            if (error.code() == 404) StandInAnswer.Rejected("not_found") else StandInAnswer.Failed
+        } catch (_: SerializationException) {
+            StandInAnswer.Failed
+        }
+    }
 }
 
 class RemotePaymentRepository(

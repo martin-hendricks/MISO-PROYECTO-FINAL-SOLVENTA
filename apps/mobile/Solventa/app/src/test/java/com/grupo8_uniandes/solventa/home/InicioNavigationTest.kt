@@ -1,10 +1,11 @@
 package com.grupo8_uniandes.solventa.home
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -29,7 +30,7 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "w480dp-h2000dp")
 class InicioNavigationTest {
     @get:Rule
-    val rule = createComposeRule()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun givenOffer_whenAccepted_thenIssuanceShowsThatId() {
@@ -103,7 +104,7 @@ class InicioNavigationTest {
         show(HomePanel(policyId = "POL-9"))
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-9")
         rule.onNodeWithText("Avisos de vencimiento").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
@@ -130,7 +131,8 @@ class InicioNavigationTest {
         rule.onNodeWithTag("home_claim").performClick()
         rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
         rule.onNodeWithText("CLM-9").assertIsDisplayed()
-        rule.onNodeWithTag("action_siniestro_volver").performClick()
+        rule.onAllNodesWithTag("action_siniestro_volver").assertCountEquals(0)
+        rule.activity.onBackPressedDispatcher.onBackPressed()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }

@@ -16,12 +16,18 @@
       type="button"
       class="outlined"
       data-testid="perfil-idioma-region-open"
+      [attr.aria-expanded]="idiomaRegionOpen()"
+      aria-controls="destino-idioma-region"
       (click)="idiomaRegionOpen.set(true)"
     >
       {{ 'idiomaRegion.title' | translate }}
     </button>
     @if (idiomaRegionOpen()) {
-      <sv-idioma-region [embedded]="true" (done)="idiomaRegionOpen.set(false)" />
+      <sv-idioma-region
+        id="destino-idioma-region"
+        [embedded]="true"
+        (done)="idiomaRegionOpen.set(false)"
+      />
     }
   }
 

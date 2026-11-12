@@ -59,8 +59,17 @@ hpa:
           value: 1
           periodSeconds: 120
 
+# SOLVENTA_TOKEN_SECRET valida el Bearer de /v1/metricas (rol operador) --
+# mismo secreto compartido por todo el ecosistema (bff-web, notificaciones,
+# ms-polizas, etc.). Sin esto, cualquier llamada autenticada responde 500
+# "SOLVENTA_TOKEN_SECRET no configurado" (mismo patrón ya visto y corregido
+# en notificaciones.yaml).
 externalSecrets:
-  habilitado: false
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: analitica-token
 
 serviceAccount:
   crear: true

@@ -95,4 +95,44 @@ describe('ConfirmDialog', () => {
 
     expect(cancelado).toBeTrue();
   });
+
+  it('exposes the title and warning as its accessible name and description', () => {
+    const { host } = render(false);
+    const dialogo = host.querySelector('[role="alertdialog"]') as HTMLElement;
+    const titulo = host.querySelector(`#${dialogo.getAttribute('aria-labelledby')}`);
+    const descripcion = host.querySelector(`#${dialogo.getAttribute('aria-describedby')}`);
+
+    expect(dialogo.getAttribute('aria-modal')).toBe('true');
+    expect(titulo?.textContent?.trim()).toBe('Cancelar póliza');
+    expect(descripcion?.textContent?.trim()).toBe('Esta acción es irreversible.');
+  });
+
+  it('Escape cancels exactly like the cancel button, without confirming', () => {
+    const { fixture, host } = render(true);
+    let cancelado = false;
+    let confirmado = false;
+    fixture.componentInstance.cancelar.subscribe(() => (cancelado = true));
+    fixture.componentInstance.confirmar.subscribe(() => (confirmado = true));
+
+    const dialogo = host.querySelector('[role="alertdialog"]') as HTMLElement;
+    dialogo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(cancelado).toBeTrue();
+    expect(confirmado).toBeFalse();
+  });
+
+  it('captures focus inside the dialog and returns it to the trigger on destroy', () => {
+    const exterior = document.createElement('button');
+    document.body.appendChild(exterior);
+    exterior.focus();
+
+    const { fixture, host } = render(false);
+    const dialogo = host.querySelector('[role="alertdialog"]') as HTMLElement;
+    expect(dialogo.contains(document.activeElement)).toBeTrue();
+
+    fixture.destroy();
+
+    expect(document.activeElement).toBe(exterior);
+    exterior.remove();
+  });
 });

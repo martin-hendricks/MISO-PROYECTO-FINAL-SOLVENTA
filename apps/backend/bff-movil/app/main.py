@@ -2,9 +2,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .clients.nucleo import ClienteNucleo, RechazoNucleo, token_saliente
+from .observabilidad import instrumentar
 from .routers import cliente, registro, sesion
 
 app = FastAPI(title="bff-movil")
+instrumentar(app)
 
 
 @app.middleware("http")

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -49,6 +50,12 @@ import java.io.File
 class OnboardingTest {
     @get:Rule
     val rule = createAndroidComposeRule<MainActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun resetStores() {
@@ -188,6 +195,8 @@ class OnboardingTest {
         rule.onNodeWithTag("field_numero").performScrollTo().performTextReplacement("1023456789")
         rule.onNodeWithTag("field_contrasena").performScrollTo().performTextReplacement("secret12")
         rule.onNodeWithTag("field_confirmar").performScrollTo().performTextReplacement("secret12")
+        rule.onNodeWithTag("field_ingresos").performScrollTo().performTextReplacement("4500000")
+        rule.onNodeWithTag("field_gastos").performScrollTo().performTextReplacement("1200000")
     }
 
     private fun confirmRegion(tag: String) {
@@ -209,6 +218,12 @@ class OnboardingTest {
 class OnboardingExistingAccountTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenExistingAccount_whenStartupFinishes_thenLoginWithoutInicio() {

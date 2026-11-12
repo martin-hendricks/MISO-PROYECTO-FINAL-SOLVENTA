@@ -2,7 +2,7 @@ package com.grupo8_uniandes.solventa.data.bff.remote
 
 import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
-import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
@@ -32,11 +32,14 @@ import retrofit2.Call
 import retrofit2.Response
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalPreferenceDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
+import okhttp3.MultipartBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 
 interface MobileBffApi {
@@ -85,14 +88,18 @@ interface MobileBffApi {
     @GET("cliente/polizas/{numero}")
     suspend fun detail(@Path("numero") numero: String): DetailDto
 
+    @Multipart
     @POST("cliente/siniestros")
     suspend fun notify(
         @Header("Idempotency-Key") key: String,
-        @Body body: ClaimNoticeDto,
+        @Part parts: List<MultipartBody.Part>,
     ): ClaimReceiptDto
 
     @GET("cliente/siniestros")
     suspend fun claims(): ClaimsDto
+
+    @GET("cliente/siniestros/{id}")
+    suspend fun claim(@Path("id") id: String): ClaimDetailDto
 
     @GET("cliente/pagos-automaticos")
     suspend fun payment(): PaymentDto

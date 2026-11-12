@@ -45,6 +45,9 @@
                 data-testid="aviso-poliza"
                 [value]="vm.poliza()"
                 [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().poliza"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().poliza ? 'aviso-poliza-error' : null
+                "
                 (change)="vm.poliza.set($any($event.target).value)"
               >
                 <option value="">{{ 'siniestros.reportar.elegirPoliza' | translate }}</option>
@@ -54,6 +57,16 @@
                   </option>
                 }
               </select>
+              @if (vm.intentoContinuar() && vm.errores().poliza) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-poliza-error"
+                  data-testid="aviso-poliza-error"
+                >
+                  {{ 'siniestros.reportar.error.poliza' | translate }}
+                </p>
+              }
 
               <label for="aviso-fecha">{{ 'siniestros.reportar.fecha' | translate }}</label>
               <input
@@ -63,8 +76,21 @@
                 [max]="vm.hoy"
                 [value]="vm.fechaHecho()"
                 [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().fechaHecho"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().fechaHecho ? 'aviso-fecha-error' : null
+                "
                 (input)="vm.fechaHecho.set($any($event.target).value)"
               />
+              @if (vm.intentoContinuar() && vm.errores().fechaHecho) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-fecha-error"
+                  data-testid="aviso-fecha-error"
+                >
+                  {{ 'siniestros.reportar.error.fecha' | translate }}
+                </p>
+              }
 
               <label for="aviso-descripcion">{{
                 'siniestros.reportar.descripcion' | translate
@@ -76,12 +102,21 @@
                 rows="3"
                 [value]="vm.descripcion()"
                 [attr.aria-invalid]="vm.intentoContinuar() && vm.errores().descripcion"
+                [attr.aria-describedby]="
+                  vm.intentoContinuar() && vm.errores().descripcion
+                    ? 'aviso-descripcion-error'
+                    : null
+                "
                 (input)="vm.descripcion.set($any($event.target).value)"
               ></textarea>
-
-              @if (vm.intentoContinuar() && !vm.formularioValido()) {
-                <p class="hint-error" role="alert" data-testid="aviso-errores">
-                  {{ 'siniestros.reportar.completa' | translate }}
+              @if (vm.intentoContinuar() && vm.errores().descripcion) {
+                <p
+                  class="hint-error"
+                  role="alert"
+                  id="aviso-descripcion-error"
+                  data-testid="aviso-descripcion-error"
+                >
+                  {{ 'siniestros.reportar.error.descripcion' | translate }}
                 </p>
               }
 

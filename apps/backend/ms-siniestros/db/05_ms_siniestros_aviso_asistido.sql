@@ -29,6 +29,7 @@ ALTER TABLE ms_siniestros.siniestro
     ADD COLUMN suma_asegurada         NUMERIC(14,2),
     ADD COLUMN fecha_hecho            DATE,
     ADD COLUMN descripcion            TEXT,
+    ADD COLUMN lugar                  TEXT,
     ADD COLUMN reserva                NUMERIC(14,2),
     ADD COLUMN umbral_automatico      NUMERIC(14,2),
     ADD COLUMN geo_lat                NUMERIC(9,6),
@@ -49,6 +50,7 @@ ALTER TABLE ms_siniestros.siniestro
 
 COMMENT ON COLUMN ms_siniestros.siniestro.usuario_id IS 'ref lógica -> ms_identidad.usuario.usuario_id';
 COMMENT ON COLUMN ms_siniestros.siniestro.ramo IS 'código de producto del catálogo de ms_cotizacion (p. ej. proteccion-dispositivo)';
+COMMENT ON COLUMN ms_siniestros.siniestro.lugar IS 'Lugar del hecho declarado por el cliente; NULL si no lo indicó';
 COMMENT ON COLUMN ms_siniestros.siniestro.reserva IS 'reserva calculada por la parametría del ramo al evaluar (no la digita el cliente)';
 COMMENT ON COLUMN ms_siniestros.siniestro.requiere_revision IS 'true = el motor no resolvió el caso y queda en la cola del operador';
 

@@ -16,6 +16,7 @@ from app.domain.errores import (
 )
 from app.infrastructure.firma import FirmaStub
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
+from app.infrastructure.reportes_stub import ReportesStub
 from app.infrastructure.sql import (
     crear_motor,
     crear_motor_lectura,
@@ -48,6 +49,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
         app.state.cobros = CobrosHTTP(http_pagos)
         app.state.firma = FirmaStub(config.firma_stub_resultado)
+        app.state.reportes = ReportesStub()
         yield
         await http_suscripcion.aclose()
         await http_pagos.aclose()
@@ -57,6 +59,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
     instrumentar(app)
     app.include_router(rutas.router)
+    app.include_router(rutas.router_reportes)
 
     @app.exception_handler(ErrorDominio)
     async def error_dominio(_: Request, exc: ErrorDominio):

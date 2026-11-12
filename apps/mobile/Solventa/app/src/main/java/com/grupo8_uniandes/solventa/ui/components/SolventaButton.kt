@@ -1,7 +1,7 @@
 package com.grupo8_uniandes.solventa.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -35,7 +35,7 @@ fun SolventaButton(
     contentPadding: PaddingValues? = null,
 ) {
     val buttonModifier = modifier
-        .height(SolventaSpacing.buttonHeight)
+        .heightIn(min = SolventaSpacing.buttonHeight)
         .semantics { set(SolventaButtonStyleKey, style) }
         .testTag(testTag ?: "solventa_button_${style.name.lowercase()}")
     val shape = SolventaSpacing.buttonRadius

@@ -54,7 +54,11 @@ data class SiniestroDetalleRoute(val claimId: String)
 data class EmisionEnCursoRoute(val offerId: String = "")
 
 @Serializable
-data class ConfirmacionTarjetaRoute(val offerId: String = "")
+data class ConfirmacionTarjetaRoute(
+    val offerId: String = "",
+    val prima: Long = 0,
+    val moneda: String = "COP",
+)
 
 @Serializable
 data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")

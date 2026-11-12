@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -52,6 +54,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +67,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
@@ -77,6 +82,8 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaSelectAppearance
 import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
 import com.grupo8_uniandes.solventa.ui.theme.HankenGrotesk
+import com.grupo8_uniandes.solventa.ui.capture.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -216,6 +223,7 @@ fun OnboardingScreen(
                 text = stringResource(R.string.onboarding_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = stringResource(R.string.onboarding_intro),
@@ -377,6 +385,7 @@ fun OnboardingScreen(
                         )
                     }
                     .clickable(onClick = openCamera)
+                    .semantics(mergeDescendants = true) {}
                     .testTag("action_foto"),
                 contentAlignment = Alignment.Center,
             ) {
@@ -419,13 +428,21 @@ fun OnboardingScreen(
                     verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SolventaSpacing.minTouch)
+                            .toggleable(
+                                value = state.habeasData,
+                                role = Role.Checkbox,
+                                onValueChange = onHabeasData,
+                            )
+                            .testTag("field_habeas_data"),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
                             checked = state.habeasData,
-                            onCheckedChange = onHabeasData,
-                            modifier = Modifier.testTag("field_habeas_data"),
+                            onCheckedChange = null,
+                            modifier = Modifier.clearAndSetSemantics {},
                         )
                         Text(
                             text = stringResource(R.string.consent_heading),
@@ -524,20 +541,6 @@ private fun passwordRuleColor(typed: Boolean, met: Boolean) = when {
     !typed -> MaterialTheme.colorScheme.outline
     met -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
-}
-
-internal fun captureUri(context: android.content.Context, file: File): Uri {
-    prepareCaptureFile(file)
-    return FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file,
-    )
-}
-
-internal fun prepareCaptureFile(file: File) {
-    file.parentFile?.mkdirs()
-    if (!file.exists()) file.createNewFile()
 }
 
 internal fun decodeDocumentPhoto(bytes: ByteArray): Bitmap? {

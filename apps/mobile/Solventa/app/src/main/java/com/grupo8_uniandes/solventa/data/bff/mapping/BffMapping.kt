@@ -1,13 +1,19 @@
 package com.grupo8_uniandes.solventa.data.bff.mapping
 
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+
 import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceGeoDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AttachmentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AttachmentKindDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimSummaryDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimStatusDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
 import com.grupo8_uniandes.solventa.data.bff.dto.CreditDto
@@ -41,7 +47,12 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
+import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimEvidence
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHistory
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
@@ -52,6 +63,8 @@ import com.grupo8_uniandes.solventa.domain.bff.home.HomeOfferSlot
 import com.grupo8_uniandes.solventa.domain.bff.home.HomePolicySlot
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
@@ -169,6 +182,8 @@ internal fun ClaimNotice.toDto() = ClaimNoticeDto(
     fechaHecho,
     geo?.let { GeoDto(it.lat, it.lng, it.precisionM) },
     adjuntos.map { AttachmentDto(it.tipo.toDto(), it.nombre) },
+    descripcion,
+    lugar,
 )
 
 internal fun CreditProfile.toDto() = MortgageInDto(CreditDto(valor, plazoMeses), consentimientoPerfil)
@@ -201,20 +216,76 @@ internal fun WalletDto.toEntries() = polizas.map {
     WalletEntry(it.numero, it.ramo, it.resumen, it.estado, it.venceEn)
 }
 
-internal fun DetailDto.toDetail() = PolicyDetail(numero, ramo, resumen, estado, venceEn, queHacer)
+internal fun DetailDto.toDetail() = PolicyDetail(
+    numero,
+    ramo,
+    resumen,
+    estado,
+    venceEn,
+    queHacer,
+    inicioVigencia,
+    finVigencia,
+    moneda,
+    primaTotal,
+    coberturas.map { PolicyCoverage(it.nombre, it.sumaAsegurada, it.deducible) },
+    renovable,
+    renovacionAutomatica,
+    cancelacion?.let { PolicyCancellation(it.motivo, it.canceladaEn, it.devolucionEstimada) },
+)
 
 internal fun ClaimNoticeDto.toNotice() = ClaimNotice(
     poliza,
     fechaHecho,
     geo?.let { GeoPoint(it.lat, it.lng, it.precisionM) },
     adjuntos.map { Attachment(it.tipo.toKind(), it.nombre) },
+    descripcion,
+    lugar,
 )
 
 internal fun ClaimReceiptDto.toReceipt() = ClaimReceipt(siniestroId, estado.toStatus())
 
-internal fun ClaimsDto.toSummaries() = siniestros.map {
-    ClaimSummary(it.siniestroId, it.ramo, it.resumen, it.estado.toStatus(), it.estadoTexto)
-}
+internal fun ClaimsDto.toSummaries() = siniestros.map { it.toSummary() }
+
+internal fun ClaimSummaryDto.toSummary() = ClaimSummary(
+    siniestroId,
+    ramo,
+    resumen,
+    estado.toStatus(),
+    estadoTexto,
+    id ?: siniestroId,
+    tipo ?: "asistido",
+    fecha,
+    reserva,
+    moneda,
+    poliza,
+    resultado,
+)
+
+internal fun ClaimDetailDto.toDetail() = ClaimDetail(
+    summary = ClaimSummary(
+        siniestroId,
+        ramo,
+        resumen,
+        estado.toStatus(),
+        estadoTexto,
+        id.ifBlank { siniestroId },
+        tipo,
+        fecha,
+        reserva,
+        moneda,
+        poliza,
+        resultado,
+    ),
+    poliza = poliza,
+    descripcion = descripcion,
+    lugar = lugar,
+    geo = geo?.let { GeoPoint(it.lat, it.lng, it.precisionM) },
+    motivo = motivo,
+    evidencia = evidencia.map { ClaimEvidence(it.nombre, it.tipo, it.contentType, it.url) },
+    historial = historial.map { ClaimHistory(it.estado, it.fecha, it.estadoTexto) },
+    pago = pago?.let { ClaimPayment(it.comprobante, it.monto, it.moneda, it.fecha) },
+    umbral = umbral,
+)
 
 internal fun PaymentDto.toPayment() = AutomaticPayment(siniestroId, poliza, umbral, monto, moneda, estado)
 
@@ -252,6 +323,29 @@ internal fun ProvidersDto.toProviders() = prestadores.map {
 internal fun AssistanceInDto.toRequest() = AssistanceRequest(prestadorId, geo.lat, geo.lng, poliza)
 
 internal fun AssistanceOutDto.toResult() = AssistanceResult(asistenciaId, estado)
+
+internal fun ClaimNotice.toParts(): List<MultipartBody.Part> {
+    val parts = mutableListOf(
+        MultipartBody.Part.createFormData("poliza", poliza),
+        MultipartBody.Part.createFormData("fechaHecho", fechaHecho),
+        MultipartBody.Part.createFormData("descripcion", descripcion),
+    )
+    if (lugar.isNotBlank()) parts += MultipartBody.Part.createFormData("lugar", lugar)
+    geo?.let {
+        val json = """{"lat":${it.lat},"lng":${it.lng},"precisionM":${it.precisionM}}"""
+        parts += MultipartBody.Part.createFormData("geo", json)
+    }
+    adjuntos.forEach { file ->
+        val type = file.contentType.toMediaType()
+        val bytes = EvidenceBytes.read(file.nombre) ?: file.nombre.toByteArray()
+        parts += MultipartBody.Part.createFormData(
+            "archivos",
+            file.nombre,
+            bytes.toRequestBody(type),
+        )
+    }
+    return parts
+}
 
 private fun AttachmentKindDto.toKind() = when (this) {
     AttachmentKindDto.foto -> AttachmentKind.FOTO

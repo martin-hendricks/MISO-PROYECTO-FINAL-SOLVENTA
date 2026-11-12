@@ -1,3 +1,4 @@
+import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -164,6 +165,12 @@ def _oferta_movil(datos: dict, ramo: str, descripcion: str = "") -> dict:
     }
 
 
+def _flotante(valor, defecto=0.0) -> float:
+    if valor is None or valor == "":
+        return defecto
+    return float(valor)
+
+
 def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
     poliza = _exigir(poliza, "numero", "estado", "fin_vigencia", "coberturas")
     if not isinstance(poliza["coberturas"], list):
@@ -174,16 +181,38 @@ def _poliza_movil(poliza: dict, cotizacion: dict, *, detalle: bool) -> dict:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
         nombres.append(cobertura["nombre"])
     ramo, descripcion = presentar(cotizacion.get("producto"))
+    estado = str(poliza["estado"]).upper()
     cuerpo = {
         "numero": poliza["numero"],
         "ramo": ramo,
         "descripcion": descripcion,
         "resumen": ", ".join(nombres) or "Sin coberturas",
-        "estado": poliza["estado"],
+        "estado": estado,
         "venceEn": poliza["fin_vigencia"],
+        "inicioVigencia": poliza.get("inicio_vigencia"),
+        "finVigencia": poliza["fin_vigencia"],
+        "moneda": cotizacion.get("moneda") or "",
+        "primaTotal": _flotante(cotizacion.get("prima")),
     }
     if detalle:
+        cuerpo["coberturas"] = [
+            {
+                "nombre": cobertura["nombre"],
+                "sumaAsegurada": _flotante(cobertura.get("suma_asegurada")),
+                "deducible": _flotante(cobertura.get("deducible")),
+            }
+            for cobertura in poliza["coberturas"]
+        ]
         cuerpo["queHacer"] = QUE_HACER
+        cuerpo["renovable"] = bool(poliza.get("renovable", False))
+        cuerpo["renovacionAutomatica"] = bool(poliza.get("renovacion_automatica", False))
+        if estado == "CANCELADA":
+            devolucion = poliza.get("devolucion_estimada")
+            cuerpo["cancelacion"] = {
+                "motivo": poliza.get("motivo_cancelacion"),
+                "canceladaEn": poliza.get("cancelada_en"),
+                "devolucionEstimada": None if devolucion is None else float(devolucion),
+            }
     return cuerpo
 
 
@@ -453,10 +482,21 @@ def detalle(numero: str, request: Request, usuario: dict = Depends(require_custo
         return {
             "numero": numero,
             "ramo": "Protección de dispositivo",
+            "descripcion": "Cubre robo, daño accidental y reposición del equipo asegurado.",
             "resumen": "Robo y Pantalla",
-            "estado": "vigente",
+            "estado": "VIGENTE",
             "venceEn": "2027-03-12",
+            "inicioVigencia": "2026-03-12",
+            "finVigencia": "2027-03-12",
+            "moneda": "COP",
+            "primaTotal": 89000.0,
+            "coberturas": [
+                {"nombre": "Robo", "sumaAsegurada": 4000000.0, "deducible": 0.0},
+                {"nombre": "Pantalla", "sumaAsegurada": 1500000.0, "deducible": 0.0},
+            ],
             "queHacer": QUE_HACER,
+            "renovable": True,
+            "renovacionAutomatica": False,
         }
     nucleo = request.app.state.nucleo
     uid = _contexto(usuario)["usuario_id"]
@@ -466,39 +506,207 @@ def detalle(numero: str, request: Request, usuario: dict = Depends(require_custo
     return _poliza_movil(poliza, _cotizacion_de_poliza(nucleo, poliza), detalle=True)
 
 
+_ESTADO_TEXTO = {
+    "recibido": "Recibido",
+    "en_evaluacion": "En evaluación",
+    "decidido": "Decidido",
+    "enrutado": "Enrutado",
+    "pagado": "Pagado",
+}
+
+
 def _siniestro_movil(fila: dict) -> dict:
     fila = _exigir(fila, "id", "estado")
+    numero = fila.get("numero") or fila.get("siniestroId") or fila["id"]
+    reserva = fila.get("reserva")
     return {
-        "siniestroId": str(fila["id"]),
-        "ramo": fila.get("poliza") or "",
-        "resumen": fila.get("evento_id") or "",
+        "id": str(fila["id"]),
+        "siniestroId": str(numero),
+        "tipo": fila.get("tipo") or "asistido",
+        "ramo": presentar(fila.get("ramo"))[0],
+        "poliza": fila.get("poliza_numero") or fila.get("poliza"),
+        "resumen": fila.get("descripcion") or fila.get("evento_id") or fila.get("resumen") or "",
+        "fecha": fila.get("fecha_hecho") or fila.get("fecha"),
         "estado": fila["estado"],
+        "estadoTexto": fila.get("estadoTexto") or _ESTADO_TEXTO.get(fila["estado"], fila["estado"]),
+        "resultado": fila.get("resultado"),
+        "reserva": None if reserva is None else float(reserva),
+        "moneda": fila.get("moneda") or "COP",
     }
 
 
+def _motivo_para_cliente(detalle: dict, siniestro: dict) -> str | None:
+    if siniestro.get("resultado") != "rechazado":
+        return None
+    rechazos = [
+        decision
+        for decision in detalle.get("decisiones") or []
+        if isinstance(decision, dict) and decision.get("resultado") == "rechazado"
+    ]
+    return rechazos[-1].get("motivo") if rechazos else None
+
+
+def _geo_movil(geo) -> dict | None:
+    if not isinstance(geo, dict):
+        return None
+    try:
+        lat = float(geo["lat"])
+        lng = float(geo["lng"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    precision = geo.get("precisionM", geo.get("precision_m", 0))
+    try:
+        precision_m = int(float(precision)) if precision is not None else 0
+    except (TypeError, ValueError):
+        precision_m = 0
+    return {"lat": lat, "lng": lng, "precisionM": precision_m}
+
+
+def _pago_movil(pago) -> dict | None:
+    if not isinstance(pago, dict):
+        return None
+    return {
+        "comprobante": pago.get("comprobante") or "",
+        "monto": _flotante(pago.get("monto")),
+        "moneda": pago.get("moneda") or "COP",
+        "fecha": pago.get("pagado_en") or pago.get("fecha") or "",
+    }
+
+
+def _detalle_movil(detalle: dict) -> dict:
+    siniestro = detalle.get("siniestro") if isinstance(detalle.get("siniestro"), dict) else detalle
+    fila = _siniestro_movil(siniestro)
+    historial = siniestro.get("historial") or detalle.get("historial") or []
+    umbral = None
+    if fila["tipo"] == "parametrico" and fila["estado"] == "pagado":
+        crudo = siniestro.get("umbral_automatico") or detalle.get("umbral")
+        umbral = None if crudo is None else str(crudo)
+    return fila | {
+        "poliza": siniestro.get("poliza_numero") or siniestro.get("poliza"),
+        "descripcion": siniestro.get("descripcion"),
+        "lugar": siniestro.get("lugar"),
+        "geo": _geo_movil(siniestro.get("geo")),
+        "motivo": _motivo_para_cliente(detalle, siniestro),
+        "evidencia": [
+            {
+                "nombre": a.get("nombre"),
+                "tipo": a.get("tipo"),
+                "contentType": a.get("content_type") or a.get("contentType"),
+                "url": a.get("url"),
+            }
+            for a in detalle.get("adjuntos") or detalle.get("evidencia") or []
+            if isinstance(a, dict)
+        ],
+        "historial": [
+            {
+                "estado": h.get("estado"),
+                "fecha": h.get("ocurrido_en") or h.get("fecha"),
+                "estadoTexto": _ESTADO_TEXTO.get(h.get("estado"), h.get("estado")),
+            }
+            for h in historial
+            if isinstance(h, dict)
+        ],
+        "pago": _pago_movil(detalle.get("pago")),
+        "umbral": umbral,
+    }
+
+
+_TIPOS = {
+    "image/png": "foto",
+    "image/jpeg": "foto",
+    "application/pdf": "soporte",
+    "video/mp4": "video",
+}
+
+
+def _geo_aviso(crudo) -> dict | None:
+    """El móvil envía {lat, lng, precisionM}. ms-siniestros espera precision_m."""
+    if not crudo:
+        return None
+    try:
+        valor = json.loads(str(crudo))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="Ubicación inválida") from exc
+    if not isinstance(valor, dict) or "lat" not in valor or "lng" not in valor:
+        raise HTTPException(status_code=422, detail="Ubicación inválida")
+    geo = {"lat": valor["lat"], "lng": valor["lng"]}
+    precision = valor.get("precision_m", valor.get("precisionM"))
+    if precision is not None:
+        geo["precision_m"] = precision
+    return geo
+
+
 @router.post("/siniestros")
-def avisar(
-    body: Aviso,
-    request: Request,
-    usuario: dict = Depends(require_customer),
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> dict:
+async def avisar(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
         return {"siniestroId": "SIN-441", "estado": "recibido"}
+    idempotency_key = request.headers.get("idempotency-key")
     if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key requerida")
+    form = await request.form()
+    numero = str(form.get("poliza") or "")
+    fecha = str(form.get("fechaHecho") or "")
+    descripcion = str(form.get("descripcion") or "").strip()
+    lugar = str(form.get("lugar") or "").strip()
+    if not numero or not fecha or not descripcion:
+        raise HTTPException(status_code=422, detail="Faltan poliza, fecha o descripción")
+    if len(descripcion) > 1000:
+        raise HTTPException(status_code=422, detail="La descripción admite hasta 1000 caracteres")
+    if len(lugar) > 200:
+        raise HTTPException(status_code=422, detail="El lugar admite hasta 200 caracteres")
+    archivos = form.getlist("archivos")
+    if not archivos or len(archivos) > 5:
+        raise HTTPException(status_code=422, detail="El aviso requiere de 1 a 5 archivos")
+    evidencia = []
+    tipos = []
+    for archivo in archivos:
+        tipo = (archivo.content_type or "").split(";")[0].strip().lower()
+        if tipo not in _TIPOS:
+            raise HTTPException(status_code=422, detail="Tipo de archivo no admitido")
+        contenido = await archivo.read()
+        if len(contenido) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=422, detail="Cada archivo admite hasta 10 MB")
+        evidencia.append((archivo.filename or "evidencia", contenido, tipo))
+        tipos.append(_TIPOS[tipo])
     uid = _contexto(usuario)["usuario_id"]
-    poliza = request.app.state.nucleo.obtener_por_numero(body.poliza, usuario_id=uid)
+    nucleo = request.app.state.nucleo
+    poliza = nucleo.obtener_por_numero(numero, usuario_id=uid)
     if _ajeno(poliza, uid):
         raise HTTPException(status_code=404, detail="No existe")
     poliza_id = str(poliza.get("poliza_id") or poliza.get("id") or "")
     if not poliza_id:
         raise HTTPException(status_code=404, detail="No existe")
-    creado = request.app.state.nucleo.crear_siniestro(
-        usuario_id=uid, poliza=body.poliza, poliza_id=poliza_id, idempotency_key=idempotency_key
+    cotizacion = _cotizacion_de_poliza(nucleo, poliza)
+    geo = _geo_aviso(form.get("geo"))
+    datos = {
+        "usuario_id": uid,
+        "canal": "movil",
+        "poliza": {
+            "poliza_id": poliza_id,
+            "numero": poliza.get("numero") or numero,
+            "ramo": cotizacion.get("producto") or poliza.get("ramo") or "sin-clasificar",
+            "estado": str(poliza.get("estado") or "vigente").lower(),
+            "inicio_vigencia": poliza.get("inicio_vigencia") or "2020-01-01",
+            "fin_vigencia": poliza.get("fin_vigencia") or "2099-01-01",
+        },
+        "fecha_hecho": fecha,
+        "descripcion": descripcion,
+        "geo": geo,
+        "tipos_adjuntos": tipos,
+    }
+    if lugar:
+        datos["lugar"] = lugar
+    creado = nucleo.registrar_aviso(
+        usuario_id=uid, datos=datos, archivos=evidencia, idempotency_key=idempotency_key
     )
-    creado = _exigir(creado, "id", "estado")
-    return {"siniestroId": str(creado["id"]), "estado": creado["estado"]}
+    siniestro = creado.get("siniestro") if isinstance(creado, dict) else None
+    if not isinstance(siniestro, dict):
+        siniestro = creado if isinstance(creado, dict) else {}
+    siniestro = _exigir(siniestro, "id", "estado")
+    return {
+        "siniestroId": str(siniestro.get("numero") or siniestro["id"]),
+        "estado": siniestro["estado"],
+    }
 
 
 @router.get("/siniestros")
@@ -518,6 +726,17 @@ def siniestros(request: Request, usuario: dict = Depends(require_customer)) -> d
     if not isinstance(filas, list):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
     return {"siniestros": [_siniestro_movil(fila) for fila in filas]}
+
+
+@router.get("/siniestros/{siniestro_id}")
+def detalle_siniestro(siniestro_id: str, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        raise HTTPException(status_code=404, detail="No existe")
+    uid = _contexto(usuario)["usuario_id"]
+    detalle = request.app.state.nucleo.detalle_siniestro(siniestro_id, uid)
+    if not isinstance(detalle, dict):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    return _detalle_movil(detalle)
 
 
 @router.get("/pagos-automaticos")
@@ -550,14 +769,33 @@ def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_c
     )
 
 
+def _avisos_proyectados(nucleo, usuario: dict) -> list:
+    """HU-119: pólizas VIGENTE con fin_vigencia en los próximos 30 días
+    (ms-polizas/por-vencer, WU-07) -- reemplaza el stub con POL-88219-CO
+    hardcodeado. Misma forma {tipo, poliza, venceEn} que ya consumía la app,
+    para no romper el contrato con el cliente Android."""
+    polizas = nucleo.polizas_por_vencer(usuario_id=_contexto(usuario)["usuario_id"])
+    if not isinstance(polizas, list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    avisos = []
+    for poliza in polizas:
+        poliza = _exigir(poliza, "numero", "fin_vigencia")
+        avisos.append(
+            {"tipo": "vencimiento", "poliza": poliza["numero"], "venceEn": poliza["fin_vigencia"]}
+        )
+    return avisos
+
+
 @router.get("/avisos")
-def avisos() -> dict:
-    return {
-        "avisos": [
-            {"tipo": "vencimiento", "poliza": "POL-88219-CO", "venceEn": "2027-03-12"},
-            {"tipo": "renovacion", "poliza": "POL-88219-CO", "estado": "vigente"},
-        ]
-    }
+def avisos(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {
+            "avisos": [
+                {"tipo": "vencimiento", "poliza": "POL-88219-CO", "venceEn": "2027-03-12"},
+                {"tipo": "renovacion", "poliza": "POL-88219-CO", "estado": "vigente"},
+            ]
+        }
+    return {"avisos": _avisos_proyectados(request.app.state.nucleo, usuario)}
 
 
 def _tarjeta_inicio(cotizacion_id: str, ramo: str) -> dict:
@@ -677,7 +915,11 @@ def guardar_perfil(
 
 
 @router.post("/avisos/token")
-def registrar_token(body: PushToken) -> dict:
+def registrar_token(body: PushToken, request: Request) -> dict:
+    if es_v1(request):
+        # notificaciones resuelve usuario_id del JWT reenviado (token_saliente,
+        # middleware reenviar_token en main.py), no hace falta pasarlo aquí.
+        request.app.state.nucleo.registrar_dispositivo(plataforma=body.plataforma, token=body.token)
     return {"estado": "aceptada", "plataforma": body.plataforma}
 
 

@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
-from .routers import asesor, cliente, operador, registro, sesion, siniestros
+from .observabilidad import instrumentar
+from .routers import asesor, avisos_poliza, cliente, metricas, operador, registro, reportes, sesion, siniestros
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(base_url=config.ms_siniestros_url, timeout=config.timeout_nucleo_s) as http_siniestros,
         httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_nucleo_s) as http_suscripcion,
         httpx.AsyncClient(base_url=config.ms_identidad_url, timeout=config.timeout_nucleo_s) as http_identidad,
+        httpx.AsyncClient(base_url=config.analitica_url, timeout=config.timeout_nucleo_s) as http_analitica,
     ):
         app.state.http_ms_cotizacion = http_cotizacion
         app.state.http_ms_pagos = http_pagos
@@ -39,11 +41,13 @@ async def lifespan(app: FastAPI):
         app.state.http_ms_siniestros = http_siniestros
         app.state.http_ms_suscripcion = http_suscripcion
         app.state.http_ms_identidad = http_identidad
+        app.state.http_analitica = http_analitica
         yield
 
 
 app = FastAPI(title="bff-web", lifespan=lifespan)
 app.state.config = config
+instrumentar(app)
 
 # El API Gateway (infra/terraform/modules/edge) ya agrega headers CORS a la
 # respuesta, pero no responde el preflight por sí mismo: un OPTIONS que
@@ -74,6 +78,15 @@ app.add_middleware(
 # Prefijo de versión centralizado: cada router sigue declarando su propio
 # prefix (/cliente, /asesor, etc.) sin "/v1" -- así el prefijo de versión no
 # se repite en cada archivo ni se puede olvidar en uno nuevo.
+#
+# avisos_poliza y reportes van ANTES de cliente/operador a propósito:
+# GET /cliente/polizas/por-vencer (path estático) debe resolver antes de que
+# GET /cliente/polizas/{numero} (cliente.py, path dinámico) lo capture
+# tratando "por-vencer" como numero -- entre _IncludedRouter distintos,
+# Starlette prioriza por orden de inclusión, no por especificidad de patrón.
+app.include_router(avisos_poliza.router, prefix="/v1")
+app.include_router(reportes.router, prefix="/v1")
+app.include_router(metricas.router, prefix="/v1")
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")

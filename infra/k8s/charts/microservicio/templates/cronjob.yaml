@@ -1,0 +1,98 @@
+{{- if .Values.cronJob.habilitado }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "microservicio.fullname" . }}
+  labels:
+    {{- include "microservicio.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronJob.horario | quote }}
+  concurrencyPolicy: {{ .Values.cronJob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: {{ .Values.cronJob.activeDeadlineSeconds }}
+      backoffLimit: {{ .Values.cronJob.backoffLimit }}
+      template:
+        metadata:
+          # Labels propios del pod del Job (NO microservicio.selectorLabels):
+          # el PodDisruptionBudget del Deployment selecciona por esas labels
+          # exactas para contar réplicas disponibles -- si el pod del Job las
+          # compartiera, un CronJob corriendo contaría de más en el
+          # presupuesto de disponibilidad de un servicio que sirve tráfico,
+          # mezclando dos conceptos distintos (batch vs. réplicas en
+          # servicio).
+          labels:
+            helm.sh/chart: {{ include "microservicio.chart" . }}
+            app.kubernetes.io/name: {{ include "microservicio.name" . }}-cronjob
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/version: {{ .Values.imagen.tag | default .Chart.AppVersion | quote }}
+            app.kubernetes.io/managed-by: {{ .Release.Service }}
+            solventa.io/scaling-group: {{ .Values.grupoEscalado | quote }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "microservicio.serviceAccountName" . }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          nodeSelector:
+            solventa.io/scaling-group: {{ .Values.grupoEscalado | quote }}
+          {{- if eq .Values.grupoEscalado "a" }}
+          tolerations:
+            - key: solventa.io/scaling-group
+              operator: Equal
+              value: "a"
+              effect: NoSchedule
+          {{- end }}
+          containers:
+            - name: {{ include "microservicio.name" . }}
+              image: "{{ .Values.imagen.repositorio }}:{{ .Values.imagen.tag }}"
+              imagePullPolicy: {{ .Values.imagen.pullPolicy }}
+              {{- if .Values.cronJob.comando }}
+              command:
+                {{- toYaml .Values.cronJob.comando | nindent 16 }}
+              {{- end }}
+              securityContext:
+                runAsNonRoot: true
+                readOnlyRootFilesystem: true
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                {{- toYaml .Values.recursos | nindent 16 }}
+              env:
+                - name: SOLVENTA_COMPONENTE
+                  value: {{ include "microservicio.name" . | quote }}
+                - name: SOLVENTA_GRUPO_ESCALADO
+                  value: {{ .Values.grupoEscalado | quote }}
+                {{- range .Values.variablesEntorno }}
+                - name: {{ .nombre }}
+                  value: {{ .valor | quote }}
+                {{- end }}
+                {{- range .Values.variablesEntornoSecreto }}
+                - name: {{ .nombre }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .nombreSecreto }}
+                      key: {{ .claveSecreto }}
+                {{- end }}
+              {{- if .Values.externalSecrets.habilitado }}
+              envFrom:
+                {{- range .Values.externalSecrets.remoteSecrets }}
+                - secretRef:
+                    name: {{ .nombreLocal }}
+                {{- end }}
+              {{- end }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}
+{{- end }}

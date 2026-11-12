@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,6 +25,7 @@ import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionTarjetaScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -31,9 +33,14 @@ class ConfirmacionTarjetaTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
 
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
+
     @Test
     fun givenTheReviewOffer_whenShown_thenThePremiumIsReadOnlyAndInicioIsSelected() {
-        val viewModel = ConfirmacionTarjetaViewModel()
+        val viewModel = ConfirmacionTarjetaViewModel(prima = 42_000, moneda = "COP")
         show(viewModel)
         rule.onNodeWithText("Confirma el pago").assertIsDisplayed()
         rule.onNodeWithText("Prima $42.000 COP").assertIsDisplayed()

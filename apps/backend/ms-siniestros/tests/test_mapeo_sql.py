@@ -1,9 +1,11 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import DateTime
 
-from app.infrastructure.sql import Base, RepositorioSiniestrosSQL, SiniestroFila
+from app.domain.modelos import Siniestro, SnapshotPoliza
+from app.infrastructure.sql import Base, RepositorioSiniestrosSQL, SiniestroFila, _copiar_a_fila
 
 
 def test_todas_las_fechas_se_mapean_como_timestamptz():
@@ -71,6 +73,28 @@ async def test_listar_filtra_por_usuario_y_sin_filtro_recorre_la_tabla():
 
     vacio = RepositorioSiniestrosSQL(_Sesion([]))
     assert await vacio.listar(10) == []
+
+
+def test_copiar_a_fila_guarda_el_lugar():
+    siniestro = Siniestro.avisar(
+        usuario_id=uuid4(),
+        poliza=SnapshotPoliza(
+            poliza_id=uuid4(),
+            numero="POL-1",
+            ramo="soat",
+            estado="vigente",
+            inicio_vigencia=date.today() - timedelta(days=10),
+            fin_vigencia=date.today() + timedelta(days=10),
+            suma_asegurada=Decimal("1000"),
+        ),
+        fecha_hecho=date.today() - timedelta(days=1),
+        descripcion="Choque",
+        lugar="Calle 72",
+        canal="movil",
+    )
+    fila = SiniestroFila(id=siniestro.id, creado_en=siniestro.creado_en, estado="recibido")
+    _copiar_a_fila(siniestro, fila)
+    assert fila.lugar == "Calle 72"
 
 
 def test_siniestro_tiene_poliza_id_opcional():

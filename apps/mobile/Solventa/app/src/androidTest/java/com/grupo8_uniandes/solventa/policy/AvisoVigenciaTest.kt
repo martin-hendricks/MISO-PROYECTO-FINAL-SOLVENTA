@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -23,6 +24,7 @@ import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.AvisoVigenciaScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -30,11 +32,18 @@ class AvisoVigenciaTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
 
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
+
     @Test
     fun givenAPolicyAboutToExpire_whenTheNoticeIsShown_thenTheCustomerCannotRenew() {
-        show(ValidityKind.EXPIRY, OpenValidityNotice.EXPIRY_BANNER, "screen_aviso_vencimiento")
+        show(ValidityKind.EXPIRY, "12 mar 2028", "screen_aviso_vencimiento")
         rule.onNodeWithText("Avisos").assertIsDisplayed()
-        rule.onNodeWithText(OpenValidityNotice.EXPIRY_BANNER).assertIsDisplayed()
+        rule.onNodeWithText(
+            "Tu póliza ${OpenValidityNotice.POLICY} vence el 12 mar 2028. La renovación la confirma un operador.",
+        ).assertIsDisplayed()
         rule.onNodeWithText("Ver póliza").assertIsDisplayed()
         rule.onNodeWithText("Entendido").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -45,8 +54,10 @@ class AvisoVigenciaTest {
 
     @Test
     fun givenARenewalInForce_whenTheNoticeIsShown_thenTheCustomerDoesNotRunTheCommand() {
-        show(ValidityKind.RENEWAL, OpenValidityNotice.RENEWAL_BANNER, "screen_aviso_renovacion")
-        rule.onNodeWithText(OpenValidityNotice.RENEWAL_BANNER).assertIsDisplayed()
+        show(ValidityKind.RENEWAL, null, "screen_aviso_renovacion")
+        rule.onNodeWithText(
+            "Renovación confirmada · tu póliza ${OpenValidityNotice.POLICY} sigue vigente. La ejecuta un operador; aquí solo la consultas.",
+        ).assertIsDisplayed()
         rule.onNodeWithText("Ver póliza").assertIsDisplayed()
         rule.onNodeWithText("Ir al inicio").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -54,13 +65,13 @@ class AvisoVigenciaTest {
         rule.onAllNodesWithText("Renovar").assertCountEquals(0)
     }
 
-    private fun show(kind: ValidityKind, banner: String, tag: String) {
+    private fun show(kind: ValidityKind, venceEn: String?, tag: String) {
         rule.setContent {
             SolventaTheme {
                 Box(Modifier.fillMaxSize()) {
                     Text(stringResource(R.string.validity_title))
                     AvisoVigenciaScreen(
-                        reading = ValidityReading(kind, banner, OpenValidityNotice.POLICY),
+                        reading = ValidityReading(kind, OpenValidityNotice.POLICY, venceEn),
                         onViewPolicy = {},
                         onLeave = {},
                     )

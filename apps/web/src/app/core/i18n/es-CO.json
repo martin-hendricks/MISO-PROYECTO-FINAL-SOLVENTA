@@ -97,6 +97,18 @@
         "body": "Cuando emitas una póliza la verás aquí."
       }
     },
+    "avisos": {
+      "title": "Avisos de vencimiento",
+      "subtitle": "Pólizas vigentes que vencen pronto.",
+      "loading": "Cargando tus avisos…",
+      "error": { "body": "No pudimos cargar tus avisos.", "retry": "Reintentar" },
+      "empty": {
+        "title": "No tienes avisos",
+        "body": "Ninguna de tus pólizas vence pronto."
+      },
+      "venceEl": "Vence el",
+      "verPoliza": "Ver póliza"
+    },
     "detalle": {
       "back": "Volver",
       "title": "Póliza {{producto}}",
@@ -265,7 +277,9 @@
       "clientes": "Clientes",
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
-      "avisos": "Avisos"
+      "avisos": "Avisos",
+      "reportes": "Reportes",
+      "metricas": "Métricas"
     },
     "role": {
       "label": "Rol:",
@@ -292,6 +306,7 @@
       "prima": "Prima",
       "siniestrosAbiertos": "Siniestros abiertos",
       "renovar": "Renovar",
+      "acciones": "Acciones de la póliza",
       "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
       "cancelar": "Cancelar póliza",
       "confirmCancelar": {
@@ -305,6 +320,18 @@
         "motivo": "Motivo",
         "operador": "Operador",
         "devolucion": "Devolución estimada"
+      },
+      "coberturas": {
+        "title": "Coberturas",
+        "empty": "Esta póliza no tiene coberturas registradas.",
+        "modificar": "Modificar coberturas",
+        "nombre": "Nombre",
+        "suma": "Suma asegurada",
+        "deducible": "Deducible",
+        "agregar": "Agregar cobertura",
+        "quitar": "Quitar",
+        "guardar": "Guardar cambios",
+        "acciones": "Acciones de coberturas"
       }
     },
     "emision": {
@@ -453,6 +480,7 @@
       "continuar": "Continuar emisión",
       "anterior": "Anterior",
       "siguiente": "Siguiente",
+      "paginacion": "Paginación de cotizaciones",
       "aviso": {
         "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
       },
@@ -563,6 +591,40 @@
           "ejecutado": "Desembolso ejecutado",
           "reintento_idempotente": "Reintento idempotente"
         }
+      }
+    },
+    "reportes": {
+      "title": "Reportes",
+      "subtitle": "Extractos internos para el regulador y la reaseguradora. El contenido lo define un adaptador interno, no el formato real (SFC/ACORD).",
+      "generar": "Generar",
+      "descargar": "Descargar",
+      "error": "No pudimos generar el reporte.",
+      "regulador": {
+        "title": "Reporte al regulador",
+        "body": "Extracto interno de pólizas y siniestros de los últimos 30 días."
+      },
+      "reaseguradora": {
+        "title": "Extracto para la reaseguradora",
+        "body": "Cartera y siniestralidad de las pólizas canceladas en los últimos 30 días."
+      }
+    },
+    "metricas": {
+      "title": "Métricas",
+      "subtitle": "Conteos agregados de pólizas emitidas, renovadas, modificadas, canceladas y por vencer, de los últimos 30 días.",
+      "cargando": "Cargando métricas…",
+      "vacio": "No hay eventos registrados en este rango.",
+      "error": "No pudimos cargar las métricas.",
+      "columna": {
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "cantidad": "Cantidad"
+      },
+      "tipo": {
+        "PolizaEmitida": "Emitidas",
+        "PolizaRenovada": "Renovadas",
+        "PolizaModificada": "Modificadas",
+        "PolizaCancelada": "Canceladas",
+        "PolizaPorVencer": "Por vencer"
       }
     },
     "pending": {
@@ -780,6 +842,11 @@
       "elegirPoliza": "Elige una póliza",
       "fecha": "Fecha del evento",
       "descripcion": "Descripción",
+      "error": {
+        "poliza": "Selecciona una póliza.",
+        "fecha": "Elige una fecha válida que no sea futura.",
+        "descripcion": "Describe lo que ocurrió."
+      },
       "completa": "Elige la póliza, una fecha que no sea futura y describe lo ocurrido.",
       "continuar": "Continuar a evidencia",
       "queAdjuntar": {

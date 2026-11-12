@@ -7,13 +7,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.navigation.Destination
@@ -21,11 +24,18 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.SiniestrosScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
+import org.junit.Before
 import org.junit.Test
 
 class ListaSiniestrosTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenTheReviewSet_whenTheListOpens_thenEachClaimShowsItsStatusAndNoBell() {
@@ -35,7 +45,6 @@ class ListaSiniestrosTest {
                     SiniestrosScreen(
                         claims = reviewRows(),
                         onOpenClaim = {},
-                        onOpenCatalog = {},
                     )
                     SolventaBottomBar(
                         selected = Destination.Siniestros,
@@ -53,7 +62,11 @@ class ListaSiniestrosTest {
         rule.onAllNodesWithText("Pagado").assertCountEquals(2)
         rule.onNodeWithText("SIN-P01").assertIsDisplayed()
         rule.onNodeWithText("Pago automático · pagado").assertIsDisplayed()
-        rule.onNodeWithTag("chip_todos").assertIsSelected()
+        rule.onNodeWithTag("chip_todos").assertIsDisplayed().assertIsSelected()
+        listOf("chip_recibido", "chip_en_evaluacion", "chip_decidido", "chip_enrutado", "chip_pagado")
+            .forEach { tag ->
+                rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed().assertIsNotSelected()
+            }
         rule.onNodeWithText("Inicio").assertIsDisplayed()
         rule.onNodeWithText("Polizas").assertIsDisplayed()
         rule.onNodeWithText("Siniestros").assertIsDisplayed()

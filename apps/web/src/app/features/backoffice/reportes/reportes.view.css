@@ -1,0 +1,29 @@
+.reporte-card {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--sv-surface-container-low);
+}
+
+.reporte-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.outlined:disabled,
+.filled:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.error-text {
+  color: var(--sv-error);
+}

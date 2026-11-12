@@ -20,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,7 @@ fun IdiomaRegionScreen(
             text = stringResource(R.string.idioma_heading),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             text = stringResource(R.string.idioma_helper),
@@ -128,7 +132,10 @@ internal fun RegionOptionRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .semantics { this.selected = selected }
+            .semantics(mergeDescendants = true) {
+                role = Role.RadioButton
+                this.selected = selected
+            }
             .testTag(option.region.rowTag())
             .clickable(onClick = onSelect)
             .border(width = 2.dp, color = border, shape = SolventaSpacing.cardRadius)
@@ -140,7 +147,7 @@ internal fun RegionOptionRow(
         if (selected) {
             Icon(
                 painter = painterResource(R.drawable.check),
-                contentDescription = option.name,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.testTag("region_check"),
             )

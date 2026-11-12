@@ -123,6 +123,12 @@ class CancelarPolizaEntrada(BaseModel):
     operador: str = Field(min_length=1)
 
 
+class ReporteSalida(BaseModel):
+    nombre_archivo: str
+    tipo_contenido: str
+    contenido: str
+
+
 class ErrorSalida(BaseModel):
     codigo: str
     mensaje: str
