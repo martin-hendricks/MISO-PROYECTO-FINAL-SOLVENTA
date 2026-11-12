@@ -73,7 +73,7 @@ private class UnauthorizedInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val response = chain.proceed(chain.request())
         val path = response.request.url.encodedPath
-        if (response.code == 401 && !path.isOpenSession()) {
+        if (response.code == 401 && !path.isOpenSession() && !path.isSignOut()) {
             tokens.clear()
             SessionUnauthorized.onUnauthorized?.invoke()
         }
@@ -143,3 +143,5 @@ private fun String.isOpenSession(): Boolean =
         endsWith("sesion/refresh") ||
         endsWith("/registro") ||
         endsWith("identidad/prueba-de-vida")
+
+private fun String.isSignOut(): Boolean = endsWith("sesion/salida")
