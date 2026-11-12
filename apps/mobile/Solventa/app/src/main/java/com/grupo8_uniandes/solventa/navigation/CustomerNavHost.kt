@@ -37,16 +37,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
-import com.grupo8_uniandes.solventa.domain.bff.mortgage.ShowMortgageOffer
+import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionTarjetaScreen
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
-import com.grupo8_uniandes.solventa.ui.shell.OfertaHipotecarioScreen
+import com.grupo8_uniandes.solventa.ui.shell.VidaHipotecarioFlow
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
 import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
 import com.grupo8_uniandes.solventa.ui.shell.PerfilScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
+import com.grupo8_uniandes.solventa.ui.shell.ConsentimientoRevocadoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
@@ -122,15 +123,14 @@ fun CustomerNavHost(
             val region = remember(context) {
                 SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
             }
-            val offer = remember(region) { ShowMortgageOffer(region).show() }
-            OfertaHipotecarioScreen(
-                offer = offer,
-                onAccept = {
-                    navController.navigate(
-                        ConfirmacionTarjetaRoute(prima = offer.prima, moneda = offer.moneda),
-                    )
+            val viewModel: MortgageOfferViewModel = koinViewModel()
+            VidaHipotecarioFlow(
+                viewModel = viewModel,
+                region = region,
+                onAccept = { prima, moneda ->
+                    navController.navigate(ConfirmacionTarjetaRoute(prima = prima, moneda = moneda))
                 },
-                onReviewLater = { navController.popBackStack() },
+                onDecline = { navController.popBackStack() },
             )
         }
         composable<VerOfertaRoute> { entry ->
@@ -439,6 +439,9 @@ fun CustomerNavHost(
                     is IssuanceUi.Refused -> navController.navigate(SuscripcionRechazadaRoute) {
                         popUpTo<EmisionEnCursoRoute> { inclusive = true }
                     }
+                    IssuanceUi.ConsentRevoked -> navController.navigate(ConsentimientoRevocadoRoute) {
+                        popUpTo<EmisionEnCursoRoute> { inclusive = true }
+                    }
                     IssuanceUi.Waiting -> Unit
                 }
             }
@@ -448,6 +451,12 @@ fun CustomerNavHost(
             SuscripcionRechazadaScreen(
                 onHome = { navController.leaveIssuance(InicioRoute) },
                 onUnderstood = { navController.leaveIssuance(InicioRoute) },
+            )
+        }
+        composable<ConsentimientoRevocadoRoute> {
+            ConsentimientoRevocadoScreen(
+                onNewQuote = { navController.leaveIssuance(CotizacionRoute()) },
+                onHome = { navController.leaveIssuance(InicioRoute) },
             )
         }
         composable<PolizaEmitidaRoute> { entry ->
@@ -518,6 +527,7 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<EmisionEnCursoRoute>() -> toRoute<EmisionEnCursoRoute>()
         destination.hasRoute<PolizaEmitidaRoute>() -> toRoute<PolizaEmitidaRoute>()
         destination.hasRoute<SuscripcionRechazadaRoute>() -> SuscripcionRechazadaRoute
+        destination.hasRoute<ConsentimientoRevocadoRoute>() -> ConsentimientoRevocadoRoute
         destination.hasRoute<OfertaHipotecarioRoute>() -> OfertaHipotecarioRoute
         else -> InicioRoute
     }

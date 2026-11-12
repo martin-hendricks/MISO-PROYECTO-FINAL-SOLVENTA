@@ -11,6 +11,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
@@ -34,6 +35,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotices
 import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProfile
@@ -69,6 +71,8 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
@@ -206,10 +210,25 @@ class MockMortgageRepository(
 ) : MortgageRepository {
     override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_OUT)
 
-    override suspend fun degraded(): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_DEGRADED)
-
     private fun read(raw: String) =
         control.ready { decode<MortgageOutDto>(raw).let(::required).toQuote() }
+}
+
+class MockProfilingConsentRepository(
+    private val control: StandInControl = StandInControl(StandInMode.Success),
+) : ProfilingConsentRepository {
+    private var sample = PublishedSamples.PROFILING_CONSENT
+
+    override suspend fun read(): StandInAnswer<ProfilingConsent> = read(sample)
+
+    override suspend fun revoke(): StandInAnswer<ProfilingConsent> {
+        val answer = read(PublishedSamples.PROFILING_CONSENT_REVOKED)
+        if (answer is StandInAnswer.Ready) sample = PublishedSamples.PROFILING_CONSENT_REVOKED
+        return answer
+    }
+
+    private fun read(raw: String) =
+        control.ready { decode<ProfilingConsentDto>(raw).let(::required).toProfilingConsent() }
 }
 
 class MockNoticeRepository(

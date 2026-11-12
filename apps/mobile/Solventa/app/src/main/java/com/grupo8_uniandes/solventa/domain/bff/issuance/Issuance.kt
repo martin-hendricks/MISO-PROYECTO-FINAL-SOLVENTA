@@ -56,6 +56,8 @@ interface IssuanceRepository {
 
     suspend fun rejected(): StandInAnswer<IssueRejection>
 
+    suspend fun consentRevoked(): Boolean = false
+
     suspend fun wallet(): StandInAnswer<List<WalletEntry>>
 
     suspend fun detail(numero: String): StandInAnswer<PolicyDetail>

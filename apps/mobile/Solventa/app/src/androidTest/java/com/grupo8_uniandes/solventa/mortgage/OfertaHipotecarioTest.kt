@@ -38,16 +38,23 @@ class OfertaHipotecarioTest {
         rule.onNodeWithText("Vida hipotecario · paso 2 de 3").assertIsDisplayed()
         rule.onNodeWithText("Vida hipotecario · oferta en firme").assertIsDisplayed()
         rule.onNodeWithText("Protección de pagos · prima según tu perfil").assertIsDisplayed()
-        rule.onNodeWithText("$89.500 COP / mes").assertIsDisplayed()
+        rule.onNodeWithText("$64.000 COP / mes").assertIsDisplayed()
     }
 
     @Test
-    fun givenTheReviewOffer_whenOpened_thenProfilingIsAbsent() {
+    fun givenTheReviewOffer_whenOpened_thenTheFactorsExplainItWithoutDegradation() {
         openOffer()
+        rule.onNodeWithTag("mortgage_offer_factors").assertIsDisplayed()
         rule.onAllNodesWithText("Consentimiento Vida Crediticia").assertCountEquals(0)
-        rule.onAllNodesWithText("plazo").assertCountEquals(0)
-        rule.onAllNodesWithText("valor del crédito").assertCountEquals(0)
-        rule.onAllNodesWithTag("mortgage_degradation").assertCountEquals(0)
+        rule.onAllNodesWithTag("mortgage_offer_degraded").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenTheCard_whenTheProfilingConsentIsDeclined_thenInicioStays() {
+        openConsent()
+        rule.onNodeWithTag("action_decline_profiling").performClick()
+        rule.waitForTag("screen_inicio")
+        rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
     }
 
     @Test
@@ -67,8 +74,7 @@ class OfertaHipotecarioTest {
         rule.waitForTag("screen_inicio")
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onNodeWithTag("home_vida_crediticia").performScrollTo().performClick()
-        rule.waitForTag("screen_oferta_hipotecario")
-        rule.onNodeWithText("$89.500 COP / mes").assertIsDisplayed()
+        rule.waitForTag("screen_consentimiento_hipotecario")
     }
 
     @Test
@@ -78,8 +84,7 @@ class OfertaHipotecarioTest {
         rule.waitForTag("screen_inicio")
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onNodeWithTag("home_vida_crediticia").performScrollTo().performClick()
-        rule.waitForTag("screen_oferta_hipotecario")
-        rule.onNodeWithText("$89.500 COP / mes").assertIsDisplayed()
+        rule.waitForTag("screen_consentimiento_hipotecario")
     }
 
     @Test
@@ -103,13 +108,19 @@ class OfertaHipotecarioTest {
         rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
     }
 
-    private fun openOffer() {
+    private fun openConsent() {
         rule.setContent {
             SolventaTheme {
                 SignedInShell(homeState = HomeUiState(panel = HomePanel(vidaCrediticia = true)))
             }
         }
         rule.onNodeWithTag("home_vida_crediticia").performScrollTo().performClick()
+        rule.waitForTag("screen_consentimiento_hipotecario")
+    }
+
+    private fun openOffer() {
+        openConsent()
+        rule.onNodeWithTag("action_authorize_profiling").performClick()
         rule.waitForTag("screen_oferta_hipotecario")
     }
 }
