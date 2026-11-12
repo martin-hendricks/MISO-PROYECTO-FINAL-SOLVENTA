@@ -54,6 +54,21 @@ locals {
       topics          = ["BusEventos"]
       consumer_groups = ["notificaciones"]
     }
+    # outbox-relay es productor puro (publica eventos de ms_cotizacion,
+    # ms_suscripcion, ms_pagos, ms_perfilamiento, ms_polizas, ms_siniestros
+    # hacia BusEventos vía PublicadorMSK), nunca consume -- pero el bloque
+    # ConsumerGroupAccess de abajo exige al menos un grupo por entrada de
+    # msk_consumers. Se le da un consumer_group propio, inofensivo porque
+    # nunca se usa.
+    "outbox-relay" = {
+      service_account = "outbox-relay"
+      topics          = ["BusEventos"]
+      consumer_groups = ["outbox-relay"]
+      # MSK corre con auto.create.topics.enable=false, así que BusEventos debe
+      # crearse explícitamente antes del primer publish. Solo este componente
+      # recibe CreateTopic/AlterTopic (operación de bootstrap, no de runtime).
+      crear_topicos = true
+    }
   }
 
   # Unión de ambos conjuntos: todo componente que necesita un rol.
@@ -219,6 +234,28 @@ data "aws_iam_policy_document" "msk" {
     resources = [
       for t in each.value.topics : "${local.msk_topic_arn_prefix}/${t}"
     ]
+  }
+
+  # Crear el tópico es bootstrap, no runtime: solo lo declara el componente que
+  # provisiona el bus (outbox-relay, con crear_topicos = true). Con
+  # auto.create.topics.enable=false, sin esto el primer publish falla con
+  # UNKNOWN_TOPIC_OR_PARTITION.
+  dynamic "statement" {
+    for_each = lookup(each.value, "crear_topicos", false) ? [1] : []
+    content {
+      sid    = "TopicProvisioning"
+      effect = "Allow"
+
+      actions = [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:AlterTopic",
+        "kafka-cluster:DescribeTopic",
+      ]
+
+      resources = [
+        for t in each.value.topics : "${local.msk_topic_arn_prefix}/${t}"
+      ]
+    }
   }
 
   statement {

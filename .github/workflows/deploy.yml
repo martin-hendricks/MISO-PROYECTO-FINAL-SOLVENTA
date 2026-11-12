@@ -214,6 +214,12 @@ jobs:
       # ("${project_name}-${environment}-<servicio>-irsa") solo para los
       # servicios que lo declaran con serviceAccount.irsa: true en su values.
       # Un roleArn explícito en el values tiene prioridad.
+      # MSK: igual que IRSA, el bootstrap broker real no es accesible desde
+      # el state de Terraform (local) -- se resuelve en runtime contra la
+      # API de AWS (predecible por convención: "${project_name}-${environment}-msk",
+      # igual que EKS_CLUSTER_NAME) y se inyecta en la entrada
+      # MSK_BOOTSTRAP_BROKERS de variablesEntorno, solo para los servicios
+      # que la declaran vacía (kafka.necesitaMsk: true en el values).
       - name: Desplegar con Helm
         run: |
           irsa_args=()
@@ -224,12 +230,40 @@ jobs:
             echo "IRSA: rol solventa-minimo-${{ matrix.service }}-irsa"
           fi
 
+          msk_args=()
+          necesita_msk=$(yq '.kafka.necesitaMsk // false' "${{ matrix.values }}")
+          if [[ "$necesita_msk" == "true" ]]; then
+            # yq 4.x (Go, el del runner) no implementa index() de jq: el índice
+            # se busca con to_entries/select sobre el arreglo de nombres.
+            idx=$(yq '.variablesEntorno | to_entries | .[] | select(.value.nombre == "MSK_BOOTSTRAP_BROKERS") | .key' "${{ matrix.values }}" | head -n1)
+            if [[ -z "$idx" || "$idx" == "null" ]]; then
+              echo "::error::${{ matrix.values }} declara kafka.necesitaMsk=true pero no tiene una entrada MSK_BOOTSTRAP_BROKERS en variablesEntorno"
+              exit 1
+            fi
+
+            brokers=$(aws kafka get-bootstrap-brokers \
+              --cluster-arn "$(aws kafka list-clusters --cluster-name-filter solventa-minimo-msk --query 'ClusterInfoList[0].ClusterArn' --output text)" \
+              --query BootstrapBrokerStringSaslIam --output text)
+            if [[ -z "$brokers" || "$brokers" == "None" ]]; then
+              echo "::error::No se pudo resolver BootstrapBrokerStringSaslIam del clúster solventa-minimo-msk"
+              exit 1
+            fi
+
+            # El bootstrap broker es una lista separada por comas y Helm
+            # interpreta cada coma como separador de asignaciones en
+            # --set/--set-string: hay que escaparlas (\",\") o el valor se
+            # trunca y el upgrade falla.
+            msk_args=(--set-string "variablesEntorno[$idx].valor=${brokers//,/\\,}")
+            echo "MSK: bootstrap brokers resueltos para ${{ matrix.service }} (entrada variablesEntorno[$idx])"
+          fi
+
           helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
             --namespace solventa \
             --values ${{ matrix.values }} \
             --set imagen.repositorio="$IMAGE" \
             --set imagen.tag=${{ github.sha }} \
             "${irsa_args[@]}" \
+            "${msk_args[@]}" \
             --timeout 3m
 
       # Corre después del helm upgrade (que ya creó el ExternalSecret con
