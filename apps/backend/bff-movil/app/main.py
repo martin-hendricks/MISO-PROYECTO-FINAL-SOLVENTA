@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Request
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from .clients.nucleo import ClienteNucleo, RechazoNucleo, token_saliente
@@ -47,3 +49,25 @@ app.include_router(cliente.router, prefix="/bff-movil/v1")
 @app.get("/health", include_in_schema=False)
 def health() -> dict:
     return {"status": "ok"}
+
+
+# Swagger propio bajo /bff-movil/v1: el ALB no recorta el prefijo (mismo
+# motivo que las rutas de negocio arriba), así que /docs y /openapi.json de
+# FastAPI (montados en la raíz) nunca son alcanzables vía el API Gateway. No
+# se usa `root_path` global porque afectaría las otras dos variantes de
+# rutas ya montadas (sin prefijo, /v1) con el mismo prefijo /bff-movil/v1 en
+# su schema. En su lugar, se genera el OpenAPI de la app real y se le
+# reescribe `servers` al prefijo correcto, sin tocar las rutas existentes.
+@app.get("/bff-movil/v1/openapi.json", include_in_schema=False)
+def openapi_bff_movil() -> dict:
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    schema["servers"] = [{"url": "/bff-movil/v1"}]
+    return schema
+
+
+@app.get("/bff-movil/v1/docs", include_in_schema=False)
+def docs_bff_movil():
+    return get_swagger_ui_html(
+        openapi_url="/bff-movil/v1/openapi.json",
+        title=f"{app.title} - docs",
+    )
