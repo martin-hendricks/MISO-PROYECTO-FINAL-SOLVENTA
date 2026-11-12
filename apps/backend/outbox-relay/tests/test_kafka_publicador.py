@@ -1,4 +1,5 @@
 import json
+import ssl
 
 import pytest
 
@@ -111,6 +112,19 @@ async def test_publicar_envia_la_clave_y_el_mensaje_correctos(producer_falso):
     assert topic == "BusEventos"
     assert key == evento.clave().encode("utf-8")
     assert json.loads(value) == evento.a_mensaje()
+
+
+async def test_publicar_pasa_un_contexto_tls_explicito(producer_falso):
+    # aiokafka >= 0.13 aborta en el constructor si security_protocol es
+    # SASL_SSL y ssl_context queda en None. El relay quedaba vivo pero sin
+    # publicar: "Falló la publicación de una fuente de outbox; se continúa".
+    publicador = PublicadorMSK(_config())
+
+    await publicador.publicar(evento_outbox())
+
+    contexto = producer_falso.instancias[0].kwargs["ssl_context"]
+    assert isinstance(contexto, ssl.SSLContext)
+    assert contexto.verify_mode == ssl.CERT_REQUIRED
 
 
 async def test_cerrar_detiene_el_producer_real(producer_falso):

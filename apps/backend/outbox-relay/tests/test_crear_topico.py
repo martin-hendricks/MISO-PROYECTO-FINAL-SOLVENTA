@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from app.crear_topico import faltantes, main
+import ssl
+
+from app.crear_topico import crear, faltantes, main
 
 
 def test_faltantes_ignora_los_que_ya_existen():
@@ -18,6 +20,45 @@ def test_faltantes_deduplica_conservando_el_orden():
 
 def test_faltantes_sin_existentes_devuelve_todos():
     assert faltantes([], ["BusEventos"]) == ["BusEventos"]
+
+
+async def test_crear_pasa_un_contexto_tls_explicito(monkeypatch):
+    """El Job de bootstrap fallaría igual que el resto: aiokafka >= 0.13 exige
+    ssl_context cuando el protocolo es SASL_SSL."""
+    import aiokafka.admin as admin_module
+
+    class _AdminFalso:
+        instancias: list["_AdminFalso"] = []
+
+        def __init__(self, **kwargs) -> None:
+            self.kwargs = kwargs
+            self.cerrado = False
+            _AdminFalso.instancias.append(self)
+
+        async def start(self) -> None:
+            pass
+
+        async def create_topics(self, topicos) -> None:
+            pass
+
+        async def close(self) -> None:
+            self.cerrado = True
+
+    monkeypatch.setattr(admin_module, "AIOKafkaAdminClient", _AdminFalso)
+
+    creados = await crear(
+        brokers="b-1.example:9098",
+        topicos=["BusEventos"],
+        particiones=6,
+        replicas=2,
+        region="us-east-1",
+    )
+
+    admin = _AdminFalso.instancias[0]
+    assert creados == ["BusEventos"]
+    assert isinstance(admin.kwargs["ssl_context"], ssl.SSLContext)
+    assert admin.kwargs["ssl_context"].verify_mode == ssl.CERT_REQUIRED
+    assert admin.cerrado is True
 
 
 def test_main_sin_brokers_falla_con_codigo_2(monkeypatch):
