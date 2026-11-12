@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -62,7 +63,8 @@ class MortgageOfferFlowTest {
 
     private fun render(
         repository: MortgageRepository,
-        onAccept: (Long, String) -> Unit = { _, _ -> },
+        onAccept: (String, Long, String) -> Unit = { _, _, _ -> },
+        credit: MortgageCredit? = CREDIT,
         onDecline: () -> Unit = {},
     ): MortgageOfferViewModel {
         val viewModel = MortgageOfferViewModel(repository)
@@ -71,6 +73,7 @@ class MortgageOfferFlowTest {
                 VidaHipotecarioFlow(
                     viewModel = viewModel,
                     region = Region.Colombia,
+                    credit = credit,
                     onAccept = onAccept,
                     onDecline = onDecline,
                 )
@@ -87,6 +90,7 @@ class MortgageOfferFlowTest {
         rule.onNodeWithTag("screen_consentimiento_hipotecario").assertIsDisplayed()
         rule.onNodeWithText("Open Finance", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Open Data", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("$180.000.000 COP a 180 meses", substring = true).assertIsDisplayed()
         rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
         assertTrue(repository.requests.isEmpty())
     }
@@ -106,21 +110,22 @@ class MortgageOfferFlowTest {
     @Test
     fun givenTheConsentStep_whenAuthorized_thenTheRealOfferIsShownWithItsFactors() {
         val repository = FakeMortgage()
-        val accepted = mutableListOf<Pair<Long, String>>()
-        render(repository, onAccept = { prima, moneda -> accepted += prima to moneda })
+        val accepted = mutableListOf<Triple<String, Long, String>>()
+        render(repository, onAccept = { offerId, prima, moneda -> accepted += Triple(offerId, prima, moneda) })
 
         rule.onNodeWithTag("action_authorize_profiling").performClick()
         rule.waitForIdle()
 
         assertEquals(1, repository.requests.size)
-        assertTrue(repository.requests.single().consentimientoPerfil)
+        assertEquals(CreditProfile(180_000_000L, 180, true), repository.requests.single())
+        rule.onNodeWithText("Cubre el saldo del crédito hipotecario durante el plazo pactado.").assertIsDisplayed()
         rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
         rule.onNodeWithText("$64.000 COP / mes").assertIsDisplayed()
         rule.onNodeWithText("Nivel de ingresos estimado", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Zona de riesgo", substring = true).assertIsDisplayed()
         rule.onAllNodesWithTag("mortgage_offer_degraded").assertCountEquals(0)
         rule.onNodeWithTag("action_accept_mortgage").performClick()
-        assertEquals(listOf(64_000L to "COP"), accepted)
+        assertEquals(listOf(Triple("COT-77", 64_000L, "COP")), accepted)
     }
 
     @Test
@@ -168,8 +173,8 @@ class MortgageOfferFlowTest {
         val repository = FakeMortgage(gate = gate)
         val viewModel = MortgageOfferViewModel(repository)
 
-        viewModel.authorize()
-        viewModel.authorize()
+        viewModel.authorize(CREDIT)
+        viewModel.authorize(CREDIT)
         assertEquals(MortgageOfferUi.Requesting, viewModel.state.value)
         gate.complete(Unit)
 
@@ -185,6 +190,9 @@ class MortgageOfferFlowTest {
             moneda = "COP",
             factores = listOf("nivel_ingresos_estimado", "zona_riesgo"),
             degradada = false,
+            cotizacionId = "COT-77",
+            descripcion = "Cubre el saldo del crédito hipotecario durante el plazo pactado.",
         )
+        val CREDIT = MortgageCredit(valor = 180_000_000L, plazoMeses = 180)
     }
 }

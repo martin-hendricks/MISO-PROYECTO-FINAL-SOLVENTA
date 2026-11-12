@@ -24,6 +24,7 @@ class LoadInicio(
             policyId = policy?.id,
             claimId = claim?.id,
             vidaCrediticia = situation.origination.present,
+            mortgageCredit = situation.origination.credit,
         )
     }
 }

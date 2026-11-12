@@ -127,10 +127,11 @@ fun CustomerNavHost(
             VidaHipotecarioFlow(
                 viewModel = viewModel,
                 region = region,
-                onAccept = { prima, moneda ->
-                    navController.navigate(ConfirmacionTarjetaRoute(prima = prima, moneda = moneda))
+                onAccept = { offerId, prima, moneda ->
+                    navController.navigate(ConfirmacionTarjetaRoute(offerId = offerId, prima = prima, moneda = moneda))
                 },
                 onDecline = { navController.popBackStack() },
+                credit = homeState.panel.mortgageCredit,
             )
         }
         composable<VerOfertaRoute> { entry ->
