@@ -23,7 +23,7 @@ replicas: 2
 grupoEscalado: "a"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   requests:

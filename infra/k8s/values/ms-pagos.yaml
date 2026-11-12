@@ -20,7 +20,7 @@ replicas: 2
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   # Bajado de 512Mi/1Gi: con la cuota real de vCPU de la cuenta (16, ver

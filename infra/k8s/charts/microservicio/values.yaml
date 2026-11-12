@@ -44,9 +44,17 @@ replicas: 2
 grupoEscalado: "b"
 
 # Puerto de la aplicación (HTTP/gRPC de negocio) y puerto de métricas
-# Prometheus, expuestos ambos por el Service.
+# Prometheus, expuestos ambos por el Service. OJO: observabilidad.py expone
+# /metrics en el MISMO servidor uvicorn que el resto de la app (un solo
+# proceso, un solo socket) -- no hay un servidor HTTP de métricas separado
+# en ningún microservicio real. puertoMetricas debe coincidir con `puerto`;
+# un valor distinto (ej. 9090) produce anotaciones prometheus.io/port que
+# apuntan a un puerto donde nadie escucha -- confirmado en el cluster real:
+# Prometheus scrapeaba con éxito (up=1) pero el body venía casi vacío,
+# porque el kube-proxy/Service completaba la conexión TCP sin que el
+# proceso Python la sirviera.
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 # Recursos por defecto pensados para un microservicio Python (FastAPI/Flask)
 # de tamaño típico: holgura para el intérprete + libs de reglas de negocio,
