@@ -266,6 +266,48 @@ jobs:
             "${msk_args[@]}" \
             --timeout 3m
 
+      # Bootstrap del tópico BusEventos: una sola vez por clúster.
+      #
+      # MSK corre con auto.create.topics.enable=false y AWS no tiene una API
+      # para crear tópicos, así que lo hace el AdminClient de Kafka desde
+      # dentro de la VPC, con la ServiceAccount de outbox-relay (la única con
+      # kafka-cluster:CreateTopic). El Job solo se aplica si no existe o si
+      # existe sin haber completado: un Job Complete es el registro de que el
+      # tópico ya se creó y los deploys siguientes lo omiten. Si hay que
+      # recrearlo (p. ej. se cambió el número de particiones), se borra el Job
+      # a mano y el próximo deploy lo vuelve a ejecutar.
+      - name: Crear el tópico BusEventos (una sola vez)
+        if: matrix.service == 'outbox-relay'
+        run: |
+          command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
+
+          job=crear-topico-buseventos
+          if kubectl -n solventa get job "$job" >/dev/null 2>&1; then
+            completado=$(kubectl -n solventa get job "$job" \
+              -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')
+            if [[ "$completado" == "True" ]]; then
+              echo "El tópico ya se creó en un deploy anterior (Job $job Complete); no se repite."
+              exit 0
+            fi
+            echo "El Job $job existe pero no completó; se reintenta."
+            kubectl -n solventa delete job "$job" --ignore-not-found
+          fi
+
+          brokers=$(aws kafka get-bootstrap-brokers \
+            --cluster-arn "$(aws kafka list-clusters --cluster-name-filter solventa-minimo-msk \
+              --query 'ClusterInfoList[0].ClusterArn' --output text)" \
+            --query BootstrapBrokerStringSaslIam --output text)
+
+          IMAGEN="$IMAGE:${{ github.sha }}" \
+          BROKERS="$brokers" \
+          AWS_REGION="${{ vars.AWS_REGION }}" \
+          envsubst < infra/k8s/platform/crear-topico-buseventos.yaml | kubectl apply -f -
+
+          if ! kubectl -n solventa wait --for=condition=complete "job/$job" --timeout=120s; then
+            kubectl -n solventa logs "job/$job" --tail=50 || true
+            exit 1
+          fi
+
       # Corre después del helm upgrade (que ya creó el ExternalSecret con
       # database_url) y antes de esperar el rollout. No es un initContainer
       # del Deployment: con varias réplicas, un initContainer correría las

@@ -6,7 +6,10 @@ antes del primer publish: si no, `send_and_wait` falla con
 UNKNOWN_TOPIC_OR_PARTITION y el relay reintenta el lote para siempre.
 
 Se ejecuta una sola vez desde un pod con la ServiceAccount `outbox-relay`, que
-es la única con `kafka-cluster:CreateTopic` (modules/irsa_aplicacion):
+es la única con `kafka-cluster:CreateTopic` (modules/irsa_aplicacion). El
+deploy lo lanza automáticamente con el Job
+`infra/k8s/platform/crear-topico-buseventos.yaml`; este módulo también sirve
+para correrlo a mano:
 
     kubectl -n solventa run crear-topico --rm -it --restart=Never \
       --image=<ECR>/solventa-minimo-outbox-relay:<tag> \

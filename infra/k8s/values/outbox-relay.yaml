@@ -109,8 +109,9 @@ variablesEntorno:
   - nombre: MSK_BOOTSTRAP_BROKERS
     valor: ""
   # El tópico debe existir antes del primer publish: MSK corre con
-  # auto.create.topics.enable=false. Se crea una vez con
-  # `python -m app.crear_topico BusEventos` (ver docs/validacion-kafka-r6.md).
+  # auto.create.topics.enable=false. Lo crea el Job
+  # infra/k8s/platform/crear-topico-buseventos.yaml en el primer deploy
+  # (una sola vez; los siguientes lo omiten). Ver docs/validacion-kafka-r6.md.
   - nombre: MSK_TOPIC
     valor: "BusEventos"
   - nombre: AWS_REGION
