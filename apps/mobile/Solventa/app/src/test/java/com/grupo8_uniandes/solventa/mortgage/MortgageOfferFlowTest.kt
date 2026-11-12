@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -120,6 +121,18 @@ class MortgageOfferFlowTest {
         rule.onAllNodesWithTag("mortgage_offer_degraded").assertCountEquals(0)
         rule.onNodeWithTag("action_accept_mortgage").performClick()
         assertEquals(listOf(64_000L to "COP"), accepted)
+    }
+
+    @Test
+    fun givenACompetitiveAdjustment_whenTheOfferShows_thenItIsNamedInBusinessTerms() {
+        val quote = QUOTE.copy(factores = listOf("zona_riesgo", "ajuste_competitivo"))
+        render(FakeMortgage(answer = StandInAnswer.Ready(quote)))
+
+        rule.onNodeWithTag("action_authorize_profiling").performClick()
+        rule.waitForIdle()
+
+        rule.onNodeWithText("Ajustada al precio de mercado", substring = true).assertIsDisplayed()
+        rule.onAllNodesWithText("ajuste_competitivo", substring = true).assertCountEquals(0)
     }
 
     @Test
