@@ -22,6 +22,8 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RefreshInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.LivenessResultDto
+import com.grupo8_uniandes.solventa.data.bff.dto.LivenessUpdateDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
@@ -60,6 +62,13 @@ interface MobileBffApi {
 
     @POST("registro")
     suspend fun register(@Body body: SignupDto): SignupDto
+
+    @Multipart
+    @POST("identidad/prueba-de-vida")
+    suspend fun checkLiveness(@Part foto: MultipartBody.Part): LivenessResultDto
+
+    @PATCH("cliente/prueba-de-vida")
+    suspend fun recordLiveness(@Body body: LivenessUpdateDto): LivenessUpdateDto
 
     @POST("registro/revocacion")
     suspend fun revoke(@Body body: RevokeDto): RevokeDto

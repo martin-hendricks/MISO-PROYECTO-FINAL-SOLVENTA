@@ -29,3 +29,15 @@ interface SignupRepository {
 
     suspend fun revokeConsent(): StandInAnswer<ConsentRevocation>
 }
+
+enum class LivenessCheck {
+    Passed,
+    Failed,
+    Unavailable,
+}
+
+interface LivenessRepository {
+    suspend fun check(photo: ByteArray): LivenessCheck
+
+    suspend fun record(result: Liveness): StandInAnswer<Liveness>
+}

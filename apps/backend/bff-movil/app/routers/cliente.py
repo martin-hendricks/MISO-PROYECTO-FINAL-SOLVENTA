@@ -2,7 +2,7 @@ import json
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
@@ -944,6 +944,10 @@ class PerfilEntrada(BaseModel):
     apellidos: str
 
 
+class PruebaDeVidaEntrada(BaseModel):
+    pruebaDeVida: Literal["ok", "no"]
+
+
 def _perfil_movil(usuario: dict) -> dict:
     usuario = _exigir(usuario, "usuario_id", "email")
     return {
@@ -962,6 +966,19 @@ def leer_perfil(request: Request, usuario: dict = Depends(require_customer)) -> 
     return _perfil_movil(
         request.app.state.nucleo.obtener_usuario(_contexto(usuario)["usuario_id"])
     )
+
+
+@router.patch("/prueba-de-vida")
+def registrar_prueba_de_vida(
+    body: PruebaDeVidaEntrada, request: Request, usuario: dict = Depends(require_customer)
+) -> dict:
+    if not es_v1(request):
+        raise HTTPException(status_code=404, detail="No existe")
+    guardado = request.app.state.nucleo.registrar_prueba_de_vida(
+        _contexto(usuario)["usuario_id"], body.pruebaDeVida
+    )
+    valor = guardado.get("prueba_de_vida") or guardado.get("pruebaDeVida") or body.pruebaDeVida
+    return {"pruebaDeVida": valor}
 
 
 @router.patch("/perfil")

@@ -26,6 +26,7 @@ async def crear_usuario(
     apellidos: str = "",
     ingresos_mensuales=None,
     gastos_mensuales=None,
+    prueba_de_vida: str = "no",
 ) -> Usuario:
     """Alta de cuenta (SOLV-215). La verificación previa de duplicados es
     una optimización para responder rápido en el caso común; la garantía
@@ -44,6 +45,7 @@ async def crear_usuario(
         apellidos=apellidos,
         ingresos_mensuales=ingresos_mensuales,
         gastos_mensuales=gastos_mensuales,
+        prueba_de_vida=prueba_de_vida,
     )
     if not await kyc.verificar(usuario.tipo_documento, usuario.numero_documento):
         raise IdentidadNoVerificada()
@@ -77,6 +79,17 @@ async def consultar_usuario(uow: FabricaUnidadDeTrabajo, usuario_id) -> Usuario:
         usuario = await tx.usuarios.obtener_por_id(usuario_id)
     if usuario is None:
         raise NoEncontrado()
+    return usuario
+
+
+async def registrar_prueba_de_vida(uow: FabricaUnidadDeTrabajo, usuario_id, *, valor: str) -> Usuario:
+    async with uow() as tx:
+        usuario = await tx.usuarios.obtener_por_id(usuario_id)
+        if usuario is None:
+            raise NoEncontrado()
+        usuario.registrar_prueba_de_vida(valor)
+        await tx.usuarios.actualizar(usuario)
+        await tx.confirmar()
     return usuario
 
 

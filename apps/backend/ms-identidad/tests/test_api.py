@@ -274,6 +274,43 @@ def test_consultar_y_actualizar_perfil(client):
     )
 
 
+def test_prueba_de_vida_queda_en_no_y_solo_el_dueno_la_cambia(client):
+    creado = _crear(client).json()
+    assert creado["prueba_de_vida"] == "no"
+    explicita = _crear(
+        client, email="otra@correo.com", numero_documento="900", prueba_de_vida="ok"
+    ).json()
+    assert explicita["prueba_de_vida"] == "ok"
+
+    usuario_id = creado["usuario_id"]
+    propio = {"Authorization": f"Bearer {token_de(usuario_id, 'cliente')}"}
+    cambio = client.patch(
+        f"/v1/usuarios/{usuario_id}/prueba-de-vida",
+        json={"prueba_de_vida": "ok"},
+        headers=propio,
+    )
+    assert cambio.status_code == 200
+    assert cambio.json()["prueba_de_vida"] == "ok"
+
+    ajeno = {"Authorization": f"Bearer {token_de(str(uuid4()), 'cliente')}"}
+    assert (
+        client.patch(
+            f"/v1/usuarios/{usuario_id}/prueba-de-vida",
+            json={"prueba_de_vida": "no"},
+            headers=ajeno,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.patch(
+            f"/v1/usuarios/{usuario_id}/prueba-de-vida",
+            json={"prueba_de_vida": "maybe"},
+            headers=propio,
+        ).status_code
+        == 422
+    )
+
+
 def test_health_ready_sin_base_de_datos_devuelve_503(client):
     # El cliente de pruebas crea la app real (lifespan real -> motor SQLAlchemy real)
     # pero sin un Postgres escuchando en DATABASE_URL: el ping debe fallar controladamente.

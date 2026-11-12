@@ -89,6 +89,9 @@ import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.signup.ConsentRevocation
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessCheck
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import kotlinx.serialization.SerializationException
 
@@ -122,6 +125,13 @@ class MockMobileSessionRepository(
         control.ready { decode<SessionOutDto>(PublishedSamples.SESSION_OUT).let(::required).toTokens() }
 
     override suspend fun signOut(): StandInAnswer<Unit> = control.ready { Unit }
+}
+
+class MockLivenessRepository : LivenessRepository {
+    override suspend fun check(photo: ByteArray): LivenessCheck =
+        if (photo.isNotEmpty()) LivenessCheck.Passed else LivenessCheck.Failed
+
+    override suspend fun record(result: Liveness): StandInAnswer<Liveness> = StandInAnswer.Ready(result)
 }
 
 class MockSignupRepository(

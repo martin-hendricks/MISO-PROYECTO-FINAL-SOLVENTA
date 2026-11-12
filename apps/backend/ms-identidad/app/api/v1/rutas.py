@@ -17,6 +17,7 @@ from .schemas import (
     EstadoEntrada,
     ListaUsuariosSalida,
     PerfilEntrada,
+    PruebaDeVidaEntrada,
     UsuarioSalida,
 )
 
@@ -46,6 +47,7 @@ async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
         apellidos=entrada.apellidos,
         ingresos_mensuales=entrada.ingresos_mensuales,
         gastos_mensuales=entrada.gastos_mensuales,
+        prueba_de_vida=entrada.prueba_de_vida,
     )
     return UsuarioSalida.desde(usuario)
 
@@ -88,6 +90,18 @@ async def consultar(usuario_id: UUID, uow: Uow, llamante: LlamanteDep):
 
         raise NoEncontrado()
     return UsuarioSalida.desde(await casos_uso.consultar_usuario(uow, usuario_id))
+
+
+@router.patch("/{usuario_id}/prueba-de-vida", response_model=UsuarioSalida, responses=ERRORES)
+async def registrar_prueba_de_vida(
+    usuario_id: UUID, entrada: PruebaDeVidaEntrada, uow: Uow, llamante: LlamanteDep
+):
+    if llamante.rol != "cliente" or llamante.uid != usuario_id:
+        from app.domain.errores import NoEncontrado
+
+        raise NoEncontrado()
+    usuario = await casos_uso.registrar_prueba_de_vida(uow, usuario_id, valor=entrada.prueba_de_vida)
+    return UsuarioSalida.desde(usuario)
 
 
 @router.patch("/{usuario_id}/perfil", response_model=UsuarioSalida, responses=ERRORES)

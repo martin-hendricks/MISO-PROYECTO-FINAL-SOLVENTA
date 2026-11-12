@@ -139,4 +139,7 @@ private class RefreshAuthenticator(
 }
 
 private fun String.isOpenSession(): Boolean =
-    endsWith("sesion/ingreso") || endsWith("sesion/refresh") || endsWith("/registro")
+    endsWith("sesion/ingreso") ||
+        endsWith("sesion/refresh") ||
+        endsWith("/registro") ||
+        endsWith("identidad/prueba-de-vida")

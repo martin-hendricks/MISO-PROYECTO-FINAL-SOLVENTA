@@ -80,3 +80,39 @@ def test_hipoteca_avisos_inicio_push_y_asistencia(client):
         },
     ).json()
     assert assistance == {"asistenciaId": "AS-18", "estado": "registrada"}
+
+
+def test_patch_prueba_de_vida_exige_sesion_y_solo_existe_en_v1(client):
+    from app.main import app
+
+    llamadas = []
+
+    class Nucleo:
+        def autenticar(self, *, correo, contrasena):
+            return {
+                "usuario_id": "11111111-1111-1111-1111-111111111111",
+                "email": correo,
+                "estado": "ACTIVO",
+            }
+
+        def registrar_prueba_de_vida(self, usuario_id, valor):
+            llamadas.append((usuario_id, valor))
+            return {"prueba_de_vida": valor}
+
+    anterior = app.state.nucleo
+    app.state.nucleo = Nucleo()
+    try:
+        assert client.patch("/v1/cliente/prueba-de-vida", json={"pruebaDeVida": "ok"}).status_code == 401
+        headers = _auth(client)
+        ok = client.patch("/v1/cliente/prueba-de-vida", json={"pruebaDeVida": "ok"}, headers=headers)
+        assert ok.status_code == 200
+        assert ok.json() == {"pruebaDeVida": "ok"}
+        assert llamadas == [("11111111-1111-1111-1111-111111111111", "ok")]
+        assert client.patch(
+            "/v1/cliente/prueba-de-vida", json={"pruebaDeVida": "maybe"}, headers=headers
+        ).status_code == 422
+        assert client.patch(
+            "/cliente/prueba-de-vida", json={"pruebaDeVida": "ok"}, headers=headers
+        ).status_code == 404
+    finally:
+        app.state.nucleo = anterior

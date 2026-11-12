@@ -55,7 +55,9 @@ import com.grupo8_uniandes.solventa.push.NoPushToken
 import com.grupo8_uniandes.solventa.domain.network.NetworkMonitor
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.VerifySelfie
 import com.grupo8_uniandes.solventa.domain.consent.ConsentRepository
 import com.grupo8_uniandes.solventa.domain.home.HomeRepository
 import com.grupo8_uniandes.solventa.domain.home.LoadInicio
@@ -99,6 +101,8 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     single<MobileSessionRepository> { get<BffRuntime>().session }
     single<SignupRepository> { get<BffRuntime>().signup }
+    single<LivenessRepository> { get<BffRuntime>().liveness }
+    single { VerifySelfie(get()) }
     single<OfferRepository> { get<BffRuntime>().offer }
     single<IssuanceRepository> { get<BffRuntime>().issuance }
     single<RenewalPreferenceRepository> { get<BffRuntime>().renewal }

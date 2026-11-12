@@ -16,6 +16,11 @@ class CrearUsuarioEntrada(BaseModel):
     apellidos: str = ""
     ingresos_mensuales: Decimal | None = Field(default=None, gt=0)
     gastos_mensuales: Decimal | None = Field(default=None, ge=0)
+    prueba_de_vida: Literal["ok", "no"] = "no"
+
+
+class PruebaDeVidaEntrada(BaseModel):
+    prueba_de_vida: Literal["ok", "no"]
 
 
 class PerfilEntrada(BaseModel):
@@ -49,6 +54,7 @@ class UsuarioSalida(BaseModel):
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
+    prueba_de_vida: str = "no"
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -63,6 +69,7 @@ class UsuarioSalida(BaseModel):
             ingresos_mensuales=usuario.ingresos_mensuales,
             gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
+            prueba_de_vida=usuario.prueba_de_vida,
         )
 
 
