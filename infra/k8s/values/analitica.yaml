@@ -1,10 +1,16 @@
-# analitica — consumidor de BusEventos (Grupo B)
+# analitica — consumidor de BusEventos (Grupo A)
 #
 # Carga batch/streaming para reportería y modelos, no está en el camino
 # crítico de latencia de ningún caso de uso síncrono. Consume BusEventos de
 # MSK, por lo que necesita IRSA. Recursos modestos y HPA con techo bajo: el
 # consumo de Kafka se nivela con el número de particiones, no tiene sentido
 # escalar agresivamente por CPU.
+#
+# Movido de Grupo B a Grupo A (2026-11-12, ver terraform.tfvars): Grupo B
+# (5 nodos t3.small tras este movimiento) no tenía margen para que el
+# RollingUpdate de varios servicios concurrentes completara sin timeout.
+# analitica es el candidato más seguro para mover -- asíncrono, sin impacto
+# en ningún flujo síncrono de negocio si se demora un rollout.
 
 nombre: analitica
 
@@ -14,7 +20,7 @@ imagen:
   pullPolicy: IfNotPresent
 
 replicas: 2
-grupoEscalado: "b"
+grupoEscalado: "a"
 
 puerto: 8080
 puertoMetricas: 9090

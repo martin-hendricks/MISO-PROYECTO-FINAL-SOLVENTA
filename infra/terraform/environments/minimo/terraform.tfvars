@@ -27,9 +27,21 @@
 # 384Mi, entre los que seguían en 3) Y node_group_b_max_size subido a 6
 # (12 vCPU), para dar margen real de bin-packing además de bajar la
 # demanda total. Total máximo entre ambos grupos: 2 + 6 = 8 nodos = 16
-# vCPU, exactamente en el límite de cuota, sin colchón adicional -- si
-# vuelve a quedarse corto, la palanca es bajar replicas/minReplicas de
-# algún otro servicio del Grupo B antes que seguir subiendo
-# node_group_b_max_size (ya en el límite de cuota real).
-node_group_a_max_size = 2
-node_group_b_max_size = 6
+# vCPU, exactamente en el límite de cuota, sin colchón adicional.
+#
+# 2026-11-12: seguía quedándose corto -- el RollingUpdate default
+# (maxSurge 25%) de varios Deployments de Grupo B actualizándose casi
+# simultáneamente no tenía margen para el pod "surge" + el viejo
+# coexistiendo (timed out waiting for the condition / 1 old replicas are
+# pending termination en api-socios, bff-web, ms-pagos, analitica). Se
+# evaluó subir node_group_b_max_size a 8 (10 nodos totales = 20 vCPU),
+# pero eso excede la cuota real -- requeriría pedir un aumento de cuota a
+# AWS, con costo de EC2 adicional, que se descartó explícitamente.
+#
+# En su lugar, se movió analitica (consumidor asíncrono de MSK, sin
+# impacto síncrono en ningún flujo de negocio) a Grupo A, que tiene menos
+# demanda relativa. Mismo total de 8 nodos = 16 vCPU, sin tocar la cuota:
+# Grupo A sube de 2 a 3 (ms-cotizacion + ms-perfilamiento + analitica),
+# Grupo B baja de 6 a 5 (11 servicios restantes, uno menos que antes).
+node_group_a_max_size = 3
+node_group_b_max_size = 5
