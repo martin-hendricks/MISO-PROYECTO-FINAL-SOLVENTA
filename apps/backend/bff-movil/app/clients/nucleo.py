@@ -266,6 +266,12 @@ class ClienteNucleo:
             json={"cliente_id": cliente_id},
         )
 
+    def consentimiento_vigente(self, cliente_id: str) -> dict:
+        return self._pedir("ms-perfilamiento", "GET", f"/v1/consentimientos/{cliente_id}")
+
+    def revocar_consentimiento(self, cliente_id: str) -> dict:
+        return self._pedir("ms-perfilamiento", "DELETE", f"/v1/consentimientos/{cliente_id}")
+
     def solicitar_oferta_hipotecario(self, *, idempotency_key: str, cliente_id: str) -> dict:
         return self._pedir(
             "ms-perfilamiento",

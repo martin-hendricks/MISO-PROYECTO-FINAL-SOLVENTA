@@ -744,6 +744,35 @@ def pagos() -> dict:
     return dict(PAYMENT)
 
 
+SIN_CONSENTIMIENTO = {"estado": "sin_consentimiento"}
+
+
+@router.get("/consentimiento-perfil")
+def consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    try:
+        vigente = request.app.state.nucleo.consentimiento_vigente(_contexto(usuario)["usuario_id"])
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return dict(SIN_CONSENTIMIENTO)
+        raise
+    return {"estado": "vigente", "otorgadoEn": _exigir(vigente, "otorgado_en")["otorgado_en"]}
+
+
+@router.delete("/consentimiento-perfil")
+def revocar_consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {"estado": "revocado", "revocadoEn": "2026-11-11T15:30:00Z"}
+    try:
+        revocado = request.app.state.nucleo.revocar_consentimiento(_contexto(usuario)["usuario_id"])
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return dict(SIN_CONSENTIMIENTO)
+        raise
+    return {"estado": "revocado", "revocadoEn": _exigir(revocado, "revocado_en")["revocado_en"]}
+
+
 @router.post("/oferta-hipotecaria")
 def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
