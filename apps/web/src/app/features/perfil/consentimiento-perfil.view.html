@@ -1,0 +1,36 @@
+@if (vm.visible()) {
+  <div class="consentimiento-perfil" data-testid="perfil-consentimiento">
+    <button
+      type="button"
+      class="outlined"
+      data-testid="perfil-consentimiento-open"
+      aria-haspopup="dialog"
+      [disabled]="vm.revocadoEn() !== null"
+      (click)="vm.abrir()"
+    >
+      {{ 'consentimientoPerfil.title' | translate }}
+    </button>
+    <p class="auditoria" data-testid="perfil-consentimiento-auditoria">
+      @if (vm.otorgadoEn(); as otorgadoEn) {
+        {{ 'consentimientoPerfil.otorgado' | translate: { fecha: (otorgadoEn | svDateTime) } }}
+      } @else if (vm.revocadoEn(); as revocadoEn) {
+        {{ 'consentimientoPerfil.revocado' | translate: { fecha: (revocadoEn | svDateTime) } }}
+      }
+    </p>
+    @if (vm.error()) {
+      <p class="error" role="alert" data-testid="perfil-consentimiento-error">
+        {{ 'consentimientoPerfil.error' | translate }}
+      </p>
+    }
+  </div>
+}
+
+@if (vm.dialogo()) {
+  <sv-confirm-dialog
+    [titulo]="'consentimientoPerfil.dialog.title' | translate"
+    [advertencia]="'consentimientoPerfil.dialog.advertencia' | translate"
+    confirmarTexto="consentimientoPerfil.dialog.revocar"
+    (cancelar)="vm.cerrar()"
+    (confirmar)="vm.revocar()"
+  />
+}

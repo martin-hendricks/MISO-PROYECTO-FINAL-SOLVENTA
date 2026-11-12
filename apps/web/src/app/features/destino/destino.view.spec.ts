@@ -38,6 +38,9 @@ describe('DestinoView', () => {
           documento: '1012345678',
         });
       }
+      http
+        .expectOne('/web/cliente/consentimiento-perfil')
+        .flush({ estado: 'vigente', otorgadoEn: '2026-10-01T10:00:00Z' });
       fixture.detectChanges();
     }
     if (destino === 'siniestro' || destino === 'siniestros') {
@@ -88,6 +91,15 @@ describe('DestinoView', () => {
   it('other destinations do not offer the idioma-region dialog', () => {
     const { host: otro } = render('cotizacion', null);
     expect(otro.querySelector('[data-testid="perfil-idioma-region-open"]')).toBeNull();
+  });
+
+  it('Perfil lists the profiling consent, separate from the data consent', () => {
+    const { host: perfil } = render('perfil', null);
+    expect(perfil.querySelector('[data-testid="perfil-consentimiento-open"]')).not.toBeNull();
+
+    TestBed.resetTestingModule();
+    const { host: otro } = render('cotizacion', null);
+    expect(otro.querySelector('[data-testid="perfil-consentimiento"]')).toBeNull();
   });
 
   it('shows the profile name and the open claim', () => {
