@@ -238,15 +238,7 @@ def _cotizacion_de_poliza(nucleo, poliza: dict) -> dict:
         raise
 
 
-def _hipoteca_degradada() -> dict:
-    return {
-        "ramo": "Vida crediticia",
-        "estado": "oferta_vigente",
-        "prima": 50000,
-        "moneda": "COP",
-        "factores": ["plazo", "valor del crédito"],
-        "degradada": True,
-    }
+RAMO_VIDA_HIPOTECARIO = "Vida hipotecario"
 
 
 def _hipoteca_movil(oferta: dict) -> dict:
@@ -259,7 +251,7 @@ def _hipoteca_movil(oferta: dict) -> dict:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
         factores.append(factor["factor"])
     return {
-        "ramo": "Vida crediticia",
+        "ramo": RAMO_VIDA_HIPOTECARIO,
         "estado": "oferta_vigente",
         "prima": float(oferta["precio"]),
         "moneda": oferta["moneda"],
@@ -775,18 +767,17 @@ def revocar_consentimiento_perfil(request: Request, usuario: dict = Depends(requ
 
 @router.post("/oferta-hipotecaria")
 def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not body.consentimientoPerfil:
+        return {"ramo": RAMO_VIDA_HIPOTECARIO, **SIN_CONSENTIMIENTO}
     if not es_v1(request):
-        ready = body.consentimientoPerfil
         return {
-            "ramo": "Vida crediticia",
+            "ramo": RAMO_VIDA_HIPOTECARIO,
             "estado": "oferta_vigente",
-            "prima": 64000 if ready else 50000,
+            "prima": 64000,
             "moneda": "COP",
             "factores": ["plazo", "valor del crédito"],
-            "degradada": not ready,
+            "degradada": False,
         }
-    if not body.consentimientoPerfil:
-        return _hipoteca_degradada()
     nucleo = request.app.state.nucleo
     cliente_id = _contexto(usuario)["usuario_id"]
     nucleo.otorgar_consentimiento(cliente_id)

@@ -757,9 +757,9 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
 def test_hipoteca_v1(client, doble):
     headers = _auth(client)
     cuerpo = {"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": False}
-    degradada = client.post("/v1/cliente/oferta-hipotecaria", headers=headers, json=cuerpo)
-    assert degradada.json()["degradada"] is True
-    assert degradada.json()["prima"] == 50000
+    sin_consentimiento = client.post("/v1/cliente/oferta-hipotecaria", headers=headers, json=cuerpo)
+    assert sin_consentimiento.status_code == 200
+    assert sin_consentimiento.json() == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
     assert doble.llamadas == []
 
     doble.respuestas["solicitar_oferta_hipotecario"] = {
@@ -777,6 +777,7 @@ def test_hipoteca_v1(client, doble):
         json={**cuerpo, "consentimientoPerfil": True},
     )
     assert lista.json()["prima"] == 64000.0
+    assert lista.json()["ramo"] == "Vida hipotecario"
     assert lista.json()["factores"] == ["plazo", "valor del crédito"]
     assert lista.json()["degradada"] is False
     assert _nombres(doble) == ["otorgar_consentimiento", "solicitar_oferta_hipotecario"]
