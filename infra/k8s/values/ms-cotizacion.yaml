@@ -29,7 +29,7 @@ grupoEscalado: "a"
 # nunca Ready (confirmado en el cluster: Uvicorn escuchando en :8000
 # mientras Service/probes golpeaban :8080).
 puerto: 8000
-puertoMetricas: 9090
+puertoMetricas: 8000
 
 # Diseño original: 1000m/2Gi requests, 2000m/4Gi limits (c6i.xlarge, 4
 # vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES
