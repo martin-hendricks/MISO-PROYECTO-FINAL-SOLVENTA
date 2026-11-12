@@ -39,6 +39,8 @@ import com.grupo8_uniandes.solventa.data.profile.AndroidDevicePermissionReader
 import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
@@ -47,6 +49,10 @@ import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
 import com.grupo8_uniandes.solventa.domain.profile.PermissionKind
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.formatRegionDate
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import java.time.LocalDate
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomSheet
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
@@ -75,6 +81,7 @@ fun PerfilScreen(
     permissionReader: DevicePermissionReader? = null,
     onSignedOut: () -> Unit = {},
     biometricEnrollment: BiometricEnrollment? = null,
+    profilingConsent: ProfilingConsentRepository? = null,
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
@@ -108,7 +115,11 @@ fun PerfilScreen(
     val hub by profileViewModel.state.collectAsState()
     val signedOut by profileViewModel.signedOut.collectAsState()
     var permissionKind by remember { mutableStateOf<PermissionKind?>(null) }
-    var profilingOpen by remember { mutableStateOf(false) }
+    val profilingViewModel: ProfilingConsentViewModel = viewModel(
+        key = "profiling-consent",
+        factory = profilingConsentFactory(context, profilingConsent),
+    )
+    val profiling by profilingViewModel.state.collectAsState()
     var signOutOpen by remember { mutableStateOf(false) }
     LaunchedEffect(signedOut) {
         if (signedOut) {
@@ -220,11 +231,11 @@ fun PerfilScreen(
                 },
             )
         }
-        if (hub.originationActive) {
-            SolventaListRow(
-                label = stringResource(R.string.profile_profiling),
-                testTag = "profile_profiling",
-                onClick = { profilingOpen = true },
+        if (profiling.visible) {
+            ProfilingConsentRow(
+                state = profiling,
+                region = hub.region,
+                onOpen = profilingViewModel::open,
             )
         }
         SolventaButton(
@@ -275,12 +286,11 @@ fun PerfilScreen(
         sheetTag = "sheet_permission",
         onClose = { permissionKind = null },
     )
-    StatusSheet(
-        visible = profilingOpen,
-        title = stringResource(R.string.profile_profiling),
-        detail = null,
-        sheetTag = "sheet_profiling",
-        onClose = { profilingOpen = false },
+    ProfilingConsentSheet(
+        visible = profiling.sheetOpen,
+        revoking = profiling.revoking,
+        onRevoke = profilingViewModel::revoke,
+        onCancel = profilingViewModel::close,
     )
     SignOutSheet(
         visible = signOutOpen,
@@ -414,6 +424,99 @@ private fun SignOutSheet(
                 testTag = "action_sign_out_cancel",
             )
         }
+    }
+}
+
+@Composable
+private fun ProfilingConsentRow(
+    state: ProfilingConsentUi,
+    region: Region,
+    onOpen: () -> Unit,
+) {
+    val supporting = when (val consent = state.consent) {
+        is ProfilingConsent.Granted ->
+            stringResource(R.string.profiling_consent_granted, regionDay(consent.grantedAt, region))
+        is ProfilingConsent.Revoked ->
+            stringResource(R.string.profiling_consent_revoked, regionDay(consent.revokedAt, region))
+        else -> null
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SolventaListRow(
+            label = stringResource(R.string.profile_profiling),
+            supporting = supporting,
+            testTag = "profile_profiling_consent",
+            onClick = onOpen,
+        )
+        if (state.failed) {
+            Text(
+                text = stringResource(R.string.profiling_consent_error),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(horizontal = SolventaSpacing.gutter)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("profile_profiling_consent_error"),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfilingConsentSheet(
+    visible: Boolean,
+    revoking: Boolean,
+    onRevoke: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    SolventaBottomSheet(visible = visible, onDismiss = onCancel) {
+        BackHandler(onBack = onCancel)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(SolventaSpacing.gutter)
+                .testTag("sheet_profiling_consent"),
+            verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+        ) {
+            Text(
+                text = stringResource(R.string.profiling_consent_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.profiling_consent_warning),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_revoke),
+                style = SolventaButtonStyle.Filled,
+                onClick = { if (!revoking) onRevoke() },
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_revoke_profiling_consent",
+            )
+            SolventaButton(
+                text = stringResource(R.string.action_close),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onCancel,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_profiling_consent_cancel",
+            )
+        }
+    }
+}
+
+private fun regionDay(iso: String, region: Region): String =
+    runCatching { formatRegionDate(LocalDate.parse(iso.take(10)), region) }.getOrDefault(iso)
+
+private fun profilingConsentFactory(
+    context: android.content.Context,
+    repository: ProfilingConsentRepository?,
+): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        val source = repository ?: run {
+            startSolventaKoin(context)
+            GlobalContext.get().get<ProfilingConsentRepository>()
+        }
+        @Suppress("UNCHECKED_CAST")
+        return ProfilingConsentViewModel(source) as T
     }
 }
 
