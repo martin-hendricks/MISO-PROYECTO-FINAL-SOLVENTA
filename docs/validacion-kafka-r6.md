@@ -54,6 +54,7 @@ El plan debe incluir:
 | `module.irsa_aplicacion` · rol `solventa-minimo-outbox-relay-irsa` | el pod se autentica contra MSK por SASL/IAM |
 | `module.ecr` · repositorio `solventa-minimo-outbox-relay` | sin él el `docker push` del workflow falla con `403 Forbidden` |
 | `module.github_actions_cd` · política `<rol>-msk-read` | el workflow resuelve los bootstrap brokers con `kafka:ListClusters` / `kafka:GetBootstrapBrokers`; sin ellos el deploy de `notificaciones` y `outbox-relay` muere con `AccessDeniedException` |
+| `module.security_groups` · regla de entrada al SG de MSK en el puerto **9098** | el clúster solo publica el listener SASL/IAM; sin esa regla el pod abre el socket y se queda esperando (`Unable connect to "b-1...:9098"`), aunque IRSA ya tenga `kafka-cluster:Connect` |
 
 El rol existe solo después del apply. Sin él, el pod arranca pero no puede
 autenticarse contra MSK (falla `publicador_msk_iniciado`).
@@ -92,7 +93,34 @@ El índice `0` corresponde a `MSK_BOOTSTRAP_BROKERS` en
 `yq`, no a mano. Las comas del string de brokers se escapan porque Helm las
 trata como separador de asignaciones en `--set-string`.
 
-### 3. Crear el tópico (una sola vez)
+### 3. Crear el tópico (automático, una sola vez)
+
+El deploy de `outbox-relay` aplica
+`infra/k8s/platform/crear-topico-buseventos.yaml` justo después del
+`helm upgrade`. Ese Job:
+
+- usa la imagen que acaba de construir CI y la ServiceAccount `outbox-relay`
+  (la única con `kafka-cluster:CreateTopic`);
+- solo se aplica si no existe o si existe sin haber completado;
+- un Job en estado `Complete` es el registro de que el tópico ya se creó, así
+  que los deploys siguientes **no lo vuelven a ejecutar**.
+
+```bash
+kubectl -n solventa get job crear-topico-buseventos
+kubectl -n solventa logs job/crear-topico-buseventos
+```
+
+Salida esperada: `topicos_creados=BusEventos` (o `topicos_sin_cambios=...` si
+ya existía).
+
+Si hay que recrearlo (por ejemplo, cambió el número de particiones):
+
+```bash
+kubectl -n solventa delete job crear-topico-buseventos
+```
+
+y el próximo deploy lo vuelve a ejecutar. También se puede correr a mano, sin
+esperar al pipeline (el comando es idempotente):
 
 ```bash
 kubectl -n solventa run crear-topico --rm -it --restart=Never \
@@ -101,8 +129,6 @@ kubectl -n solventa run crear-topico --rm -it --restart=Never \
   -- python -m app.crear_topico --brokers "$BROKERS" BusEventos
 ```
 
-Salida esperada: `topicos_creados=BusEventos` (o `topicos_sin_cambios=...` si
-ya existía). El comando es idempotente.
 
 ### 4. Sembrar un evento de prueba
 
