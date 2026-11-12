@@ -3,6 +3,7 @@ broker real. Mismo patrón que test_kafka_consumer.py, pero ejercitando el
 ciclo de vida completo en vez de solo procesar_mensaje()."""
 
 import asyncio
+import inspect
 import json
 import ssl
 from uuid import uuid4
@@ -278,7 +279,7 @@ async def test_detener_no_lanza_si_stop_falla(uow, consumer_falso):
     assert consumidor._consumer is None
 
 
-def test_token_usa_el_firmador_iam(monkeypatch):
+async def test_token_usa_el_firmador_iam(monkeypatch):
     import sys
     import types
 
@@ -294,4 +295,16 @@ def test_token_usa_el_firmador_iam(monkeypatch):
 
     provider = MSKTokenProvider("us-east-1")
 
-    assert provider.token() == "token-para-us-east-1"
+    assert await provider.token() == "token-para-us-east-1"
+
+
+def test_provider_cumple_el_contrato_de_aiokafka():
+    # aiokafka 0.15 valida isinstance(..., AbstractTokenProvider) al abrir la
+    # conexión y consume token() con await. Un provider sync sin el ABC compila
+    # y pasa los tests con doble, pero rompe el arranque real del consumidor.
+    from aiokafka.abc import AbstractTokenProvider
+
+    provider = MSKTokenProvider("us-east-1")
+
+    assert isinstance(provider, AbstractTokenProvider)
+    assert inspect.iscoroutinefunction(provider.token)

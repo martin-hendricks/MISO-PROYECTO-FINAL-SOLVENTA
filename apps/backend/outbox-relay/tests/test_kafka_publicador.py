@@ -1,3 +1,4 @@
+import inspect
 import json
 import ssl
 
@@ -151,7 +152,7 @@ async def _stop_que_falla():
     raise RuntimeError("fallo simulado al detener el producer")
 
 
-def test_token_usa_el_firmador_iam(monkeypatch):
+async def test_token_usa_el_firmador_iam(monkeypatch):
     import sys
     import types
 
@@ -167,4 +168,16 @@ def test_token_usa_el_firmador_iam(monkeypatch):
 
     provider = MSKTokenProvider("us-east-1")
 
-    assert provider.token() == "token-para-us-east-1"
+    assert await provider.token() == "token-para-us-east-1"
+
+
+def test_provider_cumple_el_contrato_de_aiokafka():
+    # aiokafka 0.15 valida isinstance(..., AbstractTokenProvider) al conectar y
+    # consume token() con await. El producer y el admin del bootstrap usan este
+    # mismo provider.
+    from aiokafka.abc import AbstractTokenProvider
+
+    provider = MSKTokenProvider("us-east-1")
+
+    assert isinstance(provider, AbstractTokenProvider)
+    assert inspect.iscoroutinefunction(provider.token)
