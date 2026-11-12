@@ -54,6 +54,7 @@ El plan debe incluir:
 | `module.irsa_aplicacion` · rol `solventa-minimo-outbox-relay-irsa` | el pod se autentica contra MSK por SASL/IAM |
 | `module.ecr` · repositorio `solventa-minimo-outbox-relay` | sin él el `docker push` del workflow falla con `403 Forbidden` |
 | `module.github_actions_cd` · política `<rol>-msk-read` | el workflow resuelve los bootstrap brokers con `kafka:ListClusters` / `kafka:GetBootstrapBrokers`; sin ellos el deploy de `notificaciones` y `outbox-relay` muere con `AccessDeniedException` |
+| `module.security_groups` · regla de entrada al SG de MSK en el puerto **9098** | el clúster solo publica el listener SASL/IAM; sin esa regla el pod abre el socket y se queda esperando (`Unable connect to "b-1...:9098"`), aunque IRSA ya tenga `kafka-cluster:Connect` |
 
 El rol existe solo después del apply. Sin él, el pod arranca pero no puede
 autenticarse contra MSK (falla `publicador_msk_iniciado`).
