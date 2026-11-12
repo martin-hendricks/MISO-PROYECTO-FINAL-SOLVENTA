@@ -14,6 +14,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
@@ -34,6 +35,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RenewalPreferenceDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
@@ -106,6 +108,12 @@ interface MobileBffApi {
 
     @POST("cliente/oferta-hipotecaria")
     suspend fun mortgage(@Body body: MortgageInDto): MortgageOutDto
+
+    @GET("cliente/consentimiento-perfil")
+    suspend fun profilingConsent(): ProfilingConsentDto
+
+    @DELETE("cliente/consentimiento-perfil")
+    suspend fun revokeProfilingConsent(): ProfilingConsentDto
 
     @GET("cliente/avisos")
     suspend fun notices(): NoticesDto

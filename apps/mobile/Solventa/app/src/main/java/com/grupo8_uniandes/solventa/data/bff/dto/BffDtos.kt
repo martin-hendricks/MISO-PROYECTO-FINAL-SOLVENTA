@@ -278,6 +278,13 @@ data class CreditDto(val valor: Long, val plazoMeses: Int)
 data class MortgageInDto(val credito: CreditDto, val consentimientoPerfil: Boolean)
 
 @Serializable
+data class ProfilingConsentDto(
+    val estado: String,
+    val otorgadoEn: String? = null,
+    val revocadoEn: String? = null,
+)
+
+@Serializable
 data class MortgageOutDto(
     val ramo: String,
     val estado: String,

@@ -29,6 +29,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -103,6 +104,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single { OpenParametricPayment(get()) }
     single<PaymentRepository> { get<BffRuntime>().payment }
     single<MortgageRepository> { get<BffRuntime>().mortgage }
+    single<ProfilingConsentRepository> { get<BffRuntime>().profilingConsent }
     single<NoticeRepository> { get<BffRuntime>().notices }
     single { OpenValidityNotice(get()) }
     single<PolicyCommandRepository> { get<BffRuntime>().policyCommand }

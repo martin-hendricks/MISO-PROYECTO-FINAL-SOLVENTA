@@ -19,6 +19,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toAccepted
 import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProviders
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
@@ -54,6 +55,8 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
@@ -375,6 +378,17 @@ class RemoteMortgageRepository(
 
     override suspend fun degraded(): StandInAnswer<MortgageQuote> =
         gate.call { api.mortgage(CreditProfile(0, 0, false).toDto()).toQuote() }
+}
+
+class RemoteProfilingConsentRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : ProfilingConsentRepository {
+    override suspend fun read(): StandInAnswer<ProfilingConsent> =
+        gate.call { api.profilingConsent().toProfilingConsent() }
+
+    override suspend fun revoke(): StandInAnswer<ProfilingConsent> =
+        gate.call { api.revokeProfilingConsent().toProfilingConsent() }
 }
 
 class RemoteNoticeRepository(
