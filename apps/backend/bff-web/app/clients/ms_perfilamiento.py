@@ -18,6 +18,12 @@ class ClienteMsPerfilamiento(ClienteServicio):
             json={"cliente_id": cliente_id},
         )
 
+    async def consentimiento_vigente(self, cliente_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/consentimientos/{cliente_id}")
+
+    async def revocar_consentimiento(self, cliente_id: str) -> dict[str, Any]:
+        return await self._pedir("DELETE", f"/v1/consentimientos/{cliente_id}")
+
     async def registrar_originacion(
         self, cliente_id: str, valor: int, plazo_meses: int, origen: str = "cliente"
     ) -> dict[str, Any]:
