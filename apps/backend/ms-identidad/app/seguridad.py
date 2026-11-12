@@ -8,7 +8,8 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 ALGORITHM = "HS256"
-ROLES = frozenset({"cliente", "asesor", "operador"})
+ROLES = frozenset({"cliente", "asesor", "operador", "socio"})
+ROLES_BUSQUEDA_POR_DOCUMENTO = frozenset({"asesor", "operador", "socio"})
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -52,3 +53,9 @@ def alcance(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
 
 
 LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]
+
+
+def exigir_busqueda_por_documento(llamante: Llamante) -> None:
+    """Saber a quién pertenece una cédula es un dato personal: no lo resuelve un cliente."""
+    if llamante.rol not in ROLES_BUSQUEDA_POR_DOCUMENTO:
+        raise HTTPException(status_code=403, detail="Rol no autorizado")

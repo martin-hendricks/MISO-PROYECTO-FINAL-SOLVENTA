@@ -58,3 +58,7 @@ class UsuarioSalida(BaseModel):
 class ErrorSalida(BaseModel):
     codigo: str
     mensaje: str
+
+
+class UsuarioPorDocumentoSalida(BaseModel):
+    usuario_id: UUID

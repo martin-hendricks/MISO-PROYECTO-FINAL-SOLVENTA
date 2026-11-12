@@ -284,10 +284,15 @@ services:
     environment:
       SERVICE_NAME: api-socios
       MS_COTIZACION_URL: http://ms-cotizacion:8000
+      MS_IDENTIDAD_URL: http://ms-identidad:8080
+      MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8006:8080"
     depends_on:
       - ms-cotizacion
+      - ms-identidad
+      - ms-perfilamiento
 
   bff-web:
     build:
