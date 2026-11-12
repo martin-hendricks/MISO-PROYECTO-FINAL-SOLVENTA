@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
@@ -127,10 +128,16 @@ interface MobileBffApi {
     @GET("cliente/inicio")
     suspend fun home(): HomeDto
 
-    @POST("v1/cliente/avisos/token")
+    @GET("cliente/perfil")
+    suspend fun accountName(): AccountNameDto
+
+    @PATCH("cliente/perfil")
+    suspend fun saveAccountName(@Body body: AccountNameDto): AccountNameDto
+
+    @POST("cliente/avisos/token")
     suspend fun registerPush(@Body body: PushRegistrationDto): Response<ResponseBody>
 
-    @HTTP(method = "DELETE", path = "v1/cliente/avisos/token", hasBody = true)
+    @HTTP(method = "DELETE", path = "cliente/avisos/token", hasBody = true)
     suspend fun unregisterPush(@Body body: PushTokenRetiroDto): Response<ResponseBody>
 
     @GET("cliente/prestadores")

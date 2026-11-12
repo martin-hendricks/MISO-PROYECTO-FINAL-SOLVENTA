@@ -171,6 +171,8 @@ export class BffDoubles {
     usuarioId: string;
     nombre: string;
     apellidos: string;
+    email: string;
+    documento: string;
     dispositivosActivos: number;
   }[]): Promise<void> {
     const historial: {

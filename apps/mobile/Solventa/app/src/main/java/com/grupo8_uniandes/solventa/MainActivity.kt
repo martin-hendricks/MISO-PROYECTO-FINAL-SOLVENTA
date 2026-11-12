@@ -109,15 +109,16 @@ class MainActivity : FragmentActivity() {
 
     private fun consumePushIntent(source: Intent?) {
         if (source == null) return
-        if (!source.hasExtra(EXTRA_PUSH_DESTINO) && !source.hasExtra(EXTRA_PUSH_POLIZA)) return
-        val target = pushTargetFrom(
-            source.getStringExtra(EXTRA_PUSH_DESTINO),
-            source.getStringExtra(EXTRA_PUSH_POLIZA),
-        )
+        val destino = source.getStringExtra(EXTRA_PUSH_DESTINO) ?: source.getStringExtra("destino")
+        val poliza = source.getStringExtra(EXTRA_PUSH_POLIZA) ?: source.getStringExtra("poliza")
+        if (destino == null && poliza == null) return
+        val target = pushTargetFrom(destino, poliza)
         deliveredPush = target
         pushTarget = target
         source.removeExtra(EXTRA_PUSH_DESTINO)
         source.removeExtra(EXTRA_PUSH_POLIZA)
+        source.removeExtra("destino")
+        source.removeExtra("poliza")
     }
 
     companion object {

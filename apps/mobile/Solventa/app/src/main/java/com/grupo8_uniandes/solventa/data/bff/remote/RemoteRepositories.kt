@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
@@ -33,6 +34,8 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toTokens
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.profile.AccountName
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
@@ -430,6 +433,19 @@ class RemoteAssistanceRepository(
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }
 }
+
+class RemoteAccountNameRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : AccountNameRepository {
+    override suspend fun read(): StandInAnswer<AccountName> =
+        gate.call { api.accountName().toAccountName() }
+
+    override suspend fun save(nombre: String, apellidos: String): StandInAnswer<AccountName> =
+        gate.call { api.saveAccountName(AccountNameDto(nombre, apellidos)).toAccountName() }
+}
+
+private fun AccountNameDto.toAccountName() = AccountName(nombre, apellidos)
 
 class RemoteRenewalPreferenceRepository(
     private val api: MobileBffApi,

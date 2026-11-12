@@ -64,6 +64,27 @@ describe('NotificacionesView', () => {
     expect(element('notificaciones-preview-cuerpo')?.textContent).toBe('Texto del operador');
     expect((element('notificaciones-enviar') as HTMLButtonElement).disabled).toBeFalse();
 
+    const form = element('notificaciones-form');
+    const audiencia = form?.querySelector('fieldset');
+    const tituloCampo = element('notificaciones-titulo');
+    expect(audiencia).not.toBeNull();
+    expect(
+      Boolean(
+        audiencia &&
+          tituloCampo &&
+          audiencia.compareDocumentPosition(tituloCampo) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBeTrue();
+
+    (element('notificaciones-audiencia-elegidos') as HTMLInputElement).dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(element('notificaciones-audiencia')?.textContent).toContain('Ana Ruiz');
+    expect(element('notificaciones-audiencia')?.textContent).toContain('1020334556');
+    expect(element('notificaciones-audiencia')?.textContent).toContain('Luis Paz');
+    expect(element('notificaciones-audiencia')?.textContent).toContain('52448901');
+    (element('notificaciones-audiencia-todos') as HTMLInputElement).dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
     element('notificaciones-enviar')!.click();
     const enviado = http.expectOne(
       (request) =>

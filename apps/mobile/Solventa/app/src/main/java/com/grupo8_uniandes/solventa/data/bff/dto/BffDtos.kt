@@ -18,6 +18,9 @@ import java.math.RoundingMode
 data class SessionInDto(val correo: String, val contrasena: String)
 
 @Serializable
+data class AccountNameDto(val nombre: String = "", val apellidos: String = "")
+
+@Serializable
 data class SessionOutDto(val accessToken: String, val refreshToken: String, val expiraEn: Int)
 
 @Serializable

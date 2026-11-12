@@ -430,13 +430,13 @@ class BffCallTest {
         val registered = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.MILLISECONDS) }
             .first { it.path.orEmpty().contains("avisos/token") }
         assertEquals("POST", registered.method)
-        assertTrue(registered.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(registered.path.orEmpty().endsWith("cliente/avisos/token"))
         assertTrue(registered.body.readUtf8().contains("\"plataforma\":\"android\""))
         server.enqueue(MockResponse().setResponseCode(204))
         assertTrue(push.unregister("fcm-stub") is StandInAnswer.Ready)
         val deleted = server.takeRequest()
         assertEquals("DELETE", deleted.method)
-        assertTrue(deleted.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(deleted.path.orEmpty().endsWith("cliente/avisos/token"))
         assertTrue(deleted.body.readUtf8().contains("fcm-stub"))
 
         enqueue(PublishedSamples.PROVIDERS)

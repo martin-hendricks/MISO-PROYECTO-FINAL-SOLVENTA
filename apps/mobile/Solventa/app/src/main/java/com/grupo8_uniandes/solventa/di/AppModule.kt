@@ -55,6 +55,7 @@ import com.grupo8_uniandes.solventa.domain.home.LoadInicio
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.profile.SessionRepository
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -137,6 +138,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
         LoadProfile(get(), get(), get(), get(), get(), originationActive)
     }
     single<RegistrationRepository> { SharedPrefsRegistrationRepository(androidContext()) }
+    single { PublishStoredName(get(), get<BffRuntime>().accountName) }
     single<RegionRepository> { SharedPrefsRegionRepository(androidContext()) }
     single<ConsentRepository> { SharedPrefsConsentRepository(androidContext()) }
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }

@@ -46,6 +46,19 @@ describe('NotificacionesViewModel', () => {
     expect(vm.puedeEnviar()).toBeFalse();
     vm.alternar(AUDIENCIA[0].usuarioId);
     expect(vm.puedeEnviar()).toBeTrue();
+    expect(vm.etiqueta(AUDIENCIA[0])).toBe('Ana Ruiz · 1020334556');
+    expect(vm.persona(AUDIENCIA[0])).toBe('Ana Ruiz');
+    expect(vm.documento(AUDIENCIA[0])).toBe('1020334556');
+    expect(vm.etiqueta({ ...AUDIENCIA[0], nombre: ' ', apellidos: '' })).toBe(
+      'ana@correo.com · 1020334556',
+    );
+    expect(
+      vm.etiqueta({
+        ...AUDIENCIA[0],
+        email: undefined as unknown as string,
+        documento: undefined as unknown as string,
+      }),
+    ).toBe('Ana Ruiz');
   });
 
   it('mirrors the inputs in the preview', () => {

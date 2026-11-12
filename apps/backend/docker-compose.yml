@@ -16,7 +16,7 @@
 #   8000 bff-web         8001 ms-suscripcion   8002 ms-pagos
 #   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
 #   8006 api-socios      8007 bff-movil        8009 ms-cotizacion
-#   8010 ms-identidad     4566 S3 local (LocalStack, evidencia de siniestros)
+#   8010 ms-identidad    8011 notificaciones  4566 S3 local (LocalStack, evidencia de siniestros)
 #
 # bff-web queda en :8000 a propósito: apps/web/proxy.conf.json (el dev
 # server de Angular, "pnpm start") reenvía /web -> http://localhost:8000/v1
@@ -128,6 +128,20 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - ./ms-identidad/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-notificaciones:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./notificaciones/db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
       interval: 2s
@@ -273,6 +287,23 @@ services:
       db-identidad:
         condition: service_healthy
 
+  notificaciones:
+    build:
+      context: ./notificaciones
+      target: runtime
+    environment:
+      SERVICE_NAME: notificaciones
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-notificaciones:5432/solventa
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
+      PUSH_PROVEEDOR: ${PUSH_PROVEEDOR:-stub}
+      FCM_CREDENCIALES_JSON: '${FCM_CREDENCIALES_JSON:-}'
+      PUSH_STUB_FALLAR: ${PUSH_STUB_FALLAR:-false}
+    ports:
+      - "8011:8080"
+    depends_on:
+      db-notificaciones:
+        condition: service_healthy
+
   api-socios:
     build:
       context: .
@@ -300,6 +331,7 @@ services:
       MS_SINIESTROS_URL: http://ms-siniestros:8080
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       MS_IDENTIDAD_URL: http://ms-identidad:8080
+      MS_NOTIFICACIONES_URL: http://notificaciones:8080
     ports:
       - "8000:8000"
     depends_on:
@@ -310,6 +342,7 @@ services:
       - ms-siniestros
       - ms-suscripcion
       - ms-identidad
+      - notificaciones
 
   bff-movil:
     build:
@@ -325,6 +358,7 @@ services:
       MS_SINIESTROS_URL: http://ms-siniestros:8080
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       MS_IDENTIDAD_URL: http://ms-identidad:8080
+      MS_NOTIFICACIONES_URL: http://notificaciones:8080
     ports:
       - "8007:8000"
     depends_on:
@@ -335,3 +369,4 @@ services:
       - ms-siniestros
       - ms-suscripcion
       - ms-identidad
+      - notificaciones

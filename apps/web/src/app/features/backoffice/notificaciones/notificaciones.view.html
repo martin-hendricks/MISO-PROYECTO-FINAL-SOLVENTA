@@ -20,6 +20,48 @@
     }
 
     <form class="ficha" data-testid="notificaciones-form" (submit)="$event.preventDefault(); vm.enviar()">
+      <fieldset>
+        <legend>{{ 'backoffice.notificaciones.audiencia' | translate }}</legend>
+        <label class="opcion">
+          <input
+            type="radio"
+            name="audiencia"
+            data-testid="notificaciones-audiencia-todos"
+            [checked]="vm.modo() === 'todos'"
+            (change)="vm.elegirModo('todos')"
+          />
+          {{ 'backoffice.notificaciones.todos' | translate }}
+        </label>
+        <label class="opcion">
+          <input
+            type="radio"
+            name="audiencia"
+            data-testid="notificaciones-audiencia-elegidos"
+            [checked]="vm.modo() === 'usuarios'"
+            (change)="vm.elegirModo('usuarios')"
+          />
+          {{ 'backoffice.notificaciones.elegidos' | translate }}
+        </label>
+        @if (vm.modo() === 'usuarios') {
+          <ul class="personas" data-testid="notificaciones-audiencia">
+            @for (usuario of vm.audiencia(); track usuario.usuarioId) {
+              <li>
+                <label class="opcion">
+                  <input
+                    type="checkbox"
+                    [attr.data-testid]="'notificaciones-usuario-' + usuario.usuarioId"
+                    [checked]="vm.elegidos().includes(usuario.usuarioId)"
+                    (change)="vm.alternar(usuario.usuarioId)"
+                  />
+                  <span>{{ vm.persona(usuario) }}</span>
+                  <span class="documento">{{ vm.documento(usuario) }}</span>
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </fieldset>
+
       <label>
         {{ 'backoffice.notificaciones.titulo' | translate }}
         <input
@@ -38,47 +80,6 @@
         ></textarea>
         <span data-testid="notificaciones-restante-cuerpo">{{ vm.restantesCuerpo() }}</span>
       </label>
-
-      <fieldset>
-        <legend>{{ 'backoffice.notificaciones.audiencia' | translate }}</legend>
-        <label>
-          <input
-            type="radio"
-            name="audiencia"
-            data-testid="notificaciones-audiencia-todos"
-            [checked]="vm.modo() === 'todos'"
-            (change)="vm.elegirModo('todos')"
-          />
-          {{ 'backoffice.notificaciones.todos' | translate }}
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="audiencia"
-            data-testid="notificaciones-audiencia-elegidos"
-            [checked]="vm.modo() === 'usuarios'"
-            (change)="vm.elegirModo('usuarios')"
-          />
-          {{ 'backoffice.notificaciones.elegidos' | translate }}
-        </label>
-        @if (vm.modo() === 'usuarios') {
-          <ul data-testid="notificaciones-audiencia">
-            @for (usuario of vm.audiencia(); track usuario.usuarioId) {
-              <li>
-                <label>
-                  <input
-                    type="checkbox"
-                    [attr.data-testid]="'notificaciones-usuario-' + usuario.usuarioId"
-                    [checked]="vm.elegidos().includes(usuario.usuarioId)"
-                    (change)="vm.alternar(usuario.usuarioId)"
-                  />
-                  {{ usuario.nombre }} {{ usuario.apellidos }}
-                </label>
-              </li>
-            }
-          </ul>
-        }
-      </fieldset>
 
       <label>
         {{ 'backoffice.notificaciones.poliza' | translate }}

@@ -2,6 +2,8 @@ package com.grupo8_uniandes.solventa.ui.shell
 
 import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import org.koin.androidx.compose.koinViewModel
@@ -44,6 +47,7 @@ import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.push.PushPrompt
 import com.grupo8_uniandes.solventa.domain.push.PushOptIn
 import com.grupo8_uniandes.solventa.domain.push.PushTarget
@@ -381,10 +385,20 @@ internal fun SignedInShell(
     val optIn = remember {
         GlobalContext.get().get<PushOptIn>()
     }
+    val publishName = remember { GlobalContext.get().get<PublishStoredName>() }
+    LaunchedEffect(publishName) { publishName() }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         scope.launch { optIn.onPermissionResult(granted) }
     }
     LaunchedEffect(askPush) {
+        val host = activity ?: return@LaunchedEffect
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(host, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            optIn.onPermissionResult(true)
+            return@LaunchedEffect
+        }
         if (!askPush) return@LaunchedEffect
         if (optIn.onSessionStarted() == PushPrompt.Ask) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)

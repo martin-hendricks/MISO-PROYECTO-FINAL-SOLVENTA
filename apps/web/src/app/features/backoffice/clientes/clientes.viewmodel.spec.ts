@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { Cliente, ConsultaClientes, PaginaClientes } from './clientes.gateway';
 import { CLIENTES } from './clientes.testing';
-import { ClientesViewModel, PuertosClientes, pushDe } from './clientes.viewmodel';
+import { ClientesViewModel, nombreCliente, PuertosClientes, pushDe } from './clientes.viewmodel';
 
 describe('ClientesViewModel', () => {
   function pagina(clientes: Cliente[], hayMas = false, numero = 1): PaginaClientes {
@@ -76,6 +76,8 @@ describe('ClientesViewModel', () => {
 
   it('reads the Push column as yes, no or unknown', () => {
     expect(CLIENTES.map(pushDe)).toEqual(['si', 'no', 'desconocido']);
+    expect(nombreCliente(CLIENTES[0])).toBe('Andrés Gómez');
+    expect(nombreCliente({ ...CLIENTES[1], nombre: '  ', apellidos: '' })).toBe(CLIENTES[1].email);
   });
 
   it('creates and edits through the form', () => {

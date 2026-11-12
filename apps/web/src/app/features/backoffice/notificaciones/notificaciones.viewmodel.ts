@@ -69,6 +69,24 @@ export class NotificacionesViewModel {
     this.modo.set(modo);
   }
 
+  persona(usuario: UsuarioAudiencia): string {
+    const legal = [usuario?.nombre, usuario?.apellidos]
+      .map((parte) => (parte ?? '').trim())
+      .filter((parte) => parte.length > 0)
+      .join(' ');
+    return legal || (usuario?.email ?? '').trim();
+  }
+
+  documento(usuario: UsuarioAudiencia): string {
+    return (usuario?.documento ?? '').trim();
+  }
+
+  etiqueta(usuario: UsuarioAudiencia): string {
+    return [this.persona(usuario), this.documento(usuario)]
+      .filter((parte) => parte.length > 0)
+      .join(' · ');
+  }
+
   alternar(usuarioId: string): void {
     this.elegidos.update((actual) =>
       actual.includes(usuarioId) ? actual.filter((id) => id !== usuarioId) : [...actual, usuarioId],
