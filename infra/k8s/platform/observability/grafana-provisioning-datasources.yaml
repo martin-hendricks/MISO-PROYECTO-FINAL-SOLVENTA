@@ -1,0 +1,47 @@
+# Provisioning del datasource de Grafana -- la brecha real que
+# experiments/ha-08/observability/grafana/provisioning/README.md deja
+# documentada como pendiente ("falta agregar datasources/prometheus.yml").
+# Monta este ConfigMap en /etc/grafana/provisioning/datasources/ para que
+# Grafana registre el datasource en su primer arranque, sin pasos manuales.
+#
+# El uid "prometheus" es fijo y literal (no "${DS_PROMETHEUS}" como en los
+# JSON exportados de ha-08): ese placeholder solo se resuelve al importar un
+# dashboard a mano desde la UI, pidiendo mapear la variable -- no sirve para
+# provisioning automático sin intervención. Los dashboards de
+# grafana-provisioning-dashboards.yaml referencian este mismo uid literal.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning-datasources
+  namespace: solventa-observability
+data:
+  prometheus.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.solventa-observability.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+---
+# Provider que le dice a Grafana dónde buscar los JSON de dashboards
+# (grafana-provisioning-dashboards.yaml, montado en /etc/grafana/dashboards).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning-dashboards-provider
+  namespace: solventa-observability
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: solventa
+        orgId: 1
+        folder: Solventa
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /etc/grafana/dashboards

@@ -1,0 +1,43 @@
+# prometheus.yml local: a diferencia de infra/k8s/platform/observability/
+# (descubrimiento dinámico via kubernetes_sd_configs), aquí no hay API server
+# de Kubernetes que preguntar -- mismo enfoque que experiments/ha-01/ha-08,
+# targets estáticos por nombre de servicio de Docker Compose. Cada servicio
+# expone /metrics en el mismo puerto que su API (no hay puerto separado de
+# métricas en local, a diferencia de K8s donde puertoMetricas=9090).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Puerto interno 8000 (ver docker-compose.yml): ms-cotizacion y los bffs.
+  - job_name: solventa-8000
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ms-cotizacion:8000
+          - bff-web:8000
+          - bff-movil:8000
+        labels:
+          namespace: solventa
+
+  # Puerto interno 8080: el resto de microservicios.
+  # analitica/notificaciones/outbox-relay no están en docker-compose.yml
+  # (dependen de MSK real) -- quedan fuera del scraping local, igual que en
+  # K8s (ver "Fuera de alcance" de odd/tasks/observabilidad-prometheus-grafana.md).
+  - job_name: solventa-8080
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - ms-suscripcion:8080
+          - ms-pagos:8080
+          - ms-polizas:8080
+          - ms-perfilamiento:8080
+          - ms-siniestros:8080
+          - ms-identidad:8080
+          - api-socios:8080
+        labels:
+          namespace: solventa
