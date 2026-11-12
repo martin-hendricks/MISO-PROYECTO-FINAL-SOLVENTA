@@ -672,7 +672,8 @@
       "nivel_ingresos_estimado": "Nivel de ingresos estimado",
       "score_comportamiento": "Comportamiento de pago",
       "zona_riesgo": "Zona de riesgo",
-      "antiguedad_documento": "Antigüedad del documento"
+      "antiguedad_documento": "Antigüedad del documento",
+      "ajuste_competitivo": "Ajustada al precio de mercado"
     },
     "impacto": {
       "reduce_prima": "Reduce la prima",

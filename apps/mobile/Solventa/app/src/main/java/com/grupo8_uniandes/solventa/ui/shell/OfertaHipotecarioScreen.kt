@@ -122,5 +122,6 @@ private fun mortgageFactorLabel(code: String): String = when (code) {
     "score_comportamiento" -> stringResource(R.string.mortgage_factor_behavior)
     "zona_riesgo" -> stringResource(R.string.mortgage_factor_zone)
     "antiguedad_documento" -> stringResource(R.string.mortgage_factor_document_age)
+    "ajuste_competitivo" -> stringResource(R.string.mortgage_factor_competitive)
     else -> code
 }

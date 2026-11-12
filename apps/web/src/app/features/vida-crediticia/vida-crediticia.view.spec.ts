@@ -194,6 +194,23 @@ describe('VidaCrediticiaView', () => {
     expect(element('vida-factor-factor_nuevo')?.textContent).toContain('factor_nuevo');
   });
 
+  it('names the competitive adjustment in business terms', () => {
+    const { fixture, http, element, catalogo, fill, autorizar } = render();
+    catalogo();
+    fill();
+
+    autorizar();
+    http.expectOne(URL).flush({
+      ...OFERTA_HIPOTECARIA_WIRE,
+      factores: [{ factor: 'ajuste_competitivo', impacto: 'reduce_prima' }],
+    });
+    fixture.detectChanges();
+
+    expect(element('vida-factor-ajuste_competitivo')?.textContent).toContain(
+      'Ajustada al precio de mercado',
+    );
+  });
+
   it('fills the mortgage the customer or a partner left pending and enables "Autorizar"', () => {
     const { element, catalogo } = render({ originacion: { valor: 250000000, plazoMeses: 300 } });
     catalogo();

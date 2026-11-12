@@ -36,3 +36,25 @@ def test_todas_las_fechas_se_mapean_como_timestamptz():
         if isinstance(columna.type, DateTime) and not columna.type.timezone
     ]
     assert columnas == []
+
+
+def test_el_ajuste_competitivo_se_reconstruye_desde_los_factores_guardados():
+    from app.domain.modelos import FactorInterno, ajuste_por_factores
+    from app.infrastructure.sql import _factor_a_json, _factor_desde_json
+
+    zona = AtributoPerfil(
+        nombre="zona_riesgo",
+        valor=Decimal("1"),
+        origen=OrigenAdaptador.OPEN_DATA,
+        estado=EstadoAdaptador.EXITO,
+        degradado=False,
+    )
+    factores = (
+        FactorInterno(factor="zona_riesgo", impacto="aumenta_prima", peso=Decimal("0.20")),
+        FactorInterno(factor="ajuste_competitivo", impacto="reduce_prima", peso=Decimal("1.10")),
+    )
+
+    leidos = tuple(_factor_desde_json(_factor_a_json(f)) for f in factores)
+
+    assert leidos == factores
+    assert ajuste_por_factores(leidos, (zona,)) == Decimal("1.10")

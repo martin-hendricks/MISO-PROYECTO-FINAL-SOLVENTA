@@ -120,3 +120,14 @@ def test_ultima_oferta_sin_consentimiento_es_403(client):
 def test_ultima_oferta_inexistente_es_404(client):
     client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
     assert client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima").status_code == 404
+
+
+def test_la_oferta_nunca_supera_la_referencia_de_mercado(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+
+    cuerpo = client.post("/v1/ofertas-hipotecario", json={"cliente_id": "cliente-1"}, headers=CLAVE).json()
+    ultima = client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima").json()
+
+    assert float(cuerpo["factor_ajuste"]) <= 1.10
+    assert float(cuerpo["precio"]) <= 55000
+    assert ultima["factor_ajuste"] == cuerpo["factor_ajuste"]
