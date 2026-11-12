@@ -67,6 +67,100 @@ describe('ClientesView', () => {
     expect((element('clientes-save') as HTMLButtonElement).disabled).toBeTrue();
   });
 
+  it('keeps a customer out of the directory', () => {
+    const { http, element } = render('cliente');
+    http.expectNone('/web/operador/clientes');
+    expect(element('section-clientes')?.getAttribute('data-state')).toBe('no-permission');
+  });
+
+  it('creates, edits and confirms deactivation from the page', () => {
+    const { fixture, http, element } = listado('operador');
+    const activo = CLIENTES[0].usuarioId;
+    const inactivo = CLIENTES[2].usuarioId;
+    const escribir = (testId: string, valor: string) => {
+      const input = element(testId) as HTMLInputElement;
+      input.value = valor;
+      input.dispatchEvent(new Event('input'));
+    };
+    const listar = (hayMas = false, pagina = 1) =>
+      http
+        .expectOne((candidate) => candidate.method === 'GET' && candidate.url === '/web/operador/clientes')
+        .flush({ clientes: CLIENTES, pagina, hayMas });
+
+    const busqueda = element('clientes-search') as HTMLInputElement;
+    busqueda.value = 'Ana';
+    busqueda.dispatchEvent(new Event('input'));
+    listar();
+    const filtro = element('clientes-estado') as HTMLSelectElement;
+    filtro.value = 'INACTIVO';
+    filtro.dispatchEvent(new Event('change'));
+    listar(true);
+    fixture.detectChanges();
+    element('clientes-next')!.click();
+    listar(false, 2);
+    fixture.detectChanges();
+    element('clientes-prev')!.click();
+    listar();
+    fixture.detectChanges();
+
+    element(`editar-${activo}`)!.click();
+    fixture.detectChanges();
+    escribir('clientes-nombre', 'Ana');
+    escribir('clientes-apellidos', 'Ruiz');
+    escribir('clientes-email', 'ana@correo.com');
+    element('clientes-cancel')!.click();
+    fixture.detectChanges();
+
+    element('clientes-new')!.click();
+    fixture.detectChanges();
+    escribir('clientes-nombre', 'Ana');
+    escribir('clientes-apellidos', 'Ruiz');
+    escribir('clientes-email', 'ana@correo.com');
+    escribir('clientes-tipo-documento', 'CC');
+    escribir('clientes-documento', '1020');
+    escribir('clientes-password', 'secreto');
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http.expectOne((candidate) => candidate.method === 'POST' && candidate.url === '/web/operador/clientes').flush(
+      { mensaje: 'El correo ya existe' },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+    expect(element('clientes-conflict')?.textContent).toContain('El correo ya existe');
+
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http.expectOne((candidate) => candidate.method === 'POST').flush(CLIENTES[0]);
+    listar();
+    fixture.detectChanges();
+
+    element(`editar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http
+      .expectOne((candidate) => candidate.method === 'PATCH')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    expect(element('clientes-not-found')).not.toBeNull();
+    element('clientes-cancel')!.click();
+    fixture.detectChanges();
+
+    element(`desactivar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('confirm-dialog-cancelar')!.click();
+    fixture.detectChanges();
+    element(`desactivar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('confirm-dialog-confirmar')!.click();
+    http.expectOne((candidate) => candidate.url.endsWith('/estado')).flush({ ...CLIENTES[0], estado: 'INACTIVO' });
+    listar();
+    fixture.detectChanges();
+
+    element(`reactivar-${inactivo}`)!.click();
+    http.expectOne((candidate) => candidate.url.endsWith('/estado')).flush({ ...CLIENTES[2], estado: 'ACTIVO' });
+    listar();
+    fixture.detectChanges();
+    expect(element('clientes-table')).not.toBeNull();
+  });
+
   it('shows the empty state when the page has no clients', () => {
     const { fixture, http, element } = render('asesor');
     http

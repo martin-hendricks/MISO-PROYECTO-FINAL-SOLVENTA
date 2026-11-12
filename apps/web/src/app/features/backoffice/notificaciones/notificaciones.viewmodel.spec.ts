@@ -134,6 +134,26 @@ describe('NotificacionesViewModel', () => {
     expect(vm.status()).toBe('error');
   });
 
+  it('uses the email when the legal name is missing and reports a failed load', () => {
+    const { vm } = crear();
+    const sinNombre = {
+      ...AUDIENCIA[0],
+      nombre: undefined as unknown as string,
+      apellidos: null as unknown as string,
+      email: undefined as unknown as string,
+    };
+    expect(vm.persona(sinNombre)).toBe('');
+    expect(vm.documento({ ...sinNombre, documento: null as unknown as string })).toBe('');
+
+    const caido = new NotificacionesViewModel({
+      audiencia: () => throwError(() => new Error('caído')),
+      historial: () => of({ items: [] }),
+      enviar: () => of(RESULTADO),
+    });
+    caido.cargar();
+    expect(caido.status()).toBe('error');
+  });
+
   it('stays loading until both reads answer', () => {
     const audiencia = new Subject<{ usuarios: typeof AUDIENCIA }>();
     const historial = new Subject<{ items: typeof HISTORIAL }>();

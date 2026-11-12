@@ -20,7 +20,7 @@ describe('NotificacionesGateway', () => {
     const { gateway, http } = setup();
 
     gateway.audiencia().subscribe();
-    http.expectOne('/web/operador/notificaciones/audiencia').flush({ usuarios: [] });
+    http.expectOne('/web/operador/notificaciones/audiencia').flush({});
 
     gateway
       .enviar({

@@ -174,6 +174,41 @@ describe('ClientesViewModel', () => {
     expect(vm.status()).toBe('error');
   });
 
+  it('ignores edits the advisor cannot make and an empty confirmation', () => {
+    const { vm, escrituras } = crear(pagina(CLIENTES), false);
+    vm.anterior();
+    vm.abrirEditar(CLIENTES[0]);
+    vm.guardar();
+    vm.cancelarConfirmacion();
+    vm.confirmarDesactivacion();
+    expect(vm.formulario()).toBeNull();
+    expect(vm.confirmando()).toBeNull();
+    expect(escrituras).toEqual([]);
+
+    const porDefecto = new ClientesViewModel({
+      listar: () => of(pagina(CLIENTES)),
+      crear: () => of(CLIENTES[0]),
+      editar: () => of(CLIENTES[0]),
+      cambiarEstado: () => of(CLIENTES[0]),
+    });
+    expect(porDefecto.puedeEditar).toBeFalse();
+
+    const duplicado = crear();
+    duplicado.vm.cargar();
+    duplicado.puertos.crear = () =>
+      throwError(() => new HttpErrorResponse({ status: 409, error: null }));
+    duplicado.vm.abrirCrear();
+    duplicado.vm.guardar();
+    expect(duplicado.escrituras).toEqual([]);
+    duplicado.vm.editarCampo('nombre', 'Ana');
+    duplicado.vm.editarCampo('apellidos', 'Ruiz');
+    duplicado.vm.editarCampo('email', 'ana@correo.com');
+    duplicado.vm.editarCampo('documento', '1020');
+    duplicado.vm.editarCampo('password', 'secreto');
+    duplicado.vm.guardar();
+    expect(duplicado.vm.conflicto()).toBe('');
+  });
+
   it('lets the advisor read the list without editing', () => {
     const { vm, escrituras } = crear(pagina(CLIENTES), false);
     vm.cargar();

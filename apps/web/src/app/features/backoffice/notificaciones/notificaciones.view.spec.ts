@@ -38,6 +38,41 @@ describe('NotificacionesView', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
+  it('retries a failed load, picks one person and shows a failed send', () => {
+    const { fixture, http, element } = render('operador');
+    const pendientes = http.match((request) => request.url.includes('/operador/notificaciones'));
+    pendientes[0].error(new ProgressEvent('error'));
+    fixture.detectChanges();
+
+    expect(element('notificaciones-error')).not.toBeNull();
+    element('notificaciones-retry')!.click();
+    http.expectOne('/web/operador/notificaciones/audiencia').flush({ usuarios: AUDIENCIA });
+    http.expectOne('/web/operador/notificaciones/difusiones').flush({ items: HISTORIAL });
+    fixture.detectChanges();
+
+    (element('notificaciones-audiencia-elegidos') as HTMLInputElement).dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const persona = AUDIENCIA[0].usuarioId;
+    (element(`notificaciones-usuario-${persona}`) as HTMLInputElement).dispatchEvent(new Event('change'));
+    const poliza = element('notificaciones-poliza') as HTMLInputElement;
+    poliza.value = 'POL-1';
+    poliza.dispatchEvent(new Event('input'));
+    const titulo = element('notificaciones-titulo') as HTMLInputElement;
+    titulo.value = 'Aviso';
+    titulo.dispatchEvent(new Event('input'));
+    const cuerpo = element('notificaciones-cuerpo') as HTMLTextAreaElement;
+    cuerpo.value = 'Texto';
+    cuerpo.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    element('notificaciones-enviar')!.click();
+    http
+      .expectOne((request) => request.method === 'POST')
+      .error(new ProgressEvent('error'));
+    fixture.detectChanges();
+    expect(element('notificaciones-envio-error')).not.toBeNull();
+  });
+
   it('keeps the advisor out before calling the BFF', () => {
     const { http, element } = render('asesor');
     http.expectNone('/web/operador/notificaciones/audiencia');
