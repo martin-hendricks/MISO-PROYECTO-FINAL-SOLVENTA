@@ -18,6 +18,9 @@ import java.math.RoundingMode
 data class SessionInDto(val correo: String, val contrasena: String)
 
 @Serializable
+data class AccountNameDto(val nombre: String = "", val apellidos: String = "")
+
+@Serializable
 data class SessionOutDto(val accessToken: String, val refreshToken: String, val expiraEn: Int)
 
 @Serializable
@@ -297,6 +300,13 @@ data class CreditDto(val valor: Long, val plazoMeses: Int)
 
 @Serializable
 data class MortgageInDto(val credito: CreditDto, val consentimientoPerfil: Boolean)
+
+@Serializable
+data class ProfilingConsentDto(
+    val estado: String,
+    val otorgadoEn: String? = null,
+    val revocadoEn: String? = null,
+)
 
 @Serializable
 data class MortgageOutDto(

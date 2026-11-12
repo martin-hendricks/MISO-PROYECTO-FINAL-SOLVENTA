@@ -7,6 +7,12 @@ Onboarding, verificación (KYC/AML) y emisión de identidad. Emisor de JWT (vali
 
 Pendiente de implementación.
 
+## Búsqueda por documento (originación hipotecaria por socios)
+
+`GET /v1/usuarios/documento?tipo_documento=CC&numero_documento=1012345678` devuelve solo `{"usuario_id": …}`. Lo pueden llamar los roles `socio`, `asesor` y `operador`; un `cliente` recibe `403`, sin token `401` y un documento sin cuenta `404`. Normaliza igual que el alta (tipo en mayúsculas, número sin espacios).
+
+El rol `socio` lo usa `api-socios` con su token de servicio. Con ese rol no se puede leer ni modificar la cuenta completa (`GET /v1/usuarios/{id}` responde `403`).
+
 ## Verificación KYC (HU-88)
 
 El alta (`POST /v1/usuarios`) consulta el puerto `VerificadorKYC` (`app/ports/kyc.py`) antes de crear la cuenta. Hoy no hay proveedor real: el adaptador es el doble `VerificadorKYCStub` (`app/infrastructure/kyc.py`), y cambiarlo por uno real no toca `application/` ni `domain/`.

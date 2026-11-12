@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { NotificacionesGateway } from './notificaciones.gateway';
+import { NotificacionesGateway, usuarioAudiencia } from './notificaciones.gateway';
 
 describe('NotificacionesGateway', () => {
   function setup() {
@@ -20,7 +20,7 @@ describe('NotificacionesGateway', () => {
     const { gateway, http } = setup();
 
     gateway.audiencia().subscribe();
-    http.expectOne('/web/operador/notificaciones/audiencia').flush({ usuarios: [] });
+    http.expectOne('/web/operador/notificaciones/audiencia').flush({});
 
     gateway
       .enviar({
@@ -48,5 +48,34 @@ describe('NotificacionesGateway', () => {
     expect(historial.request.params.get('limite')).toBe('10');
     expect(historial.request.params.get('antesDe')).toBe('2026-11-09T13:05:00Z');
     historial.flush({ items: [] });
+  });
+
+  it('reads the name and the citizen id from either payload shape', () => {
+    setup();
+    expect(
+      usuarioAudiencia({
+        usuario_id: '11111111-1111-4111-8111-111111111111',
+        nombre: 'Ana',
+        apellidos: 'Ruiz',
+        correo: 'ana@correo.com',
+        numero_documento: '1020334556',
+        dispositivos_activos: 1,
+      }),
+    ).toEqual({
+      usuarioId: '11111111-1111-4111-8111-111111111111',
+      nombre: 'Ana',
+      apellidos: 'Ruiz',
+      email: 'ana@correo.com',
+      documento: '1020334556',
+      dispositivosActivos: 1,
+    });
+    expect(usuarioAudiencia({ numero_documento: 1020 })).toEqual({
+      usuarioId: '',
+      nombre: '',
+      apellidos: '',
+      email: '',
+      documento: '1020',
+      dispositivosActivos: 0,
+    });
   });
 });

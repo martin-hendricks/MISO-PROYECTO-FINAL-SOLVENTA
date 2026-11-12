@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import ssl
+
+from aiokafka.abc import AbstractTokenProvider
 
 from app.application.manejadores import manejar_evento
 from app.config import Settings
@@ -12,8 +15,12 @@ from app.ports.persistencia import FabricaUnidadDeTrabajo
 logger = logging.getLogger(__name__)
 
 
-class MSKTokenProvider:
+class MSKTokenProvider(AbstractTokenProvider):
     """Proveedor de tokens OAUTHBEARER con IAM de AWS para MSK.
+
+    Hereda de AbstractTokenProvider porque aiokafka 0.15 valida la instancia
+    con isinstance() al abrir la conexión, y `token()` debe ser async porque
+    aiokafka lo consume con `await`.
 
     Importa el firmador de forma perezosa: los tests no necesitan la dependencia
     instalada ni credenciales de AWS. Mismo patrón que
@@ -23,7 +30,10 @@ class MSKTokenProvider:
     def __init__(self, region: str) -> None:
         self._region = region
 
-    def token(self) -> str:
+    async def token(self) -> str:
+        return await asyncio.get_running_loop().run_in_executor(None, self._token)
+
+    def _token(self) -> str:
         from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 
         token, _ = MSKAuthTokenProvider.generate_auth_token(self._region)
@@ -60,6 +70,10 @@ class ConsumidorMSK:
             bootstrap_servers=self._config.msk_bootstrap_brokers,
             group_id=self._config.msk_consumer_group,
             security_protocol="SASL_SSL",
+            # aiokafka >= 0.13 exige el contexto TLS explícito para SASL_SSL
+            # (ver kafka_consumer.py de notificaciones): sin él el constructor
+            # aborta antes de conectar.
+            ssl_context=ssl.create_default_context(),
             sasl_mechanism="OAUTHBEARER",
             sasl_oauth_token_provider=MSKTokenProvider(self._region),
             auto_offset_reset="earliest",

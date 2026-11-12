@@ -53,6 +53,7 @@ ms-perfilamiento:db-perfilamiento
 ms-polizas:db-polizas
 ms-siniestros:db-siniestros
 ms-suscripcion:db-suscripcion
+notificaciones:db-notificaciones
 "
 
 echo "== docker compose up -d $BUILD_FLAG =="
@@ -126,13 +127,14 @@ done
 
 echo ""
 echo "== Reiniciando microservicios para que tomen el esquema al día =="
-docker compose restart ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion bff-web bff-movil api-socios
+docker compose restart ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion notificaciones bff-web bff-movil api-socios
 
 echo ""
 echo "== Backend local listo =="
-echo "  bff-web:    http://localhost:8000"
-echo "  bff-movil:  http://localhost:8007"
-echo "  api-socios: http://localhost:8006"
+echo "  bff-web:        http://localhost:8000"
+echo "  bff-movil:      http://localhost:8007"
+echo "  api-socios:     http://localhost:8006"
+echo "  notificaciones: http://localhost:8011"
 echo ""
 echo "Frontend (en otra terminal):"
 echo "  cd ../web && pnpm start   # http://localhost:4200 (proxy /web -> bff-web real)"

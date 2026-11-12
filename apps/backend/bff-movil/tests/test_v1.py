@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo, token_saliente
+from app.clients.nucleo import DETALLE_INCOMPLETA, ClienteNucleo, RechazoNucleo, token_saliente
 from app.dependencies import secret
 from app.main import app
 from app.routers.cliente import _contexto
@@ -229,6 +229,12 @@ class DobleNucleo:
 
     def solicitar_oferta_hipotecario(self, **kwargs):
         return self._llamar("solicitar_oferta_hipotecario", **kwargs)
+
+    def consentimiento_vigente(self, cliente_id):
+        return self._llamar("consentimiento_vigente", cliente_id=cliente_id)
+
+    def revocar_consentimiento(self, cliente_id):
+        return self._llamar("revocar_consentimiento", cliente_id=cliente_id)
 
     def polizas_por_vencer(self, **kwargs):
         return self._llamar("polizas_por_vencer", **kwargs) or []
@@ -768,9 +774,9 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
 def test_hipoteca_v1(client, doble):
     headers = _auth(client)
     cuerpo = {"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": False}
-    degradada = client.post("/v1/cliente/oferta-hipotecaria", headers=headers, json=cuerpo)
-    assert degradada.json()["degradada"] is True
-    assert degradada.json()["prima"] == 50000
+    sin_consentimiento = client.post("/v1/cliente/oferta-hipotecaria", headers=headers, json=cuerpo)
+    assert sin_consentimiento.status_code == 200
+    assert sin_consentimiento.json() == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
     assert doble.llamadas == []
 
     doble.respuestas["solicitar_oferta_hipotecario"] = {
@@ -788,6 +794,7 @@ def test_hipoteca_v1(client, doble):
         json={**cuerpo, "consentimientoPerfil": True},
     )
     assert lista.json()["prima"] == 64000.0
+    assert lista.json()["ramo"] == "Vida hipotecario"
     assert lista.json()["factores"] == ["plazo", "valor del crédito"]
     assert lista.json()["degradada"] is False
     assert _nombres(doble) == ["otorgar_consentimiento", "solicitar_oferta_hipotecario"]
@@ -1542,6 +1549,55 @@ def test_siniestros_v0_es_muestra_y_v1_traduce_la_lista(client, doble):
     assert cuerpo["siniestros"][0]["poliza"] == "POL-1"
 
 
+def test_aceptar_con_consentimiento_revocado_conserva_el_codigo(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = RechazoNucleo(
+        422, "consentimiento_revocado", "El consentimiento ya no está vigente; vuelva a cotizar"
+    )
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json() == {
+        "detail": "El consentimiento ya no está vigente; vuelva a cotizar",
+        "codigo": "consentimiento_revocado",
+    }
+    assert _nombres(doble) == ["aceptar_oferta"]
+
+
+def test_un_http_exception_sin_codigo_mantiene_su_cuerpo(client, doble):
+    headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
+    doble.respuestas["aceptar_oferta"] = HTTPException(status_code=409, detail="duplicada")
+
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+
+    assert respuesta.status_code == 409
+    assert respuesta.json() == {"detail": "duplicada"}
+
+
+def test_cliente_http_conserva_el_codigo_del_rechazo(monkeypatch):
+    class Falso:
+        def __init__(self, *, base_url, timeout):
+            pass
+
+        def request(self, metodo, ruta, json=None, params=None, headers=None, data=None, files=None):
+            return Falso.respuesta
+
+    monkeypatch.setattr("app.clients.nucleo.httpx.Client", Falso)
+    cliente = ClienteNucleo({"ms-cotizacion": "http://ms-cotizacion:8000"})
+
+    Falso.respuesta = _Respuesta(422, {"codigo": "consentimiento_revocado", "mensaje": "revocado"})
+    with pytest.raises(RechazoNucleo) as exc:
+        cliente.aceptar_oferta(cotizacion_id="COT-9", idempotency_key="clave-aceptar-01", perfil_id="p", score="1")
+    assert (exc.value.status_code, exc.value.detail, exc.value.codigo) == (422, "revocado", "consentimiento_revocado")
+
+    Falso.respuesta = _Respuesta(409, {"mensaje": "sin codigo"})
+    with pytest.raises(HTTPException) as exc:
+        cliente.aceptar_oferta(cotizacion_id="COT-9", idempotency_key="clave-aceptar-01", perfil_id="p", score="1")
+    assert exc.value.detail == "sin codigo"
+    assert getattr(exc.value, "codigo", None) is None
+
+
 def test_avisos_v0_es_la_muestra_fija_sin_llamar_al_nucleo(client, doble):
     headers = _auth(client)
     cuerpo = client.get("/cliente/avisos", headers=headers).json()
@@ -1659,3 +1715,115 @@ def test_billetera_detalle_ajeno_es_404_y_caida_es_503(client, doble):
 def test_billetera_sin_bearer_no_llama(client, doble):
     assert client.get("/v1/cliente/billetera").status_code == 401
     assert doble.llamadas == []
+
+CONSENTIMIENTO_VIGENTE = {
+    "id": "88888888-8888-8888-8888-888888888888",
+    "cliente_id": "c",
+    "otorgado_en": "2026-10-01T10:00:00Z",
+    "revocado_en": None,
+    "vigente": True,
+}
+
+
+def test_consultar_consentimiento_perfil_vigente(client, doble):
+    headers = _auth(client)
+    doble.respuestas["consentimiento_vigente"] = CONSENTIMIENTO_VIGENTE
+
+    respuesta = client.get("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    assert doble.llamadas == [{"metodo": "consentimiento_vigente", "cliente_id": _dueno()["usuario_id"]}]
+
+
+def test_consultar_sin_consentimiento_perfil(client, doble):
+    headers = _auth(client)
+    doble.respuestas["consentimiento_vigente"] = HTTPException(status_code=404, detail="No existe")
+
+    respuesta = client.get("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "sin_consentimiento"}
+
+
+def test_consultar_consentimiento_perfil_con_perfilamiento_caido_es_503(client, doble):
+    headers = _auth(client)
+    doble.respuestas["consentimiento_vigente"] = HTTPException(status_code=503, detail="ms-perfilamiento no disponible")
+
+    assert client.get("/v1/cliente/consentimiento-perfil", headers=headers).status_code == 503
+
+
+def test_consentimiento_perfil_incompleto_es_502(client, doble):
+    headers = _auth(client)
+    doble.respuestas["consentimiento_vigente"] = {"vigente": True}
+
+    assert client.get("/v1/cliente/consentimiento-perfil", headers=headers).status_code == 502
+
+
+def test_revocar_consentimiento_perfil(client, doble):
+    headers = _auth(client)
+    doble.respuestas["revocar_consentimiento"] = {
+        **CONSENTIMIENTO_VIGENTE,
+        "revocado_en": "2026-11-11T15:30:00Z",
+        "vigente": False,
+    }
+
+    respuesta = client.delete("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "revocado", "revocadoEn": "2026-11-11T15:30:00Z"}
+    assert doble.llamadas == [{"metodo": "revocar_consentimiento", "cliente_id": _dueno()["usuario_id"]}]
+
+
+def test_revocar_sin_consentimiento_perfil_vigente(client, doble):
+    headers = _auth(client)
+    doble.respuestas["revocar_consentimiento"] = HTTPException(status_code=404, detail="No existe")
+
+    respuesta = client.delete("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "sin_consentimiento"}
+
+
+def test_consentimiento_perfil_v0_es_la_muestra_fija_sin_llamar_al_nucleo(client, doble):
+    headers = _auth(client)
+
+    consulta = client.get("/cliente/consentimiento-perfil", headers=headers)
+    revocacion = client.delete("/cliente/consentimiento-perfil", headers=headers)
+
+    assert consulta.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    assert revocacion.json() == {"estado": "revocado", "revocadoEn": "2026-11-11T15:30:00Z"}
+    assert doble.llamadas == []
+
+
+def test_consentimiento_perfil_exige_rol_cliente(client, doble):
+    headers = {"Authorization": f"Bearer {desk_token('asesor')}"}
+
+    consulta = client.get("/v1/cliente/consentimiento-perfil", headers=headers)
+    revocacion = client.delete("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert (consulta.status_code, revocacion.status_code) == (403, 403)
+    assert doble.llamadas == []
+
+
+def test_cliente_http_consulta_y_revoca_el_consentimiento_en_perfilamiento(monkeypatch):
+    pedidas = []
+
+    class Falso:
+        def __init__(self, *, base_url, timeout):
+            self.base_url = base_url
+
+        def request(self, metodo, ruta, json=None, params=None, headers=None, data=None, files=None):
+            pedidas.append((self.base_url, metodo, ruta))
+            return _Respuesta(200, CONSENTIMIENTO_VIGENTE)
+
+    monkeypatch.setattr("app.clients.nucleo.httpx.Client", Falso)
+    cliente = ClienteNucleo({"ms-perfilamiento": "http://ms-perfilamiento:8000"})
+
+    cliente.consentimiento_vigente("c-1")
+    cliente.revocar_consentimiento("c-1")
+
+    assert pedidas == [
+        ("http://ms-perfilamiento:8000", "GET", "/v1/consentimientos/c-1"),
+        ("http://ms-perfilamiento:8000", "DELETE", "/v1/consentimientos/c-1"),
+    ]

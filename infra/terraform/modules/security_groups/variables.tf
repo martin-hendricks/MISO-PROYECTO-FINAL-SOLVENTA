@@ -41,8 +41,8 @@ variable "node_port_range_end" {
 # entrada del set.
 variable "app_ports" {
   type        = set(number)
-  description = "Puertos reales de aplicación (no NodePort) a los que el ALB necesita llegar directo vía target_type=ip. Uno por cada valor distinto de `puerto` entre infra/k8s/values/*.yaml de los servicios en infra/terraform/environments/minimo/variables.tf (var.alb_routes)."
-  default     = [8080, 8000]
+  description = "Puertos reales de aplicación (no NodePort) a los que el ALB necesita llegar directo vía target_type=ip. Uno por cada valor distinto de `puerto` entre infra/k8s/values/*.yaml de los servicios en infra/terraform/environments/minimo/variables.tf (var.alb_routes). 3000 es el puerto de Grafana (infra/k8s/platform/observability/grafana-deployment.yaml), con su propio TargetGroupBinding fuera del chart genérico -- mismo síntoma (Target.Timeout) que ya documentó este comentario, repetido por no haberlo agregado aquí al crear esa ruta."
+  default     = [8080, 8000, 3000]
 }
 
 variable "tags" {

@@ -15,6 +15,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
@@ -24,6 +25,8 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.StandInRenewalPreferenceRe
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
+import com.grupo8_uniandes.solventa.domain.profile.IdleAccountNameRepository
 
 /**
  * One stand-in bag when the address is empty. One client and one token store when it is not.
@@ -36,11 +39,13 @@ class BffRuntime private constructor(
     val claim: ClaimRepository,
     val payment: PaymentRepository,
     val mortgage: MortgageRepository,
+    val profilingConsent: ProfilingConsentRepository,
     val notices: NoticeRepository,
     val policyCommand: PolicyCommandRepository,
     val home: HomeBffRepository,
     val push: PushRepository,
     val assistance: AssistanceRepository,
+    val accountName: AccountNameRepository,
     val memory: PolicyMemory,
     val claimHold: ClaimHold,
     val renewal: RenewalPreferenceRepository,
@@ -58,11 +63,13 @@ class BffRuntime private constructor(
                 bff.claim,
                 bff.payment,
                 bff.mortgage,
+                bff.profilingConsent,
                 bff.notices,
                 bff.policyCommand,
                 bff.home,
                 bff.push,
                 bff.assistance,
+                IdleAccountNameRepository(),
                 InMemoryPolicyStore(),
                 MemoryClaimHold(),
                 StandInRenewalPreferenceRepository(),
@@ -84,11 +91,13 @@ class BffRuntime private constructor(
                 RemoteClaimRepository(api, gate, cache),
                 RemotePaymentRepository(api, gate),
                 RemoteMortgageRepository(api, gate),
+                RemoteProfilingConsentRepository(api, gate),
                 RemoteNoticeRepository(api, gate),
                 RemotePolicyCommandRepository(api, gate),
                 RemoteHomeBffRepository(api, gate, tokens),
                 RemotePushRepository(api, gate),
                 RemoteAssistanceRepository(api, gate),
+                RemoteAccountNameRepository(api, gate),
                 BffPolicyMemory(cache),
                 CachedClaimHold(cache),
                 RemoteRenewalPreferenceRepository(api, gate),

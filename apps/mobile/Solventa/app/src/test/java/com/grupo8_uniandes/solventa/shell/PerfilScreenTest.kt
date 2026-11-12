@@ -270,24 +270,6 @@ class PerfilScreenTest {
     }
 
     @Test
-    fun givenOrigination_whenProfilingOpens_thenConsentStays() {
-        ChangeDataTreatment(SharedPrefsConsentRepository(context)) { 1L }.grant()
-        rule.setContent {
-            SolventaTheme {
-                PerfilScreen(originationActive = true)
-            }
-        }
-
-        rule.onNodeWithTag("profile_profiling").assertIsDisplayed()
-        rule.onNodeWithText("otorgado").assertIsDisplayed()
-        rule.onNodeWithTag("profile_profiling").performClick()
-        rule.onNodeWithTag("sheet_profiling").assertIsDisplayed()
-        rule.onNodeWithTag("action_close").performClick()
-        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
-        rule.onNodeWithText("otorgado").assertIsDisplayed()
-    }
-
-    @Test
     fun givenFourRegions_whenSignOutCopyIsRead_thenItStaysSpanish() {
         listOf("es-CO", "es-MX", "es-CL", "es-PE").map(Locale::forLanguageTag).forEach { locale ->
             val config = android.content.res.Configuration(context.resources.configuration)

@@ -1,13 +1,14 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
 import com.grupo8_uniandes.solventa.domain.profile.ProfileHub
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 class ProfileViewModel(
     private val load: LoadProfile,
@@ -18,11 +19,15 @@ class ProfileViewModel(
 
     private val _signedOut = MutableStateFlow(false)
     val signedOut: StateFlow<Boolean> = _signedOut.asStateFlow()
+    private var signingOut = false
 
     fun confirmSignOut() {
-        if (_signedOut.value) return
-        runBlocking { signOut.complete() }
-        _signedOut.value = true
+        if (signingOut || _signedOut.value) return
+        signingOut = true
+        viewModelScope.launch {
+            signOut.complete()
+            _signedOut.value = true
+        }
     }
 
     fun consumeSignOut() {

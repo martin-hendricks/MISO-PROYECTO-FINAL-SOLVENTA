@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
@@ -14,6 +15,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushTokenRetiroDto
@@ -36,6 +38,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RenewalPreferenceDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.HTTP
 import retrofit2.http.Header
@@ -116,6 +119,12 @@ interface MobileBffApi {
     @POST("cliente/oferta-hipotecaria")
     suspend fun mortgage(@Body body: MortgageInDto): MortgageOutDto
 
+    @GET("cliente/consentimiento-perfil")
+    suspend fun profilingConsent(): ProfilingConsentDto
+
+    @DELETE("cliente/consentimiento-perfil")
+    suspend fun revokeProfilingConsent(): ProfilingConsentDto
+
     @GET("cliente/avisos")
     suspend fun notices(): NoticesDto
 
@@ -135,10 +144,16 @@ interface MobileBffApi {
     @GET("cliente/inicio")
     suspend fun home(): HomeDto
 
-    @POST("v1/cliente/avisos/token")
+    @GET("cliente/perfil")
+    suspend fun accountName(): AccountNameDto
+
+    @PATCH("cliente/perfil")
+    suspend fun saveAccountName(@Body body: AccountNameDto): AccountNameDto
+
+    @POST("cliente/avisos/token")
     suspend fun registerPush(@Body body: PushRegistrationDto): Response<ResponseBody>
 
-    @HTTP(method = "DELETE", path = "v1/cliente/avisos/token", hasBody = true)
+    @HTTP(method = "DELETE", path = "cliente/avisos/token", hasBody = true)
     suspend fun unregisterPush(@Body body: PushTokenRetiroDto): Response<ResponseBody>
 
     @GET("cliente/prestadores")

@@ -219,7 +219,7 @@ async def perfilar_y_ofertar(
         ZONA_RIESGO: config.peso_zona_riesgo,
         ANTIGUEDAD_DOCUMENTO: config.peso_antiguedad_documento,
     }
-    oferta = calcular_oferta(cliente_id, perfil, pesos, config.tarifa_base)
+    oferta = calcular_oferta(cliente_id, perfil, pesos, config.tarifa_base, config.factor_referencia_mercado)
 
     async with uow() as tx:
         await tx.ofertas.agregar(idempotency_key, oferta)

@@ -12,12 +12,12 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
+replicas: 1
 grupoEscalado: "b"
 
 # apps/backend/bff-movil/Dockerfile expone y arranca uvicorn en 8000.
 puerto: 8000
-puertoMetricas: 9090
+puertoMetricas: 8000
 
 recursos:
   # Bajado de 384Mi/768Mi: con la cuota real de vCPU de la cuenta (16, ver
@@ -50,7 +50,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 10
   targetCPU: 65
   targetMemory: 75

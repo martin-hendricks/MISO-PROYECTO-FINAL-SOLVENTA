@@ -149,3 +149,57 @@ def test_calcular_oferta_nunca_deja_precio_no_positivo():
     oferta = calcular_oferta("cliente-1", perfil, {NIVEL_INGRESOS_ESTIMADO: Decimal("-10")}, Decimal("50000"))
 
     assert oferta.precio > 0
+
+
+PESOS = {
+    NIVEL_INGRESOS_ESTIMADO: Decimal("-0.08"),
+    SCORE_COMPORTAMIENTO: Decimal("-0.15"),
+    ZONA_RIESGO: Decimal("0.20"),
+    ANTIGUEDAD_DOCUMENTO: Decimal("-0.05"),
+}
+
+
+def _perfil(ingresos: str, score: str, zona: str, antiguedad: str) -> Perfil:
+    return Perfil.armar(
+        "cliente-1",
+        [
+            _atributo(NIVEL_INGRESOS_ESTIMADO, ingresos),
+            _atributo(SCORE_COMPORTAMIENTO, score),
+            _atributo(ZONA_RIESGO, zona),
+            _atributo(ANTIGUEDAD_DOCUMENTO, antiguedad),
+        ],
+    )
+
+
+def test_oferta_por_debajo_de_la_referencia_de_mercado_no_cambia():
+    oferta = calcular_oferta("cliente-1", _perfil("0.7", "0.8", "0.3", "0.6"), PESOS, Decimal("50000"), Decimal("1.10"))
+
+    assert oferta.precio == Decimal("42700.00")
+    assert oferta.factor_ajuste == Decimal("0.854")
+    assert "ajuste_competitivo" not in {f.factor for f in oferta.factores}
+
+
+def test_oferta_por_encima_de_la_referencia_de_mercado_se_ajusta_a_ella():
+    oferta = calcular_oferta("cliente-1", _perfil("0", "0", "1", "0"), PESOS, Decimal("50000"), Decimal("1.10"))
+
+    assert oferta.precio == Decimal("55000.00")
+    assert oferta.factor_ajuste == Decimal("1.10")
+    ajuste = next(f for f in oferta.factores if f.factor == "ajuste_competitivo")
+    assert (ajuste.impacto, ajuste.peso) == ("reduce_prima", Decimal("1.10"))
+
+
+def test_oferta_sin_referencia_de_mercado_conserva_el_calculo_anterior():
+    oferta = calcular_oferta("cliente-1", _perfil("0", "0", "1", "0"), PESOS, Decimal("50000"))
+
+    assert oferta.precio == Decimal("60000.00")
+    assert oferta.factor_ajuste == Decimal("1.20")
+    assert "ajuste_competitivo" not in {f.factor for f in oferta.factores}
+
+
+def test_oferta_degradada_tambien_se_ajusta_a_la_referencia_de_mercado():
+    perfil = Perfil.armar("cliente-1", [_atributo(ZONA_RIESGO, "1", degradado=True)])
+
+    oferta = calcular_oferta("cliente-1", perfil, PESOS, Decimal("50000"), Decimal("1.10"))
+
+    assert oferta.degradado is True
+    assert oferta.precio == Decimal("55000.00")

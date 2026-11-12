@@ -148,14 +148,21 @@ class FactorInterno:
     peso: Decimal
 
 
+AJUSTE_COMPETITIVO = "ajuste_competitivo"
+
+
 def ajuste_por_factores(factores: tuple[FactorInterno, ...], atributos: tuple[AtributoPerfil, ...]) -> Decimal:
     """`1 + sum(peso_i * valor_i)`: el multiplicador que el perfil aplica sobre una
     tarifa base (HU-55). Se recalcula siempre desde los factores y el snapshot
     persistidos, así que es reconstruible sin guardar un dato aparte."""
     valores = {a.nombre: a.valor for a in atributos}
-    return Decimal("1") + sum(
+    ajuste = Decimal("1") + sum(
         (f.peso * valores[f.factor] for f in factores if f.factor in valores), Decimal("0")
     )
+    for f in factores:
+        if f.factor == AJUSTE_COMPETITIVO:
+            ajuste = min(ajuste, f.peso)
+    return ajuste
 
 
 @dataclass(frozen=True)

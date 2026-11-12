@@ -35,6 +35,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
@@ -61,7 +62,9 @@ import com.grupo8_uniandes.solventa.domain.home.HomeRepository
 import com.grupo8_uniandes.solventa.domain.home.LoadInicio
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.profile.SessionRepository
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -71,6 +74,7 @@ import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.AvisoVigenciaViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
@@ -119,6 +123,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<NetworkMonitor> { ConnectivityNetworkMonitor(androidContext()) }
     single<PaymentRepository> { get<BffRuntime>().payment }
     single<MortgageRepository> { get<BffRuntime>().mortgage }
+    single<ProfilingConsentRepository> { get<BffRuntime>().profilingConsent }
     single<NoticeRepository> { get<BffRuntime>().notices }
     single { OpenValidityNotice(get()) }
     single<PolicyCommandRepository> { get<BffRuntime>().policyCommand }
@@ -148,11 +153,14 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
         LoadProfile(get(), get(), get(), get(), get(), originationActive)
     }
     single<RegistrationRepository> { SharedPrefsRegistrationRepository(androidContext()) }
+    single<AccountNameRepository> { get<BffRuntime>().accountName }
+    single { PublishStoredName(get(), get()) }
     single<RegionRepository> { SharedPrefsRegionRepository(androidContext()) }
     single<ConsentRepository> { SharedPrefsConsentRepository(androidContext()) }
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }
     single<DevicePermissionReader> { AndroidDevicePermissionReader(androidContext()) }
     viewModel { HomeViewModel(get()) }
+    viewModel { MortgageOfferViewModel(get()) }
     viewModel {
         val registration = get<RegistrationRepository>()
         val session = get<MobileSessionRepository>()

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@ang
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { IdiomaRegionView } from '../idioma-region/idioma-region.view';
+import { ConsentimientoPerfilView } from '../perfil/consentimiento-perfil.view';
 import { PerfilGateway } from '../perfil/perfil.gateway';
 import { SiniestrosGateway } from '../siniestros/siniestros.gateway';
 
@@ -15,7 +16,7 @@ export type Destino = 'cotizacion' | 'emision' | 'poliza' | 'siniestro' | 'sinie
 @Component({
   selector: 'sv-destino',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslatePipe, IdiomaRegionView],
+  imports: [RouterLink, TranslatePipe, IdiomaRegionView, ConsentimientoPerfilView],
   templateUrl: './destino.view.html',
   styleUrls: ['../backoffice/backoffice.page.css', '../inicio/inicio.view.css'],
 })

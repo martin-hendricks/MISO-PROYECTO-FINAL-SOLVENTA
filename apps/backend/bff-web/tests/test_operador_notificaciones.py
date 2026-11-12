@@ -56,6 +56,8 @@ def test_audiencia_une_nombres_en_tandas_de_50(client, nucleo_notificaciones, nu
     assert [fila["usuarioId"] for fila in cuerpo] == USUARIOS
     assert cuerpo[0]["nombre"] == "N00"
     assert cuerpo[0]["apellidos"] == "Ruiz"
+    assert cuerpo[0]["email"] == "ana@correo.com"
+    assert cuerpo[0]["documento"] == "1020"
     assert cuerpo[0]["dispositivosActivos"] == 1
 
     consultas = [p for p in nucleo_identidad.peticiones if p.url.path == "/v1/usuarios"]

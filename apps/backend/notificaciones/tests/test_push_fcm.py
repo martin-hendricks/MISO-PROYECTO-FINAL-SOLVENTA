@@ -49,6 +49,9 @@ async def test_envia_mensaje_data_sin_bloque_notification():
     assert mensaje["data"]["poliza"] == "POL-1"
     assert mensaje["data"]["notificacionId"] == str(notificacion.notificacion_id)
     assert mensaje["android"]["priority"] == "HIGH"
+    assert mensaje["android"]["notification"]["title"] == notificacion.titulo
+    assert mensaje["android"]["notification"]["body"] == notificacion.cuerpo
+    assert mensaje["android"]["notification"]["channel_id"] == "avisos_poliza_alta"
     assert capturado["auth"] == "Bearer ya-valido"
     assert resultado.estado == "enviado"
     assert resultado.proveedor_id == "projects/demo/messages/1"

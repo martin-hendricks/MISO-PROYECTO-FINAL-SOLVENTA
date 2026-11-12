@@ -62,6 +62,7 @@ on:
       - "infra/k8s/platform/target-group-bindings.yaml"
       - "infra/k8s/platform/run-migrations.sh"
       - "infra/k8s/platform/migraciones-job.yaml"
+      - "infra/k8s/platform/observability/**"
       - ".github/workflows/deploy.yml"
   # Disparo manual desde la pestaña Actions, para validar el pipeline (p.ej.
   # tras un cambio de infraestructura que no toca ningún path del trigger de
@@ -213,6 +214,12 @@ jobs:
       # ("${project_name}-${environment}-<servicio>-irsa") solo para los
       # servicios que lo declaran con serviceAccount.irsa: true en su values.
       # Un roleArn explícito en el values tiene prioridad.
+      # MSK: igual que IRSA, el bootstrap broker real no es accesible desde
+      # el state de Terraform (local) -- se resuelve en runtime contra la
+      # API de AWS (predecible por convención: "${project_name}-${environment}-msk",
+      # igual que EKS_CLUSTER_NAME) y se inyecta en la entrada
+      # MSK_BOOTSTRAP_BROKERS de variablesEntorno, solo para los servicios
+      # que la declaran vacía (kafka.necesitaMsk: true en el values).
       - name: Desplegar con Helm
         run: |
           irsa_args=()
@@ -223,13 +230,83 @@ jobs:
             echo "IRSA: rol solventa-minimo-${{ matrix.service }}-irsa"
           fi
 
+          msk_args=()
+          necesita_msk=$(yq '.kafka.necesitaMsk // false' "${{ matrix.values }}")
+          if [[ "$necesita_msk" == "true" ]]; then
+            # yq 4.x (Go, el del runner) no implementa index() de jq: el índice
+            # se busca con to_entries/select sobre el arreglo de nombres.
+            idx=$(yq '.variablesEntorno | to_entries | .[] | select(.value.nombre == "MSK_BOOTSTRAP_BROKERS") | .key' "${{ matrix.values }}" | head -n1)
+            if [[ -z "$idx" || "$idx" == "null" ]]; then
+              echo "::error::${{ matrix.values }} declara kafka.necesitaMsk=true pero no tiene una entrada MSK_BOOTSTRAP_BROKERS en variablesEntorno"
+              exit 1
+            fi
+
+            brokers=$(aws kafka get-bootstrap-brokers \
+              --cluster-arn "$(aws kafka list-clusters --cluster-name-filter solventa-minimo-msk --query 'ClusterInfoList[0].ClusterArn' --output text)" \
+              --query BootstrapBrokerStringSaslIam --output text)
+            if [[ -z "$brokers" || "$brokers" == "None" ]]; then
+              echo "::error::No se pudo resolver BootstrapBrokerStringSaslIam del clúster solventa-minimo-msk"
+              exit 1
+            fi
+
+            # El bootstrap broker es una lista separada por comas y Helm
+            # interpreta cada coma como separador de asignaciones en
+            # --set/--set-string: hay que escaparlas (\",\") o el valor se
+            # trunca y el upgrade falla.
+            msk_args=(--set-string "variablesEntorno[$idx].valor=${brokers//,/\\,}")
+            echo "MSK: bootstrap brokers resueltos para ${{ matrix.service }} (entrada variablesEntorno[$idx])"
+          fi
+
           helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
             --namespace solventa \
             --values ${{ matrix.values }} \
             --set imagen.repositorio="$IMAGE" \
             --set imagen.tag=${{ github.sha }} \
             "${irsa_args[@]}" \
+            "${msk_args[@]}" \
             --timeout 3m
+
+      # Bootstrap del tópico BusEventos: una sola vez por clúster.
+      #
+      # MSK corre con auto.create.topics.enable=false y AWS no tiene una API
+      # para crear tópicos, así que lo hace el AdminClient de Kafka desde
+      # dentro de la VPC, con la ServiceAccount de outbox-relay (la única con
+      # kafka-cluster:CreateTopic). El Job solo se aplica si no existe o si
+      # existe sin haber completado: un Job Complete es el registro de que el
+      # tópico ya se creó y los deploys siguientes lo omiten. Si hay que
+      # recrearlo (p. ej. se cambió el número de particiones), se borra el Job
+      # a mano y el próximo deploy lo vuelve a ejecutar.
+      - name: Crear el tópico BusEventos (una sola vez)
+        if: matrix.service == 'outbox-relay'
+        run: |
+          command -v envsubst >/dev/null || sudo apt-get install -y gettext-base
+
+          job=crear-topico-buseventos
+          if kubectl -n solventa get job "$job" >/dev/null 2>&1; then
+            completado=$(kubectl -n solventa get job "$job" \
+              -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')
+            if [[ "$completado" == "True" ]]; then
+              echo "El tópico ya se creó en un deploy anterior (Job $job Complete); no se repite."
+              exit 0
+            fi
+            echo "El Job $job existe pero no completó; se reintenta."
+            kubectl -n solventa delete job "$job" --ignore-not-found
+          fi
+
+          brokers=$(aws kafka get-bootstrap-brokers \
+            --cluster-arn "$(aws kafka list-clusters --cluster-name-filter solventa-minimo-msk \
+              --query 'ClusterInfoList[0].ClusterArn' --output text)" \
+            --query BootstrapBrokerStringSaslIam --output text)
+
+          IMAGEN="$IMAGE:${{ github.sha }}" \
+          BROKERS="$brokers" \
+          AWS_REGION="${{ vars.AWS_REGION }}" \
+          envsubst < infra/k8s/platform/crear-topico-buseventos.yaml | kubectl apply -f -
+
+          if ! kubectl -n solventa wait --for=condition=complete "job/$job" --timeout=120s; then
+            kubectl -n solventa logs "job/$job" --tail=50 || true
+            exit 1
+          fi
 
       # Corre después del helm upgrade (que ya creó el ExternalSecret con
       # database_url) y antes de esperar el rollout. No es un initContainer
@@ -275,6 +352,63 @@ jobs:
       - name: Verificar rollout
         run: kubectl rollout status deployment/${{ matrix.service }} -n solventa --timeout=120s
 
+  # Despliega Prometheus + Grafana + kube-state-metrics en el namespace
+  # solventa-observability (infra/k8s/platform/observability/). Job aparte
+  # de "deploy": no es parte de la matrix de microservicios (no tiene
+  # Dockerfile propio, son imágenes públicas ya construidas) y solo necesita
+  # correr una vez, no por servicio. needs: bootstrap porque el namespace
+  # solventa-observability y el ClusterSecretStore deben existir antes.
+  deploy-observability:
+    name: deploy observabilidad (prometheus + grafana)
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar contra AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ACTIONS_CD_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Configurar kubectl
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Aplicar RBAC, ConfigMaps y Deployments
+        run: |
+          kubectl apply -f infra/k8s/platform/observability/prometheus-rbac.yaml
+          kubectl apply -f infra/k8s/platform/observability/prometheus-configmap.yaml
+          kubectl apply -f infra/k8s/platform/observability/prometheus-deployment.yaml
+          kubectl apply -f infra/k8s/platform/observability/kube-state-metrics.yaml
+          kubectl apply -f infra/k8s/platform/observability/grafana-provisioning-datasources.yaml
+          kubectl apply -f infra/k8s/platform/observability/grafana-externalsecret.yaml
+
+      # El ConfigMap de dashboards se genera en el pipeline, igual que
+      # <servicio>-migrations más abajo: los JSON quedan versionados en
+      # infra/k8s/platform/observability/dashboards/, el ConfigMap es un
+      # artefacto derivado, no una fuente a mantener en el repo.
+      - name: Generar ConfigMap de dashboards
+        run: |
+          kubectl create configmap grafana-dashboards \
+            --namespace solventa-observability \
+            --from-file=infra/k8s/platform/observability/dashboards/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Esperar credenciales de Grafana (ExternalSecret)
+        run: |
+          kubectl wait --for=condition=Ready --timeout=60s \
+            externalsecret/grafana-admin -n solventa-observability
+
+      - name: Desplegar Grafana
+        run: kubectl apply -f infra/k8s/platform/observability/grafana-deployment.yaml
+
+      - name: Verificar rollout
+        run: |
+          kubectl rollout status deployment/prometheus -n solventa-observability --timeout=120s
+          kubectl rollout status deployment/kube-state-metrics -n solventa-observability --timeout=120s
+          kubectl rollout status deployment/grafana -n solventa-observability --timeout=120s
+
   # Job aparte, no un paso dentro de "deploy": TargetGroupBinding es un
   # único manifiesto para todos los servicios
   # (infra/k8s/platform/target-group-bindings.yaml), no uno por entrada de
@@ -291,7 +425,7 @@ jobs:
   # un target group YA EXISTENTE, sin crear ningún ALB.
   register-target-groups:
     name: registrar en el target group del ALB
-    needs: deploy
+    needs: [deploy, deploy-observability]
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'produccion' || 'desarrollo' }}
     steps:
@@ -333,3 +467,10 @@ jobs:
 
           export API_SOCIOS_TARGET_GROUP_ARN BFF_WEB_TARGET_GROUP_ARN BFF_MOVIL_TARGET_GROUP_ARN
           envsubst < infra/k8s/platform/target-group-bindings.yaml | kubectl apply -f -
+
+          GRAFANA_TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --names solventa-minimo-grafana-tg \
+            --query 'TargetGroups[0].TargetGroupArn' --output text)
+
+          export GRAFANA_TARGET_GROUP_ARN
+          envsubst < infra/k8s/platform/observability/target-group-binding-grafana.yaml | kubectl apply -f -

@@ -36,6 +36,39 @@ class DifusionEntrada(BaseModel):
     poliza: str | None = None
 
 
+def _id(fila: dict) -> str:
+    valor = fila.get("usuarioId") or fila.get("usuario_id") or ""
+    return str(valor).strip().lower()
+
+
+def _perfil_vacio() -> dict[str, str]:
+    return {"nombre": "", "apellidos": "", "email": "", "documento": ""}
+
+
+def _perfil(usuario: dict) -> dict[str, str]:
+    return {
+        "nombre": str(usuario.get("nombre") or "").strip(),
+        "apellidos": str(usuario.get("apellidos") or "").strip(),
+        "email": str(usuario.get("email") or usuario.get("correo") or "").strip(),
+        "documento": str(
+            usuario.get("numero_documento") or usuario.get("documento") or ""
+        ).strip(),
+    }
+
+
+async def _perfil_de(identidad: ClienteMsIdentidad, uid: str, nombres: dict[str, dict]) -> dict[str, str]:
+    if not uid:
+        return _perfil_vacio()
+    usuario = nombres.get(uid)
+    if usuario is None:
+        try:
+            usuario = await identidad.obtener(uid)
+        except RecursoNoEncontrado:
+            return _perfil_vacio()
+        nombres[uid] = usuario
+    return _perfil(usuario)
+
+
 def _trozos(ids: list[str], tamano: int = _TROZO) -> list[list[str]]:
     return [ids[indice : indice + tamano] for indice in range(0, len(ids), tamano)]
 
@@ -56,22 +89,26 @@ async def audiencia(
     cruda = await notificaciones.audiencia()
     filas = cruda.get("usuarios") or []
     nombres: dict[str, dict[str, Any]] = {}
-    ids = [fila["usuarioId"] for fila in filas]
+    ids = [_id(fila) for fila in filas if _id(fila)]
     for trozo in _trozos(ids):
         listado = await identidad.listar_clientes(ids=trozo)
         for usuario in listado.get("usuarios") or []:
-            nombres[usuario["usuario_id"]] = usuario
-    return {
-        "usuarios": [
+            nombres[_id(usuario)] = usuario
+    salida = []
+    for fila in filas:
+        uid = _id(fila)
+        perfil = await _perfil_de(identidad, uid, nombres)
+        salida.append(
             {
-                "usuarioId": fila["usuarioId"],
-                "nombre": (nombres.get(fila["usuarioId"]) or {}).get("nombre") or "",
-                "apellidos": (nombres.get(fila["usuarioId"]) or {}).get("apellidos") or "",
-                "dispositivosActivos": fila["dispositivosActivos"],
+                "usuarioId": uid,
+                "nombre": perfil["nombre"],
+                "apellidos": perfil["apellidos"],
+                "email": perfil["email"],
+                "documento": perfil["documento"],
+                "dispositivosActivos": fila.get("dispositivosActivos") or fila.get("dispositivos_activos") or 0,
             }
-            for fila in filas
-        ]
-    }
+        )
+    return {"usuarios": salida}
 
 
 @router.post("/difusiones", status_code=201)

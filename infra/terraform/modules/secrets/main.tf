@@ -277,3 +277,37 @@ resource "aws_secretsmanager_secret_version" "msk_config" {
   secret_id     = aws_secretsmanager_secret.msk_config.id
   secret_string = jsonencode({ MSK_BOOTSTRAP_BROKERS = var.msk_bootstrap_brokers_sasl_iam })
 }
+
+# --- Grafana: credenciales de administrador ---
+#
+# Mismo patrón que bff_web_token: una contraseña aleatoria estable (no
+# rotada en cada apply gracias a ignore_changes) para que un redeploy del
+# pod de Grafana no invalide la sesión del admin. External Secrets la
+# proyecta al pod vía infra/k8s/platform/observability/grafana-externalsecret.yaml,
+# con dataFrom.extract (ambas claves del JSON ya coinciden con las env vars
+# GF_SECURITY_ADMIN_USER/GF_SECURITY_ADMIN_PASSWORD que Grafana espera).
+resource "random_password" "grafana_admin_password" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "grafana_admin" {
+  name                    = "${var.project_name}-${var.environment}-grafana-admin"
+  description             = "Credenciales de administrador de Grafana (GF_SECURITY_ADMIN_USER/PASSWORD)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-grafana-admin" })
+}
+
+resource "aws_secretsmanager_secret_version" "grafana_admin" {
+  secret_id = aws_secretsmanager_secret.grafana_admin.id
+  secret_string = jsonencode({
+    GF_SECURITY_ADMIN_USER     = "admin"
+    GF_SECURITY_ADMIN_PASSWORD = random_password.grafana_admin_password.result
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}

@@ -25,7 +25,7 @@ replicas: 1
 grupoEscalado: "a"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 # Diseño original: 1000m/2Gi requests, 2000m/3Gi limits (c6i.xlarge, 4
 # vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES

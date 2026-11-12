@@ -7,9 +7,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import com.grupo8_uniandes.solventa.claim.CannedEvidenceRegistry
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -29,7 +31,13 @@ import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
@@ -42,6 +50,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.koin.core.context.GlobalContext
+import org.koin.dsl.module
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -90,12 +99,26 @@ class CustomerNavHostTest {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
         rule.onNodeWithTag("home_vida_crediticia").performClick()
-        rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
+        rule.onNodeWithTag("screen_consentimiento_hipotecario").assertIsDisplayed()
         assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_authorize_profiling").performClick()
+        rule.waitUntil(timeoutMillis = 8_000) {
+            rule.onAllNodesWithTag("screen_oferta_hipotecario").fetchSemanticsNodes().isNotEmpty()
+        }
         rule.onNodeWithTag("action_accept_mortgage").performClick()
         rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
+    }
+
+    @Test
+    fun givenOrigination_whenTheProfilingConsentIsDeclined_thenHomeIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("action_decline_profiling").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
     }
 
     @Test
@@ -409,6 +432,43 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
         rule.onNodeWithText("SIN-441").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenARevokedConsent_whenTheIssuanceAnswers_thenTheRevocationScreenOpens() {
+        val revoked = object : IssuanceRepository {
+            override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
+
+            override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
+
+            override suspend fun consentRevoked(): Boolean = true
+
+            override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed
+
+            override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
+        }
+        GlobalContext.get().loadModules(listOf(module { single { AcceptOffer(revoked) } }), allowOverride = true)
+        try {
+            val holder = arrayOfNulls<NavHostController>(1)
+            show(holder, start = EmisionEnCursoRoute("COT-1042"))
+            rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+            assertEquals(ConsentimientoRevocadoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+            rule.onNodeWithTag("action_consent_revoked_new_quote").performClick()
+            rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
+        } finally {
+            GlobalContext.get().loadModules(
+                listOf(module { single { AcceptOffer(get()) } }),
+                allowOverride = true,
+            )
+        }
+    }
+
+    @Test
+    fun givenARevokedConsent_whenHome_thenInicioOpens() {
+        show(start = ConsentimientoRevocadoRoute)
+        rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+        rule.onNodeWithTag("action_consent_revoked_home").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
     }
 
     @Test

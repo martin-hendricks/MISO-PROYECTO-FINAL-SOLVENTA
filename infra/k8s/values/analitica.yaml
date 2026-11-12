@@ -1,10 +1,16 @@
-# analitica — consumidor de BusEventos (Grupo B)
+# analitica — consumidor de BusEventos (Grupo A)
 #
 # Carga batch/streaming para reportería y modelos, no está en el camino
 # crítico de latencia de ningún caso de uso síncrono. Consume BusEventos de
 # MSK, por lo que necesita IRSA. Recursos modestos y HPA con techo bajo: el
 # consumo de Kafka se nivela con el número de particiones, no tiene sentido
 # escalar agresivamente por CPU.
+#
+# Movido de Grupo B a Grupo A (2026-11-12, ver terraform.tfvars): Grupo B
+# (5 nodos t3.small tras este movimiento) no tenía margen para que el
+# RollingUpdate de varios servicios concurrentes completara sin timeout.
+# analitica es el candidato más seguro para mover -- asíncrono, sin impacto
+# en ningún flujo síncrono de negocio si se demora un rollout.
 
 nombre: analitica
 
@@ -13,11 +19,11 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
-grupoEscalado: "b"
+replicas: 1
+grupoEscalado: "a"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   requests:
@@ -41,7 +47,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 4
   targetCPU: 75
   targetMemory: 80
@@ -64,12 +70,23 @@ hpa:
 # ms-polizas, etc.). Sin esto, cualquier llamada autenticada responde 500
 # "SOLVENTA_TOKEN_SECRET no configurado" (mismo patrón ya visto y corregido
 # en notificaciones.yaml).
+#
+# analitica-db: analitica tiene su propio esquema (db/01_analitica.sql,
+# CREATE SCHEMA analitica) pero, igual que ms-perfilamiento/ms-cotizacion, sin
+# instancia RDS propia -- vive en DBCompartida. El workflow de CD detecta
+# automáticamente el paso de migraciones por la carpeta db/ existente y
+# espera un ExternalSecret llamado exactamente "<servicio>-db"
+# (.github/workflows/deploy.yml); sin esta entrada faltaba por completo.
 externalSecrets:
   habilitado: true
   secretStoreRef: solventa-secretstore
   remoteSecrets:
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: analitica-token
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: analitica-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -92,3 +109,8 @@ variablesEntorno:
     valor: "AWS_MSK_IAM"
   - nombre: MSK_CONSUMER_GROUP
     valor: "analitica-cg"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: analitica-db
+    claveSecreto: database_url

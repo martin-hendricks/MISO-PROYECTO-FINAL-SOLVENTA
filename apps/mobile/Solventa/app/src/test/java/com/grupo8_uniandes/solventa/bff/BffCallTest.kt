@@ -334,6 +334,57 @@ class BffCallTest {
     }
 
     @Test
+    fun givenARevokedConsent_whenAcceptanceIsRead_thenTheRepositoryReportsIt() = runBlocking {
+        val issuance = RemoteIssuanceRepository(api(), gate, cache)
+        server.enqueue(
+            MockResponse().setResponseCode(422)
+                .setBody("""{"detail":"El consentimiento ya no está vigente","codigo":"consentimiento_revocado"}"""),
+        )
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertTrue(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no","codigo":"oferta_ya_usada"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"no","codigo":"consentimiento_revocado"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("consentimiento_revocado"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""["consentimiento_revocado"]"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":null}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody(""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("{"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":{"valor":"consentimiento_revocado"}}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        enqueue(PublishedSamples.ISSUED)
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Ready)
+        assertFalse(issuance.consentRevoked())
+    }
+
+    @Test
     fun givenAClaimTheHostRefuses_whenNotified_thenNothingIsQueued() = runBlocking {
         val claims = RemoteClaimRepository(api(), gate, cache)
         val notice = ClaimNotice("POL-88219-CO", "2026-03-12", null, emptyList())
@@ -405,10 +456,6 @@ class BffCallTest {
         val payment = RemotePaymentRepository(api(), gate).read() as StandInAnswer.Ready
         assertEquals(250_000L, payment.value.monto)
 
-        enqueue(PublishedSamples.MORTGAGE_DEGRADED)
-        val degraded = RemoteMortgageRepository(api(), gate).degraded() as StandInAnswer.Ready
-        assertTrue(degraded.value.degradada)
-
         enqueue(PublishedSamples.NOTICES)
         assertTrue(RemoteNoticeRepository(api(), gate).list() is StandInAnswer.Ready)
 
@@ -430,13 +477,13 @@ class BffCallTest {
         val registered = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.MILLISECONDS) }
             .first { it.path.orEmpty().contains("avisos/token") }
         assertEquals("POST", registered.method)
-        assertTrue(registered.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(registered.path.orEmpty().endsWith("cliente/avisos/token"))
         assertTrue(registered.body.readUtf8().contains("\"plataforma\":\"android\""))
         server.enqueue(MockResponse().setResponseCode(204))
         assertTrue(push.unregister("fcm-stub") is StandInAnswer.Ready)
         val deleted = server.takeRequest()
         assertEquals("DELETE", deleted.method)
-        assertTrue(deleted.path.orEmpty().endsWith("v1/cliente/avisos/token"))
+        assertTrue(deleted.path.orEmpty().endsWith("cliente/avisos/token"))
         assertTrue(deleted.body.readUtf8().contains("fcm-stub"))
 
         enqueue(PublishedSamples.PROVIDERS)

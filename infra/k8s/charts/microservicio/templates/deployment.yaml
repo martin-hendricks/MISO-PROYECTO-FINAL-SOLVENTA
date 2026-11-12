@@ -89,9 +89,21 @@ spec:
             - name: http
               containerPort: {{ .Values.puerto }}
               protocol: TCP
+            {{- if ne (.Values.puertoMetricas | toString) (.Values.puerto | toString) }}
+            # Solo se declara si es un puerto real distinto: Kubernetes
+            # identifica entradas de `ports` por (containerPort, protocol),
+            # no por `name` -- dos entradas con el mismo número (aunque
+            # distinto name) producen "duplicate entries for key" en el
+            # Server-Side Apply que usa Helm 3, incluso si `helm template`
+            # no lo detecta (solo renderiza YAML, no valida contra el API
+            # server). Todos los microservicios reales hoy tienen
+            # puertoMetricas == puerto (observabilidad.py expone /metrics
+            # en el mismo servidor uvicorn), así que normalmente esta
+            # entrada no se emite.
             - name: metrics
               containerPort: {{ .Values.puertoMetricas }}
               protocol: TCP
+            {{- end }}
           {{- if .Values.probes.startup.habilitado }}
           startupProbe:
             httpGet:

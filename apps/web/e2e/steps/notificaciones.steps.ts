@@ -80,7 +80,7 @@ Then('the advisor quote starts for Ana', async function (this: PortalWorld) {
 
 Given('the broadcast audience includes Ana', async function (this: PortalWorld) {
   await this.bff.serveBroadcast([
-    { usuarioId: ANA, nombre: 'Ana', apellidos: 'Ruiz', dispositivosActivos: 1 },
+    { usuarioId: ANA, nombre: 'Ana', apellidos: 'Ruiz', email: 'ana@correo.com', documento: '10203040', dispositivosActivos: 1 },
   ]);
 });
 

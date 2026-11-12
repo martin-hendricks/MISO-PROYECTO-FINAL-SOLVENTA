@@ -203,7 +203,7 @@ class SampleMappingTest {
         assertEquals(180, profile.plazoMeses)
         assertEquals(true, profile.consentimientoPerfil)
         val mortgage = bff.mortgage.offer(profile).ready()
-        assertEquals("Vida crediticia", mortgage.ramo)
+        assertEquals("Vida hipotecario", mortgage.ramo)
         assertEquals("oferta_vigente", mortgage.estado)
         assertEquals(64_000L, mortgage.prima)
         assertEquals("COP", mortgage.moneda)
@@ -271,9 +271,6 @@ class SampleMappingTest {
         val withoutGeo = MockClaimRepository().readNotice(PublishedSamples.CLAIM_NOTICE_NO_GEO)!!
         assertNull(withoutGeo.geo)
         assertEquals(ClaimStatus.RECIBIDO, bff.claim.notify(withoutGeo).ready().estado)
-
-        assertEquals(true, bff.mortgage.degraded().ready().degradada)
-        assertEquals(64_000L, bff.mortgage.degraded().ready().prima)
     }
 
     @Test

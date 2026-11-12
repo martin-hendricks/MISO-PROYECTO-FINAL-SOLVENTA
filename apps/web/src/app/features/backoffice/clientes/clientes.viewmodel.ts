@@ -29,8 +29,11 @@ export function pushDe(cliente: Cliente): PushEstado {
   return cliente.dispositivosActivos > 0 ? 'si' : 'no';
 }
 
-export function nombreCliente(cliente: Pick<Cliente, 'nombre' | 'apellidos'>): string {
-  return [cliente.nombre, cliente.apellidos].filter((parte) => parte.trim()).join(' ');
+export function nombreCliente(
+  cliente: Pick<Cliente, 'nombre' | 'apellidos' | 'email'>,
+): string {
+  const nombre = [cliente.nombre, cliente.apellidos].filter((parte) => parte.trim()).join(' ');
+  return nombre || cliente.email.trim();
 }
 
 function borradorVacio(): ClienteNuevo {
