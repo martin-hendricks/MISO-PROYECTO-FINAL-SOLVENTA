@@ -32,6 +32,15 @@ spec:
       annotations:
         prometheus.io/scrape: "false"
     spec:
+      # Fijado al Node Group A, mismo motivo que prometheus-deployment.yaml:
+      # grupo-b ya está al tope de su maxSize sin margen para pods nuevos.
+      nodeSelector:
+        solventa.io/scaling-group: "a"
+      tolerations:
+        - key: solventa.io/scaling-group
+          operator: Equal
+          value: "a"
+          effect: NoSchedule
       containers:
         - name: grafana
           image: grafana/grafana:11.2.0
