@@ -3,7 +3,9 @@ broker real. Mismo patrón que test_kafka_consumer.py, pero ejercitando el
 ciclo de vida completo en vez de solo procesar_mensaje()."""
 
 import asyncio
+import inspect
 import json
+import ssl
 from uuid import uuid4
 
 import pytest
@@ -102,6 +104,22 @@ async def test_iniciar_arranca_el_consumer_y_la_tarea(uow, consumer_falso):
     assert consumidor._consumer.started is True
     assert consumidor._tarea is not None
     assert not consumidor._tarea.done()
+
+    await consumidor.detener()
+
+
+async def test_iniciar_pasa_un_contexto_tls_explicito(uow, consumer_falso):
+    # aiokafka >= 0.13 aborta en el constructor cuando security_protocol es
+    # SASL_SSL y ssl_context queda en None. El fallo no se veía en los tests
+    # (el doble no valida kwargs) ni en el clúster mientras el broker estaba
+    # vacío: solo apareció al desplegar con brokers reales.
+    consumidor = ConsumidorMSK(_config(), uow, PushDoble())
+
+    await consumidor.iniciar()
+
+    contexto = consumer_falso.instancias[0].kwargs["ssl_context"]
+    assert isinstance(contexto, ssl.SSLContext)
+    assert contexto.verify_mode == ssl.CERT_REQUIRED
 
     await consumidor.detener()
 
@@ -261,7 +279,7 @@ async def test_detener_no_lanza_si_stop_falla(uow, consumer_falso):
     assert consumidor._consumer is None
 
 
-def test_token_usa_el_firmador_iam(monkeypatch):
+async def test_token_usa_el_firmador_iam(monkeypatch):
     import sys
     import types
 
@@ -277,4 +295,16 @@ def test_token_usa_el_firmador_iam(monkeypatch):
 
     provider = MSKTokenProvider("us-east-1")
 
-    assert provider.token() == "token-para-us-east-1"
+    assert await provider.token() == "token-para-us-east-1"
+
+
+def test_provider_cumple_el_contrato_de_aiokafka():
+    # aiokafka 0.15 valida isinstance(..., AbstractTokenProvider) al abrir la
+    # conexión y consume token() con await. Un provider sync sin el ABC compila
+    # y pasa los tests con doble, pero rompe el arranque real del consumidor.
+    from aiokafka.abc import AbstractTokenProvider
+
+    provider = MSKTokenProvider("us-east-1")
+
+    assert isinstance(provider, AbstractTokenProvider)
+    assert inspect.iscoroutinefunction(provider.token)

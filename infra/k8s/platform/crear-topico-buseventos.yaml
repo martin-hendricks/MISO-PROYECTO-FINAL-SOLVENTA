@@ -1,0 +1,75 @@
+# Job de bootstrap del tópico BusEventos.
+#
+# MSK corre con auto.create.topics.enable=false y AWS no expone una API para
+# crear tópicos: hay que llamar al AdminClient de Kafka desde dentro de la VPC.
+# Este Job usa la imagen de outbox-relay (ya trae aiokafka y el firmador IAM) y
+# su ServiceAccount, que es la única con kafka-cluster:CreateTopic.
+#
+# deploy.yml renderiza ${IMAGEN}, ${BROKERS} y ${AWS_REGION} con envsubst y lo
+# aplica UNA sola vez: si el Job ya está Complete no lo vuelve a ejecutar.
+# No se fija ttlSecondsAfterFinished a propósito: el Job Completed es el
+# registro de que el tópico ya existe. Si se borrara, el siguiente deploy lo
+# volvería a crear (el comando es idempotente, pero se evita el ruido).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: crear-topico-buseventos
+  namespace: solventa
+  labels:
+    app.kubernetes.io/name: crear-topico-buseventos
+    app.kubernetes.io/component: bootstrap
+spec:
+  # Sin reintentos infinitos: si el rol IRSA todavía no existe o MSK rechaza
+  # la autenticación, el deploy falla y se ve en el log del Job.
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crear-topico-buseventos
+        app.kubernetes.io/component: bootstrap
+    spec:
+      restartPolicy: Never
+      serviceAccountName: outbox-relay
+      securityContext:
+        # Mismo contrato que el chart (deployment.yaml): el uid explícito
+        # permite que kubelet verifique runAsNonRoot con una imagen cuyo USER
+        # es un nombre ("app"), no un número.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: crear-topico
+          image: ${IMAGEN}
+          # command + args explícitos: el Dockerfile de outbox-relay define
+          # CMD ["python", "-m", "app.main"]; si solo se fijara `command`,
+          # Kubernetes añadiría ese CMD como argumentos.
+          command: ["python"]
+          args: ["-m", "app.crear_topico", "BusEventos"]
+          env:
+            - name: MSK_BOOTSTRAP_BROKERS
+              value: "${BROKERS}"
+            - name: AWS_REGION
+              value: "${AWS_REGION}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
