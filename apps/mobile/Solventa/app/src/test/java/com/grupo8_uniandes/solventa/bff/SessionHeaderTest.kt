@@ -147,6 +147,22 @@ class SessionHeaderTest {
     }
 
     @Test
+    fun givenSignOutIsUnauthorized_whenTheCallReturns_thenLogoutIsNotNotified() = runBlocking {
+        var notified = 0
+        SessionUnauthorized.onUnauthorized = { notified += 1 }
+        try {
+            tokens.save(SessionTokens("expired", "refresh-me", 1))
+            server.enqueue(MockResponse().setResponseCode(401))
+            server.enqueue(MockResponse().setResponseCode(401))
+            assertTrue(session().signOut() is StandInAnswer.Failed)
+            assertEquals(0, notified)
+            assertNull(tokens.read())
+        } finally {
+            SessionUnauthorized.onUnauthorized = null
+        }
+    }
+
+    @Test
     fun givenSignInIsUnauthorized_whenTheCallReturns_thenLogoutIsNotNotified() = runBlocking {
         var notified = 0
         SessionUnauthorized.onUnauthorized = { notified += 1 }

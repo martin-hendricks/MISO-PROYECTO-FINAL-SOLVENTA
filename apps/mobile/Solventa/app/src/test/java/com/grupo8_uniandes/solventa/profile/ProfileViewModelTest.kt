@@ -13,6 +13,11 @@ import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.registration.Registration
 import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.ui.shell.ProfileViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,17 +31,23 @@ class ProfileViewModelTest {
         assertFalse(viewModel.signedOut.value)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun givenSignOutConfirmed_whenCalled_thenSessionClosesOnce() {
-        val session = MemorySession()
-        val viewModel = viewModel(session)
-        viewModel.confirmSignOut()
-        viewModel.confirmSignOut()
-        assertTrue(viewModel.signedOut.value)
-        assertEquals(1, session.closes)
-        assertFalse(session.isOpen())
-        viewModel.consumeSignOut()
-        assertFalse(viewModel.signedOut.value)
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val session = MemorySession()
+            val viewModel = viewModel(session)
+            viewModel.confirmSignOut()
+            viewModel.confirmSignOut()
+            assertTrue(viewModel.signedOut.value)
+            assertEquals(1, session.closes)
+            assertFalse(session.isOpen())
+            viewModel.consumeSignOut()
+            assertFalse(viewModel.signedOut.value)
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     private fun viewModel(session: SessionRepository = MemorySession()) = ProfileViewModel(
