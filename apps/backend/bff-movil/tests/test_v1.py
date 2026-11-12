@@ -757,71 +757,123 @@ def test_pagos_siguen_en_muestra_e_inicio_toma_la_primera_poliza(client, doble):
     assert client.get("/v1/cliente/inicio", headers=headers).json()["ofertaVigente"] is None
 
 
-def test_hipoteca_v1(client, doble):
-    headers = _auth(client)
-    cuerpo = {"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": False}
-    sin_consentimiento = client.post("/v1/cliente/oferta-hipotecaria", headers=headers, json=cuerpo)
-    assert sin_consentimiento.status_code == 200
-    assert sin_consentimiento.json() == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
-    assert doble.llamadas == []
+PERFIL_HIPOTECARIO = {
+    "precio": "42700.00",
+    "moneda": "COP",
+    "degradado": False,
+    "factores": [
+        {"factor": "zona_riesgo", "impacto": "aumenta_prima"},
+        {"factor": "ajuste_competitivo", "impacto": "reduce_prima"},
+    ],
+}
 
-    doble.respuestas["solicitar_oferta_hipotecario"] = {
-        "precio": "64000.00",
-        "moneda": "COP",
-        "degradado": False,
-        "factores": [
-            {"factor": "plazo", "impacto": "positivo"},
-            {"factor": "valor del crédito"},
-        ],
-    }
-    lista = client.post(
+COTIZACION_VIDA = {
+    "cotizacion_id": "COT-77",
+    "estado": "oferta_vigente",
+    "prima": "106900.00",
+    "moneda": "COP",
+    "vence_en": "2026-12-01T00:00:00Z",
+    "factor_riesgo_origen": "perfil",
+}
+
+
+def _pedir_hipoteca(client, headers, consentimiento=True, credito=None):
+    return client.post(
         "/v1/cliente/oferta-hipotecaria",
         headers=headers,
-        json={**cuerpo, "consentimientoPerfil": True},
+        json={"credito": credito or {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": consentimiento},
     )
-    assert lista.json()["prima"] == 64000.0
-    assert lista.json()["ramo"] == "Vida hipotecario"
-    assert lista.json()["factores"] == ["plazo", "valor del crédito"]
-    assert lista.json()["degradada"] is False
-    assert _nombres(doble) == ["otorgar_consentimiento", "solicitar_oferta_hipotecario"]
 
-    doble.respuestas["solicitar_oferta_hipotecario"] = {"precio": "1"}
-    assert (
-        client.post(
-            "/v1/cliente/oferta-hipotecaria",
-            headers=headers,
-            json={**cuerpo, "consentimientoPerfil": True},
-        ).status_code
-        == 502
-    )
-    doble.respuestas["solicitar_oferta_hipotecario"] = {
-        "precio": "1",
+
+def test_hipoteca_v1_sin_consentimiento_no_llama_al_nucleo(client, doble):
+    headers = _auth(client)
+
+    respuesta = _pedir_hipoteca(client, headers, consentimiento=False)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
+    assert doble.llamadas == []
+
+
+def test_hipoteca_v1_perfila_y_cotiza_con_el_credito_de_la_originacion(client, doble):
+    headers = _auth(client)
+    doble.respuestas["originacion_pendiente"] = ORIGINACION
+    doble.respuestas["solicitar_oferta_hipotecario"] = PERFIL_HIPOTECARIO
+    doble.respuestas["cotizar"] = COTIZACION_VIDA
+
+    cuerpo = _pedir_hipoteca(client, headers).json()
+
+    assert cuerpo == {
+        "cotizacionId": "COT-77",
+        "ramo": "Vida hipotecario",
+        "descripcion": "Cubre el saldo del crédito hipotecario durante el plazo pactado.",
+        "estado": "oferta_vigente",
+        "prima": "106900.00",
         "moneda": "COP",
-        "degradado": False,
-        "factores": "plazo",
+        "factores": ["zona_riesgo", "ajuste_competitivo"],
+        "degradada": False,
     }
-    assert (
-        client.post(
-            "/v1/cliente/oferta-hipotecaria",
-            headers=headers,
-            json={**cuerpo, "consentimientoPerfil": True},
-        ).status_code
-        == 502
-    )
-    doble.respuestas["solicitar_oferta_hipotecario"] = {
-        "precio": "1",
-        "moneda": "COP",
-        "degradado": True,
-        "factores": [{}],
-    }
-    assert (
-        client.post(
-            "/v1/cliente/oferta-hipotecaria",
-            headers=headers,
-            json={**cuerpo, "consentimientoPerfil": True},
-        ).status_code
-        == 502
-    )
+    assert _nombres(doble) == [
+        "otorgar_consentimiento",
+        "solicitar_oferta_hipotecario",
+        "originacion_pendiente",
+        "cotizar",
+    ]
+    (cotizacion,) = [llamada for llamada in doble.llamadas if llamada["metodo"] == "cotizar"]
+    assert cotizacion["producto"] == "vida-hipotecario"
+    assert cotizacion["canal"] == "movil"
+    assert cotizacion["datos_riesgo"] == {"valor": 180000000, "plazoMeses": 180}
+    assert cotizacion["idempotency_key"] == "originacion-77777777-7777-7777-7777-777777777777"
+    assert cotizacion["usuario_id"] == _dueno()["usuario_id"]
+
+
+def test_hipoteca_v1_sin_originacion_usa_el_credito_enviado(client, doble):
+    headers = _auth(client)
+    doble.respuestas["originacion_pendiente"] = HTTPException(status_code=404, detail="No existe")
+    doble.respuestas["solicitar_oferta_hipotecario"] = PERFIL_HIPOTECARIO
+    doble.respuestas["cotizar"] = COTIZACION_VIDA
+
+    _pedir_hipoteca(client, headers, credito={"valor": 90000000, "plazoMeses": 120})
+
+    (cotizacion,) = [llamada for llamada in doble.llamadas if llamada["metodo"] == "cotizar"]
+    assert cotizacion["datos_riesgo"] == {"valor": 90000000, "plazoMeses": 120}
+
+
+def test_hipoteca_v1_perfil_degradado_o_respaldo_marcan_la_oferta(client, doble):
+    headers = _auth(client)
+    doble.respuestas["originacion_pendiente"] = ORIGINACION
+    doble.respuestas["solicitar_oferta_hipotecario"] = {**PERFIL_HIPOTECARIO, "degradado": True}
+    doble.respuestas["cotizar"] = COTIZACION_VIDA
+    assert _pedir_hipoteca(client, headers).json()["degradada"] is True
+
+    doble.respuestas["solicitar_oferta_hipotecario"] = PERFIL_HIPOTECARIO
+    doble.respuestas["cotizar"] = {**COTIZACION_VIDA, "factor_riesgo_origen": "respaldo"}
+    assert _pedir_hipoteca(client, headers).json()["degradada"] is True
+
+
+def test_hipoteca_v1_perfilamiento_caido_igual_cotiza_degradada(client, doble):
+    headers = _auth(client)
+    doble.respuestas["solicitar_oferta_hipotecario"] = HTTPException(status_code=503, detail="caido")
+    doble.respuestas["originacion_pendiente"] = ORIGINACION
+    doble.respuestas["cotizar"] = COTIZACION_VIDA
+
+    cuerpo = _pedir_hipoteca(client, headers).json()
+
+    assert cuerpo["cotizacionId"] == "COT-77"
+    assert cuerpo["factores"] == []
+    assert cuerpo["degradada"] is True
+
+
+def test_hipoteca_v1_respuestas_incompletas_son_502(client, doble):
+    headers = _auth(client)
+    doble.respuestas["originacion_pendiente"] = ORIGINACION
+    doble.respuestas["cotizar"] = COTIZACION_VIDA
+    doble.respuestas["solicitar_oferta_hipotecario"] = {"precio": "1", "degradado": False, "factores": "plazo"}
+    assert _pedir_hipoteca(client, headers).status_code == 502
+
+    doble.respuestas["solicitar_oferta_hipotecario"] = PERFIL_HIPOTECARIO
+    doble.respuestas["cotizar"] = {"cotizacion_id": "COT-77"}
+    assert _pedir_hipoteca(client, headers).status_code == 502
 
 
 def test_ruta_mapeada_sin_url_es_503(client):

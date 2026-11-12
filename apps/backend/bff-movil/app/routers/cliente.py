@@ -241,23 +241,30 @@ def _cotizacion_de_poliza(nucleo, poliza: dict) -> dict:
 RAMO_VIDA_HIPOTECARIO = "Vida hipotecario"
 
 
-def _hipoteca_movil(oferta: dict) -> dict:
-    oferta = _exigir(oferta, "precio", "moneda", "factores", "degradado")
-    if not isinstance(oferta["factores"], list):
+PRODUCTO_VIDA_HIPOTECARIO = "vida-hipotecario"
+
+
+def _factores_perfil(perfil: dict) -> tuple[list[str], bool]:
+    perfil = _exigir(perfil, "factores", "degradado")
+    if not isinstance(perfil["factores"], list):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
     factores = []
-    for factor in oferta["factores"]:
+    for factor in perfil["factores"]:
         if not isinstance(factor, dict) or "factor" not in factor:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
         factores.append(factor["factor"])
-    return {
-        "ramo": RAMO_VIDA_HIPOTECARIO,
-        "estado": "oferta_vigente",
-        "prima": float(oferta["precio"]),
-        "moneda": oferta["moneda"],
-        "factores": factores,
-        "degradada": oferta["degradado"],
-    }
+    return factores, bool(perfil["degradado"])
+
+
+def _credito_cotizable(nucleo, cliente_id: str, credito: Credito) -> tuple[dict, str]:
+    try:
+        originacion = nucleo.originacion_pendiente(cliente_id)
+    except HTTPException as exc:
+        if exc.status_code not in (404, 503):
+            raise
+        return {"valor": credito.valor, "plazoMeses": credito.plazoMeses}, str(uuid.uuid4())
+    datos = _credito_movil(_exigir(originacion, "id"))
+    return {"valor": datos["valor"], "plazoMeses": datos["plazoMeses"]}, f"originacion-{originacion['id']}"
 
 
 @router.post("/cotizaciones")
@@ -779,14 +786,35 @@ def hipoteca(body: Hipoteca, request: Request, usuario: dict = Depends(require_c
             "degradada": False,
         }
     nucleo = request.app.state.nucleo
-    cliente_id = _contexto(usuario)["usuario_id"]
-    nucleo.otorgar_consentimiento(cliente_id)
-    return _hipoteca_movil(
-        nucleo.solicitar_oferta_hipotecario(
-            idempotency_key=str(uuid.uuid4()),
-            cliente_id=cliente_id,
+    contexto = _contexto(usuario)
+    cliente_id = contexto["usuario_id"]
+    factores, degradado = [], True
+    try:
+        nucleo.otorgar_consentimiento(cliente_id)
+        factores, degradado = _factores_perfil(
+            nucleo.solicitar_oferta_hipotecario(idempotency_key=str(uuid.uuid4()), cliente_id=cliente_id)
         )
+    except HTTPException as exc:
+        if exc.status_code != 503:
+            raise
+    credito, clave = _credito_cotizable(nucleo, cliente_id, body.credito)
+    datos = nucleo.cotizar(
+        idempotency_key=clave,
+        usuario_id=cliente_id,
+        socio_id=contexto["socio_id"],
+        consentimiento_id=contexto["consentimiento_id"],
+        producto=PRODUCTO_VIDA_HIPOTECARIO,
+        canal=CANAL,
+        datos_riesgo=credito,
     )
+    _, descripcion = presentar(PRODUCTO_VIDA_HIPOTECARIO)
+    oferta = _oferta_movil(datos, RAMO_VIDA_HIPOTECARIO, descripcion)
+    oferta.pop("venceEn")
+    return {
+        **oferta,
+        "factores": factores,
+        "degradada": degradado or datos.get("factor_riesgo_origen") == "respaldo",
+    }
 
 
 def _avisos_proyectados(nucleo, usuario: dict) -> list:
