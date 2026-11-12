@@ -14,11 +14,11 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   requests:
@@ -42,7 +42,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 8
   targetCPU: 70
   targetMemory: 80

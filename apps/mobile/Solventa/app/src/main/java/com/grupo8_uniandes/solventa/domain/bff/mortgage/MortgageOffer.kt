@@ -19,6 +19,4 @@ data class MortgageQuote(
 
 interface MortgageRepository {
     suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote>
-
-    suspend fun degraded(): StandInAnswer<MortgageQuote>
 }

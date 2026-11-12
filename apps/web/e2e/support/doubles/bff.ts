@@ -62,6 +62,7 @@ export class BffDoubles {
   private consentMark: ConsentMark | null = null;
   private mortgageBodies: Record<string, unknown>[] = [];
   private originationBodies: Record<string, unknown>[] = [];
+  private profilingConsentRevocations = 0;
 
   constructor(private readonly page: Page) {}
 
@@ -478,6 +479,26 @@ export class BffDoubles {
 
   hasClients(): boolean {
     return this.clientsServed;
+  }
+
+  async serveProfilingConsent(otorgadoEn: string | null): Promise<void> {
+    const url = '**/web/cliente/consentimiento-perfil';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      if (route.request().method() === 'DELETE') {
+        this.profilingConsentRevocations += 1;
+        return route.fulfill({
+          json: { estado: 'revocado', revocadoEn: '2026-11-11T15:30:00Z' },
+        });
+      }
+      return route.fulfill({
+        json: otorgadoEn ? { estado: 'vigente', otorgadoEn } : { estado: 'sin_consentimiento' },
+      });
+    });
+  }
+
+  profilingConsentRevoked(): number {
+    return this.profilingConsentRevocations;
   }
 
   private async replaceClients(handler: Parameters<Page['route']>[1]): Promise<void> {

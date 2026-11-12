@@ -19,7 +19,15 @@ spec:
       port: {{ .Values.puerto }}
       targetPort: http
       protocol: TCP
+    {{- if ne (.Values.puertoMetricas | toString) (.Values.puerto | toString) }}
+    # Mismo motivo que deployment.yaml: solo existe un containerPort
+    # "metrics" separado cuando puertoMetricas difiere de puerto. Si son
+    # iguales (el caso real hoy, en los 14 microservicios), el puerto
+    # "http" ya sirve /metrics -- declarar aquí un segundo "metrics" con el
+    # mismo número produce "duplicate entries for key [port=...]" en el
+    # Server-Side Apply de Helm.
     - name: metrics
       port: {{ .Values.puertoMetricas }}
       targetPort: metrics
       protocol: TCP
+    {{- end }}

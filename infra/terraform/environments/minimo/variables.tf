@@ -293,8 +293,8 @@ variable "node_group_a_desired_size" {
 
 variable "node_group_a_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min)."
-  default     = 6
+  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min). Subido de 2 a 3 (ver terraform.tfvars) al mover analitica aquí desde Grupo B -- el presupuesto real de la cuenta (16 vCPU on-demand, L-1216C47A) sigue en 8 nodos t3.small TOTALES entre ambos grupos, así que node_group_b_max_size baja de 6 a 5 en la misma proporción."
+  default     = 3
 }
 
 variable "node_group_b_instance_types" {
@@ -317,8 +317,8 @@ variable "node_group_b_desired_size" {
 
 variable "node_group_b_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo B."
-  default     = 6
+  description = "Nodos máximos del Grupo B. Un intento previo de subir esto de 6 a 8 (sin tocar Grupo A) se revirtió: excedía la cuota real de la cuenta (16 vCPU on-demand = 8 nodos t3.small TOTALES entre ambos grupos). En vez de subir la cuota, se movió analitica a Grupo A (menos demanda síncrona de negocio ahí) y este valor bajó de 6 a 5 mientras node_group_a_max_size sube de 2 a 3 -- mismo total de 8."
+  default     = 5
 }
 
 variable "enable_external_secrets" {
@@ -418,8 +418,30 @@ variable "alb_routes" {
         "/bff-movil/v1/sesion",
         "/bff-movil/v1/registro",
         "/bff-movil/v1/cliente",
+        # Swagger propio bajo /bff-movil/v1 (apps/backend/bff-movil/app/main.py,
+        # docs_bff_movil/openapi_bff_movil) -- el ALB no recorta el prefijo, así
+        # que el /docs y /openapi.json que FastAPI monta en la raíz nunca son
+        # alcanzables vía el API Gateway sin esta entrada.
+        "/bff-movil/v1/docs",
+        "/bff-movil/v1/openapi.json",
       ]
       priority = 40
+    }
+    # Grafana (namespace solventa-observability, ver
+    # infra/k8s/platform/observability/). Mismo mecanismo que los 14
+    # microservicios: una entrada más de ALB, sin Ingress ni ALB nuevo (ver
+    # odd/tasks/observabilidad-prometheus-grafana.md -- un Ingress crearía
+    # un segundo ALB al que el API Gateway nunca llega).
+    grafana = {
+      port = 3000
+      # Sin "/*" explícito: aws_lb_listener_rule.routes ya agrega el wildcard
+      # al path_pattern (infra/terraform/modules/alb/main.tf:187) y al Name
+      # del tag (línea 191) -- un "*" literal aquí duplica el wildcard y
+      # además rompe el patrón de tags de AWS (no permite "*"), como en las
+      # demás entradas de este mapa (api-socios, bff-web, bff-movil).
+      paths             = ["/observabilidad/grafana"]
+      health_check_path = "/api/health"
+      priority          = 50
     }
   }
 }

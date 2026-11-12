@@ -12,6 +12,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
@@ -35,6 +36,7 @@ class BffRuntime private constructor(
     val claim: ClaimRepository,
     val payment: PaymentRepository,
     val mortgage: MortgageRepository,
+    val profilingConsent: ProfilingConsentRepository,
     val notices: NoticeRepository,
     val policyCommand: PolicyCommandRepository,
     val home: HomeBffRepository,
@@ -56,6 +58,7 @@ class BffRuntime private constructor(
                 bff.claim,
                 bff.payment,
                 bff.mortgage,
+                bff.profilingConsent,
                 bff.notices,
                 bff.policyCommand,
                 bff.home,
@@ -81,6 +84,7 @@ class BffRuntime private constructor(
                 RemoteClaimRepository(api, gate, cache),
                 RemotePaymentRepository(api, gate),
                 RemoteMortgageRepository(api, gate),
+                RemoteProfilingConsentRepository(api, gate),
                 RemoteNoticeRepository(api, gate),
                 RemotePolicyCommandRepository(api, gate),
                 RemoteHomeBffRepository(api, gate, tokens),

@@ -44,18 +44,19 @@ def test_aviso_sin_geo(client):
 
 def test_hipoteca_avisos_inicio_push_y_asistencia(client):
     headers = _auth(client)
-    degraded = client.post(
+    sin_consentimiento = client.post(
         "/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": False},
     ).json()
-    assert degraded["degradada"] is True and degraded["prima"] == 50000
+    assert sin_consentimiento == {"ramo": "Vida hipotecario", "estado": "sin_consentimiento"}
     ready = client.post(
         "/cliente/oferta-hipotecaria",
         headers=headers,
         json={"credito": {"valor": 1, "plazoMeses": 12}, "consentimientoPerfil": True},
     ).json()
     assert ready["degradada"] is False and ready["prima"] == 64000
+    assert ready["ramo"] == "Vida hipotecario"
     assert client.get("/cliente/avisos", headers=headers).json()["avisos"]
     inicio = client.get("/cliente/inicio", headers=headers).json()
     assert inicio["hipotecario"] is None

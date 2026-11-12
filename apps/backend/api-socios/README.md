@@ -20,6 +20,21 @@ Expone catálogo y cotización a canales de terceros (socios de distribución em
 
 `Producto` = `codigo`, `nombre`, `moneda`, `coberturas[]` (`codigo`, `nombre`, `limite: {valor, unidad}`) y `datosRiesgo[]` (`nombre`, `tipo` = `rango` con `minimo`/`maximo`, o `valores` con `valores[]`). No expone campos internos del núcleo. Un campo nuevo entra siempre como opcional; quitar o renombrar uno es `/v2`.
 
+### Originación hipotecaria (R5 · vida hipotecario)
+
+| Método | Ruta | Cuerpo | Respuesta |
+| --- | --- | --- | --- |
+| `POST` | `/v1/originaciones-hipotecarias` | `{"tipoDocumento", "numeroDocumento", "valor", "plazoMeses"}` | `201 {"estado": "pendiente", "valor", "plazoMeses"}` |
+
+El banco aliado envía el crédito de un cliente que ya tiene cuenta en Solventa. `api-socios` resuelve el documento en `ms-identidad` (`GET /v1/usuarios/documento`, con un token de servicio de rol `socio`) y registra la originación en `ms-perfilamiento` con `origen = socio`. El cliente ve la card **Vida hipotecario** en Inicio con esos valores, que no puede modificar, y solo autoriza el perfilamiento y acepta.
+
+| Caso | Respuesta |
+| --- | --- |
+| Documento sin cuenta en Solventa | `404 {"codigo": "cliente_no_registrado"}` |
+| Datos inválidos o campos de más | `422` sin llamar al núcleo |
+| `valor`/plazo que rechaza `ms-perfilamiento` | El `422` del núcleo con su `codigo` |
+| `ms-identidad` o `ms-perfilamiento` caídos, o el token rechazado | `503 {"codigo": "servicio_no_disponible"}` |
+
 **Pendiente:** la credencial de socio (`requiere_rol("socio")` de `solventa_seguridad`) entra con HU-76; hasta entonces el router `/v1` no exige token.
 
 ## Desarrollo
@@ -35,6 +50,10 @@ uvicorn app.main:app --reload --port 8080          # http://localhost:8080/docs
 | Variable | Default | Uso |
 | --- | --- | --- |
 | `MS_COTIZACION_URL` | `http://localhost:8000` | `ms-cotizacion`: fuente del catálogo |
+| `MS_IDENTIDAD_URL` | `http://localhost:8010` | `ms-identidad`: resuelve el documento del cliente |
+| `MS_PERFILAMIENTO_URL` | `http://localhost:8004` | `ms-perfilamiento`: registra la originación |
+| `SOLVENTA_TOKEN_SECRET` | vacío | Firma el token de servicio `socio`; es el mismo secreto que bff-web y ms-identidad. En k8s llega por `ExternalSecret` desde `solventa-minimo-bff-web-token` |
+| `SOCIO_SERVICIO_UID` | `00000000-0000-0000-0000-00000000500c` | `uid` del token de servicio |
 | `TIMEOUT_NUCLEO_S` | `1.0` | Timeout por llamada al núcleo |
 | `TIMEOUT_OPCIONAL_S` | `0.3` | Corte de fuentes opcionales en vistas agregadas |
 

@@ -93,7 +93,7 @@ class InicioTest {
         show(HomeUiState(panel = HomePanel(vidaCrediticia = true)))
         rule.onNodeWithText("Vida Crediticia").assertIsDisplayed()
         rule.onNodeWithTag("home_vida_crediticia").performScrollTo().performClick()
-        rule.waitForTag("screen_oferta_hipotecario")
+        rule.waitForTag("screen_consentimiento_hipotecario")
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onNodeWithTag("action_volver").performClick()

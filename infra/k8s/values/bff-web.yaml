@@ -27,7 +27,7 @@ grupoEscalado: "b"
 # patrón que ms-cotizacion, no 8080 -- ver el comentario de puerto en
 # infra/k8s/values/ms-cotizacion.yaml para el bug ya encontrado ahí).
 puerto: 8000
-puertoMetricas: 9090
+puertoMetricas: 8000
 
 recursos:
   requests:

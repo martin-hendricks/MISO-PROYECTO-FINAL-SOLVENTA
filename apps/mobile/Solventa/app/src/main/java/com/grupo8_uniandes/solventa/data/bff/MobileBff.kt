@@ -6,6 +6,7 @@ import com.grupo8_uniandes.solventa.data.bff.mock.MockHomeBffRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockMobileSessionRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockMortgageRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockProfilingConsentRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockNoticeRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockOfferRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockPaymentRepository
@@ -21,6 +22,7 @@ class MobileBff(
     val claim: MockClaimRepository = MockClaimRepository(),
     val payment: MockPaymentRepository = MockPaymentRepository(),
     val mortgage: MockMortgageRepository = MockMortgageRepository(),
+    val profilingConsent: MockProfilingConsentRepository = MockProfilingConsentRepository(),
     val notices: MockNoticeRepository = MockNoticeRepository(),
     val policyCommand: MockPolicyCommandRepository = MockPolicyCommandRepository(),
     val home: MockHomeBffRepository = MockHomeBffRepository(),

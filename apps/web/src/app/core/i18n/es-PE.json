@@ -86,6 +86,17 @@
       "home": "Volver al inicio"
     }
   },
+  "consentimientoPerfil": {
+    "title": "Perfilamiento para vida hipotecario",
+    "otorgado": "Otorgado el {{fecha}}",
+    "revocado": "Revocado el {{fecha}}",
+    "error": "No pudimos revocar la autorización. Intenta de nuevo en unos minutos.",
+    "dialog": {
+      "title": "Revocar la autorización de perfilamiento",
+      "advertencia": "Solventa dejará de consultar tus datos de Open Finance y Open Data para calcular ofertas de vida hipotecario. Las ofertas que no hayas aceptado ya no podrán emitirse.",
+      "revocar": "Revocar"
+    }
+  },
   "polizas": {
     "lista": {
       "title": "Pólizas",
@@ -706,7 +717,8 @@
       "nivel_ingresos_estimado": "Nivel de ingresos estimado",
       "score_comportamiento": "Comportamiento de pago",
       "zona_riesgo": "Zona de riesgo",
-      "antiguedad_documento": "Antigüedad del documento"
+      "antiguedad_documento": "Antigüedad del documento",
+      "ajuste_competitivo": "Ajustada al precio de mercado"
     },
     "impacto": {
       "reduce_prima": "Reduce la prima",

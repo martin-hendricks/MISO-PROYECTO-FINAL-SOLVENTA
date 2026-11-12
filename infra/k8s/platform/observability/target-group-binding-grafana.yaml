@@ -1,0 +1,17 @@
+# Mismo patrón que infra/k8s/platform/target-group-bindings.yaml: registra
+# el Service "grafana" (namespace solventa-observability) en el target group
+# que Terraform crea para él (var.alb_routes["grafana"], ver
+# infra/terraform/environments/minimo/terraform.tfvars). Separado del
+# archivo de los 14 microservicios porque vive en otro namespace y lo aplica
+# un paso distinto del pipeline de CD.
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: grafana
+  namespace: solventa-observability
+spec:
+  serviceRef:
+    name: grafana
+    port: 3000
+  targetGroupARN: ${GRAFANA_TARGET_GROUP_ARN}
+  targetType: ip

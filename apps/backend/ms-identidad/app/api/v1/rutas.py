@@ -7,7 +7,14 @@ from app.application import casos_uso
 from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import Llamante, LlamanteDep, alcance, exigir_backoffice, exigir_operador
+from app.seguridad import (
+    Llamante,
+    LlamanteDep,
+    alcance,
+    exigir_backoffice,
+    exigir_busqueda_por_documento,
+    exigir_operador,
+)
 
 from .schemas import (
     AutenticarEntrada,
@@ -17,6 +24,7 @@ from .schemas import (
     EstadoEntrada,
     ListaUsuariosSalida,
     PerfilEntrada,
+    UsuarioPorDocumentoSalida,
     UsuarioSalida,
 )
 
@@ -78,6 +86,20 @@ async def autenticacion(entrada: AutenticarEntrada, uow: Uow):
     responsabilidad de bff-web (issue_pair) una vez recibe este 200."""
     usuario = await casos_uso.autenticar_usuario(uow, email=entrada.email, password_plano=entrada.password)
     return UsuarioSalida.desde(usuario)
+
+
+@router.get("/documento", response_model=UsuarioPorDocumentoSalida, responses=ERRORES)
+async def buscar_por_documento(
+    uow: Uow,
+    llamante: LlamanteDep,
+    tipo_documento: Annotated[str, Query(min_length=1, max_length=10)],
+    numero_documento: Annotated[str, Query(min_length=1, max_length=50)],
+):
+    """Resuelve el usuario de un documento para un socio o el back-office. Solo
+    devuelve el usuario_id: el resto de la cuenta no sale de este endpoint."""
+    exigir_busqueda_por_documento(llamante)
+    usuario = await casos_uso.buscar_por_documento(uow, tipo_documento, numero_documento)
+    return UsuarioPorDocumentoSalida(usuario_id=usuario.id)
 
 
 @router.get("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)

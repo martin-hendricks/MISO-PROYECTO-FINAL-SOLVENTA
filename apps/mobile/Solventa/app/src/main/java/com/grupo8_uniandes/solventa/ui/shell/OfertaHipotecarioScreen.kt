@@ -32,6 +32,8 @@ fun OfertaHipotecarioScreen(
     onAccept: () -> Unit,
     onReviewLater: () -> Unit,
     modifier: Modifier = Modifier,
+    factores: List<String> = emptyList(),
+    degradada: Boolean = false,
 ) {
     val catalogCoverage = stringResource(R.string.mortgage_offer_coverage)
     val coverage = if (offer.coverage == ShowMortgageOffer.DEFAULT_COVERAGE) {
@@ -77,6 +79,25 @@ fun OfertaHipotecarioScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.testTag("mortgage_offer_premium"),
             )
+            if (factores.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.mortgage_offer_factors,
+                        factores.map { mortgageFactorLabel(it) }.joinToString(" · "),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("mortgage_offer_factors"),
+                )
+            }
+        }
+        if (degradada) {
+            Text(
+                text = stringResource(R.string.mortgage_offer_degraded),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("mortgage_offer_degraded"),
+            )
         }
         SolventaButton(
             text = stringResource(R.string.action_accept_offer),
@@ -93,4 +114,14 @@ fun OfertaHipotecarioScreen(
             testTag = "action_review_later",
         )
     }
+}
+
+@Composable
+private fun mortgageFactorLabel(code: String): String = when (code) {
+    "nivel_ingresos_estimado" -> stringResource(R.string.mortgage_factor_income)
+    "score_comportamiento" -> stringResource(R.string.mortgage_factor_behavior)
+    "zona_riesgo" -> stringResource(R.string.mortgage_factor_zone)
+    "antiguedad_documento" -> stringResource(R.string.mortgage_factor_document_age)
+    "ajuste_competitivo" -> stringResource(R.string.mortgage_factor_competitive)
+    else -> code
 }

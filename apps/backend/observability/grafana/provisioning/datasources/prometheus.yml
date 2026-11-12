@@ -1,0 +1,12 @@
+# Mismo patrón que infra/k8s/platform/observability/grafana-provisioning-datasources.yaml:
+# uid "prometheus" fijo y literal, para que los dashboards (misma carpeta de
+# dashboards/) lo referencien sin pasos manuales de importación.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

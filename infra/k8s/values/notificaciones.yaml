@@ -14,11 +14,11 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   requests:
@@ -42,7 +42,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 6
   targetCPU: 70
   targetMemory: 80
@@ -72,12 +72,24 @@ externalSecrets:
   remoteSecrets:
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: notificaciones-token
+      # Sin `claves`: se usa dataFrom.extract (ver mismo comentario en
+      # infra/k8s/values/bff-web.yaml).
     - nombreRemoto: solventa-minimo-notificaciones-fcm
       nombreLocal: notificaciones-fcm
     - nombreRemoto: solventa-minimo-msk-config
       nombreLocal: notificaciones-msk
+    # notificaciones-db: notificaciones tiene su propio esquema
+    # (db/01_notificaciones.sql, CREATE SCHEMA notificaciones) pero, igual
+    # que analitica/ms-perfilamiento, sin instancia RDS propia -- vive en
+    # DBCompartida. El workflow de CD detecta automáticamente el paso de
+    # migraciones por la carpeta db/ existente y espera un ExternalSecret
+    # llamado exactamente "<servicio>-db" (.github/workflows/deploy.yml);
+    # sin esta entrada faltaba por completo (mismo gap encontrado y
+    # corregido en analitica.yaml).
     - nombreRemoto: solventa-minimo-compartida-db-credentials
       nombreLocal: notificaciones-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
