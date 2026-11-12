@@ -10,7 +10,7 @@ variable "environment" {
 
 variable "repositories" {
   type        = list(string)
-  description = "Deployable component names, one ECR repository per entry. Defaults to the 12 monorepo microservices plus the analitica and notificaciones components shown as deployable in the deployment diagram."
+  description = "Deployable component names, one ECR repository per entry. Defaults to the 12 monorepo microservices plus the analitica, notificaciones and outbox-relay components shown as deployable in the deployment diagram."
   default = [
     "ms-cotizacion",
     "ms-suscripcion",
@@ -26,6 +26,7 @@ variable "repositories" {
     "api-socios",
     "analitica",
     "notificaciones",
+    "outbox-relay",
   ]
 }
 

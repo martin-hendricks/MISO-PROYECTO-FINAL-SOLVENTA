@@ -318,6 +318,7 @@ module "github_actions_cd" {
   eks_cluster_arn     = module.eks.cluster_arn
   eks_cluster_name    = module.eks.cluster_name
   spa_kms_key_arn     = module.kms.s3_key_arn
+  msk_cluster_arn     = module.msk.cluster_arn
   tags                = var.extra_tags
 }
 

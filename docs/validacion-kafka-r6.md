@@ -39,13 +39,21 @@ del mensaje igual a `agregado_id` para preservar el orden por agregado.
 
 ## Pasos (en orden)
 
-### 1. Aplicar Terraform (crea el rol IRSA del relay)
+### 1. Aplicar Terraform (rol IRSA del relay, repositorio ECR y lectura de MSK en CD)
 
 ```bash
 cd infra/terraform/environments/minimo
-terraform plan   # revisar: aws_iam_role/policy de solventa-minimo-outbox-relay-irsa
+terraform plan   # revisar tres altas, todas idempotentes
 terraform apply
 ```
+
+El plan debe incluir:
+
+| Recurso | Para qué |
+| --- | --- |
+| `module.irsa_aplicacion` · rol `solventa-minimo-outbox-relay-irsa` | el pod se autentica contra MSK por SASL/IAM |
+| `module.ecr` · repositorio `solventa-minimo-outbox-relay` | sin él el `docker push` del workflow falla con `403 Forbidden` |
+| `module.github_actions_cd` · política `<rol>-msk-read` | el workflow resuelve los bootstrap brokers con `kafka:ListClusters` / `kafka:GetBootstrapBrokers`; sin ellos el deploy de `notificaciones` y `outbox-relay` muere con `AccessDeniedException` |
 
 El rol existe solo después del apply. Sin él, el pod arranca pero no puede
 autenticarse contra MSK (falla `publicador_msk_iniciado`).
