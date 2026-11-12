@@ -1,0 +1,141 @@
+# outbox-relay — publicador del outbox transaccional hacia MSK (Grupo B)
+#
+# Worker de polling: lee `outbox_evento` en los seis esquemas productores y
+# publica lo pendiente en el tópico BusEventos. No es una API; expone solo
+# /health y /metrics en el mismo puerto porque el chart genérico exige
+# httpGet para liveness/readiness (ver apps/backend/outbox-relay/app/main.py).
+#
+# Sin este servicio ningún evento de ms-cotizacion/ms-suscripcion/ms-pagos/
+# ms-perfilamiento/ms-polizas/ms-siniestros llega a Kafka, así que
+# `notificaciones` y `analitica` nunca reciben nada. Ver
+# docs/validacion-kafka-r6.md.
+
+nombre: outbox-relay
+
+# necesitaMsk: true -> el workflow de CD resuelve el bootstrap broker SASL/IAM
+# real contra la API de AWS en cada deploy y lo inyecta en la entrada
+# MSK_BOOTSTRAP_BROKERS de variablesEntorno (ver .github/workflows/deploy.yml,
+# paso "Desplegar con Helm"). El string no se hardcodea aquí porque cambiaría
+# si el cluster MSK se recrea.
+kafka:
+  necesitaMsk: true
+
+imagen:
+  repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-outbox-relay"
+  tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
+  pullPolicy: IfNotPresent
+
+# Una sola réplica: el relay ya es seguro con varias (SELECT ... FOR UPDATE
+# SKIP LOCKED en infrastructure/sql.py), pero escalarlo no aporta: el cuello de
+# botella es la latencia de Kafka, no la CPU. Si hiciera falta, se sube
+# `replicas` a mano; no se usa HPA por CPU.
+replicas: 1
+grupoEscalado: "b"
+
+puerto: 8080
+puertoMetricas: 8080
+
+recursos:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+probes:
+  # El relay solo publica /health (no /health/live ni /health/ready): no se
+  # copian los paths de ms-siniestros/ms-polizas.
+  liveness:
+    path: /health
+    initialDelaySeconds: 20
+    periodSeconds: 15
+  readiness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  startup:
+    habilitado: false
+
+hpa:
+  habilitado: false
+
+externalSecrets:
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    # Las seis URLs salen de tres secretos de Secrets Manager, un
+    # `database_url` por instancia RDS: cuatro esquemas viven en la base
+    # compartida, ms_polizas y ms_siniestros en las suyas. Se proyecta solo
+    # `database_url` (con `claves`) para no meter username/password/host en el
+    # entorno del pod.
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: outbox-relay-db-compartida
+      claves:
+        - database_url
+    - nombreRemoto: solventa-minimo-polizas-db-credentials
+      nombreLocal: outbox-relay-db-polizas
+      claves:
+        - database_url
+    - nombreRemoto: solventa-minimo-siniestros-db-credentials
+      nombreLocal: outbox-relay-db-siniestros
+      claves:
+        - database_url
+
+serviceAccount:
+  crear: true
+  nombre: outbox-relay
+  # irsa: true -> el workflow de CD arma el ARN por convención
+  # ("${project_name}-${environment}-outbox-relay-irsa") y lo pasa con --set.
+  # El rol lo crea Terraform (module.irsa_aplicacion, local.msk_consumers) con
+  # kafka-cluster:WriteData sobre BusEventos y CreateTopic para el bootstrap
+  # del tópico.
+  irsa: true
+  roleArn: ""
+
+# Un PDB con minAvailable: 1 y una sola réplica bloquearía cualquier drenaje
+# de nodo (el pod nunca puede desalojarse). El relay tolera reinicios: el
+# outbox es la fuente de verdad y se reintenta lo no publicado.
+podDisruptionBudget:
+  habilitado: false
+
+topologySpread:
+  habilitado: true
+  maxSkew: 1
+
+variablesEntorno:
+  # El valor real lo inyecta el CD con --set-string (ver kafka.necesitaMsk).
+  # Debe existir como entrada: el workflow resuelve el índice por nombre.
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""
+  # El tópico debe existir antes del primer publish: MSK corre con
+  # auto.create.topics.enable=false. Se crea una vez con
+  # `python -m app.crear_topico BusEventos` (ver docs/validacion-kafka-r6.md).
+  - nombre: MSK_TOPIC
+    valor: "BusEventos"
+  - nombre: AWS_REGION
+    valor: "us-east-1"
+  - nombre: LOG_LEVEL
+    valor: "INFO"
+
+variablesEntornoSecreto:
+  # El chart renderiza un env por entrada: las cuatro primeras apuntan al
+  # mismo `database_url` de la instancia compartida.
+  - nombre: DATABASE_URL_MS_COTIZACION
+    nombreSecreto: outbox-relay-db-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_SUSCRIPCION
+    nombreSecreto: outbox-relay-db-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_PAGOS
+    nombreSecreto: outbox-relay-db-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_PERFILAMIENTO
+    nombreSecreto: outbox-relay-db-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_POLIZAS
+    nombreSecreto: outbox-relay-db-polizas
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_SINIESTROS
+    nombreSecreto: outbox-relay-db-siniestros
+    claveSecreto: database_url
