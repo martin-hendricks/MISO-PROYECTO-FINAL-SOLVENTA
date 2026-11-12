@@ -837,6 +837,19 @@ def _inicio_muestra() -> dict:
     }
 
 
+def _credito_movil(originacion: dict) -> dict:
+    originacion = _exigir(originacion, "valor", "plazo_meses")
+    return {
+        "valor": int(Decimal(str(originacion["valor"]))),
+        "plazoMeses": int(originacion["plazo_meses"]),
+        "origen": originacion.get("origen", "cliente"),
+    }
+
+
+def _hipotecario_movil(originacion: dict) -> dict:
+    return {"estado": "disponible", **_credito_movil(originacion)}
+
+
 def _cotizaciones_pendientes(nucleo, usuario: dict) -> list:
     pagina = nucleo.listar_cotizaciones_usuario(
         usuario_id=_contexto(usuario)["usuario_id"],
@@ -868,8 +881,11 @@ def inicio(request: Request, usuario: dict = Depends(require_customer)) -> dict:
         except HTTPException:
             return None
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         pendientes_fut = pool.submit(_leer, lambda: _cotizaciones_pendientes(nucleo, usuario))
+        hipotecario_fut = pool.submit(
+            _leer, lambda: _hipotecario_movil(nucleo.originacion_pendiente(_contexto(usuario)["usuario_id"]))
+        )
         polizas_fut = pool.submit(_leer, lambda: _polizas_proyectadas(nucleo, usuario))
         siniestros_fut = pool.submit(
             _leer, lambda: nucleo.listar_siniestros(usuario_id=_contexto(usuario)["usuario_id"])
@@ -877,6 +893,8 @@ def inicio(request: Request, usuario: dict = Depends(require_customer)) -> dict:
         pendientes = pendientes_fut.result() or []
         filas = polizas_fut.result() or []
         siniestros = siniestros_fut.result() or []
+        hipotecario = hipotecario_fut.result()
+    cuerpo["hipotecario"] = hipotecario
     cuerpo["cotizacionesPendientes"] = pendientes
     cuerpo["ofertaVigente"] = pendientes[0] if pendientes else None
     if not filas:

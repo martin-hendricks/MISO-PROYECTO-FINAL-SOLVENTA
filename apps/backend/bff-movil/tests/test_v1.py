@@ -223,6 +223,9 @@ class DobleNucleo:
     def revocar_consentimiento(self, cliente_id):
         return self._llamar("revocar_consentimiento", cliente_id=cliente_id)
 
+    def originacion_pendiente(self, cliente_id):
+        return self._llamar("originacion_pendiente", cliente_id=cliente_id)
+
     def polizas_por_vencer(self, **kwargs):
         return self._llamar("polizas_por_vencer", **kwargs) or []
 
@@ -1269,6 +1272,61 @@ def test_inicio_v1_proyecta_el_siniestro_o_lo_omite_si_el_nucleo_falla(client, d
     assert client.get("/v1/cliente/inicio", headers=headers).json()["siniestroEnCurso"] is None
 
 
+ORIGINACION = {
+    "id": "77777777-7777-7777-7777-777777777777",
+    "cliente_id": "c",
+    "valor": "180000000.00",
+    "plazo_meses": 180,
+    "origen": "socio",
+}
+
+
+def _inicio_base(doble):
+    doble.respuestas["listar_cotizaciones_usuario"] = {"items": []}
+    doble.respuestas["listar_polizas"] = []
+    doble.respuestas["listar_siniestros"] = []
+
+
+def test_inicio_v1_muestra_el_credito_hipotecario_pendiente(client, doble):
+    headers = _auth(client)
+    _inicio_base(doble)
+    doble.respuestas["originacion_pendiente"] = ORIGINACION
+
+    inicio = client.get("/v1/cliente/inicio", headers=headers).json()
+
+    assert inicio["hipotecario"] == {
+        "estado": "disponible",
+        "valor": 180000000,
+        "plazoMeses": 180,
+        "origen": "socio",
+    }
+    leida = [llamada for llamada in doble.llamadas if llamada["metodo"] == "originacion_pendiente"]
+    assert leida == [{"metodo": "originacion_pendiente", "cliente_id": _dueno()["usuario_id"]}]
+
+
+def test_inicio_v1_sin_credito_pendiente_o_con_perfilamiento_caido_omite_el_hipotecario(client, doble):
+    headers = _auth(client)
+    _inicio_base(doble)
+    doble.respuestas["listar_siniestros"] = [{"id": "SIN-1", "estado": "recibido"}]
+
+    for respuesta in (
+        HTTPException(status_code=404, detail="No existe"),
+        HTTPException(status_code=503, detail="ms-perfilamiento no disponible"),
+        {"valor": "1"},
+    ):
+        doble.respuestas["originacion_pendiente"] = respuesta
+        inicio = client.get("/v1/cliente/inicio", headers=headers).json()
+        assert inicio["hipotecario"] is None
+        assert inicio["siniestroEnCurso"] == {"siniestroId": "SIN-1", "estado": "recibido"}
+
+
+def test_inicio_v0_sigue_sin_hipotecario_y_sin_llamar_al_nucleo(client, doble):
+    headers = _auth(client)
+
+    assert client.get("/cliente/inicio", headers=headers).json()["hipotecario"] is None
+    assert doble.llamadas == []
+
+
 def test_perfil_v1_lee_y_guarda_y_v0_no_existe(client, doble):
     headers = _auth(client)
     doble.respuestas["obtener_usuario"] = {
@@ -1746,3 +1804,21 @@ def test_cliente_http_consulta_y_revoca_el_consentimiento_en_perfilamiento(monke
         ("http://ms-perfilamiento:8000", "GET", "/v1/consentimientos/c-1"),
         ("http://ms-perfilamiento:8000", "DELETE", "/v1/consentimientos/c-1"),
     ]
+
+
+def test_cliente_http_lee_la_originacion_pendiente_en_perfilamiento(monkeypatch):
+    pedidas = []
+
+    class Falso:
+        def __init__(self, *, base_url, timeout):
+            self.base_url = base_url
+
+        def request(self, metodo, ruta, json=None, params=None, headers=None, data=None, files=None):
+            pedidas.append((self.base_url, metodo, ruta))
+            return _Respuesta(200, ORIGINACION)
+
+    monkeypatch.setattr("app.clients.nucleo.httpx.Client", Falso)
+    cliente = ClienteNucleo({"ms-perfilamiento": "http://ms-perfilamiento:8000"})
+
+    assert cliente.originacion_pendiente("c-1") == ORIGINACION
+    assert pedidas == [("http://ms-perfilamiento:8000", "GET", "/v1/originaciones/clientes/c-1/pendiente")]
