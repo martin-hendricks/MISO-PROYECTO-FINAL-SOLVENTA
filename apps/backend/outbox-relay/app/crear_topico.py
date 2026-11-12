@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import logging
 import os
+import ssl
 from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,8 @@ async def crear(
     admin = AIOKafkaAdminClient(
         bootstrap_servers=brokers,
         security_protocol="SASL_SSL",
+        # aiokafka >= 0.13 exige el contexto TLS explícito para SASL_SSL.
+        ssl_context=ssl.create_default_context(),
         sasl_mechanism="OAUTHBEARER",
         sasl_oauth_token_provider=MSKTokenProvider(region),
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import ssl
 
 from app.config import Settings
 from app.domain.modelos import EventoOutbox
@@ -52,6 +53,10 @@ class PublicadorMSK:
             self._producer = AIOKafkaProducer(
                 bootstrap_servers=self._config.msk_bootstrap_brokers,
                 security_protocol="SASL_SSL",
+                # aiokafka >= 0.13 no crea el contexto TLS por su cuenta: con
+                # SASL_SSL y ssl_context=None el constructor lanza "`ssl_context`
+                # is mandatory if security_protocol=='SSL'" antes de conectar.
+                ssl_context=ssl.create_default_context(),
                 sasl_mechanism="OAUTHBEARER",
                 sasl_oauth_token_provider=MSKTokenProvider(self._region),
             )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import ssl
 
 from app.application.manejadores import manejar_evento
 from app.config import Settings
@@ -62,6 +63,12 @@ class ConsumidorMSK:
             bootstrap_servers=self._config.msk_bootstrap_brokers,
             group_id=self._config.msk_consumer_group,
             security_protocol="SASL_SSL",
+            # aiokafka >= 0.13 deja de construir el contexto TLS por su cuenta:
+            # con SASL_SSL y ssl_context=None aborta en el constructor con
+            # "`ssl_context` is mandatory if security_protocol=='SSL'", antes de
+            # intentar conectar. El trust store del sistema basta porque MSK
+            # presenta certificados de Amazon Trust Services.
+            ssl_context=ssl.create_default_context(),
             sasl_mechanism="OAUTHBEARER",
             sasl_oauth_token_provider=MSKTokenProvider(self._region),
             auto_offset_reset="earliest",

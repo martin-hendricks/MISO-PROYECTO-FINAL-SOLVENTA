@@ -4,6 +4,7 @@ ciclo de vida completo en vez de solo procesar_mensaje()."""
 
 import asyncio
 import json
+import ssl
 from uuid import uuid4
 
 import pytest
@@ -104,6 +105,21 @@ async def test_iniciar_arranca_el_consumer_y_la_tarea(uow, consumer_falso):
     assert consumidor._consumer.started is True
     assert consumidor._tarea is not None
     assert not consumidor._tarea.done()
+
+    await consumidor.detener()
+
+
+async def test_iniciar_pasa_un_contexto_tls_explicito(uow, consumer_falso):
+    # aiokafka >= 0.13 exige el contexto TLS para SASL_SSL: sin él el
+    # constructor lanza ValueError antes de conectar (ver kafka_consumer.py
+    # de notificaciones, donde el fallo se vio en el clúster real).
+    consumidor = ConsumidorMSK(_config(), uow)
+
+    await consumidor.iniciar()
+
+    contexto = consumer_falso.instancias[0].kwargs["ssl_context"]
+    assert isinstance(contexto, ssl.SSLContext)
+    assert contexto.verify_mode == ssl.CERT_REQUIRED
 
     await consumidor.detener()
 
