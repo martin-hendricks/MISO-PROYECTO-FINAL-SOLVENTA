@@ -82,7 +82,7 @@ object PublishedSamples {
     """
 
     const val MORTGAGE_OUT = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
     """
 
     const val PROFILING_CONSENT = """
@@ -94,7 +94,7 @@ object PublishedSamples {
     """
 
     const val MORTGAGE_DEGRADED = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
     """
 
     const val NOTICES = """

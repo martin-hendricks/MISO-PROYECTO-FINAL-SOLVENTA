@@ -456,10 +456,6 @@ class BffCallTest {
         val payment = RemotePaymentRepository(api(), gate).read() as StandInAnswer.Ready
         assertEquals(250_000L, payment.value.monto)
 
-        enqueue(PublishedSamples.MORTGAGE_DEGRADED)
-        val degraded = RemoteMortgageRepository(api(), gate).degraded() as StandInAnswer.Ready
-        assertTrue(degraded.value.degradada)
-
         enqueue(PublishedSamples.NOTICES)
         assertTrue(RemoteNoticeRepository(api(), gate).list() is StandInAnswer.Ready)
 

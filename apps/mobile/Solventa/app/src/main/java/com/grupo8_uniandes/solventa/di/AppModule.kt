@@ -60,6 +60,7 @@ import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
 import com.grupo8_uniandes.solventa.policy.AvisoVigenciaViewModel
 import com.grupo8_uniandes.solventa.policy.PolizaDetalleViewModel
@@ -126,6 +127,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }
     single<DevicePermissionReader> { AndroidDevicePermissionReader(androidContext()) }
     viewModel { HomeViewModel(get()) }
+    viewModel { MortgageOfferViewModel(get()) }
     viewModel {
         val registration = get<RegistrationRepository>()
         val session = get<MobileSessionRepository>()

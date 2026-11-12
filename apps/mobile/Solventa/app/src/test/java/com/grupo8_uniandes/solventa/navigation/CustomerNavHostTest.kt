@@ -7,9 +7,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import com.grupo8_uniandes.solventa.claim.CannedEvidenceRegistry
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -93,12 +95,26 @@ class CustomerNavHostTest {
         val holder = arrayOfNulls<NavHostController>(1)
         show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
         rule.onNodeWithTag("home_vida_crediticia").performClick()
-        rule.onNodeWithTag("screen_oferta_hipotecario").assertIsDisplayed()
+        rule.onNodeWithTag("screen_consentimiento_hipotecario").assertIsDisplayed()
         assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_authorize_profiling").performClick()
+        rule.waitUntil(timeoutMillis = 8_000) {
+            rule.onAllNodesWithTag("screen_oferta_hipotecario").fetchSemanticsNodes().isNotEmpty()
+        }
         rule.onNodeWithTag("action_accept_mortgage").performClick()
         rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
+    }
+
+    @Test
+    fun givenOrigination_whenTheProfilingConsentIsDeclined_thenHomeIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("action_decline_profiling").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
     }
 
     @Test

@@ -210,8 +210,6 @@ class MockMortgageRepository(
 ) : MortgageRepository {
     override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_OUT)
 
-    override suspend fun degraded(): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_DEGRADED)
-
     private fun read(raw: String) =
         control.ready { decode<MortgageOutDto>(raw).let(::required).toQuote() }
 }

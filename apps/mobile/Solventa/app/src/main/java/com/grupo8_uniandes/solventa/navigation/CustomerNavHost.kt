@@ -37,10 +37,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.grupo8_uniandes.solventa.home.HomeUiState
-import com.grupo8_uniandes.solventa.domain.bff.mortgage.ShowMortgageOffer
+import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionTarjetaScreen
 import com.grupo8_uniandes.solventa.ui.shell.CotizacionScreen
-import com.grupo8_uniandes.solventa.ui.shell.OfertaHipotecarioScreen
+import com.grupo8_uniandes.solventa.ui.shell.VidaHipotecarioFlow
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.VerOfertaScreen
 import com.grupo8_uniandes.solventa.ui.shell.InicioScreen
@@ -123,15 +123,14 @@ fun CustomerNavHost(
             val region = remember(context) {
                 SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
             }
-            val offer = remember(region) { ShowMortgageOffer(region).show() }
-            OfertaHipotecarioScreen(
-                offer = offer,
-                onAccept = {
-                    navController.navigate(
-                        ConfirmacionTarjetaRoute(prima = offer.prima, moneda = offer.moneda),
-                    )
+            val viewModel: MortgageOfferViewModel = koinViewModel()
+            VidaHipotecarioFlow(
+                viewModel = viewModel,
+                region = region,
+                onAccept = { prima, moneda ->
+                    navController.navigate(ConfirmacionTarjetaRoute(prima = prima, moneda = moneda))
                 },
-                onReviewLater = { navController.popBackStack() },
+                onDecline = { navController.popBackStack() },
             )
         }
         composable<VerOfertaRoute> { entry ->

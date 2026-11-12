@@ -375,9 +375,6 @@ class RemoteMortgageRepository(
 ) : MortgageRepository {
     override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> =
         gate.call { api.mortgage(profile.toDto()).toQuote() }
-
-    override suspend fun degraded(): StandInAnswer<MortgageQuote> =
-        gate.call { api.mortgage(CreditProfile(0, 0, false).toDto()).toQuote() }
 }
 
 class RemoteProfilingConsentRepository(
