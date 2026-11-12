@@ -293,8 +293,8 @@ variable "node_group_a_desired_size" {
 
 variable "node_group_a_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min)."
-  default     = 6
+  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min). Subido de 2 a 3 (ver terraform.tfvars) al mover analitica aquí desde Grupo B -- el presupuesto real de la cuenta (16 vCPU on-demand, L-1216C47A) sigue en 8 nodos t3.small TOTALES entre ambos grupos, así que node_group_b_max_size baja de 6 a 5 en la misma proporción."
+  default     = 3
 }
 
 variable "node_group_b_instance_types" {
@@ -317,8 +317,8 @@ variable "node_group_b_desired_size" {
 
 variable "node_group_b_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo B. Subido de 6 a 8 (HA-pr#179/180): con los 12 microservicios al tope de 6 nodos t3.small, el RollingUpdate default (maxSurge 25%) de varios Deployments actualizándose casi simultáneamente no tenía margen para el pod 'surge' + el viejo coexistiendo, y los rollouts fallaban con 'timed out waiting for the condition' / '1 old replicas are pending termination'."
-  default     = 8
+  description = "Nodos máximos del Grupo B. Un intento previo de subir esto de 6 a 8 (sin tocar Grupo A) se revirtió: excedía la cuota real de la cuenta (16 vCPU on-demand = 8 nodos t3.small TOTALES entre ambos grupos). En vez de subir la cuota, se movió analitica a Grupo A (menos demanda síncrona de negocio ahí) y este valor bajó de 6 a 5 mientras node_group_a_max_size sube de 2 a 3 -- mismo total de 8."
+  default     = 5
 }
 
 variable "enable_external_secrets" {
