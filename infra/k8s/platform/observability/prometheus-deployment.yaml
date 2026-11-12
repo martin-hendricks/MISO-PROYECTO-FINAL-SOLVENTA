@@ -25,6 +25,20 @@ spec:
         prometheus.io/scrape: "false"
     spec:
       serviceAccountName: prometheus
+      # Fijado al Node Group A (t3.small, 1 nodo): grupo-b ya corre los 12
+      # microservicios restantes en 6 nodos t3.small al tope de su maxSize,
+      # sin margen real para 3 Deployments más (visto en el cluster: varios
+      # rollouts caían en "timed out waiting for the condition" al competir
+      # por ese mismo espacio). grupo-a aloja hoy solo ms-cotizacion y
+      # ms-perfilamiento (250m/400Mi cada uno); requests recortados aquí para
+      # dejar margen real en ese mismo nodo de 2 vCPU/2GB.
+      nodeSelector:
+        solventa.io/scaling-group: "a"
+      tolerations:
+        - key: solventa.io/scaling-group
+          operator: Equal
+          value: "a"
+          effect: NoSchedule
       containers:
         - name: prometheus
           image: prom/prometheus:v2.54.1
@@ -37,11 +51,11 @@ spec:
               containerPort: 9090
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 50m
+              memory: 128Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 300m
+              memory: 384Mi
           volumeMounts:
             - name: config
               mountPath: /etc/prometheus

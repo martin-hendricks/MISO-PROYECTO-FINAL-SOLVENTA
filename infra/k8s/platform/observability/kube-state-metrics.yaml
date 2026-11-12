@@ -61,6 +61,15 @@ spec:
         prometheus.io/scrape: "false"
     spec:
       serviceAccountName: kube-state-metrics
+      # Fijado al Node Group A, mismo motivo que prometheus-deployment.yaml:
+      # grupo-b ya está al tope de su maxSize sin margen para pods nuevos.
+      nodeSelector:
+        solventa.io/scaling-group: "a"
+      tolerations:
+        - key: solventa.io/scaling-group
+          operator: Equal
+          value: "a"
+          effect: NoSchedule
       containers:
         - name: kube-state-metrics
           image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
