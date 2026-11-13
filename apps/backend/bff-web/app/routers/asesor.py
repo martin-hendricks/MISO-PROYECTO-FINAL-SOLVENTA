@@ -7,12 +7,14 @@ from pydantic import BaseModel, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_cotizacion import ClienteMsCotizacion
+from ..clients.ms_identidad import ClienteMsIdentidad
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
 from ..clients.ms_suscripcion import ClienteMsSuscripcion
 from ..dependencies import (
     obtener_cliente_cotizacion,
+    obtener_cliente_identidad,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
@@ -482,14 +484,42 @@ def cartera() -> dict:
     }
 
 
-# TODO: el CRM de clientes depende de ms-identidad (no existe código, solo
-# README en cualquier rama) -- no hay microservicio real al que integrar.
+def _cliente_desde_identidad(item: dict) -> dict:
+    """Traduce ClienteSalida de ms-identidad (HU-141) al shape que ya espera
+    el frontend (apps/web/.../clientes.gateway.ts, interfaz Cliente):
+    clienteId, nombre, documento, canal, estado, consentimiento. ms-identidad
+    ya entrega estado/consentimiento en minúsculas y documento como {tipo,
+    numero} -- aquí se aplana el documento a un único string y se junta
+    nombre+apellidos en un solo campo "nombre" (ms-identidad los separa, el
+    frontend espera el nombre completo, ver clientes.testing.ts)."""
+    documento = item["documento"]
+    nombre_completo = " ".join(parte for parte in (item["nombre"], item.get("apellidos", "")) if parte)
+    return {
+        "clienteId": item["clienteId"],
+        "nombre": nombre_completo,
+        "documento": documento["numero"],
+        "canal": item["canal"],
+        "estado": item["estado"],
+        "consentimiento": item["consentimiento"],
+    }
+
+
 @router.get("/clientes")
-def listar() -> dict:
-    return {"clientes": [dict(cliente) for cliente in CLIENTES]}
+async def listar(
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: listado real de clientes contra ms-identidad (GET
+    /v1/clientes), ya no el mock en memoria -- ver CLIENTES, que sigue
+    respaldando únicamente POST /clientes (alta) y la ficha reducida de
+    _cliente_salida() en /asesor/emisiones, ambos fuera de este alcance."""
+    clientes = await cliente_identidad.listar_clientes()
+    return {"clientes": [_cliente_desde_identidad(item) for item in clientes]}
 
 
-# TODO: mismo faltante que listar() -- alta de clientes depende de ms-identidad.
+# TODO: alta de cliente nuevo desde el back-office SIGUE siendo mock -- fuera
+# de alcance de HU-141 (ver odd/tasks/lista-clientes-back-office.md). A
+# diferencia de listar()/desactivar(), que ya hablan con ms-identidad real,
+# este endpoint todavía no crea un Usuario real en ms-identidad.
 @router.post("/clientes")
 def crear(body: ClienteNuevo) -> dict:
     created = body.model_dump()
@@ -497,7 +527,12 @@ def crear(body: ClienteNuevo) -> dict:
     return created
 
 
-# TODO: mismo faltante que listar() -- cambio de estado depende de ms-identidad.
 @router.post("/clientes/estado")
-def desactivar(body: Desactivar) -> dict:
-    return {"clienteId": body.clienteId, "estado": "inactivo"}
+async def desactivar(
+    body: Desactivar,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: activa/desactiva un cliente real contra ms-identidad (PATCH
+    /v1/clientes/{usuario_id}/estado), ya no el mock en memoria."""
+    actualizado = await cliente_identidad.actualizar_estado_cliente(body.clienteId, body.estado)
+    return _cliente_desde_identidad(actualizado)
