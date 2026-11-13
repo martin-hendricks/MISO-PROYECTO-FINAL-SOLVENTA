@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # (SOLV-215). registro.py y sesion.py lo consultan antes de emitir el
     # par de tokens con issue_pair -- ver app/clients/ms_identidad.py.
     ms_identidad_url: str = "http://localhost:8080"
+    # ms-consentimiento (habeas data, HU-141): el alta de cliente desde el
+    # back-office otorga el consentimiento ahí -- ver
+    # app/clients/ms_consentimiento.py, routers/asesor.py.
+    ms_consentimiento_url: str = "http://localhost:8080"
     # analitica (HU-68/69): consume BusEventos y agrega métricas de ciclo de
     # vida; bff-web solo reexpone GET /v1/metricas al back-office -- ver
     # app/clients/analitica.py, app/routers/metricas.py.

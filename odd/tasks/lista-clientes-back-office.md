@@ -44,17 +44,14 @@ mock -- la UI funciona hoy, pero sobre datos de mentira.
   campo `consentimiento` combinando `ms-consentimiento` (habeas data) y
   `ms-perfilamiento` (consentimiento de perfilamiento hipotecario +
   originación abierta).
-- `bff-web`: `GET /asesor/clientes` y `POST /asesor/clientes/estado` contra
-  `ms-identidad` real, traduciendo al shape que el frontend ya espera.
+- `bff-web`: `GET /asesor/clientes`, `POST /asesor/clientes` (alta real) y
+  `POST /asesor/clientes/estado` contra `ms-identidad` real, traduciendo al
+  shape que el frontend ya espera.
 - Tests unitarios y de API en ambos servicios.
 - Este documento.
 
 **Fuera:**
 
-- `POST /asesor/clientes` (alta de cliente nuevo desde el back-office) SIGUE
-  siendo mock -- no crea un `Usuario` real en `ms-identidad`. No fue
-  necesario para HU-141 (listar/ficha/desactivar) y no se alcanzó a conectar
-  en esta rama.
 - Cualquier implementación de `ms-consentimiento`: ese servicio lo construye
   otro equipo en paralelo (otra rama/worktree), contra un contrato ya
   coordinado. Este trabajo solo configura la URL esperada
@@ -129,7 +126,34 @@ mock -- la UI funciona hoy, pero sobre datos de mentira.
    `asesor`/`operador` -- ni el propio cliente ni un `socio` externo pueden
    listar la cartera completa.
 
-7. **`bff-web` traduce `nombre`+`apellidos` a un único campo `nombre`.** El
+8. **Alta real de cliente desde el back-office (`POST /asesor/clientes`).**
+   Ya no es mock: crea un `Usuario` real en `ms-identidad`
+   (`POST /v1/usuarios`, mismo endpoint que usa el alta del propio cliente
+   en `registro.py`) y, si el asesor marcó `habeasData`, otorga el
+   consentimiento real en `ms-consentimiento`
+   (`ClienteMsConsentimiento.otorgar_consentimiento`) -- a diferencia de
+   `registro.py`, que todavía lo simula (ver su comentario "Stub hasta que
+   ms-consentimiento versione la política"). Tres decisiones puntuales:
+   - **Contraseña temporal.** El formulario de alta del back-office no
+     captura una contraseña del cliente (la define el propio cliente, no el
+     asesor): se genera una aleatoria con `secrets.token_urlsafe(18)`. No
+     existe todavía ningún flujo de "cambiar contraseña" ni de notificación
+     por correo en el proyecto, así que esa contraseña no llega a ningún
+     lado hoy -- deuda explícita, no resuelta en esta rama.
+   - **Separación de nombre/apellidos.** `ms-identidad` los guarda por
+     separado; el formulario solo captura un nombre completo. Se toma la
+     primera palabra como nombre y el resto como apellidos
+     (`_separar_nombre()` en `asesor.py`).
+   - **`canal` fijo en `"web"`.** El alta desde el back-office ocurre en el
+     canal web del asesor; `ClienteNuevo.canal` queda como campo del body
+     por si a futuro el back-office atiende otro canal, pero hoy siempre se
+     envía `"web"` desde el formulario actual del frontend.
+   - Si `ms-consentimiento` no responde al otorgar, la petición completa
+     devuelve 503 (no se degrada a 201 silencioso): el `Usuario` ya quedó
+     creado en `ms-identidad`, pero es más honesto fallar visiblemente que
+     responder éxito sobre un consentimiento que en realidad no se otorgó.
+
+9. **`bff-web` traduce `nombre`+`apellidos` a un único campo `nombre`.** El
    frontend (`clientes.gateway.ts`/`clientes.testing.ts`) espera el nombre
    completo en un solo string (p.ej. `"Andrés Gómez"`), mientras
    `ms-identidad` los guarda por separado -- `_cliente_desde_identidad()` en
@@ -152,7 +176,9 @@ mock -- la UI funciona hoy, pero sobre datos de mentira.
 | T9 | `ClienteMsIdentidad.listar_clientes`/`actualizar_estado_cliente` (bff-web). | `apps/backend/bff-web/app/clients/ms_identidad.py` | Cubierto vía `tests/test_asesor.py`. |
 | T10 | `GET /asesor/clientes` y `POST /asesor/clientes/estado` reales (ya no mock), traductor `_cliente_desde_identidad`. | `apps/backend/bff-web/app/routers/asesor.py` | `tests/test_asesor.py`: listado, 503 si cae ms-identidad, 404 si no existe, nombre completo, documento aplanado. |
 | T11 | Fix de tests existentes que dependían del mock (`test_cartera_ficha_y_venta`, `test_listado_de_clientes_trae_canal_y_consentimiento`, `test_sin_rol_el_bff_asigna_asesor`). | `apps/backend/bff-web/tests/test_asesor.py`, `tests/test_sesion.py` | Ya no asumen 200 "gratis"; registran la respuesta esperada de `ms-identidad` vía `nucleo_identidad`. |
-| T12 | Este documento. | `odd/tasks/lista-clientes-back-office.md` | — |
+| T12 | `canal` opcional en el schema de alta de `ms-identidad` (`CrearUsuarioEntrada`/`UsuarioSalida`), pasado a `casos_uso.crear_usuario` (el dominio ya lo aceptaba). | `app/api/v1/schemas.py`, `app/api/v1/rutas.py`, `app/application/casos_uso.py` | `test_alta_con_canal_lo_persiste`, `test_alta_sin_canal_queda_nulo` (`tests/test_api.py`), `test_crear_usuario_con_canal_lo_persiste` (`tests/test_casos_uso.py`). |
+| T13 | Alta real de cliente desde el back-office: `POST /asesor/clientes` crea el `Usuario` en `ms-identidad` y otorga el consentimiento en `ms-consentimiento` (ya no el mock `CLIENTES`). Cliente HTTP nuevo `ClienteMsConsentimiento`. | `apps/backend/bff-web/app/routers/asesor.py`, `app/clients/ms_consentimiento.py`, `app/clients/ms_identidad.py`, `app/dependencies.py`, `app/main.py`, `app/config.py` | `tests/test_asesor.py`: alta feliz, sin habeasData (422), documento duplicado (409), rechazo KYC (422), caída de ms-consentimiento (503), separación de nombre/apellidos (1 y 2+ palabras). 100% cobertura en `asesor.py`/`ms_consentimiento.py`/`ms_identidad.py`. |
+| T14 | Este documento. | `odd/tasks/lista-clientes-back-office.md` | — |
 
 ## Criterios de aceptación
 
@@ -171,10 +197,15 @@ mock -- la UI funciona hoy, pero sobre datos de mentira.
    con `ms-identidad` real; el shape de salida coincide exactamente con lo
    que `apps/web/.../clientes.gateway.ts` ya espera (sin cambios en el
    frontend).
-4. `POST /asesor/clientes` (alta) sigue siendo mock, documentado como tal en
-   el código (`TODO`) y en este documento -- no se presenta como terminado.
-5. `pytest -m "not integration"` en verde en `ms-identidad` (111 tests) y
-   `pytest` en verde en `bff-web` (167 tests, 1 skip preexistente de
+4. `POST /asesor/clientes` (alta) crea un `Usuario` real en `ms-identidad`
+   (ya no mock) y, si el asesor marca `habeasData`, otorga el consentimiento
+   real en `ms-consentimiento`; responde 422 sin `habeasData`, 409 si el
+   documento/correo ya existe, 503 si `ms-consentimiento` no responde al
+   otorgar (el alta en `ms-identidad` ya quedó hecha, pero la respuesta
+   completa no se presenta como éxito sobre un consentimiento que no se
+   otorgó).
+5. `pytest -m "not integration"` en verde en `ms-identidad` (116 tests) y
+   `pytest` en verde en `bff-web` (173 tests, 1 skip preexistente de
    contrato).
 
 ## Verificación
@@ -197,15 +228,17 @@ cd apps/backend/bff-web && uv run pytest -q
   traductor de shape, fix de 3 tests que dependían del mock anterior.
   167/167 tests (1 skip preexistente de contrato, sin relación con este
   cambio), 100% cobertura en `asesor.py` y `ms_identidad.py`.
-- [x] T12: este documento.
-- Nota de entorno: al arrancar, `ms-identidad` resolvía (vía `uv.lock`)
-  `starlette==1.10.0` contra `fastapi==0.162.0`, que todavía declara solo
-  `starlette>=0.46.0` sin tope superior -- rompía la importación de
-  `app/main.py` (`Router.__init__() got an unexpected keyword argument
-  'on_startup'`) de forma intermitente según el estado del `.venv`/caché
-  local. Se confirmó con `git stash` que el problema preexistía en la rama
-  base (`develop`) y no lo introdujo este trabajo; se resolvió limpiando
-  `.venv`/`__pycache__` y reinstalando (`uv sync`), sin cambiar ningún pin.
-  Vale la pena que quien retome esto futuro valide si conviene fijar un
-  tope superior a `starlette` en `ms-identidad`/`bff-web`/`bff-movil` para
-  no depender de que la resolución de `uv` caiga del lado compatible.
+- [x] T12-T13: alta real de cliente conectada (ya no mock) + `canal`
+  opcional en el alta de `ms-identidad`. 116/116 tests en `ms-identidad`
+  (98% cobertura total), 173/173 en `bff-web` (1 skip preexistente de
+  contrato, 100% cobertura en los 3 archivos tocados).
+- [x] T14: este documento.
+- Nota de entorno (investigada aparte, confirmada no bloqueante): se
+  reprodujo el escenario reportado con `fastapi==0.162.0` +
+  `starlette==1.10.0` instalando en un venv **completamente limpio** (no
+  `uv`, `pip install -c requirements.lock ".[test]"` desde cero) tanto en
+  esta rama como en `develop` sin ningún cambio -- los 113/116 tests pasan
+  en ambos casos. No se reproduce la falla de `Router.__init__()` que
+  reportó el intento anterior: fue un problema puntual de caché/entorno
+  local de esa sesión, no una incompatibilidad real entre esas versiones.
+  No se tocó ningún pin.
