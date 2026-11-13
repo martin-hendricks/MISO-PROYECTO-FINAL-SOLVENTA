@@ -19,10 +19,10 @@
     "continue": "Continuar",
     "done": "Listo",
     "locale": {
-      "es-CO": "Español · Colombia",
-      "es-MX": "Español · México",
-      "es-CL": "Español · Chile",
-      "es-PE": "Español · Perú"
+      "es-CO": "Español · Colombia (COP)",
+      "es-MX": "Español · México (MXN)",
+      "es-CL": "Español · Chile (CLP)",
+      "es-PE": "Español · Perú (PEN)"
     }
   },
   "inicio": {
