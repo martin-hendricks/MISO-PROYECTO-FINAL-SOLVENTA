@@ -7,7 +7,12 @@ from sqlalchemy.exc import IntegrityError
 
 from app import main
 from app.config import Settings
-from app.dependencies import obtener_uow, obtener_verificador_kyc
+from app.dependencies import (
+    obtener_cliente_consentimiento,
+    obtener_cliente_perfilamiento,
+    obtener_uow,
+    obtener_verificador_kyc,
+)
 from app.domain.modelos import EstadoUsuario, Usuario
 from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import (
@@ -20,10 +25,11 @@ from app.ports.persistencia import CuentaYaExiste
 
 
 class SesionFalsa:
-    def __init__(self, error_commit: Exception | None = None, fila=None) -> None:
+    def __init__(self, error_commit: Exception | None = None, fila=None, filas: list | None = None) -> None:
         self.agregados: list = []
         self.error_commit = error_commit
         self.fila = fila
+        self.filas = filas or []
         self.commits = self.rollbacks = self.cierres = 0
 
     def add(self, objeto) -> None:
@@ -31,6 +37,9 @@ class SesionFalsa:
 
     async def scalar(self, _consulta):
         return self.fila
+
+    async def scalars(self, _consulta):
+        return self.filas
 
     async def get(self, _modelo, _identificador):
         return self.fila
@@ -147,6 +156,31 @@ async def test_obtener_por_documento_sin_fila_devuelve_none():
         assert await tx.usuarios.obtener_por_documento("CC", "123") is None
 
 
+async def test_listar_por_rol_mapea_todas_las_filas_al_dominio():
+    filas = [
+        UsuarioFila(
+            usuario_id=uuid4(),
+            tipo_documento="CC",
+            numero_documento=str(i),
+            email=f"cliente{i}@correo.com",
+            password_hash="hash",
+            estado="ACTIVO",
+            rol="cliente",
+        )
+        for i in range(2)
+    ]
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(filas=filas)) as tx:
+        usuarios = await tx.usuarios.listar_por_rol("cliente")
+
+    assert {u.numero_documento for u in usuarios} == {"0", "1"}
+
+
+async def test_listar_por_rol_sin_filas_devuelve_lista_vacia():
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        assert await tx.usuarios.listar_por_rol("cliente") == []
+
+
 async def test_email_duplicado_se_traduce_al_puerto():
     sesion = SesionFalsa(error_commit=_integridad('duplicate key "uq_usuario_email"'))
 
@@ -228,8 +262,15 @@ def test_sin_configurar_el_doble_de_kyc_no_rechaza_ningun_documento(monkeypatch)
 
 
 def test_dependencias_leen_el_estado_de_la_app():
-    estado = SimpleNamespace(fabrica_uow=object(), verificador_kyc=object())
+    estado = SimpleNamespace(
+        fabrica_uow=object(),
+        verificador_kyc=object(),
+        cliente_consentimiento=object(),
+        cliente_perfilamiento=object(),
+    )
     request = SimpleNamespace(app=SimpleNamespace(state=estado))
 
     assert obtener_uow(request) is estado.fabrica_uow
     assert obtener_verificador_kyc(request) is estado.verificador_kyc
+    assert obtener_cliente_consentimiento(request) is estado.cliente_consentimiento
+    assert obtener_cliente_perfilamiento(request) is estado.cliente_perfilamiento

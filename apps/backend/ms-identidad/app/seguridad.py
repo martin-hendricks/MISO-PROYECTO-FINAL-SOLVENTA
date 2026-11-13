@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 ALGORITHM = "HS256"
 ROLES = frozenset({"cliente", "asesor", "operador", "socio"})
 ROLES_BUSQUEDA_POR_DOCUMENTO = frozenset({"asesor", "operador", "socio"})
+ROLES_BACKOFFICE = frozenset({"asesor", "operador"})
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -58,4 +59,12 @@ LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]
 def exigir_busqueda_por_documento(llamante: Llamante) -> None:
     """Saber a quién pertenece una cédula es un dato personal: no lo resuelve un cliente."""
     if llamante.rol not in ROLES_BUSQUEDA_POR_DOCUMENTO:
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+
+
+def exigir_rol_backoffice(llamante: Llamante) -> None:
+    """Listar/consultar/desactivar clientes (HU-141) es una operación del
+    back-office: ni el propio cliente ni un socio externo deben poder
+    listar la cartera completa de clientes de la plataforma."""
+    if llamante.rol not in ROLES_BACKOFFICE:
         raise HTTPException(status_code=403, detail="Rol no autorizado")

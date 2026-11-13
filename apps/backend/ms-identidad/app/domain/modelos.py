@@ -55,6 +55,7 @@ class Usuario:
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
+    canal: str | None = None
 
     @classmethod
     def crear(
@@ -68,6 +69,7 @@ class Usuario:
         apellidos: str = "",
         ingresos_mensuales: Decimal | None = None,
         gastos_mensuales: Decimal | None = None,
+        canal: str | None = None,
     ) -> Usuario:
         if ingresos_mensuales is not None and ingresos_mensuales <= 0:
             raise ValueError("ingresos_mensuales debe ser mayor que cero")
@@ -85,6 +87,7 @@ class Usuario:
             ingresos_mensuales=ingresos_mensuales,
             gastos_mensuales=gastos_mensuales,
             rol="cliente",
+            canal=canal.strip().lower() if canal else None,
         )
 
     def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:
@@ -93,6 +96,12 @@ class Usuario:
 
     def verificar_password(self, password_plano: str) -> bool:
         return _verificar_password(password_plano, self.password_hash)
+
+    def cambiar_estado(self, nuevo_estado: EstadoUsuario) -> None:
+        """Activación/desactivación desde el back-office (HU-141). Sin más
+        regla que la transición en sí: no hay flujo de aprobación ni
+        reversión especial -- un asesor/operador puede alternar libremente."""
+        self.estado = nuevo_estado
 
 
 def autenticar(usuario: Usuario | None, password_plano: str) -> Usuario:

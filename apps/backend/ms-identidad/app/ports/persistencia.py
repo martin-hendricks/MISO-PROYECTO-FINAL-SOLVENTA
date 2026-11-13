@@ -23,6 +23,8 @@ class RepositorioUsuarios(Protocol):
 
     async def actualizar(self, usuario: Usuario) -> None: ...
 
+    async def listar_por_rol(self, rol: str) -> list[Usuario]: ...
+
 
 class UnidadDeTrabajo(Protocol):
     usuarios: RepositorioUsuarios

@@ -44,6 +44,10 @@ class _Usuarios:
     async def actualizar(self, usuario: Usuario) -> None:
         self._uow.pendientes[usuario.id] = usuario
 
+    async def listar_por_rol(self, rol: str):
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        return [deepcopy(u) for u in vista.values() if u.rol == rol]
+
 
 class UnidadDeTrabajoEnMemoria:
     def __init__(self, almacen: AlmacenEnMemoria) -> None:

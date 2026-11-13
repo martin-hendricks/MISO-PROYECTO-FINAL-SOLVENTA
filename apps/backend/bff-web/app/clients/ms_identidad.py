@@ -65,3 +65,17 @@ class ClienteMsIdentidad(ClienteServicio):
             "/v1/usuarios/autenticacion",
             json={"email": email, "password": password},
         )
+
+    async def listar_clientes(self) -> list[dict[str, Any]]:
+        """GET /v1/clientes (HU-141): back-office únicamente -- ms-identidad
+        ya exige rol asesor/operador, bff-web solo reenvía el token."""
+        return (await self._pedir("GET", "/v1/clientes"))["clientes"]
+
+    async def actualizar_estado_cliente(self, usuario_id: str, estado: str) -> dict[str, Any]:
+        """PATCH /v1/clientes/{usuario_id}/estado (HU-141): activa/desactiva
+        un cliente desde el back-office."""
+        return await self._pedir(
+            "PATCH",
+            f"/v1/clientes/{usuario_id}/estado",
+            json={"estado": estado},
+        )
