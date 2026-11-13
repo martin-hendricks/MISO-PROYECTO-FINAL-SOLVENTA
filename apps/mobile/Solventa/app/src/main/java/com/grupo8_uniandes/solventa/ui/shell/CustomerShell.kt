@@ -3,8 +3,8 @@ package com.grupo8_uniandes.solventa.ui.shell
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import org.koin.androidx.compose.koinViewModel
@@ -48,6 +49,7 @@ import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.VerifySelfie
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.push.PushPrompt
 import com.grupo8_uniandes.solventa.domain.push.PushOptIn
 import com.grupo8_uniandes.solventa.domain.push.PushTarget
@@ -70,6 +72,7 @@ import com.grupo8_uniandes.solventa.navigation.InicioRoute
 import com.grupo8_uniandes.solventa.navigation.PerfilRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
+import com.grupo8_uniandes.solventa.navigation.ConsentimientoRevocadoRoute
 import com.grupo8_uniandes.solventa.navigation.SuscripcionRechazadaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
@@ -388,10 +391,20 @@ internal fun SignedInShell(
     val optIn = remember {
         GlobalContext.get().get<PushOptIn>()
     }
+    val publishName = remember { GlobalContext.get().get<PublishStoredName>() }
+    LaunchedEffect(publishName) { publishName() }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         scope.launch { optIn.onPermissionResult(granted) }
     }
     LaunchedEffect(askPush) {
+        val host = activity ?: return@LaunchedEffect
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(host, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            optIn.onPermissionResult(true)
+            return@LaunchedEffect
+        }
         if (!askPush) return@LaunchedEffect
         if (optIn.onSessionStarted() == PushPrompt.Ask) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -434,7 +447,7 @@ internal fun SignedInShell(
                     showBack = mode == ShellMode.Nested,
                     showIdentityMark = route is OfertaHipotecarioRoute || route is ConfirmacionTarjetaRoute,
                     onBack = {
-                        if (route == SuscripcionRechazadaRoute) {
+                        if (route == SuscripcionRechazadaRoute || route == ConsentimientoRevocadoRoute) {
                             navController.leaveIssuance(InicioRoute)
                         } else {
                             navController.popBackStack()
@@ -487,7 +500,7 @@ private fun routeTitle(route: Any): String = when (route) {
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
     is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
-    SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
+    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
     AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)

@@ -78,6 +78,15 @@ class EnviadorFCM:
             datos["poliza"] = notificacion.poliza
         return datos
 
+    def _aviso(self, notificacion: Notificacion) -> dict[str, str]:
+        """El bloque data no abre la bandeja. Android solo muestra el aviso
+        si el mensaje trae notification en la config de la plataforma."""
+        return {
+            "title": notificacion.titulo,
+            "body": notificacion.cuerpo,
+            "channel_id": "avisos_poliza_alta",
+        }
+
     async def _enviar_uno(
         self, dispositivo: DispositivoPush, notificacion: Notificacion
     ) -> ResultadoEnvio:
@@ -90,7 +99,10 @@ class EnviadorFCM:
                     "message": {
                         "fid": dispositivo.token,
                         "data": self._data(notificacion),
-                        "android": {"priority": "HIGH"},
+                        "android": {
+                            "priority": "HIGH",
+                            "notification": self._aviso(notificacion),
+                        },
                     }
                 },
             )

@@ -587,6 +587,32 @@ async def originacion_pendiente(
     return _credito_de(await cliente_perfilamiento.originacion_pendiente(cliente_id))
 
 
+@router.get("/consentimiento-perfil")
+async def consentimiento_perfil(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        vigente = await cliente_perfilamiento.consentimiento_vigente(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "vigente", "otorgadoEn": vigente["otorgado_en"]}
+
+
+@router.delete("/consentimiento-perfil")
+async def revocar_consentimiento_perfil(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        revocado = await cliente_perfilamiento.revocar_consentimiento(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "revocado", "revocadoEn": revocado["revocado_en"]}
+
+
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,

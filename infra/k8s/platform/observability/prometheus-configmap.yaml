@@ -1,0 +1,66 @@
+# prometheus.yml real de cluster: a diferencia de experiments/ha-01 y ha-08
+# (targets estáticos tipo "api:8000", válido solo en Docker Compose con un
+# único contenedor fijo), aquí Prometheus descubre pods dinámicamente vía el
+# API server (kubernetes_sd_configs) y se queda solo con los que el chart
+# genérico ya anota como "scrapeables" (prometheus.io/scrape: "true" en
+# infra/k8s/charts/microservicio/templates/deployment.yaml). Así los 14
+# microservicios entran sin listarlos uno a uno, y un componente nuevo
+# aparece solo con desplegarse.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: solventa-observability
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      # Prometheus se scrapea a sí mismo (métricas de proceso propias).
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+
+      # kube-state-metrics expone su /metrics en un Service fijo; no lleva
+      # las anotaciones prometheus.io/* porque no es un pod de la app.
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ["kube-state-metrics.solventa-observability.svc.cluster.local:8080"]
+
+      # Descubrimiento dinámico de pods en TODOS los namespaces, filtrado
+      # por las anotaciones que infra/k8s/charts/microservicio ya pone:
+      #   prometheus.io/scrape: "true"
+      #   prometheus.io/path: "/metrics"   (default)
+      #   prometheus.io/port: "<puerto>"   (puerto nombrado "metrics")
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          # 1) Solo pods que declararon prometheus.io/scrape: "true".
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          # 2) Path de métricas desde la anotación (default /metrics si falta).
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          # 3) Puerto desde la anotación: reescribe la dirección de scrape
+          #    de "<ip-del-pod>:<puerto-del-contenedor>" a "<ip>:<puerto-anotado>".
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: "([^:]+)(?::\\d+)?;(\\d+)"
+            replacement: "$1:$2"
+          # 4) Labels útiles para las queries de los dashboards.
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+            action: replace
+            target_label: servicio
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod

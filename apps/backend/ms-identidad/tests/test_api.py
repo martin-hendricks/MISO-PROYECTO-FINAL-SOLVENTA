@@ -1,5 +1,7 @@
 from uuid import UUID, uuid4
 
+import pytest
+
 from app.dependencies import obtener_verificador_kyc
 from app.domain.modelos import EstadoUsuario, Usuario
 from app.infrastructure.kyc import VerificadorKYCStub
@@ -322,3 +324,65 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
 def test_health_live_no_toca_la_base_de_datos(client):
     assert client.get("/health/live").json() == {"status": "ok"}
+
+
+def _buscar(client, rol: str, tipo: str = "CC", numero: str = "1012345678"):
+    from tests.conftest import token_de
+
+    return client.get(
+        "/v1/usuarios/documento",
+        params={"tipo_documento": tipo, "numero_documento": numero},
+        headers={"Authorization": f"Bearer {token_de(str(uuid4()), rol)}"},
+    )
+
+
+@pytest.mark.parametrize("rol", ["socio", "asesor", "operador"])
+def test_buscar_por_documento_devuelve_solo_el_usuario_id(client, rol):
+    creado = _crear(client).json()
+
+    respuesta = _buscar(client, rol)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"usuario_id": creado["usuario_id"]}
+
+
+def test_buscar_por_documento_normaliza_como_el_alta(client):
+    creado = _crear(client).json()
+
+    respuesta = _buscar(client, "socio", tipo=" cc ", numero=" 1012345678 ")
+
+    assert respuesta.json() == {"usuario_id": creado["usuario_id"]}
+
+
+def test_buscar_por_documento_inexistente_es_404(client):
+    assert _buscar(client, "socio", numero="999").status_code == 404
+
+
+def test_un_cliente_no_puede_buscar_por_documento(client):
+    _crear(client)
+
+    assert _buscar(client, "cliente").status_code == 403
+
+
+def test_buscar_por_documento_exige_token_y_ambos_datos(client):
+    from fastapi.testclient import TestClient
+
+    anonimo = TestClient(client.app)
+    assert (
+        anonimo.get("/v1/usuarios/documento", params={"tipo_documento": "CC", "numero_documento": "1"}).status_code
+        == 401
+    )
+    assert client.get("/v1/usuarios/documento", params={"tipo_documento": "CC"}).status_code == 422
+
+
+def test_un_socio_no_puede_leer_la_cuenta_completa(client):
+    from tests.conftest import token_de
+
+    creado = _crear(client).json()
+    socio = {"Authorization": f"Bearer {token_de(str(uuid4()), 'socio')}"}
+
+    assert client.get(f"/v1/usuarios/{creado['usuario_id']}", headers=socio).status_code == 403
+    assert (
+        client.patch(f"/v1/usuarios/{creado['usuario_id']}/perfil", json={"nombre": "X", "apellidos": "Y"}, headers=socio).status_code
+        == 404
+    )

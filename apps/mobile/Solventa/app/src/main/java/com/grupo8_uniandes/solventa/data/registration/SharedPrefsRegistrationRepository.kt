@@ -32,6 +32,10 @@ class SharedPrefsRegistrationRepository(
         context.applicationContext.filesDir,
     )
 
+    override fun storedGivenName(): String = prefs.getString(KeyGivenName, "").orEmpty().trim()
+
+    override fun storedSurnames(): String = prefs.getString(KeySurnames, "").orEmpty().trim()
+
     override fun read(): Registration? {
         if (!prefs.getBoolean(KeyRegistrationCompleted, false)) return null
         val photo = photoFile().takeIf { it.isFile }?.readBytes() ?: return null

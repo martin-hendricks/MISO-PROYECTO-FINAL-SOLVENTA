@@ -9,16 +9,24 @@
 
 nombre: notificaciones
 
+# necesitaMsk: true -> el workflow de CD resuelve el bootstrap broker SASL/IAM
+# real contra la API de AWS en cada deploy y lo inyecta en la entrada
+# MSK_BOOTSTRAP_BROKERS de variablesEntorno (ver .github/workflows/deploy.yml,
+# paso "Desplegar con Helm"). El string no se hardcodea aquí porque cambiaría
+# si el cluster MSK se recrea.
+kafka:
+  necesitaMsk: true
+
 imagen:
   repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-notificaciones"
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   requests:
@@ -42,7 +50,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 6
   targetCPU: 70
   targetMemory: 80
@@ -72,16 +80,33 @@ externalSecrets:
   remoteSecrets:
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: notificaciones-token
+      # Sin `claves`: se usa dataFrom.extract (ver mismo comentario en
+      # infra/k8s/values/bff-web.yaml).
     - nombreRemoto: solventa-minimo-notificaciones-fcm
       nombreLocal: notificaciones-fcm
     - nombreRemoto: solventa-minimo-msk-config
       nombreLocal: notificaciones-msk
+    # notificaciones-db: notificaciones tiene su propio esquema
+    # (db/01_notificaciones.sql, CREATE SCHEMA notificaciones) pero, igual
+    # que analitica/ms-perfilamiento, sin instancia RDS propia -- vive en
+    # DBCompartida. El workflow de CD detecta automáticamente el paso de
+    # migraciones por la carpeta db/ existente y espera un ExternalSecret
+    # llamado exactamente "<servicio>-db" (.github/workflows/deploy.yml);
+    # sin esta entrada faltaba por completo (mismo gap encontrado y
+    # corregido en analitica.yaml).
     - nombreRemoto: solventa-minimo-compartida-db-credentials
       nombreLocal: notificaciones-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
   nombre: notificaciones
+  # irsa: true -> el workflow de CD arma el ARN por convención
+  # ("${project_name}-${environment}-notificaciones-irsa") y lo pasa con
+  # --set, igual que hace hoy con el resto de servicios que consumen MSK
+  # (ver .github/workflows/deploy.yml, paso "Desplegar con Helm"). El rol
+  # ya existe en Terraform (module.irsa_aplicacion, local.msk_consumers).
   irsa: true
   roleArn: ""
 
@@ -94,11 +119,19 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
+  # El valor real lo inyecta el CD con --set-string (ver kafka.necesitaMsk).
+  # Debe existir como entrada: el workflow resuelve el índice por nombre.
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""
   - nombre: MSK_TOPIC
     valor: "BusEventos"
   - nombre: MSK_AUTH_MECHANISM
     valor: "AWS_MSK_IAM"
   - nombre: MSK_CONSUMER_GROUP
+    # Debe coincidir exactamente con el grupo autorizado por la política IAM
+    # del rol (modules/irsa_aplicacion, msk_consumers["notificaciones"]
+    # .consumer_groups). Con otro nombre, JoinGroup se deniega y el consumidor
+    # no recibe nada aunque los brokers estén bien configurados.
     valor: "notificaciones"
   - nombre: PUSH_PROVEEDOR
     valor: "fcm"

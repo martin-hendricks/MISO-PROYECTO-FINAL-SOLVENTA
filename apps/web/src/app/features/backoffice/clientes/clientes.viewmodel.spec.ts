@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
 import { Cliente, ConsultaClientes, PaginaClientes } from './clientes.gateway';
 import { CLIENTES } from './clientes.testing';
-import { ClientesViewModel, PuertosClientes, pushDe } from './clientes.viewmodel';
+import { ClientesViewModel, nombreCliente, PuertosClientes, pushDe } from './clientes.viewmodel';
 
 describe('ClientesViewModel', () => {
   function pagina(clientes: Cliente[], hayMas = false, numero = 1): PaginaClientes {
@@ -76,6 +76,8 @@ describe('ClientesViewModel', () => {
 
   it('reads the Push column as yes, no or unknown', () => {
     expect(CLIENTES.map(pushDe)).toEqual(['si', 'no', 'desconocido']);
+    expect(nombreCliente(CLIENTES[0])).toBe('Andrés Gómez');
+    expect(nombreCliente({ ...CLIENTES[1], nombre: '  ', apellidos: '' })).toBe(CLIENTES[1].email);
   });
 
   it('creates and edits through the form', () => {
@@ -170,6 +172,41 @@ describe('ClientesViewModel', () => {
 
     vm.reactivar(CLIENTES[2].usuarioId);
     expect(vm.status()).toBe('error');
+  });
+
+  it('ignores edits the advisor cannot make and an empty confirmation', () => {
+    const { vm, escrituras } = crear(pagina(CLIENTES), false);
+    vm.anterior();
+    vm.abrirEditar(CLIENTES[0]);
+    vm.guardar();
+    vm.cancelarConfirmacion();
+    vm.confirmarDesactivacion();
+    expect(vm.formulario()).toBeNull();
+    expect(vm.confirmando()).toBeNull();
+    expect(escrituras).toEqual([]);
+
+    const porDefecto = new ClientesViewModel({
+      listar: () => of(pagina(CLIENTES)),
+      crear: () => of(CLIENTES[0]),
+      editar: () => of(CLIENTES[0]),
+      cambiarEstado: () => of(CLIENTES[0]),
+    });
+    expect(porDefecto.puedeEditar).toBeFalse();
+
+    const duplicado = crear();
+    duplicado.vm.cargar();
+    duplicado.puertos.crear = () =>
+      throwError(() => new HttpErrorResponse({ status: 409, error: null }));
+    duplicado.vm.abrirCrear();
+    duplicado.vm.guardar();
+    expect(duplicado.escrituras).toEqual([]);
+    duplicado.vm.editarCampo('nombre', 'Ana');
+    duplicado.vm.editarCampo('apellidos', 'Ruiz');
+    duplicado.vm.editarCampo('email', 'ana@correo.com');
+    duplicado.vm.editarCampo('documento', '1020');
+    duplicado.vm.editarCampo('password', 'secreto');
+    duplicado.vm.guardar();
+    expect(duplicado.vm.conflicto()).toBe('');
   });
 
   it('lets the advisor read the list without editing', () => {

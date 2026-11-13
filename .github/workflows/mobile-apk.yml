@@ -31,10 +31,15 @@ jobs:
           printf '%s\n' 24333f8a63b6825ea9c5514f83c2829b004d1fee > "$ANDROID_HOME/licenses/android-sdk-license"
           printf '%s\n' 84831b9409646161da1ba361b4be9f04 > "$ANDROID_HOME/licenses/android-sdk-preview-license"
       - name: Write Firebase config
-        if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/Solventa/app/google-services.json
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::El secret GOOGLE_SERVICES_JSON no está configurado"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/Solventa/app/google-services.json
+          jq empty apps/mobile/Solventa/app/google-services.json
       - name: Build remote APK
         working-directory: apps/mobile/Solventa
         run: ./gradlew :app:assembleRemote -PversionCode=${{ github.run_number }} -PbffBaseUrl=${{ vars.BFF_MOVIL_URL }}

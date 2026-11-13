@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 from uuid import UUID
@@ -17,6 +18,7 @@ from app.domain.modelos import (
     siniestro_cambio_estado,
     umbral_evaluado,
 )
+from app.metricas_negocio import LATENCIA, RESULTADO
 from app.ports.pagos import AdaptadorDesembolso
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 
@@ -118,6 +120,7 @@ async def recibir_evento_parametrico(
     Idempotencia por evento_id (HU-32): si el evento ya fue ingerido, NO se vuelve a
     evaluar ni se genera un segundo pago; se devuelve el resultado ya persistido.
     """
+    inicio_registro = time.perf_counter()
     evento = EventoParametrico.recibir(evento_id, valor)
 
     async with uow() as tx:
@@ -144,8 +147,12 @@ async def recibir_evento_parametrico(
         except ClaveIdempotenciaDuplicada:
             ingerido = False
 
+    LATENCIA.labels("registro").observe(time.perf_counter() - inicio_registro)
+
     if ingerido:
-        return await _evaluar_y_pagar(uow, adaptador_desembolso, siniestro, evento, umbral, poliza_vigente, monto_pago)
+        return await _evaluar_y_pagar(
+            uow, adaptador_desembolso, siniestro, evento, umbral, poliza_vigente, monto_pago, inicio_registro
+        )
 
     # Perdió la carrera de idempotencia: otra transacción ya ingirió este evento_id.
     async with uow() as tx:
@@ -163,6 +170,7 @@ async def _evaluar_y_pagar(
     umbral: Decimal,
     poliza_vigente: bool,
     monto_pago: Decimal,
+    inicio_registro: float,
 ) -> ResultadoIngesta:
     await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.EN_EVALUACION, ORIGEN_SISTEMA)
     evaluacion = await evaluar_umbral(uow, evento, umbral, poliza_vigente)
@@ -173,6 +181,10 @@ async def _evaluar_y_pagar(
         siniestro = await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.ENRUTADO, ORIGEN_SISTEMA)
         pago = await disparar_pago_parametrico(uow, adaptador_desembolso, siniestro.id, evaluacion, monto_pago)
         siniestro = await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.PAGADO, ORIGEN_SISTEMA)
+        RESULTADO.labels("pagado").inc()
+        LATENCIA.labels("hasta_pago").observe(time.perf_counter() - inicio_registro)
+    else:
+        RESULTADO.labels("no_pagado").inc()
 
     return ResultadoIngesta(siniestro, evento, evaluacion, pago, procesado=True)
 

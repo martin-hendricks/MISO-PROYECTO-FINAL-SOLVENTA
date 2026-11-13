@@ -136,3 +136,28 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+---
+# ---------------------------------------------------------------------------
+# 6. Prometheus (namespace `solventa-observability`) -> puerto de métricas
+#    (9090, distinto del puerto de aplicación 8080) de cualquier pod del
+#    namespace `solventa`. Sin esta regla, el default-deny de la política 1
+#    bloquearía el scraping cross-namespace apenas el CNI empiece a hacer
+#    cumplir NetworkPolicy (ver infra/k8s/platform/observability/).
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: solventa
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: solventa-observability
+      ports:
+        - protocol: TCP
+          port: 9090

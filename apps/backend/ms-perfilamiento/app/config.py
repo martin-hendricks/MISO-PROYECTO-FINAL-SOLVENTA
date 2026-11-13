@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # README del servicio. Son valores inventados para el proyecto académico, no una
     # tabla de rating real.
     tarifa_base: Decimal = Decimal("50000")
+    factor_referencia_mercado: Decimal = Decimal("1.10")
     peso_nivel_ingresos_estimado: Decimal = Decimal("-0.08")
     peso_score_comportamiento: Decimal = Decimal("-0.15")
     peso_zona_riesgo: Decimal = Decimal("0.20")

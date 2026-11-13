@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import ssl
+
+from aiokafka.abc import AbstractTokenProvider
 
 from app.application.manejadores import manejar_evento
 from app.config import Settings
@@ -14,8 +17,13 @@ from app.ports.push import EnviadorPush
 logger = logging.getLogger(__name__)
 
 
-class MSKTokenProvider:
+class MSKTokenProvider(AbstractTokenProvider):
     """Proveedor de tokens OAUTHBEARER con IAM de AWS para MSK.
+
+    Hereda de AbstractTokenProvider porque aiokafka 0.15 valida la instancia
+    con isinstance() al abrir la conexión: sin el ABC lanza "sasl_oauth_token_provider
+    needs to be provided implementing aiokafka.abc.AbstractTokenProvider". Y `token()`
+    debe ser async, porque aiokafka lo consume con `await`.
 
     Importa el firmador de forma perezosa: los tests no necesitan la dependencia
     instalada ni credenciales de AWS.
@@ -24,7 +32,13 @@ class MSKTokenProvider:
     def __init__(self, region: str) -> None:
         self._region = region
 
-    def token(self) -> str:
+    async def token(self) -> str:
+        # generate_auth_token resuelve credenciales y firma contra AWS: se
+        # ejecuta fuera del event loop para no bloquear el consumidor mientras
+        # renueva el token de cada conexión.
+        return await asyncio.get_running_loop().run_in_executor(None, self._token)
+
+    def _token(self) -> str:
         from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 
         token, _ = MSKAuthTokenProvider.generate_auth_token(self._region)
@@ -62,6 +76,12 @@ class ConsumidorMSK:
             bootstrap_servers=self._config.msk_bootstrap_brokers,
             group_id=self._config.msk_consumer_group,
             security_protocol="SASL_SSL",
+            # aiokafka >= 0.13 deja de construir el contexto TLS por su cuenta:
+            # con SASL_SSL y ssl_context=None aborta en el constructor con
+            # "`ssl_context` is mandatory if security_protocol=='SSL'", antes de
+            # intentar conectar. El trust store del sistema basta porque MSK
+            # presenta certificados de Amazon Trust Services.
+            ssl_context=ssl.create_default_context(),
             sasl_mechanism="OAUTHBEARER",
             sasl_oauth_token_provider=MSKTokenProvider(self._region),
             auto_offset_reset="earliest",

@@ -65,6 +65,10 @@ Pesos y tarifa base por defecto (configurables en `app/config.py` / `.env`):
 
 `tarifa_base = 50000` (COP). Cada atributo usado produce un `FactorInterno` `{"factor": "<atributo>", "impacto": "reduce_prima"|"aumenta_prima", "peso": <peso>}` que acompaña la oferta — nunca se expone el valor crudo de ningún proveedor, solo el nombre del atributo propio de Solventa y su efecto cualitativo.
 
+### Oferta competitiva (SOLV-266)
+
+El `ajuste` nunca supera `factor_referencia_mercado` (por defecto `1.10`, variable `FACTOR_REFERENCIA_MERCADO`; valor académico, no es una fuente real de mercado). Cuando el perfil lo supera, la oferta lleva el factor interno `{"factor": "ajuste_competitivo", "impacto": "reduce_prima", "peso": <referencia>}` y el ajuste queda en la referencia. El tope viaja dentro de `factores`, así que `factor_ajuste` se reconstruye igual desde lo persistido y ms-cotizacion cotiza con el mismo valor topado.
+
 ### Perfil de riesgo para ms-cotizacion (`IPerfilRiesgo`)
 
 La oferta expone `factor_ajuste` (el `ajuste` de la fórmula, recalculado desde los factores y el snapshot persistidos). `GET /v1/ofertas-hipotecario/clientes/{cliente_id}/ultima` devuelve la oferta más reciente del cliente sin volver a llamar a los adaptadores; ms-cotizacion la lee para cotizar `vida-hipotecario` con este mismo perfil, de modo que la prima cotizada y cobrada en la emisión sale del perfil que el cliente vio explicado. Exige consentimiento vigente (`403` si se revocó) y responde `404` si el cliente aún no tiene ofertas.

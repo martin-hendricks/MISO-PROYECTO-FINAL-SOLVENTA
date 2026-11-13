@@ -58,5 +58,7 @@ interface IssuanceRepository {
 
     suspend fun policies(): StandInAnswer<List<PolicyEntry>>
 
+    suspend fun consentRevoked(): Boolean = false
+
     suspend fun detail(numero: String): StandInAnswer<PolicyDetail>
 }

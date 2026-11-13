@@ -14,6 +14,7 @@ import com.grupo8_uniandes.solventa.domain.registration.Registration
 import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.ui.shell.ProfileViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -30,8 +31,7 @@ class ProfileViewModelTest {
         assertFalse(viewModel.signedOut.value)
     }
 
-    @Test
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun givenSignOutConfirmed_whenCalled_thenSessionClosesOnce() {
         Dispatchers.setMain(UnconfinedTestDispatcher())

@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 
@@ -80,3 +80,18 @@ class CatalogoVista(ModeloVista):
 class ErrorVista(ModeloVista):
     codigo: str
     mensaje: str
+
+
+class OriginacionEntrada(ModeloVista):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    tipo_documento: str = Field(min_length=1, max_length=10)
+    numero_documento: str = Field(min_length=1, max_length=50)
+    valor: int = Field(gt=0)
+    plazo_meses: int = Field(ge=1, le=480)
+
+
+class OriginacionVista(ModeloVista):
+    estado: Literal["pendiente"] = "pendiente"
+    valor: int
+    plazo_meses: int

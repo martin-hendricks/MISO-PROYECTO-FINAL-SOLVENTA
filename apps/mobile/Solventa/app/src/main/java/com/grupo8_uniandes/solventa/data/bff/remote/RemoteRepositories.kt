@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessUpdateDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
@@ -22,6 +23,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toAccepted
 import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProviders
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
@@ -39,6 +41,8 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
 import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
+import com.grupo8_uniandes.solventa.domain.profile.AccountName
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
@@ -59,6 +63,8 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
@@ -90,6 +96,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import retrofit2.HttpException
 import java.io.IOException
@@ -301,17 +309,38 @@ class RemoteIssuanceRepository(
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         gate.call { api.detail(numero).toDetail() }
 
-    private suspend fun readAcceptance(cotizacionId: String): Acceptance? =
-        try {
+    @Volatile
+    private var revoked = false
+
+    override suspend fun consentRevoked(): Boolean = revoked
+
+    private suspend fun readAcceptance(cotizacionId: String): Acceptance? {
+        revoked = false
+        return try {
             gate.flush()
             api.accept(newIdempotencyKey(), IdDto(cotizacionId)).toAcceptance()
         } catch (_: IOException) {
             null
-        } catch (_: HttpException) {
+        } catch (error: HttpException) {
+            revoked = error.code() == 422 && error.codigo() == CONSENT_REVOKED
             null
         } catch (_: SerializationException) {
             null
         }
+    }
+}
+
+private const val CONSENT_REVOKED = "consentimiento_revocado"
+
+private fun HttpException.codigo(): String? {
+    val body = response()?.errorBody()?.string().orEmpty()
+    val parsed = try {
+        bffJson.parseToJsonElement(body)
+    } catch (_: SerializationException) {
+        return null
+    }
+    val codigo = (parsed as? JsonObject)?.get("codigo") as? JsonPrimitive
+    return codigo?.contentOrNull
 }
 
 private sealed interface Acceptance {
@@ -394,9 +423,17 @@ class RemoteMortgageRepository(
 ) : MortgageRepository {
     override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> =
         gate.call { api.mortgage(profile.toDto()).toQuote() }
+}
 
-    override suspend fun degraded(): StandInAnswer<MortgageQuote> =
-        gate.call { api.mortgage(CreditProfile(0, 0, false).toDto()).toQuote() }
+class RemoteProfilingConsentRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : ProfilingConsentRepository {
+    override suspend fun read(): StandInAnswer<ProfilingConsent> =
+        gate.call { api.profilingConsent().toProfilingConsent() }
+
+    override suspend fun revoke(): StandInAnswer<ProfilingConsent> =
+        gate.call { api.revokeProfilingConsent().toProfilingConsent() }
 }
 
 class RemoteNoticeRepository(
@@ -476,6 +513,19 @@ class RemoteAssistanceRepository(
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }
 }
+
+class RemoteAccountNameRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : AccountNameRepository {
+    override suspend fun read(): StandInAnswer<AccountName> =
+        gate.call { api.accountName().toAccountName() }
+
+    override suspend fun save(nombre: String, apellidos: String): StandInAnswer<AccountName> =
+        gate.call { api.saveAccountName(AccountNameDto(nombre, apellidos)).toAccountName() }
+}
+
+private fun AccountNameDto.toAccountName() = AccountName(nombre, apellidos)
 
 class RemoteRenewalPreferenceRepository(
     private val api: MobileBffApi,

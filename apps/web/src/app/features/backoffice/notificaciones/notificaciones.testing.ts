@@ -5,12 +5,16 @@ export const AUDIENCIA: UsuarioAudiencia[] = [
     usuarioId: '11111111-1111-4111-8111-111111111111',
     nombre: 'Ana',
     apellidos: 'Ruiz',
+    email: 'ana@correo.com',
+    documento: '1020334556',
     dispositivosActivos: 1,
   },
   {
     usuarioId: '22222222-2222-4222-8222-222222222222',
     nombre: 'Luis',
     apellidos: 'Paz',
+    email: 'luis@correo.com',
+    documento: '52448901',
     dispositivosActivos: 2,
   },
 ];

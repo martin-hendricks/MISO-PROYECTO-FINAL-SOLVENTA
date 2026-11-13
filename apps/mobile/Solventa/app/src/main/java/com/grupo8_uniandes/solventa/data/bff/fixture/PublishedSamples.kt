@@ -82,11 +82,19 @@ object PublishedSamples {
     """
 
     const val MORTGAGE_OUT = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
+    """
+
+    const val PROFILING_CONSENT = """
+        {"estado":"vigente","otorgadoEn":"2026-10-01T10:00:00Z"}
+    """
+
+    const val PROFILING_CONSENT_REVOKED = """
+        {"estado":"revocado","revocadoEn":"2026-11-11T15:30:00Z"}
     """
 
     const val MORTGAGE_DEGRADED = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
     """
 
     const val NOTICES = """

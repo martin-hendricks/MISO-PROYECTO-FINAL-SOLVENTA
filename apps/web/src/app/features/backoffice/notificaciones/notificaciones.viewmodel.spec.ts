@@ -46,6 +46,19 @@ describe('NotificacionesViewModel', () => {
     expect(vm.puedeEnviar()).toBeFalse();
     vm.alternar(AUDIENCIA[0].usuarioId);
     expect(vm.puedeEnviar()).toBeTrue();
+    expect(vm.etiqueta(AUDIENCIA[0])).toBe('Ana Ruiz · 1020334556');
+    expect(vm.persona(AUDIENCIA[0])).toBe('Ana Ruiz');
+    expect(vm.documento(AUDIENCIA[0])).toBe('1020334556');
+    expect(vm.etiqueta({ ...AUDIENCIA[0], nombre: ' ', apellidos: '' })).toBe(
+      'ana@correo.com · 1020334556',
+    );
+    expect(
+      vm.etiqueta({
+        ...AUDIENCIA[0],
+        email: undefined as unknown as string,
+        documento: undefined as unknown as string,
+      }),
+    ).toBe('Ana Ruiz');
   });
 
   it('mirrors the inputs in the preview', () => {
@@ -119,6 +132,26 @@ describe('NotificacionesViewModel', () => {
     vm.enviar();
     expect(vm.resultado()).toEqual(RESULTADO);
     expect(vm.status()).toBe('error');
+  });
+
+  it('uses the email when the legal name is missing and reports a failed load', () => {
+    const { vm } = crear();
+    const sinNombre = {
+      ...AUDIENCIA[0],
+      nombre: undefined as unknown as string,
+      apellidos: null as unknown as string,
+      email: undefined as unknown as string,
+    };
+    expect(vm.persona(sinNombre)).toBe('');
+    expect(vm.documento({ ...sinNombre, documento: null as unknown as string })).toBe('');
+
+    const caido = new NotificacionesViewModel({
+      audiencia: () => throwError(() => new Error('caído')),
+      historial: () => of({ items: [] }),
+      enviar: () => of(RESULTADO),
+    });
+    caido.cargar();
+    expect(caido.status()).toBe('error');
   });
 
   it('stays loading until both reads answer', () => {

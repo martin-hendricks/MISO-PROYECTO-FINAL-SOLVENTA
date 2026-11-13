@@ -27,6 +27,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
@@ -74,6 +75,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
@@ -297,6 +299,13 @@ internal fun PaymentDto.toPayment() = AutomaticPayment(siniestroId, poliza, umbr
 internal fun MortgageInDto.toProfile() = CreditProfile(credito.valor, credito.plazoMeses, consentimientoPerfil)
 
 internal fun MortgageOutDto.toQuote() = MortgageQuote(ramo, estado, prima, moneda, factores, degradada)
+
+internal fun ProfilingConsentDto.toProfilingConsent(): ProfilingConsent = when (estado) {
+    "vigente" -> ProfilingConsent.Granted(required(otorgadoEn))
+    "revocado" -> ProfilingConsent.Revoked(required(revocadoEn))
+    "sin_consentimiento" -> ProfilingConsent.None
+    else -> throw SerializationException("estado")
+}
 
 internal fun NoticesDto.toNotices() = avisos.map { ValidityNotice(it.tipo, it.poliza, it.venceEn, it.estado) }
 

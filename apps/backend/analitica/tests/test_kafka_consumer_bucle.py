@@ -3,7 +3,9 @@ broker real. Mismo patrón que test_kafka_consumer.py, pero ejercitando el
 ciclo de vida completo en vez de solo procesar_mensaje()."""
 
 import asyncio
+import inspect
 import json
+import ssl
 from uuid import uuid4
 
 import pytest
@@ -108,6 +110,21 @@ async def test_iniciar_arranca_el_consumer_y_la_tarea(uow, consumer_falso):
     await consumidor.detener()
 
 
+async def test_iniciar_pasa_un_contexto_tls_explicito(uow, consumer_falso):
+    # aiokafka >= 0.13 exige el contexto TLS para SASL_SSL: sin él el
+    # constructor lanza ValueError antes de conectar (ver kafka_consumer.py
+    # de notificaciones, donde el fallo se vio en el clúster real).
+    consumidor = ConsumidorMSK(_config(), uow)
+
+    await consumidor.iniciar()
+
+    contexto = consumer_falso.instancias[0].kwargs["ssl_context"]
+    assert isinstance(contexto, ssl.SSLContext)
+    assert contexto.verify_mode == ssl.CERT_REQUIRED
+
+    await consumidor.detener()
+
+
 async def test_iniciar_es_idempotente_si_ya_hay_consumer(uow, consumer_falso):
     consumidor = ConsumidorMSK(_config(), uow)
     await consumidor.iniciar()
@@ -188,7 +205,7 @@ async def test_detener_no_lanza_si_stop_falla(uow, consumer_falso):
     assert consumidor._consumer is None
 
 
-def test_token_usa_el_firmador_iam(monkeypatch):
+async def test_token_usa_el_firmador_iam(monkeypatch):
     import sys
     import types
 
@@ -204,4 +221,15 @@ def test_token_usa_el_firmador_iam(monkeypatch):
 
     provider = MSKTokenProvider("us-east-1")
 
-    assert provider.token() == "token-para-us-east-1"
+    assert await provider.token() == "token-para-us-east-1"
+
+
+def test_provider_cumple_el_contrato_de_aiokafka():
+    # aiokafka 0.15 valida isinstance(..., AbstractTokenProvider) al conectar y
+    # consume token() con await (ver kafka_consumer.py de notificaciones).
+    from aiokafka.abc import AbstractTokenProvider
+
+    provider = MSKTokenProvider("us-east-1")
+
+    assert isinstance(provider, AbstractTokenProvider)
+    assert inspect.iscoroutinefunction(provider.token)
