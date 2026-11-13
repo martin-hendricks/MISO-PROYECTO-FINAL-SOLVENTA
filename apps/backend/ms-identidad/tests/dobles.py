@@ -69,6 +69,10 @@ class _Usuarios:
         pagina_filas = usuarios[inicio : inicio + tamano + 1]
         return [deepcopy(usuario) for usuario in pagina_filas[:tamano]], len(pagina_filas) > tamano
 
+    async def listar_por_rol(self, rol: str):
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        return [deepcopy(u) for u in vista.values() if u.rol == rol]
+
 
 class _Outbox:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
