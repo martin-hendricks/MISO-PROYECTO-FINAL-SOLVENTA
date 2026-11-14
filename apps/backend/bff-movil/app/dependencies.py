@@ -1,10 +1,13 @@
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from . import revocacion
 
 EXPIRA_EN = 900
 CUSTOMER = "cliente"
@@ -26,6 +29,10 @@ def _encode(subject: str, token_type: str, uid: str) -> str:
         "uid": uid,
         "rol": CUSTOMER,
         "typ": token_type,
+        # jti (JWT ID): identifica este token de forma única para poder
+        # revocarlo (blacklist) sin tener que guardar el token completo --
+        # ver app/revocacion.py.
+        "jti": uuid.uuid4().hex,
         "exp": now + timedelta(seconds=EXPIRA_EN),
     }
     return jwt.encode(payload, secret(), algorithm=ALGORITHM)
@@ -55,6 +62,8 @@ async def require_customer(
     payload = _decode(credentials.credentials)
     if payload.get("typ") != "access":
         raise HTTPException(status_code=401, detail="Token invalido")
+    if revocacion.esta_revocado(payload.get("jti", "")):
+        raise HTTPException(status_code=401, detail="Token invalido")
     if payload.get("rol") != CUSTOMER:
         raise HTTPException(status_code=403, detail="Rol no autorizado")
     return payload
@@ -64,4 +73,24 @@ def refresh_session(refresh_token: str) -> dict:
     payload = _decode(refresh_token)
     if payload.get("typ") != "refresh" or payload.get("rol") != CUSTOMER or not payload.get("uid"):
         raise HTTPException(status_code=401, detail="Token invalido")
+    if revocacion.esta_revocado(payload.get("jti", "")):
+        raise HTTPException(status_code=401, detail="Token invalido")
     return issue_pair(payload["sub"], payload["uid"])
+
+
+def revocar_token(token: str) -> None:
+    """Decodifica `token` y marca su jti como revocado (logout real).
+
+    Silencioso ante un token ya invalido/expirado: revocar algo que ya no
+    sirve no es un error -- el objetivo (que no se pueda volver a usar) ya
+    se cumple solo.
+    """
+    try:
+        payload = jwt.decode(token, secret(), algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        return
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        return
+    revocacion.revocar(jti, datetime.fromtimestamp(exp, tz=timezone.utc))
