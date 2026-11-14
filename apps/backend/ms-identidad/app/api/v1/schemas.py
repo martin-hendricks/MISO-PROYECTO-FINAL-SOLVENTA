@@ -15,6 +15,7 @@ class CrearUsuarioEntrada(BaseModel):
     apellidos: str = ""
     ingresos_mensuales: Decimal | None = Field(default=None, gt=0)
     gastos_mensuales: Decimal | None = Field(default=None, ge=0)
+    canal: str | None = Field(default=None, max_length=20)
 
 
 class PerfilEntrada(BaseModel):
@@ -38,6 +39,7 @@ class UsuarioSalida(BaseModel):
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
+    canal: str | None = None
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -52,6 +54,7 @@ class UsuarioSalida(BaseModel):
             ingresos_mensuales=usuario.ingresos_mensuales,
             gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
+            canal=usuario.canal,
         )
 
 

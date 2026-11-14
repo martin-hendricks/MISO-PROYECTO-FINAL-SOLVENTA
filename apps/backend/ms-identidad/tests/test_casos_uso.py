@@ -25,6 +25,20 @@ async def test_crear_usuario_persiste_con_password_hasheado(uow, almacen):
     assert almacen.usuarios[usuario.id].password_hash != "clave-secreta-123"
 
 
+async def test_crear_usuario_con_canal_lo_persiste(uow):
+    usuario = await casos_uso.crear_usuario(
+        uow,
+        VerificadorKYCStub(),
+        tipo_documento="CC",
+        numero_documento="1012345678",
+        email="camila@correo.com",
+        password_plano="clave-secreta-123",
+        canal="android",
+    )
+
+    assert usuario.canal == "android"
+
+
 async def test_crear_usuario_con_email_duplicado_es_cuenta_duplicada(uow):
     await _crear(uow, email="camila@correo.com", documento="1")
 
