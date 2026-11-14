@@ -117,7 +117,10 @@ def test_salida_acepta_cualquier_rol_valido(client):
     assert client.post("/v1/sesion/salida", headers=headers).status_code == 200
 
 
-def test_sin_rol_el_bff_asigna_asesor(client):
+def test_sin_rol_el_bff_asigna_asesor(client, nucleo_identidad):
+    import httpx
+
+    nucleo_identidad.respuestas[("GET", "/v1/clientes")] = lambda _: httpx.Response(200, json={"clientes": []})
     response = client.post(
         "/v1/sesion/ingreso",
         json={"correo": "camila.restrepo@solventa.co", "contrasena": "secreto"},

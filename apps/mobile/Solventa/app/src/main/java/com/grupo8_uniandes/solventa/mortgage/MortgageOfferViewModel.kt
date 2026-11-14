@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.mortgage
 
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
@@ -27,12 +28,13 @@ class MortgageOfferViewModel(
     private val _state = MutableStateFlow<MortgageOfferUi>(MortgageOfferUi.Consent)
     val state: StateFlow<MortgageOfferUi> = _state.asStateFlow()
 
-    fun authorize() {
+    fun authorize(credit: MortgageCredit? = null) {
         val current = _state.value
         if (current != MortgageOfferUi.Consent && current != MortgageOfferUi.Unavailable) return
         _state.value = MortgageOfferUi.Requesting
         viewModelScope.launch {
-            _state.value = when (val answer = mortgage.offer(AUTHORIZED)) {
+            val profile = credit?.let { CreditProfile(it.valor, it.plazoMeses, consentimientoPerfil = true) } ?: AUTHORIZED
+            _state.value = when (val answer = mortgage.offer(profile)) {
                 is StandInAnswer.Ready -> MortgageOfferUi.Offer(answer.value)
                 else -> MortgageOfferUi.Unavailable
             }

@@ -42,6 +42,7 @@ class UsuarioFila(Base):
     gastos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     rol: Mapped[str] = mapped_column(String, default="cliente")
     prueba_de_vida: Mapped[str] = mapped_column(String, default="no")
+    canal: Mapped[str | None] = mapped_column(String, default=None)
 
 
 class OutboxFila(Base):
@@ -69,6 +70,7 @@ def _fila(usuario: Usuario) -> UsuarioFila:
         gastos_mensuales=usuario.gastos_mensuales,
         rol=usuario.rol,
         prueba_de_vida=usuario.prueba_de_vida,
+        canal=usuario.canal,
     )
 
 
@@ -86,6 +88,7 @@ def _a_dominio(fila: UsuarioFila) -> Usuario:
         gastos_mensuales=fila.gastos_mensuales,
         rol=getattr(fila, "rol", None) or "cliente",
         prueba_de_vida=getattr(fila, "prueba_de_vida", None) or "no",
+        canal=getattr(fila, "canal", None),
     )
 
 
@@ -156,6 +159,13 @@ class RepositorioUsuariosSQL:
         filas = (await self._s.scalars(consulta)).all()
         hay_mas = len(filas) > tamano
         return [_a_dominio(fila) for fila in filas[:tamano]], hay_mas
+
+    async def listar_por_rol(self, rol: str) -> list[Usuario]:
+        """Listado del back-office (HU-141): todos los usuarios con ese rol,
+        sin paginar -- la cartera de clientes no tiene volumen hoy que lo
+        justifique; se agrega paginación cuando haga falta."""
+        filas = await self._s.scalars(select(UsuarioFila).where(UsuarioFila.rol == rol))
+        return [_a_dominio(fila) for fila in filas]
 
 
 def _patron_ilike(q: str) -> str:

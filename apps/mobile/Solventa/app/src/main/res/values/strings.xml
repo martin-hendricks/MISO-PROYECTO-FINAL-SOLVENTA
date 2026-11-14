@@ -173,6 +173,7 @@
     <string name="mortgage_consent_heading">Vida hipotecario · paso 1 de 3</string>
     <string name="mortgage_consent_body">Para calcular tu oferta, Solventa consultará tu nivel de ingresos estimado, tu comportamiento de pago, la zona de riesgo de tu vivienda y la antigüedad de tu documento. Solo se usan para esta oferta y puedes revocar la autorización desde Perfil.</string>
     <string name="mortgage_consent_sources">Fuentes: Open Finance y Open Data.</string>
+    <string name="mortgage_consent_credit">Crédito: %1$s a %2$d meses</string>
     <string name="mortgage_consent_authorize">Autorizar</string>
     <string name="mortgage_consent_decline">Ahora no</string>
     <string name="mortgage_profiling_requesting">Calculando tu oferta…</string>

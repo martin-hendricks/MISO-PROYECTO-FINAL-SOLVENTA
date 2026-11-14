@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.domain.home
 
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import java.time.Instant
 
 /**
@@ -47,6 +48,7 @@ data class ClaimCandidate(
 data class Origination(
     /** `true` shows the Vida Crediticia card on Inicio. `false` omits it. */
     val present: Boolean = false,
+    val credit: MortgageCredit? = null,
 )
 
 /**
@@ -72,4 +74,5 @@ data class HomePanel(
     val policyId: String? = null,
     val claimId: String? = null,
     val vidaCrediticia: Boolean = false,
+    val mortgageCredit: MortgageCredit? = null,
 )

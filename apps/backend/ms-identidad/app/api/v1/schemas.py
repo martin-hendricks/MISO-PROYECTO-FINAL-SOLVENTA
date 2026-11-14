@@ -17,6 +17,7 @@ class CrearUsuarioEntrada(BaseModel):
     ingresos_mensuales: Decimal | None = Field(default=None, gt=0)
     gastos_mensuales: Decimal | None = Field(default=None, ge=0)
     prueba_de_vida: Literal["ok", "no"] = "no"
+    canal: str | None = Field(default=None, max_length=20)
 
 
 class PruebaDeVidaEntrada(BaseModel):
@@ -55,6 +56,7 @@ class UsuarioSalida(BaseModel):
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
     prueba_de_vida: str = "no"
+    canal: str | None = None
 
     @classmethod
     def desde(cls, usuario: Usuario) -> "UsuarioSalida":
@@ -70,6 +72,7 @@ class UsuarioSalida(BaseModel):
             gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
             prueba_de_vida=usuario.prueba_de_vida,
+            canal=usuario.canal,
         )
 
 

@@ -8,6 +8,11 @@ data class CreditProfile(
     val consentimientoPerfil: Boolean,
 )
 
+data class MortgageCredit(
+    val valor: Long,
+    val plazoMeses: Int,
+)
+
 data class MortgageQuote(
     val ramo: String,
     val estado: String,
@@ -15,6 +20,8 @@ data class MortgageQuote(
     val moneda: String,
     val factores: List<String>,
     val degradada: Boolean,
+    val cotizacionId: String? = null,
+    val descripcion: String = "",
 )
 
 interface MortgageRepository {

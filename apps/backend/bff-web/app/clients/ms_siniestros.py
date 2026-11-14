@@ -79,9 +79,3 @@ class ClienteMsSiniestros(ClienteServicio):
 
     async def pago_recibido(self, siniestro_id: UUID) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/pagos-recibidos/{siniestro_id}")
-
-    async def pagos_recibidos(self) -> dict[str, Any]:
-        return await self._pedir("GET", "/v1/pagos-recibidos")
-
-    async def pago_recibido(self, siniestro_id: UUID) -> dict[str, Any]:
-        return await self._pedir("GET", f"/v1/pagos-recibidos/{siniestro_id}")

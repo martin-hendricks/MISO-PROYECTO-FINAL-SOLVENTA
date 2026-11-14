@@ -308,6 +308,15 @@ data class CreditDto(val valor: Long, val plazoMeses: Int)
 data class MortgageInDto(val credito: CreditDto, val consentimientoPerfil: Boolean)
 
 @Serializable
+data class MortgageCreditDto(
+    val estado: String = "disponible",
+    @Serializable(with = PesosSerializer::class)
+    val valor: Long,
+    val plazoMeses: Int,
+    val origen: String = "cliente",
+)
+
+@Serializable
 data class ProfilingConsentDto(
     val estado: String,
     val otorgadoEn: String? = null,
@@ -318,10 +327,13 @@ data class ProfilingConsentDto(
 data class MortgageOutDto(
     val ramo: String,
     val estado: String,
+    @Serializable(with = PesosSerializer::class)
     val prima: Long,
     val moneda: String,
     val factores: List<String>,
     val degradada: Boolean,
+    val cotizacionId: String? = null,
+    val descripcion: String = "",
 )
 
 @Serializable
@@ -359,7 +371,7 @@ data class HomeDto(
     val ofertaVigente: HomeOfferDto? = null,
     val poliza: HomePolicyDto? = null,
     val siniestroEnCurso: HomeClaimDto? = null,
-    val hipotecario: String? = null,
+    val hipotecario: MortgageCreditDto? = null,
     val cotizacionesPendientes: List<HomeOfferDto> = emptyList(),
 )
 

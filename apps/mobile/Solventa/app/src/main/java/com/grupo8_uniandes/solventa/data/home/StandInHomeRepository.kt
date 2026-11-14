@@ -51,7 +51,7 @@ class StandInHomeRepository(
                     ),
                 )
             }.orEmpty(),
-            origination = Origination(present = sample.hipotecario != null),
+            origination = Origination(present = sample.hipotecario != null, credit = sample.hipotecario),
         )
     }
 

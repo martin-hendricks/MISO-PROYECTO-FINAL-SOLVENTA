@@ -85,9 +85,51 @@ def _auth(client, rol):
     return {"Authorization": f"Bearer {token(client, rol)}"}
 
 
-def test_cartera_ficha_y_venta(client, nucleo_cotizacion):
+CLIENTE_ID_IDENTIDAD = "11111111-1111-1111-1111-111111111111"
+
+CLIENTE_SALIDA_IDENTIDAD = {
+    "clienteId": CLIENTE_ID_IDENTIDAD,
+    "nombre": "Andrés",
+    "apellidos": "Gómez",
+    "documento": {"tipo": "CC", "numero": "1020334556"},
+    "canal": "web",
+    "estado": "activo",
+    "consentimiento": "habeas_data",
+}
+
+
+def test_cartera_ficha_y_venta(client, nucleo_cotizacion, nucleo_identidad):
     headers = _auth(client, "asesor")
     assert client.get("/v1/asesor/cartera", headers=headers).status_code == 200
+    created = client.post(
+        "/v1/asesor/clientes",
+        headers=headers,
+        json={
+            "nombre": "Camila Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+    assert created.status_code == 201
+    cuerpo = created.json()
+    assert cuerpo["clienteId"] == CLIENTE_ID_IDENTIDAD
+    assert cuerpo["nombre"] == "Camila Restrepo"
+    assert cuerpo["documento"] == "1012345678"
+    assert cuerpo["canal"] == "web"
+    assert cuerpo["estado"] == "activo"
+    assert cuerpo["consentimiento"] == "habeas_data"
+
+    nucleo_identidad.respuestas[("PATCH", f"/v1/clientes/{CLIENTE_ID_IDENTIDAD}/estado")] = lambda _: httpx.Response(
+        200, json={**CLIENTE_SALIDA_IDENTIDAD, "estado": "inactivo"}
+    )
+    off = client.post(
+        "/v1/asesor/clientes/estado",
+        headers=headers,
+        json={"clienteId": CLIENTE_ID_IDENTIDAD, "estado": "inactivo"},
+    )
+    assert off.json()["estado"] == "inactivo"
+    assert off.json()["clienteId"] == CLIENTE_ID_IDENTIDAD
 
     nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = lambda _: httpx.Response(
         201, json=COTIZACION_SALIDA
@@ -333,13 +375,6 @@ def test_cliente_no_abre_pantallas_de_asesor(client):
     assert client.get("/v1/operador/avisos", headers=headers).status_code == 403
 
 
-def test_rutas_de_clientes_del_asesor_ya_no_existen(client):
-    headers = _auth(client, "asesor")
-    assert client.get("/v1/asesor/clientes", headers=headers).status_code == 404
-    assert client.post("/v1/asesor/clientes", headers=headers, json={}).status_code == 404
-    assert client.post("/v1/asesor/clientes/estado", headers=headers, json={}).status_code == 404
-
-
 CLIENTE_UUID = "12345678-1234-4123-8123-123456789abc"
 
 
@@ -386,6 +421,76 @@ def test_cliente_salida_resuelve_el_nombre_en_ms_identidad(client, nucleo_cotiza
 
     assert respuesta.status_code == 200
     assert respuesta.json()["cliente"] == {"clienteId": CLIENTE_UUID, "nombre": "Laura Peña"}
+
+
+CLIENTES_IDENTIDAD = [
+    {
+        "clienteId": "11111111-1111-1111-1111-111111111111",
+        "nombre": "Andrés",
+        "apellidos": "Gómez",
+        "documento": {"tipo": "CC", "numero": "1020334556"},
+        "canal": "web",
+        "estado": "activo",
+        "consentimiento": "habeas_data",
+    },
+    {
+        "clienteId": "22222222-2222-2222-2222-222222222222",
+        "nombre": "Laura",
+        "apellidos": "Peña",
+        "documento": {"tipo": "CC", "numero": "52448901"},
+        "canal": "android",
+        "estado": "activo",
+        "consentimiento": "hipotecario_pendiente",
+    },
+    {
+        "clienteId": "33333333-3333-3333-3333-333333333333",
+        "nombre": "Julián",
+        "apellidos": "Torres",
+        "documento": {"tipo": "CC", "numero": "79330114"},
+        "canal": "web",
+        "estado": "inactivo",
+        "consentimiento": "revocado",
+    },
+]
+
+
+def test_listado_de_clientes_trae_canal_y_consentimiento(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("GET", "/v1/clientes")] = lambda _: httpx.Response(
+        200, json={"clientes": CLIENTES_IDENTIDAD}
+    )
+
+    clientes = client.get("/v1/asesor/clientes", headers=_auth(client, "asesor")).json()["clientes"]
+
+    assert len({item["clienteId"] for item in clientes}) == len(clientes) == 3
+    assert {item["canal"] for item in clientes} == {"web", "android"}
+    assert {item["estado"] for item in clientes} == {"activo", "inactivo"}
+    assert {item["consentimiento"] for item in clientes} == {"habeas_data", "hipotecario_pendiente", "revocado"}
+    # El BFF aplana el documento (objeto {tipo, numero} de ms-identidad) a un
+    # único string, y junta nombre+apellidos en un solo campo: así lo espera
+    # el frontend (clientes.gateway.ts / clientes.testing.ts, p.ej. "Andrés Gómez").
+    assert all(isinstance(item["documento"], str) for item in clientes)
+    assert clientes[0]["nombre"] == "Andrés Gómez"
+    assert "habeasData" not in clientes[0]
+    assert "apellidos" not in clientes[0]
+
+
+def test_listado_de_clientes_503_si_ms_identidad_no_responde(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("GET", "/v1/clientes")] = lambda _: httpx.Response(500)
+
+    respuesta = client.get("/v1/asesor/clientes", headers=_auth(client, "asesor"))
+
+    assert respuesta.status_code == 503
+    assert respuesta.json()["codigo"] == "servicio_no_disponible"
+
+
+def test_desactivar_cliente_inexistente_es_404(client, nucleo_identidad):
+    respuesta = client.post(
+        "/v1/asesor/clientes/estado",
+        headers=_auth(client, "asesor"),
+        json={"clienteId": "99999999-9999-9999-9999-999999999999", "estado": "inactivo"},
+    )
+
+    assert respuesta.status_code == 404
 
 
 # --- HU-163 (SOLV-262): cotizaciones pendientes del asesor ---------------
@@ -646,3 +751,162 @@ def test_catalogo_de_vida_hipotecario_es_el_producto_vida_hipotecario(client, nu
 
     assert respuesta.status_code == 200
     assert respuesta.json()["datosRiesgo"][0]["nombre"] == "plazoMeses"
+
+
+def test_crear_cliente_sin_habeas_data_es_422(client):
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": False,
+        },
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_crear_cliente_con_documento_duplicado_es_409(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda _: httpx.Response(
+        409, json={"codigo": "cuenta_duplicada", "mensaje": "La cuenta ya existe"}
+    )
+
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+
+    assert respuesta.status_code == 409
+
+
+def test_crear_cliente_sin_ms_consentimiento_disponible_degrada_a_503(client, nucleo_consentimiento):
+    # El alta ya persistió el Usuario en ms-identidad antes de otorgar el
+    # consentimiento; si ms-consentimiento cae, el 503 es honesto (el
+    # consentimiento no quedó registrado) en vez de responder 201 con un
+    # consentimiento que en realidad no se otorgó.
+    nucleo_consentimiento.respuestas = {}
+    nucleo_consentimiento._default_status = 503
+    nucleo_consentimiento._default_body = {"codigo": "servicio_no_disponible", "mensaje": "Intenta de nuevo"}
+
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+
+    assert respuesta.status_code == 503
+
+
+def test_crear_cliente_separa_nombre_y_apellidos(client, nucleo_identidad):
+    capturado = {}
+
+    def _capturar(request: httpx.Request) -> httpx.Response:
+        cuerpo = json.loads(request.content or b"{}")
+        capturado["nombre"] = cuerpo.get("nombre")
+        capturado["apellidos"] = cuerpo.get("apellidos")
+        capturado["canal"] = cuerpo.get("canal")
+        return httpx.Response(
+            201,
+            json={
+                "usuario_id": CLIENTE_ID_IDENTIDAD,
+                "tipo_documento": "CC",
+                "numero_documento": "1012345678",
+                "email": "camila@correo.com",
+                "estado": "ACTIVO",
+                "nombre": cuerpo.get("nombre", ""),
+                "apellidos": cuerpo.get("apellidos", ""),
+                "canal": cuerpo.get("canal"),
+                "rol": "cliente",
+            },
+        )
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = _capturar
+
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila Andrea Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+
+    assert respuesta.status_code == 201
+    assert capturado["nombre"] == "Camila"
+    assert capturado["apellidos"] == "Andrea Restrepo"
+    assert capturado["canal"] == "web"
+
+
+def test_crear_cliente_con_un_solo_nombre_deja_apellidos_vacio(client, nucleo_identidad):
+    capturado = {}
+
+    def _capturar(request: httpx.Request) -> httpx.Response:
+        cuerpo = json.loads(request.content or b"{}")
+        capturado["nombre"] = cuerpo.get("nombre")
+        capturado["apellidos"] = cuerpo.get("apellidos")
+        return httpx.Response(
+            201,
+            json={
+                "usuario_id": CLIENTE_ID_IDENTIDAD,
+                "tipo_documento": "CC",
+                "numero_documento": "1012345678",
+                "email": "camila@correo.com",
+                "estado": "ACTIVO",
+                "nombre": cuerpo.get("nombre", ""),
+                "apellidos": cuerpo.get("apellidos", ""),
+                "canal": "web",
+                "rol": "cliente",
+            },
+        )
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = _capturar
+
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+
+    assert respuesta.status_code == 201
+    assert capturado["nombre"] == "Camila"
+    assert capturado["apellidos"] == ""
+
+
+def test_crear_cliente_con_rechazo_de_kyc_propaga_422(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda _: httpx.Response(
+        422, json={"codigo": "identidad_no_verificada", "mensaje": "No pudimos verificar el documento"}
+    )
+
+    respuesta = client.post(
+        "/v1/asesor/clientes",
+        headers=_auth(client, "asesor"),
+        json={
+            "nombre": "Camila Restrepo",
+            "documento": "1012345678",
+            "correo": "camila@correo.com",
+            "habeasData": True,
+        },
+    )
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == "No pudimos verificar el documento"

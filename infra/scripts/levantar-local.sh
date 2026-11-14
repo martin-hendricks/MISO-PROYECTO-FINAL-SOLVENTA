@@ -46,6 +46,7 @@ fi
 # igual al nombre del servicio (ver docker-compose.yml); se lista explícito
 # en vez de derivarlo de "ms-<algo>" a ciegas.
 SERVICIOS="
+ms-consentimiento:db-consentimiento
 ms-cotizacion:db-cotizacion
 ms-identidad:db-identidad
 ms-pagos:db-pagos
@@ -127,7 +128,7 @@ done
 
 echo ""
 echo "== Reiniciando microservicios para que tomen el esquema al día =="
-docker compose restart ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion notificaciones bff-web bff-movil api-socios
+docker compose restart ms-consentimiento ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion notificaciones bff-web bff-movil api-socios
 
 echo ""
 echo "== Backend local listo =="
@@ -135,6 +136,7 @@ echo "  bff-web:        http://localhost:8000"
 echo "  bff-movil:      http://localhost:8007"
 echo "  api-socios:     http://localhost:8006"
 echo "  notificaciones: http://localhost:8011"
+echo "  ms-consentimiento: http://localhost:8012"
 echo ""
 echo "Frontend (en otra terminal):"
 echo "  cd ../web && pnpm start   # http://localhost:4200 (proxy /web -> bff-web real)"

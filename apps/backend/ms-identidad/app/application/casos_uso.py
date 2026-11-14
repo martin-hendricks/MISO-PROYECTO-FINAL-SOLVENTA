@@ -27,6 +27,7 @@ async def crear_usuario(
     ingresos_mensuales=None,
     gastos_mensuales=None,
     prueba_de_vida: str = "no",
+    canal: str | None = None,
 ) -> Usuario:
     """Alta de cuenta (SOLV-215). La verificación previa de duplicados es
     una optimización para responder rápido en el caso común; la garantía
@@ -35,7 +36,11 @@ async def crear_usuario(
     altas concurrentes pasan la verificación previa a la vez.
 
     El KYC (HU-88) se consulta antes de abrir la transacción, para no retenerla
-    mientras responde el proveedor."""
+    mientras responde el proveedor.
+
+    `canal` (HU-141) es opcional: el alta desde el registro propio del canal
+    web/app ya lo conoce (quién llama); el alta desde el back-office también
+    lo fija explícitamente (ver bff-web/routers/asesor.py)."""
     usuario = Usuario.crear(
         tipo_documento=tipo_documento,
         numero_documento=numero_documento,
@@ -46,6 +51,7 @@ async def crear_usuario(
         ingresos_mensuales=ingresos_mensuales,
         gastos_mensuales=gastos_mensuales,
         prueba_de_vida=prueba_de_vida,
+        canal=canal,
     )
     if not await kyc.verificar(usuario.tipo_documento, usuario.numero_documento):
         raise IdentidadNoVerificada()
