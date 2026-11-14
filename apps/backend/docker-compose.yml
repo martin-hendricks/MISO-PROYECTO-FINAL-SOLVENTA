@@ -193,6 +193,7 @@ services:
     environment:
       SERVICE_NAME: ms-suscripcion
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-suscripcion:5432/solventa
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8001:8080"
     depends_on:
@@ -209,6 +210,7 @@ services:
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       DOBLE_PASARELA_LATENCIA_MS: ${DOBLE_PASARELA_LATENCIA_MS:-0}
       DOBLE_PASARELA_FALLAR: ${DOBLE_PASARELA_FALLAR:-false}
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8002:8080"
     depends_on:
@@ -243,6 +245,7 @@ services:
       DOBLE_OPEN_FINANCE_FALLAR: ${DOBLE_OPEN_FINANCE_FALLAR:-false}
       DOBLE_OPEN_DATA_LATENCIA_MS: ${DOBLE_OPEN_DATA_LATENCIA_MS:-0}
       DOBLE_OPEN_DATA_FALLAR: ${DOBLE_OPEN_DATA_FALLAR:-false}
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8004:8080"
     depends_on:
@@ -312,6 +315,7 @@ services:
     environment:
       SERVICE_NAME: ms-consentimiento
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-consentimiento:5432/solventa
+      SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8011:8080"
     depends_on:
@@ -346,6 +350,7 @@ services:
       MS_IDENTIDAD_URL: http://ms-identidad:8080
       MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
       SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
+      SOCIOS_API_KEYS: aliado-local:clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8006:8080"
     depends_on:
@@ -368,6 +373,7 @@ services:
       MS_SUSCRIPCION_URL: http://ms-suscripcion:8080
       MS_IDENTIDAD_URL: http://ms-identidad:8080
       MS_NOTIFICACIONES_URL: http://notificaciones:8080
+      MS_CONSENTIMIENTO_URL: http://ms-consentimiento:8080
     ports:
       - "8000:8000"
     depends_on:
@@ -379,6 +385,7 @@ services:
       - ms-suscripcion
       - ms-identidad
       - notificaciones
+      - ms-consentimiento
 
   bff-movil:
     build:
