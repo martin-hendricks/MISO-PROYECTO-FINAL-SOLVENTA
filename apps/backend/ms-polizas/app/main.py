@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -46,8 +47,11 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.fabrica_uow_lectura = fabrica_unidad_de_trabajo_lectura(motor_lectura)
-        app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
-        app.state.cobros = CobrosHTTP(http_pagos)
+        # ms-suscripcion y ms-pagos ya exigen autenticacion (rol "servicio"
+        # para estas llamadas service-to-service, ver token_servicio.py).
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
+        app.state.suscripciones = SuscripcionesHTTP(http_suscripcion, secreto)
+        app.state.cobros = CobrosHTTP(http_pagos, secreto)
         app.state.firma = FirmaStub(config.firma_stub_resultado)
         app.state.reportes = ReportesStub()
         yield

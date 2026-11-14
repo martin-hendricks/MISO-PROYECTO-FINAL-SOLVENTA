@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
@@ -385,8 +386,28 @@ async def test_motor_y_fabrica_no_abren_conexion_al_crearse():
         await motor.dispose()
 
 
+SECRETO = "test-secret"
+
+
 def _suscripciones(manejador) -> SuscripcionesHTTP:
-    return SuscripcionesHTTP(httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)))
+    return SuscripcionesHTTP(
+        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_suscripcion_http_envia_token_de_servicio():
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"decision": "ACEPTADA"})
+
+    await _suscripciones(manejador).aceptada(uuid4())
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-polizas", "servicio")
 
 
 @pytest.mark.parametrize(("decision", "esperado"), [("ACEPTADA", True), ("RECHAZADA", False)])
@@ -420,7 +441,25 @@ async def test_suscripcion_sin_red_no_esta_disponible():
 
 
 def _cobros(manejador) -> CobrosHTTP:
-    return CobrosHTTP(httpx.AsyncClient(base_url="http://ms-pagos", transport=httpx.MockTransport(manejador)))
+    return CobrosHTTP(
+        httpx.AsyncClient(base_url="http://ms-pagos", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_cobros_http_envia_token_de_servicio():
+    oferta_id, pago_id = uuid4(), uuid4()
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"estado": "APROBADO", "oferta_id": str(oferta_id)})
+
+    assert await _cobros(manejador).exitoso(oferta_id, pago_id) is True
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-polizas", "servicio")
 
 
 @pytest.mark.parametrize(
