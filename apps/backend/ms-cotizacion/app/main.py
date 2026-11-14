@@ -49,7 +49,10 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         http_perfilamiento = httpx.AsyncClient(
             base_url=config.ms_perfilamiento_url, timeout=config.timeout_dependencias
         )
-        perfilamiento = AdaptadorPerfilRiesgoPerfilamiento(http_perfilamiento)
+        # ms-perfilamiento y ms-suscripcion ya exigen autenticacion (rol
+        # "servicio" para estas llamadas service-to-service, ver token_servicio.py).
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
+        perfilamiento = AdaptadorPerfilRiesgoPerfilamiento(http_perfilamiento, secreto)
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.catalogo = await CatalogoSQL.cargar(motor)
         app.state.adaptador_perfil_riesgo = AdaptadorPerfilRiesgoPorProducto(
@@ -58,10 +61,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
                 latencia_ms=config.doble_perfil_riesgo_latencia_ms, fallar=config.doble_perfil_riesgo_fallar
             ),
         )
-        app.state.suscripciones = SuscripcionesHTTP(http)
-        # ms-perfilamiento ya exige autenticacion (rol "servicio" para esta
-        # llamada service-to-service, ver token_servicio.py).
-        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
+        app.state.suscripciones = SuscripcionesHTTP(http, secreto)
         app.state.consentimientos = ConsentimientoPerfilamientoHTTP(
             http_perfilamiento, config.productos_perfil_perfilamiento, secreto
         )

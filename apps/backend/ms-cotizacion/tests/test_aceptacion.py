@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 
 from app.application import casos_uso_cotizaciones as casos_uso
@@ -298,9 +299,12 @@ async def test_registrar_aceptacion_sin_fila_afectada_es_concurrente(uow, catalo
         await RepositorioSolicitudesSQL(_SesionUpdate(filas_afectadas=0)).registrar_aceptacion(solicitud)
 
 
+SECRETO = "test-secret"
+
+
 def _suscripciones_http(manejador) -> SuscripcionesHTTP:
     return SuscripcionesHTTP(
-        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador))
+        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)), SECRETO
     )
 
 
@@ -310,7 +314,7 @@ async def test_suscripciones_http_envia_la_solicitud_y_lee_la_decision(estado):
     recibidas = []
 
     def manejador(request):
-        recibidas.append((request.url.path, request.read()))
+        recibidas.append((request.url.path, request.read(), request.headers["Authorization"]))
         return httpx.Response(
             estado, json={"suscripcion_id": str(suscripcion_id), "decision": "RECHAZADA", "motivo": "score bajo"}
         )
@@ -318,8 +322,12 @@ async def test_suscripciones_http_envia_la_solicitud_y_lee_la_decision(estado):
     decision = await _suscripciones_http(manejador).evaluar(solicitud_id, PERFIL, SCORE)
 
     assert (decision.suscripcion_id, decision.decision, decision.motivo) == (suscripcion_id, "RECHAZADA", "score bajo")
-    ruta, cuerpo = recibidas[0]
+    ruta, cuerpo, autorizacion = recibidas[0]
     assert ruta == "/v1/suscripciones"
+    esquema, token = autorizacion.split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-cotizacion", "servicio")
     assert httpx.Response(200, content=cuerpo).json() == {
         "solicitud_id": str(solicitud_id),
         "perfil_id": str(PERFIL),
