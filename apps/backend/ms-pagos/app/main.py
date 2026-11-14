@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -30,7 +31,10 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         http = httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_dependencias)
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
-        app.state.suscripciones = SuscripcionesHTTP(http)
+        # ms-suscripcion ya exige autenticacion (rol "servicio" para esta
+        # llamada service-to-service, ver token_servicio.py).
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
+        app.state.suscripciones = SuscripcionesHTTP(http, secreto)
         app.state.pasarela = PasarelaStub(config.doble_pasarela_latencia_ms, config.doble_pasarela_fallar)
         yield
         await http.aclose()

@@ -201,6 +201,26 @@ def _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, producto:
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(201, json=POLIZA_SALIDA)
 
 
+def test_emision_reintentada_envia_la_misma_clave_de_idempotencia(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    """La aceptación se confirma en ms-cotizacion antes de llamar a ms-suscripcion:
+    la clave debe derivarse de la cotización para que un reintento tras una falla
+    técnica no queme la oferta con `oferta_ya_usada`."""
+    _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "proteccion-dispositivo")
+
+    for _ in range(2):
+        respuesta = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+        assert respuesta.status_code == 200
+
+    claves = [
+        p.headers["Idempotency-Key"]
+        for p in _ruta(nucleo_cotizacion.peticiones, "POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")
+    ]
+    assert len(claves) == 2
+    assert claves[0] == claves[1]
+
+
 def test_emitir_vida_hipotecario_cierra_la_originacion(
     client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas, nucleo_perfilamiento
 ):

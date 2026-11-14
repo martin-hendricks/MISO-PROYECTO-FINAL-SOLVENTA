@@ -2,6 +2,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 
 from app.application import casos_uso_cotizaciones as casos_uso
@@ -17,6 +18,9 @@ from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 RESULTADO_BASE = ResultadoPrima(prima_neta=Decimal("150000.00"), gastos_expedicion=Decimal("12000.00"), moneda="COP")
 
 
+SECRETO = "test-secret"
+
+
 def _adaptador(responder) -> tuple[AdaptadorPerfilRiesgoPerfilamiento, list[httpx.Request]]:
     peticiones: list[httpx.Request] = []
 
@@ -25,7 +29,7 @@ def _adaptador(responder) -> tuple[AdaptadorPerfilRiesgoPerfilamiento, list[http
         return responder(request)
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(manejar), base_url="http://ms-perfilamiento")
-    return AdaptadorPerfilRiesgoPerfilamiento(http), peticiones
+    return AdaptadorPerfilRiesgoPerfilamiento(http, SECRETO), peticiones
 
 
 async def test_lee_el_factor_de_la_ultima_oferta_del_cliente():
@@ -37,6 +41,10 @@ async def test_lee_el_factor_de_la_ultima_oferta_del_cliente():
     assert factor == Decimal("0.854")
     assert peticiones[0].method == "GET"
     assert peticiones[0].url.path == f"/v1/ofertas-hipotecario/clientes/{usuario_id}/ultima"
+    esquema, token = peticiones[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-cotizacion", "servicio")
 
 
 @pytest.mark.parametrize("estado", [403, 404, 503])

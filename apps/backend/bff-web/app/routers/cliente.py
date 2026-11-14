@@ -328,7 +328,11 @@ async def emitir(
 
     aceptacion = await cliente_cotizacion.aceptar_oferta(
         cotizacion_id=body.cotizacionId,
-        idempotency_key=_idempotency_key(),
+        # Clave derivada de la cotización (igual que asesor.py::firmar_y_emitir):
+        # ms-cotizacion confirma la aceptación antes de encadenar ms-suscripcion,
+        # así que una key aleatoria por request deja la cotización aceptada y
+        # quema los reintentos con `oferta_ya_usada` (422).
+        idempotency_key=str(_uuid_desde("aceptacion-cliente", body.cotizacionId)),
         perfil_id=contexto.perfil_id,
         score=score_stub,
         usuario_id=contexto.usuario_id,

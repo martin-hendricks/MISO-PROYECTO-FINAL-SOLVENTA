@@ -8,6 +8,8 @@ import httpx
 
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 
+from .token_servicio import token_de_servicio
+
 
 class AdaptadorPerfilRiesgoPerfilamiento:
     """IPerfilRiesgo real (diagrama de componentes: Cotización requiere, Perfilamiento
@@ -15,15 +17,20 @@ class AdaptadorPerfilRiesgoPerfilamiento:
     cliente, así la prima de vida crediticia sale del mismo perfil que el cliente vio
     explicado. Cualquier fallo -- sin consentimiento, sin oferta, servicio caído o un
     factor inválido -- se lanza tal cual: el caso de uso aplica timeout y valor de
-    respaldo (ver ports/riesgo.py), este adaptador no conoce esa política."""
+    respaldo (ver ports/riesgo.py), este adaptador no conoce esa política.
+    ms-perfilamiento exige autenticación: token de servicio nuevo en cada llamada."""
 
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    def __init__(self, http: httpx.AsyncClient, secreto: str) -> None:
         self._http = http
+        self._secreto = secreto
 
     async def obtener_factor(self, usuario_id: UUID, producto: str) -> Decimal:
         # ms-perfilamiento identifica al cliente con el mismo usuario_id que recibe
         # ms-cotizacion (bff-web le envía str(usuario_id) como cliente_id).
-        respuesta = await self._http.get(f"/v1/ofertas-hipotecario/clientes/{usuario_id}/ultima")
+        respuesta = await self._http.get(
+            f"/v1/ofertas-hipotecario/clientes/{usuario_id}/ultima",
+            headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-cotizacion')}"},
+        )
         respuesta.raise_for_status()
         try:
             factor = Decimal(str(respuesta.json()["factor_ajuste"]))

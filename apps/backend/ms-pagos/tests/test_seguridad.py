@@ -74,3 +74,15 @@ def test_token_valido_devuelve_llamante():
     assert llamante.uid == UUID(UID)
     assert llamante.rol == "asesor"
     assert llamante.sub == "persona@correo.com"
+
+
+def test_token_de_servicio_se_acepta_sin_uid_de_usuario():
+    """ms-polizas se autentica con rol `servicio` y su nombre en `uid` (ver
+    token_servicio.py del lado emisor) al consultar GET /v1/pagos/{id}."""
+    credenciales = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials=_token(rol="servicio", sub="ms-polizas", uid="ms-polizas")
+    )
+    llamante = exigir_llamante(credenciales)
+    assert llamante.rol == "servicio"
+    assert llamante.uid is None
+    assert llamante.sub == "ms-polizas"
