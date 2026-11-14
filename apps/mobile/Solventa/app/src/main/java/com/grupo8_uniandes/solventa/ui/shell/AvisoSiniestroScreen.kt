@@ -49,7 +49,7 @@ import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticeProblems
 import com.grupo8_uniandes.solventa.domain.bff.claim.canReportClaim
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.issuance.formatCoverageDate
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
@@ -81,7 +81,7 @@ fun AvisoSiniestroScreen(
     modifier: Modifier = Modifier,
     sentences: List<String>? = null,
     problems: NoticeProblems = NoticeProblems(),
-    policies: List<WalletEntry> = emptyList(),
+    policies: List<PolicyEntry> = emptyList(),
     policiesLoaded: Boolean = false,
     geotag: Boolean = false,
     geo: GeoPoint? = null,
@@ -225,7 +225,7 @@ fun AvisoSiniestroScreen(
 
 @Composable
 private fun PolicyMenu(
-    policies: List<WalletEntry>,
+    policies: List<PolicyEntry>,
     policy: String,
     problem: Boolean,
     onSelect: (String) -> Unit,

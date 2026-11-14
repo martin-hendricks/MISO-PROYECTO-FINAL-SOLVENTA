@@ -239,6 +239,12 @@ class ClienteNucleo:
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
+    def pagos_recibidos(self) -> dict:
+        return self._pedir("ms-siniestros", "GET", "/v1/pagos-recibidos")
+
+    def pago_recibido(self, siniestro_id: str) -> dict:
+        return self._pedir("ms-siniestros", "GET", f"/v1/pagos-recibidos/{siniestro_id}")
+
     def detalle_siniestro(self, siniestro_id: str, usuario_id: str) -> dict:
         return self._pedir(
             "ms-siniestros",

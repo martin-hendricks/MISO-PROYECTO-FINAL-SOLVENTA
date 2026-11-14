@@ -34,6 +34,7 @@ fun ParametricoScreen(
     notice: ParametricNotice,
     onBack: () -> Unit,
     onDownload: () -> Unit,
+    onOpenWallet: () -> Unit = {},
     renewalChecked: Boolean = false,
     renewalMissing: Boolean = false,
     onRenewal: (Boolean) -> Unit = {},
@@ -101,6 +102,13 @@ fun ParametricoScreen(
             onClick = onBack,
             modifier = Modifier.fillMaxWidth(),
             testTag = "parametric_back",
+        )
+        SolventaButton(
+            text = stringResource(R.string.billetera_ver_en),
+            style = SolventaButtonStyle.Outlined,
+            onClick = onOpenWallet,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "parametric_ver_billetera",
         )
         SolventaButton(
             text = stringResource(R.string.parametric_download),

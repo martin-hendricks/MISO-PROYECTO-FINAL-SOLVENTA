@@ -3,6 +3,7 @@ package com.grupo8_uniandes.solventa.di
 import android.content.Context
 import com.grupo8_uniandes.solventa.BuildConfig
 import com.grupo8_uniandes.solventa.data.bff.remote.BffRuntime
+import com.grupo8_uniandes.solventa.data.network.ConnectivityNetworkMonitor
 import com.grupo8_uniandes.solventa.data.claim.ClaimReplay
 import com.grupo8_uniandes.solventa.data.claim.DeviceRenewal
 import com.grupo8_uniandes.solventa.data.claim.EncryptedNoticeStore
@@ -14,8 +15,13 @@ import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
+import com.grupo8_uniandes.solventa.billetera.BilleteraViewModel
+import com.grupo8_uniandes.solventa.billetera.DepositoViewModel
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositMemory
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.ListDeposits
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.DeviceLocator
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -47,6 +53,7 @@ import com.grupo8_uniandes.solventa.domain.push.PushOptIn
 import com.grupo8_uniandes.solventa.domain.push.PushToken
 import com.grupo8_uniandes.solventa.push.FirebasePushToken
 import com.grupo8_uniandes.solventa.push.NoPushToken
+import com.grupo8_uniandes.solventa.domain.network.NetworkMonitor
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
@@ -110,6 +117,10 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<LocalRenewal> { DeviceRenewal(androidContext()) }
     single { OpenClaimNotice(get(), get(), get()) }
     single { OpenParametricPayment(get()) }
+    single<DepositRepository> { get<BffRuntime>().deposits }
+    single<DepositMemory> { get<BffRuntime>().depositMemory }
+    single { ListDeposits(get(), get()) }
+    single<NetworkMonitor> { ConnectivityNetworkMonitor(androidContext()) }
     single<PaymentRepository> { get<BffRuntime>().payment }
     single<MortgageRepository> { get<BffRuntime>().mortgage }
     single<ProfilingConsentRepository> { get<BffRuntime>().profilingConsent }
@@ -180,6 +191,8 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
+    viewModel { BilleteraViewModel(get(), get()) }
+    viewModel { (id: String) -> DepositoViewModel(id, get(), get(), get()) }
     viewModel { (claimId: String) -> SiniestroDetalleViewModel(get(), claimId) }
     single { PoliciesInForce(get()) }
     single<DeviceLocator> { PlatformLocator(androidContext()) }

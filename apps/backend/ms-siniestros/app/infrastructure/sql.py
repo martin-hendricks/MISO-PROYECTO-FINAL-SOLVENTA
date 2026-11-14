@@ -15,8 +15,10 @@ from sqlalchemy import (
     Numeric,
     String,
     and_,
+    exists,
     func,
     select,
+    union_all,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
@@ -46,6 +48,7 @@ from app.domain.modelos import (
     EventoParametrico,
     Geo,
     PagoParametrico,
+    PagoRecibido,
     ResultadoDecision,
     Siniestro,
     SnapshotPoliza,
@@ -134,6 +137,7 @@ class PagoParametricoFila(Base):
     siniestro_id: Mapped[UUID]
     monto: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     pagado_en: Mapped[datetime]
+    comprobante: Mapped[str] = mapped_column(String, unique=True)
 
 
 class ParametroRamoFila(Base):
@@ -306,6 +310,7 @@ def _pago_a_dominio(fila: PagoParametricoFila) -> PagoParametrico:
         siniestro_id=fila.siniestro_id,
         monto=fila.monto,
         pagado_en=fila.pagado_en,
+        comprobante=fila.comprobante,
     )
 
 
@@ -362,6 +367,84 @@ class RepositorioSiniestrosSQL:
             consulta = consulta.where(SiniestroFila.requiere_revision == filtro.requiere_revision)
         consulta = consulta.order_by(SiniestroFila.creado_en.desc()).limit(filtro.limite)
         return await self._a_dominio(await self._s.scalars(consulta))
+
+    def _consulta_pagos(self, usuario_id: UUID):
+        ejecutado = exists(
+            select(IntentoPagoFila.id).where(
+                IntentoPagoFila.siniestro_id == SiniestroFila.id,
+                IntentoPagoFila.resultado == "ejecutado",
+            )
+        )
+        asistido = (
+            select(
+                SiniestroFila.id.label("siniestro_id"),
+                SiniestroFila.numero,
+                SiniestroFila.tipo,
+                SiniestroFila.ramo,
+                SiniestroFila.poliza_numero,
+                SiniestroFila.descripcion,
+                PagoSiniestroFila.monto,
+                PagoSiniestroFila.comprobante,
+                PagoSiniestroFila.clave_idempotencia.label("clave"),
+                PagoSiniestroFila.pagado_en,
+            )
+            .join(PagoSiniestroFila, PagoSiniestroFila.siniestro_id == SiniestroFila.id)
+            .where(
+                SiniestroFila.usuario_id == usuario_id,
+                SiniestroFila.estado == EstadoSiniestro.PAGADO.value,
+                SiniestroFila.tipo == TipoSiniestro.ASISTIDO.value,
+                ejecutado,
+            )
+        )
+        automatico = (
+            select(
+                SiniestroFila.id.label("siniestro_id"),
+                SiniestroFila.numero,
+                SiniestroFila.tipo,
+                SiniestroFila.ramo,
+                SiniestroFila.poliza_numero,
+                SiniestroFila.descripcion,
+                PagoParametricoFila.monto,
+                PagoParametricoFila.comprobante,
+                PagoParametricoFila.evento_id.label("clave"),
+                PagoParametricoFila.pagado_en,
+            )
+            .join(PagoParametricoFila, PagoParametricoFila.siniestro_id == SiniestroFila.id)
+            .where(
+                SiniestroFila.usuario_id == usuario_id,
+                SiniestroFila.estado == EstadoSiniestro.PAGADO.value,
+                SiniestroFila.tipo == TipoSiniestro.PARAMETRICO.value,
+            )
+        )
+        return union_all(asistido, automatico).subquery()
+
+    def _fila_a_pago(self, fila) -> PagoRecibido:
+        return PagoRecibido(
+            siniestro_id=fila.siniestro_id,
+            numero=fila.numero,
+            tipo=TipoSiniestro(fila.tipo),
+            ramo=fila.ramo,
+            poliza_numero=fila.poliza_numero,
+            descripcion=fila.descripcion,
+            monto=fila.monto,
+            comprobante=fila.comprobante,
+            clave=fila.clave,
+            pagado_en=fila.pagado_en,
+        )
+
+    async def listar_pagos_recibidos(self, usuario_id: UUID) -> list[PagoRecibido]:
+        pagos = self._consulta_pagos(usuario_id)
+        filas = await self._s.execute(
+            select(pagos).order_by(pagos.c.pagado_en.desc(), pagos.c.siniestro_id.asc())
+        )
+        return [self._fila_a_pago(fila) for fila in filas]
+
+    async def obtener_pago_recibido(self, siniestro_id: UUID, usuario_id: UUID) -> PagoRecibido | None:
+        pagos = self._consulta_pagos(usuario_id)
+        fila = (
+            await self._s.execute(select(pagos).where(pagos.c.siniestro_id == siniestro_id))
+        ).one_or_none()
+        return self._fila_a_pago(fila) if fila else None
 
     async def listar_abiertos_por_poliza(self, poliza_id: UUID) -> list[Siniestro]:
         """HU-61: abierto = cualquier estado salvo PAGADO, y sin rechazo (también terminal)."""
@@ -497,6 +580,7 @@ class RepositorioPagosSQL:
                 siniestro_id=pago.siniestro_id,
                 monto=pago.monto,
                 pagado_en=pago.pagado_en,
+                comprobante=pago.comprobante,
             )
         )
 

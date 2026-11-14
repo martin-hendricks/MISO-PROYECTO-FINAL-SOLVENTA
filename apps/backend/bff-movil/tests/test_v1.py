@@ -161,6 +161,19 @@ class DobleNucleo:
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
 
+    def pagos_recibidos(self):
+        return self._llamar("pagos_recibidos") or {
+            "moneda": "COP",
+            "total": "0.00",
+            "pagos": [],
+        }
+
+    def pago_recibido(self, siniestro_id):
+        valor = self._llamar("pago_recibido", siniestro_id=siniestro_id)
+        if not valor:
+            raise HTTPException(status_code=404, detail="No existe")
+        return valor
+
     def registrar_aviso(self, *, usuario_id, datos, archivos, idempotency_key):
         return self._llamar(
             "registrar_aviso",
@@ -1767,6 +1780,51 @@ def test_avisos_token_v1_reenvia_el_estado_del_nucleo_y_el_retiro(client, doble)
     assert baja.status_code == 204
     assert _nombres(doble)[-1] == "desactivar_dispositivo"
 
+
+PAGO = {
+    "siniestro_id": "7b0c0000-0000-4000-8000-000000000001",
+    "numero": "SIN-1002",
+    "tipo": "parametrico",
+    "ramo": "proteccion-dispositivo",
+    "poliza_numero": "POL-11002-CO",
+    "descripcion": "retraso de vuelo",
+    "monto": "180000.00",
+    "comprobante": "CMP-0A77B2C4F1",
+    "clave": "evt-vuelo",
+    "pagado_en": "2026-07-02T09:05:00+00:00",
+}
+
+
+def test_billetera_v0_no_llama_al_nucleo(client, doble):
+    headers = _auth(client)
+    assert client.get("/cliente/billetera", headers=headers).status_code == 200
+    assert client.get("/cliente/billetera/7b0c0000-0000-4000-8000-000000000001", headers=headers).status_code == 200
+    assert doble.llamadas == []
+
+
+def test_billetera_v1_traduce_tipo_y_ramo(client, doble):
+    headers = _auth(client)
+    doble.respuestas["pagos_recibidos"] = {"moneda": "COP", "total": "180000.00", "pagos": [PAGO]}
+    cuerpo = client.get("/v1/cliente/billetera", headers=headers).json()
+    assert cuerpo["totalRecibido"] == 180000
+    assert cuerpo["movimientos"][0]["tipo"] == "pago_automatico"
+    assert cuerpo["movimientos"][0]["ramo"] == "Protección de dispositivo"
+    assert cuerpo["movimientos"][0]["siniestroId"] == "SIN-1002"
+    prefijo = client.get("/bff-movil/v1/cliente/billetera", headers=headers)
+    assert prefijo.status_code == 200
+    assert _nombres(doble) == ["pagos_recibidos", "pagos_recibidos"]
+
+
+def test_billetera_detalle_ajeno_es_404_y_caida_es_503(client, doble):
+    headers = _auth(client)
+    assert client.get(f"/v1/cliente/billetera/{PAGO['siniestro_id']}", headers=headers).status_code == 404
+    doble.respuestas["pagos_recibidos"] = HTTPException(status_code=503, detail="ms-siniestros no disponible")
+    assert client.get("/v1/cliente/billetera", headers=headers).status_code == 503
+
+
+def test_billetera_sin_bearer_no_llama(client, doble):
+    assert client.get("/v1/cliente/billetera").status_code == 401
+    assert doble.llamadas == []
 
 CONSENTIMIENTO_VIGENTE = {
     "id": "88888888-8888-8888-8888-888888888888",

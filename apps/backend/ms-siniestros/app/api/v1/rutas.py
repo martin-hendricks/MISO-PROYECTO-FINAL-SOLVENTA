@@ -53,6 +53,10 @@ async def ingerir_evento_parametrico(
         entrada.poliza_vigente,
         entrada.monto_pago,
         entrada.poliza_id,
+        entrada.usuario_id,
+        entrada.ramo,
+        entrada.poliza_numero,
+        entrada.descripcion,
     )
     if not resultado.procesado:
         response.status_code = status.HTTP_200_OK

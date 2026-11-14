@@ -24,7 +24,7 @@ import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
@@ -263,17 +263,17 @@ class BffCallTest {
     @Test
     fun givenNoStoredWallet_whenTheHostIsUnreachable_thenTheLoadFails() = runBlocking {
         val dead = deadClients()
-        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).policies() is StandInAnswer.Failed)
 
         enqueue(PublishedSamples.WALLET)
-        val stored = RemoteIssuanceRepository(api(), gate, cache).wallet() as StandInAnswer.Ready
+        val stored = RemoteIssuanceRepository(api(), gate, cache).policies() as StandInAnswer.Ready
         assertEquals("POL-88219-CO", stored.value.first().numero)
         assertEquals("POL-11002-CO", stored.value[1].numero)
 
-        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).policies() is StandInAnswer.Failed)
 
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"codigo":"x","mensaje":"no"}"""))
-        assertTrue(RemoteIssuanceRepository(api(), gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(api(), gate, cache).policies() is StandInAnswer.Failed)
     }
 
     @Test
@@ -328,7 +328,7 @@ class BffCallTest {
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"codigo":"x","mensaje":"no"}"""))
         assertTrue(RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") is StandInAnswer.Failed)
         server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
-        assertTrue(RemoteIssuanceRepository(api(), gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(api(), gate, cache).policies() is StandInAnswer.Failed)
         val dead = deadClients()
         assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).accept("COT-1042") is StandInAnswer.Failed)
     }
@@ -407,15 +407,15 @@ class BffCallTest {
     fun givenACorruptCache_whenRead_thenItIsAbsent() {
         val prefs = context.getSharedPreferences("solventa.bff", android.content.Context.MODE_PRIVATE)
         cache.clear()
-        assertNull(cache.readWallet())
+        assertNull(cache.readPolicies())
         assertNull(cache.readDetail("POL-88219-CO"))
-        prefs.edit().putString("wallet", "{").putString("claim", "{").putString("details", "{").commit()
+        prefs.edit().putString("policies", "{").putString("claim", "{").putString("details", "{").commit()
         val memory = BffPolicyMemory(cache)
-        assertNull(memory.readWallet())
+        assertNull(memory.readPolicies())
         assertNull(cache.readClaim())
         assertNull(memory.readDetail("POL-88219-CO"))
-        memory.writeWallet(
-            listOf(WalletEntry("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")),
+        memory.writePolicies(
+            listOf(PolicyEntry("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")),
         )
         memory.writeDetail(
             PolicyDetail(
@@ -427,7 +427,7 @@ class BffCallTest {
                 "guia",
             ),
         )
-        assertEquals("POL-88219-CO", memory.readWallet()?.single()?.numero)
+        assertEquals("POL-88219-CO", memory.readPolicies()?.single()?.numero)
         assertEquals("Robo y Pantalla", memory.readDetail("POL-88219-CO")?.resumen)
     }
 

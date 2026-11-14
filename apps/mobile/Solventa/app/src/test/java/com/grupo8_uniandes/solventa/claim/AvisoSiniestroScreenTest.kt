@@ -45,7 +45,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryClaimHold
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomBar
 import com.grupo8_uniandes.solventa.ui.shell.AvisoSiniestroScreen
@@ -141,8 +141,8 @@ class AvisoSiniestroScreenTest {
             SolventaTheme {
                 AvisoSiniestroScreen(
                     policies = listOf(
-                        WalletEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"),
-                        WalletEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
+                        PolicyEntry("POL-1", "SOAT", "moto", "vigente", "2027-01-01"),
+                        PolicyEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
                     ),
                     policiesLoaded = true,
                     sentences = listOf(policy, "2026-11-01", "Choque", ""),
@@ -164,10 +164,10 @@ class AvisoSiniestroScreenTest {
             SolventaTheme {
                 AvisoSiniestroScreen(
                     policies = listOf(
-                        WalletEntry("POL-1", "SOAT motocicleta", "moto", "vigente", "2027-01-01"),
-                        WalletEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
-                        WalletEntry("POL-3", "SOAT", "moto", "vencida", "2020-01-01"),
-                        WalletEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
+                        PolicyEntry("POL-1", "SOAT motocicleta", "moto", "vigente", "2027-01-01"),
+                        PolicyEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
+                        PolicyEntry("POL-3", "SOAT", "moto", "vencida", "2020-01-01"),
+                        PolicyEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
                     ),
                     policiesLoaded = true,
                     sentences = listOf(policy, "2026-11-01", "Choque", "Calle 72"),
@@ -195,7 +195,7 @@ class AvisoSiniestroScreenTest {
             SolventaTheme {
                 Box {
                     AvisoSiniestroScreen(
-                        policies = listOf(WalletEntry("POL-1", "SOAT motocicleta", "moto", "vigente", "2027-01-01")),
+                        policies = listOf(PolicyEntry("POL-1", "SOAT motocicleta", "moto", "vigente", "2027-01-01")),
                         policiesLoaded = true,
                         sentences = listOf("POL-1", "2026-11-01", "Choque", "Calle 72"),
                         geotag = true,
@@ -267,7 +267,7 @@ class AvisoSiniestroScreenTest {
             SolventaTheme {
                 AvisoSiniestroScreen(
                     policies = listOf(
-                        WalletEntry("POL-9", "SOAT motocicleta", "moto", "vigente", "2027-01-01"),
+                        PolicyEntry("POL-9", "SOAT motocicleta", "moto", "vigente", "2027-01-01"),
                     ),
                     policiesLoaded = true,
                     sentences = listOf(policy, "2026-11-01", "Choque", "Calle 72"),
@@ -292,7 +292,7 @@ class AvisoSiniestroScreenTest {
             var policy by remember { mutableStateOf("") }
             SolventaTheme {
                 AvisoSiniestroScreen(
-                    policies = listOf(WalletEntry("POL-9", ramo, "ramo", "vigente", "2027-01-01")),
+                    policies = listOf(PolicyEntry("POL-9", ramo, "ramo", "vigente", "2027-01-01")),
                     policiesLoaded = true,
                     sentences = listOf(policy, "2026-11-01", "Hecho", "Calle 72"),
                     onRevise = { next, _, _, _ -> policy = next },

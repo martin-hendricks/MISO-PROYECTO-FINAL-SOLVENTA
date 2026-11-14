@@ -105,6 +105,27 @@ object PesosSerializer : KSerializer<Long> {
     }
 }
 
+/** COP amounts stay exact. JSON may send a number or a decimal string. */
+object DecimalSerializer : KSerializer<BigDecimal> {
+    override val descriptor: SerialDescriptor = JsonElement.serializer().descriptor
+
+    override fun serialize(encoder: Encoder, value: BigDecimal) {
+        val jsonEncoder = encoder as? JsonEncoder
+        if (jsonEncoder == null) encoder.encodeString(value.toPlainString())
+        else jsonEncoder.encodeJsonElement(JsonPrimitive(value.toPlainString()))
+    }
+
+    override fun deserialize(decoder: Decoder): BigDecimal {
+        val raw = (decoder as? JsonDecoder)?.decodeJsonElement()?.jsonPrimitive?.content
+            ?: decoder.decodeString()
+        return try {
+            BigDecimal(raw)
+        } catch (error: NumberFormatException) {
+            throw SerializationException("monto", error)
+        }
+    }
+}
+
 @Serializable
 data class AcceptedQuoteDto(
     val cotizacionId: String,
@@ -143,7 +164,7 @@ data class CancellationDto(
 )
 
 @Serializable
-data class WalletEntryDto(
+data class PolicyEntryDto(
     val numero: String,
     val ramo: String,
     val resumen: String,
@@ -157,7 +178,7 @@ data class WalletEntryDto(
 )
 
 @Serializable
-data class WalletDto(val polizas: List<WalletEntryDto>)
+data class PoliciesDto(val polizas: List<PolicyEntryDto>)
 
 @Serializable
 data class DetailDto(
@@ -397,3 +418,24 @@ data class AssistanceInDto(
 
 @Serializable
 data class AssistanceOutDto(val asistenciaId: String, val estado: String)
+
+@Serializable
+data class MovimientoDto(
+    val id: String,
+    val siniestroId: String,
+    val tipo: String,
+    val ramo: String,
+    val resumen: String = "",
+    val poliza: String = "",
+    @Serializable(with = DecimalSerializer::class) val monto: BigDecimal,
+    val moneda: String,
+    val comprobante: String,
+    val depositadoEn: String,
+)
+
+@Serializable
+data class BilleteraDto(
+    val moneda: String,
+    @Serializable(with = DecimalSerializer::class) val totalRecibido: BigDecimal,
+    val movimientos: List<MovimientoDto>,
+)

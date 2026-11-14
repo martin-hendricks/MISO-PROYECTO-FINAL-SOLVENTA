@@ -463,7 +463,7 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
 
 
 @router.get("/polizas")
-def billetera(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+def polizas(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
         return {
             "polizas": [
@@ -740,6 +740,65 @@ def detalle_siniestro(siniestro_id: str, request: Request, usuario: dict = Depen
     if not isinstance(detalle, dict):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
     return _detalle_movil(detalle)
+
+
+BILLETERA_MUESTRA = {
+    "moneda": "COP",
+    "totalRecibido": 1070000,
+    "movimientos": [
+        {
+            "id": "7b0c0000-0000-4000-8000-000000000001",
+            "siniestroId": "SIN-1988",
+            "tipo": "asistido",
+            "ramo": "Protección de dispositivo",
+            "resumen": "hurto",
+            "poliza": "POL-88219-CO",
+            "monto": 890000,
+            "moneda": "COP",
+            "comprobante": "CMP-3F9A0C12DE",
+            "depositadoEn": "2026-07-11T15:20:00+00:00",
+        }
+    ],
+}
+
+
+def _movimiento_billetera(pago: dict) -> dict:
+    return {
+        "id": pago["siniestro_id"],
+        "siniestroId": pago.get("numero") or pago["siniestro_id"],
+        "tipo": "pago_automatico" if pago.get("tipo") == "parametrico" else "asistido",
+        "ramo": presentar(pago.get("ramo"))[0],
+        "resumen": pago.get("descripcion") or "",
+        "poliza": pago.get("poliza_numero"),
+        "monto": float(pago["monto"]),
+        "moneda": "COP",
+        "comprobante": pago["comprobante"],
+        "depositadoEn": pago["pagado_en"],
+    }
+
+
+@router.get("/billetera")
+def billetera(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return BILLETERA_MUESTRA
+    cuerpo = request.app.state.nucleo.pagos_recibidos()
+    if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("pagos"), list):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    return {
+        "moneda": "COP",
+        "totalRecibido": float(cuerpo["total"]),
+        "movimientos": [_movimiento_billetera(p) for p in cuerpo["pagos"]],
+    }
+
+
+@router.get("/billetera/{siniestro_id}")
+def movimiento_billetera(siniestro_id: str, request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return BILLETERA_MUESTRA["movimientos"][0]
+    pago = request.app.state.nucleo.pago_recibido(siniestro_id)
+    if not isinstance(pago, dict):
+        raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    return _movimiento_billetera(pago)
 
 
 @router.get("/pagos-automaticos")

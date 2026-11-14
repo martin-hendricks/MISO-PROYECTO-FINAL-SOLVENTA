@@ -27,7 +27,9 @@ import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MovimientoDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
 import kotlinx.serialization.json.JsonElement
 import okhttp3.ResponseBody
 import retrofit2.Call
@@ -87,7 +89,13 @@ interface MobileBffApi {
     ): JsonElement
 
     @GET("cliente/polizas")
-    suspend fun wallet(): WalletDto
+    suspend fun policies(): PoliciesDto
+
+    @GET("cliente/billetera")
+    suspend fun billetera(): BilleteraDto
+
+    @GET("cliente/billetera/{id}")
+    suspend fun movimiento(@Path("id") id: String): MovimientoDto
 
     @GET("cliente/polizas/{numero}")
     suspend fun detail(@Path("numero") numero: String): DetailDto

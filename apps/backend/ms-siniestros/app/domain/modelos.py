@@ -140,8 +140,23 @@ class Siniestro:
         origen: str,
         poliza_id: UUID | None = None,
         usuario_id: UUID | None = None,
+        ramo: str | None = None,
+        poliza_numero: str | None = None,
+        descripcion: str | None = None,
     ) -> Siniestro:
         ahora = datetime.now(UTC)
+        poliza = None
+        if ramo or poliza_numero:
+            # La foto completa de la póliza no viaja en el evento paramétrico.
+            # ramo y número sí, para que el depósito se pueda mostrar.
+            poliza = SnapshotPoliza(
+                poliza_id=poliza_id or UUID(int=0),
+                numero=poliza_numero or "",
+                ramo=ramo or "",
+                estado="",
+                inicio_vigencia=date.min,
+                fin_vigencia=date.min,
+            )
         return cls(
             id=uuid4(),
             evento_id=evento_id,
@@ -150,6 +165,8 @@ class Siniestro:
             creado_en=ahora,
             poliza_id=poliza_id,
             usuario_id=usuario_id,
+            poliza=poliza,
+            descripcion=(descripcion or "").strip() or None,
         )
 
     @classmethod
@@ -315,6 +332,7 @@ class PagoParametrico:
     siniestro_id: UUID
     monto: Decimal
     pagado_en: datetime
+    comprobante: str
 
     @classmethod
     def disparar(cls, evaluacion: EvaluacionUmbral, siniestro_id: UUID, monto: Decimal) -> PagoParametrico:
@@ -324,13 +342,31 @@ class PagoParametrico:
             )
         if monto <= 0:
             raise ReglaDeNegocioViolada("monto_no_positivo", "El monto del pago debe ser mayor que cero")
+        pago_id = uuid4()
         return cls(
-            id=uuid4(),
+            id=pago_id,
             evento_id=evaluacion.evento_id,
             siniestro_id=siniestro_id,
             monto=monto,
             pagado_en=datetime.now(UTC),
+            comprobante=f"CMP-{pago_id.hex[:10].upper()}",
         )
+
+
+@dataclass(frozen=True)
+class PagoRecibido:
+    """Lectura de un depósito ya ejecutado. No se persiste: se arma al leer."""
+
+    siniestro_id: UUID
+    numero: str | None
+    tipo: TipoSiniestro
+    ramo: str | None
+    poliza_numero: str | None
+    descripcion: str | None
+    monto: Decimal
+    comprobante: str
+    clave: str
+    pagado_en: datetime
 
 
 @dataclass(frozen=True)
@@ -380,5 +416,10 @@ def pago_parametrico_disparado(pago: PagoParametrico) -> EventoDominio:
     return EventoDominio(
         tipo="PagoParametricoDisparado",
         agregado_id=pago.siniestro_id,
-        payload={"evento_id": pago.evento_id, "monto": str(pago.monto), "siniestro_id": str(pago.siniestro_id)},
+        payload={
+            "evento_id": pago.evento_id,
+            "monto": str(pago.monto),
+            "siniestro_id": str(pago.siniestro_id),
+            "comprobante": pago.comprobante,
+        },
     )

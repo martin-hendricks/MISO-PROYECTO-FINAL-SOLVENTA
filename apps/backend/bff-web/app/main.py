@@ -19,7 +19,9 @@ from .routers import (
     operador_notificaciones,
     registro,
     reportes,
+    billetera,
     sesion,
+    billetera,
     siniestros,
 )
 
@@ -109,11 +111,13 @@ app.include_router(reportes.router, prefix="/v1")
 app.include_router(metricas.router, prefix="/v1")
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
+app.include_router(billetera.router_cliente, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
 app.include_router(asesor.router, prefix="/v1")
 app.include_router(operador.router, prefix="/v1")
 app.include_router(operador_clientes.router, prefix="/v1")
 app.include_router(operador_notificaciones.router, prefix="/v1")
+app.include_router(billetera.router_cliente, prefix="/v1")
 app.include_router(siniestros.router_cliente, prefix="/v1")
 app.include_router(siniestros.router_operador, prefix="/v1")
 

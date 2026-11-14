@@ -4,6 +4,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MovimientoDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
@@ -41,8 +43,11 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletEntryDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PolicyEntryDto
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
@@ -67,7 +72,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
@@ -195,8 +200,8 @@ internal fun PushRegistration.toDto() = PushRegistrationDto(token, plataforma)
 
 internal fun AssistanceRequest.toDto() = AssistanceInDto(prestadorId, AssistanceGeoDto(lat, lng), poliza)
 
-internal fun List<WalletEntry>.toDto() = WalletDto(
-    map { WalletEntryDto(it.numero, it.ramo, it.resumen, it.estado, it.venceEn) },
+internal fun List<PolicyEntry>.toDto() = PoliciesDto(
+    map { PolicyEntryDto(it.numero, it.ramo, it.resumen, it.estado, it.venceEn) },
 )
 
 private fun AttachmentKind.toDto() = when (this) {
@@ -215,8 +220,8 @@ internal fun IssuedDto.toPolicy() = IssuedPolicy(numero, ramo, estado, venceEn)
 internal fun RejectionDto.toRejection(): IssueRejection? =
     if (estado == "rechazada") IssueRejection(estado, motivo) else null
 
-internal fun WalletDto.toEntries() = polizas.map {
-    WalletEntry(it.numero, it.ramo, it.resumen, it.estado, it.venceEn)
+internal fun PoliciesDto.toEntries() = polizas.map {
+    PolicyEntry(it.numero, it.ramo, it.resumen, it.estado, it.venceEn)
 }
 
 internal fun DetailDto.toDetail() = PolicyDetail(
@@ -379,6 +384,44 @@ private fun PushTypeDto.toType() = when (this) {
     PushTypeDto.renovacion -> NoticeKind.RENOVACION
     PushTypeDto.estado_siniestro -> NoticeKind.ESTADO_SINIESTRO
 }
+
+internal fun BilleteraDto.toWallet() = Wallet(
+    moneda,
+    totalRecibido,
+    movimientos.map { it.toDeposit() },
+)
+
+internal fun MovimientoDto.toDeposit() = Deposit(
+    id,
+    siniestroId,
+    if (tipo == "pago_automatico") DepositType.Automatic else DepositType.Assisted,
+    ramo,
+    resumen,
+    poliza,
+    monto,
+    moneda,
+    comprobante,
+    depositadoEn,
+)
+
+internal fun Wallet.toDto() = BilleteraDto(
+    moneda,
+    totalRecibido,
+    movimientos.map { it.toDto() },
+)
+
+internal fun Deposit.toDto() = MovimientoDto(
+    id,
+    siniestroId,
+    if (tipo == DepositType.Automatic) "pago_automatico" else "asistido",
+    ramo,
+    resumen,
+    poliza,
+    monto,
+    moneda,
+    comprobante,
+    depositadoEn,
+)
 
 private fun PushDestinationDto.toDestination() = when (this) {
     PushDestinationDto.parametrico -> NoticeDestination.PARAMETRICO

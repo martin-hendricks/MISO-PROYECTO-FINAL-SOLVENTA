@@ -1,0 +1,70 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  background: var(--sv-surface-container-lowest);
+}
+
+.card-label {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.card-face,
+.total {
+  margin: 0 0 24px;
+  color: var(--sv-on-surface);
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 40px;
+}
+
+.eyebrow {
+  margin: 16px 0 4px;
+  color: var(--sv-primary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.table-scroll {
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  background: var(--sv-surface-container);
+  color: var(--sv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+th,
+td {
+  padding: 14px 16px;
+}
+
+td.amount,
+dd.amount {
+  color: var(--sv-primary);
+  font-weight: 600;
+}
+
+.empty-state a {
+  color: var(--sv-primary);
+  font-weight: 500;
+}

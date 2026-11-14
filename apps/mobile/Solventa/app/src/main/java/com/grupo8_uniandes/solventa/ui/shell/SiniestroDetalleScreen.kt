@@ -45,6 +45,7 @@ fun SiniestroDetalleScreen(
     onRetry: () -> Unit = {},
     onOpenPolicy: (String) -> Unit = {},
     onOpenEvidence: (String) -> Unit = {},
+    onOpenWallet: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -129,6 +130,12 @@ fun SiniestroDetalleScreen(
                     if (pago.fecha.isNotBlank()) {
                         Text(text = shownDate(pago.fecha), style = MaterialTheme.typography.bodyMedium)
                     }
+                    SolventaButton(
+                        text = stringResource(R.string.billetera_ver_en),
+                        style = SolventaButtonStyle.Outlined,
+                        onClick = onOpenWallet,
+                        testTag = "claim_ver_billetera",
+                    )
                 }
             }
             Text(

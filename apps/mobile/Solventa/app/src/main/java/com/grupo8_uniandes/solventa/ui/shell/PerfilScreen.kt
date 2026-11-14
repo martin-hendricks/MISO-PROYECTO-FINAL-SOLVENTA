@@ -81,25 +81,26 @@ fun PerfilScreen(
     permissionReader: DevicePermissionReader? = null,
     onSignedOut: () -> Unit = {},
     biometricEnrollment: BiometricEnrollment? = null,
+    reloadKey: Long = 0L,
     profilingConsent: ProfilingConsentRepository? = null,
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
     val repository = remember { SharedPrefsRegionRepository(context.applicationContext) }
     val registration = remember { SharedPrefsRegistrationRepository(context.applicationContext) }
-    var biometricOn by remember { mutableStateOf(registration.biometricUnlockEnabled()) }
+    var biometricOn by remember(reloadKey) { mutableStateOf(registration.biometricUnlockEnabled()) }
     val promptTitle = stringResource(R.string.login_biometric_title)
     val promptCancel = stringResource(R.string.action_secondary)
     val enrollment = biometricEnrollment ?: remember(activity, promptTitle, promptCancel) {
         deviceBiometricEnrollment(activity, promptTitle, promptCancel)
     }
-    val viewModel = remember {
+    val viewModel = remember(reloadKey) {
         IdiomaRegionViewModel(repository = repository, surface = RegionSurface.Profile)
     }
     val state by viewModel.state.collectAsState()
     var sheetOpen by remember { mutableStateOf(false) }
     val consentRepository = remember { SharedPrefsConsentRepository(context.applicationContext) }
-    val consentViewModel = remember(consentRepository) {
+    val consentViewModel = remember(consentRepository, reloadKey) {
         ConsentViewModel(
             change = ChangeDataTreatment(consentRepository) { System.currentTimeMillis() },
             initial = consentRepository.read(),
@@ -109,7 +110,7 @@ fun PerfilScreen(
     val consent by consentViewModel.state.collectAsState()
     var consentSheetOpen by remember { mutableStateOf(false) }
     val profileViewModel: ProfileViewModel = viewModel(
-        key = "profile-$originationActive",
+        key = "profile-$originationActive-$reloadKey",
         factory = profileFactory(context, originationActive, permissionReader),
     )
     val hub by profileViewModel.state.collectAsState()

@@ -21,6 +21,9 @@ describe('ShellLayout', () => {
     expect(host.querySelector('[data-testid="nav-siniestros"]')?.getAttribute('href')).toBe(
       '/siniestros',
     );
+    expect(host.querySelector('[data-testid="nav-billetera"]')?.getAttribute('href')).toBe(
+      '/billetera',
+    );
     expect(host.querySelector('[data-testid="nav-perfil"]')?.getAttribute('href')).toBe('/perfil');
     expect(host.querySelector('[data-testid="header-new-quote"]')?.getAttribute('href')).toBe(
       '/cotizacion',
@@ -50,7 +53,7 @@ describe('ShellLayout', () => {
     expect(TestBed.inject(Router).url).toBe('/login');
   });
 
-  it('opens the hamburger overlay with the same four destinations', async () => {
+  it('opens the hamburger overlay with the same five destinations', async () => {
     await TestBed.configureTestingModule({
       imports: [ShellLayout],
       providers: [provideRouter([]), ...provideSolventaI18n()],
@@ -75,6 +78,9 @@ describe('ShellLayout', () => {
     expect(
       overlay!.querySelector('[data-testid="nav-menu-siniestros"]')?.getAttribute('href'),
     ).toBe('/siniestros');
+    expect(overlay!.querySelector('[data-testid="nav-menu-billetera"]')?.getAttribute('href')).toBe(
+      '/billetera',
+    );
     expect(overlay!.querySelector('[data-testid="nav-menu-perfil"]')?.getAttribute('href')).toBe(
       '/perfil',
     );

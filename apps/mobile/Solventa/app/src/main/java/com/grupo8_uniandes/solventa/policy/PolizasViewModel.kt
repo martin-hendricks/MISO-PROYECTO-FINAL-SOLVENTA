@@ -10,7 +10,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,11 +19,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.coroutineContext
 
-enum class WalletPhase { Pending, Failed, Ready }
+enum class PoliciesPhase { Pending, Failed, Ready }
 
-data class WalletUiState(
-    val phase: WalletPhase = WalletPhase.Pending,
-    val policies: List<WalletEntry> = emptyList(),
+data class PoliciesUiState(
+    val phase: PoliciesPhase = PoliciesPhase.Pending,
+    val policies: List<PolicyEntry> = emptyList(),
     val notice: Boolean = false,
 )
 
@@ -32,8 +32,8 @@ class PolizasViewModel(
     memory: PolicyMemory = InMemoryPolicyStore(),
 ) : ViewModel() {
     private val consult = ConsultPolicies(issuance, memory)
-    private val _state = MutableStateFlow(WalletUiState())
-    val state: StateFlow<WalletUiState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(PoliciesUiState())
+    val state: StateFlow<PoliciesUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
 
     init {
@@ -46,9 +46,9 @@ class PolizasViewModel(
             val result = consult.list()
             coroutineContext.ensureActive()
             _state.value = when {
-                result.policies.isEmpty() && !result.empty -> WalletUiState(phase = WalletPhase.Pending)
-                result.policies.isEmpty() -> WalletUiState(phase = WalletPhase.Failed, notice = result.notice)
-                else -> WalletUiState(phase = WalletPhase.Ready, policies = result.policies, notice = result.notice)
+                result.policies.isEmpty() && !result.empty -> PoliciesUiState(phase = PoliciesPhase.Pending)
+                result.policies.isEmpty() -> PoliciesUiState(phase = PoliciesPhase.Failed, notice = result.notice)
+                else -> PoliciesUiState(phase = PoliciesPhase.Ready, policies = result.policies, notice = result.notice)
             }
         }
     }

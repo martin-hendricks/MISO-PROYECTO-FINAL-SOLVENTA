@@ -15,9 +15,9 @@ private val coverageDate: DateTimeFormatter =
 fun formatCoverageDate(isoDate: String): String =
     LocalDate.parse(isoDate).format(coverageDate).replace(".", "")
 
-fun listBody(entry: WalletEntry): String = "${entry.ramo} · ${entry.resumen}"
+fun listBody(entry: PolicyEntry): String = "${entry.ramo} · ${entry.resumen}"
 
-fun listMeta(entry: WalletEntry): String = when (entry.estado.lowercase()) {
+fun listMeta(entry: PolicyEntry): String = when (entry.estado.lowercase()) {
     "vigente" -> "Vigente · vence ${formatCoverageDate(entry.venceEn)}"
     "por_vencer" -> "Por vencer · en 7 días"
     else -> entry.estado

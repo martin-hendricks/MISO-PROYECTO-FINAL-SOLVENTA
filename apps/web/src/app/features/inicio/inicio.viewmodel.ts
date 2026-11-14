@@ -37,9 +37,14 @@ export class InicioViewModel {
     };
   });
 
+  private readonly depositsState = signal(0);
+  /** Link to the wallet only when the customer already has a deposit. */
+  readonly deposits = this.depositsState.asReadonly();
+
   constructor(
     private readonly source: () => Observable<Inicio>,
     private readonly now: () => Date = () => new Date(),
+    private readonly wallet?: () => Observable<{ movimientos: unknown[] }>,
   ) {}
 
   load(): void {
@@ -51,6 +56,10 @@ export class InicioViewModel {
         this.statusState.set(offer || policy || claim || vidaCrediticia ? 'ready' : 'empty');
       },
       error: () => this.statusState.set('error'),
+    });
+    this.wallet?.().subscribe({
+      next: (billetera) => this.depositsState.set(billetera.movimientos.length),
+      error: () => this.depositsState.set(0),
     });
   }
 }

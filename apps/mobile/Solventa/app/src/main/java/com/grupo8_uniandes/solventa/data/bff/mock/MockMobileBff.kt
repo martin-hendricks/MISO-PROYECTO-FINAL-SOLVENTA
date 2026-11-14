@@ -23,12 +23,15 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.required
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
+import com.grupo8_uniandes.solventa.data.bff.mapping.toDeposit
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
+import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
 import com.grupo8_uniandes.solventa.data.bff.mapping.toHome
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotices
@@ -51,6 +54,9 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toRisk
 import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toTokens
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
@@ -66,7 +72,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
@@ -161,9 +167,9 @@ class MockIssuanceRepository(
     var walletLoads: Int = 0
         private set
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> {
+    override suspend fun policies(): StandInAnswer<List<PolicyEntry>> {
         walletLoads += 1
-        return control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+        return control.ready { decode<PoliciesDto>(PublishedSamples.WALLET).let(::required).toEntries() }
     }
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
@@ -180,8 +186,13 @@ class MockClaimRepository(
     ): StandInAnswer<ClaimReceipt> =
         control.ready { decode<ClaimReceiptDto>(PublishedSamples.CLAIM_RECEIPT).let(::required).toReceipt() }
 
-    override suspend fun list(): StandInAnswer<List<ClaimSummary>> =
-        control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
+    var listLoads: Int = 0
+        private set
+
+    override suspend fun list(): StandInAnswer<List<ClaimSummary>> {
+        listLoads += 1
+        return control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
+    }
 
     override suspend fun detail(id: String): StandInAnswer<ClaimDetail> =
         control.ready {
@@ -280,6 +291,25 @@ class MockAssistanceRepository(
 
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         control.ready { decode<AssistanceOutDto>(PublishedSamples.ASSISTANCE_OUT).let(::required).toResult() }
+}
+
+class MockDepositRepository(
+    private val control: StandInControl = StandInControl(StandInMode.Success),
+) : DepositRepository {
+    var loads: Int = 0
+        private set
+
+    override suspend fun wallet(): StandInAnswer<Wallet> {
+        loads += 1
+        return control.ready { decode<BilleteraDto>(PublishedSamples.BILLETERA).let(::required).toWallet() }
+    }
+
+    override suspend fun deposit(id: String): StandInAnswer<Deposit> =
+        control.ready {
+            decode<BilleteraDto>(PublishedSamples.BILLETERA).let(::required).movimientos
+                .first { it.id == id }
+                .toDeposit()
+        }
 }
 
 internal fun publishedOfferRequest() = decode<OfferInDto>(PublishedSamples.OFFER_IN).let(::required).toRisk()

@@ -1,5 +1,6 @@
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
 import { Browser, chromium, Page } from 'playwright';
+import { BilleteraPage } from '../pages/billetera.page';
 import { BackofficePage } from '../pages/backoffice.page';
 import { NotificacionesPage } from '../pages/notificaciones.page';
 import { CotizacionPage } from '../pages/cotizacion.page';
@@ -27,6 +28,7 @@ export class PortalWorld extends World {
   backoffice!: BackofficePage;
   notificaciones!: NotificacionesPage;
   inicio!: InicioPage;
+  billetera!: BilleteraPage;
   cotizacion!: CotizacionPage;
   polizaDetalle!: PolizaDetallePage;
   idiomaRegion!: IdiomaRegionPage;
@@ -57,6 +59,7 @@ export class PortalWorld extends World {
     this.backoffice = new BackofficePage(this.page);
     this.notificaciones = new NotificacionesPage(this.page);
     this.inicio = new InicioPage(this.page);
+    this.billetera = new BilleteraPage(this.page);
     this.cotizacion = new CotizacionPage(this.page);
     this.polizaDetalle = new PolizaDetallePage(this.page);
     this.idiomaRegion = new IdiomaRegionPage(this.page);

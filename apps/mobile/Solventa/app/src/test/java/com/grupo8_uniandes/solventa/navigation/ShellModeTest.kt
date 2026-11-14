@@ -8,10 +8,10 @@ class ShellModeTest {
     @Test
     fun destinationsStayInOrder() {
         assertEquals(
-            listOf(Destination.Inicio, Destination.Polizas, Destination.Siniestros, Destination.Perfil),
+            listOf(Destination.Inicio, Destination.Polizas, Destination.Siniestros, Destination.Billetera, Destination.Perfil),
             Destination.entries.toList(),
         )
-        assertEquals(listOf(0, 1, 2, 3), Destination.entries.map { it.order })
+        assertEquals(listOf(0, 1, 2, 3, 4), Destination.entries.map { it.order })
     }
 
     @Test
@@ -94,6 +94,10 @@ class ShellModeTest {
         assertEquals(InicioRoute, Destination.Inicio.rootRoute())
         assertEquals(PolizasRoute, Destination.Polizas.rootRoute())
         assertEquals(SiniestrosRoute, Destination.Siniestros.rootRoute())
+        assertEquals(BilleteraRoute, Destination.Billetera.rootRoute())
+        assertEquals(ShellMode.Root, shellMode(BilleteraRoute, signedIn = true))
+        assertEquals(Destination.Billetera, selectedDestination(BilleteraRoute))
+        assertEquals(Destination.Billetera, selectedDestination(DepositoRoute("dep-1")))
         assertEquals(PerfilRoute, Destination.Perfil.rootRoute())
         assertEquals("SOL-0001", PolizaDetalleRoute().policyId)
     }

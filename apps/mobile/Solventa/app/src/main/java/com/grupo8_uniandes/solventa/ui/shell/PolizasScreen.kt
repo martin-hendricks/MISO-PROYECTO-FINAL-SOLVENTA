@@ -16,10 +16,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.issuance.listBody
 import com.grupo8_uniandes.solventa.domain.bff.issuance.listMeta
-import com.grupo8_uniandes.solventa.policy.WalletPhase
+import com.grupo8_uniandes.solventa.policy.PoliciesPhase
 import com.grupo8_uniandes.solventa.ui.components.SolventaBanner
 import com.grupo8_uniandes.solventa.ui.components.SolventaBannerStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
@@ -30,14 +30,14 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 
 @Composable
 fun PolizasScreen(
-    policies: List<WalletEntry>,
+    policies: List<PolicyEntry>,
     onOpenPolicy: (String) -> Unit,
     onNewQuote: () -> Unit,
-    phase: WalletPhase = if (policies.isEmpty()) WalletPhase.Failed else WalletPhase.Ready,
+    phase: PoliciesPhase = if (policies.isEmpty()) PoliciesPhase.Failed else PoliciesPhase.Ready,
     notice: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val showEmpty = policies.isEmpty() && phase != WalletPhase.Pending
+    val showEmpty = policies.isEmpty() && phase != PoliciesPhase.Pending
     Column(
         modifier = modifier
             .fillMaxSize()

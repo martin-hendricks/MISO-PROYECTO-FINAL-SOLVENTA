@@ -44,6 +44,7 @@ describe('SiniestroDetalleView', () => {
       'https://s3/firmada',
     );
     expect(element('siniestro-historial')?.querySelectorAll('li').length).toBe(3);
+    expect(element('siniestro-ver-billetera')).toBeNull();
     expect(host.querySelectorAll('button').length).toBe(0);
   });
 
@@ -67,6 +68,8 @@ describe('SiniestroDetalleView', () => {
     expect(element('siniestro-estado')?.textContent).toContain('Pagado');
     expect(element('siniestro-motivo')).toBeNull();
     expect(element('siniestro-pago')?.textContent).toContain('CMP-1');
+    expect(element('siniestro-pago')?.textContent).toContain('Ver en billetera');
+    expect(element('siniestro-ver-billetera')?.getAttribute('href')).toBe(`/billetera/${ID}`);
     expect(element('siniestro-evidencia')?.textContent).toContain('Sin evidencia');
     expect(element('siniestro-detalle')?.textContent).toContain('4.653300, -74.083600');
   });

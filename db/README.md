@@ -23,6 +23,7 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 | `05_estado_outbox.sql` (en `apps/backend/ms-identidad/db/`) | `ms_identidad` | `outbox_evento` |
 | `13_ms_siniestros_parametrico.sql` | `ms_siniestros` (extensión) | `siniestro`, `siniestro_transicion`, `evento_parametrico`, `evaluacion_umbral`, `pago_parametrico`, `outbox_evento`* |
 | `14_ms_siniestros_aviso_asistido.sql` | `ms_siniestros` (extensión) | columnas del aviso asistido en `siniestro`, `parametro_ramo`, `siniestro_adjunto`, `siniestro_decision`, `pago_siniestro`, `pago_siniestro_intento` |
+| `15_ms_siniestros_billetera.sql` | `ms_siniestros` (extensión) | `pago_parametrico.comprobante` |
 
 \* Tabla técnica (patrón *transactional outbox*), no es entidad del dominio de VC-004.
 

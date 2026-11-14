@@ -3,6 +3,11 @@
     <div>
       <h1>{{ 'inicio.title' | translate }}</h1>
       <p class="subtitle">{{ 'inicio.subtitle' | translate }}</p>
+      @if (vm.deposits() > 0) {
+        <a class="text" routerLink="/billetera" data-testid="inicio-billetera">{{
+          'billetera.inicioLink' | translate
+        }}</a>
+      }
     </div>
     <a class="filled" routerLink="/cotizacion" data-testid="inicio-new-quote">
       {{ 'inicio.newQuote' | translate }}

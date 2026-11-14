@@ -17,10 +17,10 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.MainActivity
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.policy.PolicyDetailUiState
 import com.grupo8_uniandes.solventa.policy.PolicyPhase
-import com.grupo8_uniandes.solventa.policy.WalletPhase
+import com.grupo8_uniandes.solventa.policy.PoliciesPhase
 import com.grupo8_uniandes.solventa.ui.shell.PolizaDetalleScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -97,7 +97,7 @@ class PolizasListContentTest {
             SolventaTheme {
                 PolizasScreen(
                     policies = emptyList(),
-                    phase = WalletPhase.Failed,
+                    phase = PoliciesPhase.Failed,
                     onOpenPolicy = {},
                     onNewQuote = {},
                 )
@@ -111,7 +111,7 @@ class PolizasListContentTest {
 
     @Test
     fun givenASavedConsultation_whenItRecovers_thenTheNoticeStaysOnTheSameScreens() {
-        val card = WalletEntry(
+        val card = PolicyEntry(
             "POL-88219-CO",
             "Protección de dispositivo",
             "Robo, Pantalla, Hurto",
@@ -122,7 +122,7 @@ class PolizasListContentTest {
             SolventaTheme {
                 PolizasScreen(
                     policies = listOf(card),
-                    phase = WalletPhase.Ready,
+                    phase = PoliciesPhase.Ready,
                     notice = true,
                     onOpenPolicy = {},
                     onNewQuote = {},

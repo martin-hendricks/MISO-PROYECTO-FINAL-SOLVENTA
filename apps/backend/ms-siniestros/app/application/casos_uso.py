@@ -11,6 +11,7 @@ from app.domain.modelos import (
     EvaluacionUmbral,
     EventoParametrico,
     PagoParametrico,
+    PagoRecibido,
     Siniestro,
     evento_parametrico_recibido,
     pago_parametrico_disparado,
@@ -68,6 +69,27 @@ async def listar_siniestros(
         return await tx.siniestros.listar(limite, usuario_id)
 
 
+@dataclass(frozen=True)
+class PagosRecibidos:
+    moneda: str
+    total: Decimal
+    pagos: list[PagoRecibido]
+
+
+async def listar_pagos_recibidos(uow: FabricaUnidadDeTrabajo, usuario_id: UUID) -> PagosRecibidos:
+    async with uow() as tx:
+        pagos = await tx.siniestros.listar_pagos_recibidos(usuario_id)
+    return PagosRecibidos(moneda="COP", total=sum((p.monto for p in pagos), Decimal("0.00")), pagos=pagos)
+
+
+async def obtener_pago_recibido(uow: FabricaUnidadDeTrabajo, siniestro_id: UUID, usuario_id: UUID) -> PagoRecibido:
+    async with uow() as tx:
+        pago = await tx.siniestros.obtener_pago_recibido(siniestro_id, usuario_id)
+    if pago is None:
+        raise NoEncontrado(f"Pago {siniestro_id} no existe")
+    return pago
+
+
 async def listar_siniestros_abiertos_de_poliza(uow: FabricaUnidadDeTrabajo, poliza_id: UUID) -> list[Siniestro]:
     """HU-61 (back-office): siniestros de la póliza que no llegaron a PAGADO,
     el único estado terminal del enum -- usado por ms-polizas/bff-web como
@@ -85,6 +107,10 @@ async def recibir_evento_parametrico(
     poliza_vigente: bool,
     monto_pago: Decimal,
     poliza_id: UUID | None = None,
+    usuario_id: UUID | None = None,
+    ramo: str | None = None,
+    poliza_numero: str | None = None,
+    descripcion: str | None = None,
 ) -> ResultadoIngesta:
     """Encadena HU-32 (ingesta idempotente) -> HU-33 (evaluación de umbral) -> HU-34
     (pago paramétrico stub) en una sola invocación desde la ruta de ingesta, pero cada
@@ -102,7 +128,15 @@ async def recibir_evento_parametrico(
         if existente is not None:
             return await _resultado_existente(tx, existente)
 
-        siniestro = Siniestro.recibir(evento.evento_id, origen="stub-evento-parametrico", poliza_id=poliza_id)
+        siniestro = Siniestro.recibir(
+            evento.evento_id,
+            origen="stub-evento-parametrico",
+            poliza_id=poliza_id,
+            usuario_id=usuario_id,
+            ramo=ramo,
+            poliza_numero=poliza_numero,
+            descripcion=descripcion,
+        )
         await tx.siniestros.agregar(siniestro)
         await tx.eventos_parametricos.agregar(evento)
         await tx.outbox.agregar(evento_parametrico_recibido(evento, siniestro))

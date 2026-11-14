@@ -415,7 +415,7 @@ async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza:
         return {}
 
 
-def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
+def _poliza_lista(poliza: dict, cotizacion: dict) -> dict:
     ramo, descripcion = presentar(cotizacion.get("producto"))
     return {
         "numero": poliza["numero"],
@@ -433,7 +433,7 @@ def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
 
 
 @router.get("/polizas")
-async def billetera(
+async def polizas(
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
@@ -445,7 +445,7 @@ async def billetera(
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
     cotizaciones = await asyncio.gather(*(_cotizacion_de_poliza(cliente_cotizacion, p) for p in polizas))
-    return {"polizas": [_poliza_billetera(p, c) for p, c in zip(polizas, cotizaciones, strict=True)]}
+    return {"polizas": [_poliza_lista(p, c) for p, c in zip(polizas, cotizaciones, strict=True)]}
 
 
 # "queHacer" es contenido estático de ayuda al usuario (guía de qué hacer
@@ -466,7 +466,7 @@ async def detalle(
 ) -> dict:
     poliza = await cliente_polizas.obtener_por_numero(numero, contexto_canonico(usuario).usuario_id)
     _exigir_dueno(poliza, contexto_canonico(usuario).usuario_id)
-    salida = _poliza_billetera(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
+    salida = _poliza_lista(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
     salida["coberturas"] = [
         {
             "nombre": c["nombre"],

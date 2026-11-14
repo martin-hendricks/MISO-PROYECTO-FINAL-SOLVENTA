@@ -7,7 +7,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -98,7 +98,7 @@ class AcceptOfferTest {
 
             override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
 
-            override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
+            override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed
 
             override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
         }
@@ -188,7 +188,7 @@ private fun scripted(
 
     override suspend fun rejected(): StandInAnswer<IssueRejection> = onRejected()
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> = StandInAnswer.Failed
+    override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
 }

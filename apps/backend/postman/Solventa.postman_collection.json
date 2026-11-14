@@ -236,7 +236,7 @@
               ]}}]
             },
             {
-              "name": "Billetera de pólizas",
+              "name": "Pólizas",
               "request": {
                 "method": "GET",
                 "header": [{"key": "Authorization", "value": "Bearer {{accessTokenCliente}}"}],
@@ -947,7 +947,7 @@
           ]}}]
         },
         {
-          "name": "Billetera de pólizas",
+          "name": "Pólizas",
           "request": {
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],

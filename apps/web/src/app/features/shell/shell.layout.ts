@@ -3,9 +3,8 @@ import { NavigationStart, Router, RouterLink, RouterLinkActive, RouterOutlet } f
 import { TranslatePipe } from '@ngx-translate/core';
 import { SessionService } from '../../core/session/session.service';
 
-/** Four customer destinations (HU-107/SOLV-231): Inicio, Pólizas, Siniestros,
- * Perfil. "Nueva cotización" is a filled CTA, not a fifth underlined
- * destination -- it keeps its own styling in the template/CSS. */
+/** Five customer destinations: Inicio, Pólizas, Siniestros, Billetera,
+ * Perfil. "Nueva cotización" stays a filled button, not a sixth destination. */
 @Component({
   selector: 'sv-shell-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
