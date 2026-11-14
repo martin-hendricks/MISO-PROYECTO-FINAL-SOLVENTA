@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -22,6 +23,7 @@ from app.infrastructure.consentimiento_http import ClienteConsentimientoHTTP
 from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.perfilamiento_http import ClientePerfilamientoHTTP
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
+from app.infrastructure.token_servicio import token_de_servicio
 from app.observabilidad import instrumentar
 
 ESTADO_HTTP = {
@@ -53,6 +55,14 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         # "consentimiento" del listado de clientes (HU-141). Ambos adaptadores
         # degradan a False si el servicio no responde -- ver
         # infrastructure/consentimiento_http.py y perfilamiento_http.py.
+        #
+        # ms-consentimiento ya exige autenticacion en sus endpoints (no acepta
+        # llamadas sin token). El token de servicio (rol "servicio") dura solo
+        # 5 minutos (ver token_servicio.py) -- no puede fijarse una vez como
+        # header del AsyncClient (viviria mas que eso en un proceso de larga
+        # duracion); ClienteConsentimientoHTTP lo genera de nuevo en cada
+        # llamada, por eso recibe el secreto, no un token ya armado.
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
         async with (
             httpx.AsyncClient(
                 base_url=config.ms_consentimiento_url, timeout=config.timeout_consentimiento_s
@@ -61,7 +71,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
                 base_url=config.ms_perfilamiento_url, timeout=config.timeout_consentimiento_s
             ) as http_perfilamiento,
         ):
-            app.state.cliente_consentimiento = ClienteConsentimientoHTTP(http_consentimiento)
+            app.state.cliente_consentimiento = ClienteConsentimientoHTTP(http_consentimiento, secreto)
             app.state.cliente_perfilamiento = ClientePerfilamientoHTTP(http_perfilamiento)
             yield
         await motor.dispose()
