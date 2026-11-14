@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -58,8 +59,11 @@ def crear_app(config: Settings | None = None) -> FastAPI:
             ),
         )
         app.state.suscripciones = SuscripcionesHTTP(http)
+        # ms-perfilamiento ya exige autenticacion (rol "servicio" para esta
+        # llamada service-to-service, ver token_servicio.py).
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
         app.state.consentimientos = ConsentimientoPerfilamientoHTTP(
-            http_perfilamiento, config.productos_perfil_perfilamiento
+            http_perfilamiento, config.productos_perfil_perfilamiento, secreto
         )
         app.state.config = config
         yield
