@@ -16,7 +16,7 @@
 #   8000 bff-web         8001 ms-suscripcion   8002 ms-pagos
 #   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
 #   8006 api-socios      8007 bff-movil        8009 ms-cotizacion
-#   8010 ms-identidad    8011 notificaciones   8012 ms-consentimiento
+#   8010 ms-identidad    8011 ms-consentimiento  8012 notificaciones
 #   4566 S3 local (LocalStack, evidencia de siniestros)
 #   8008 grafana (admin/admin, o anónimo como Viewer) · 9090 prometheus
 #
@@ -146,6 +146,20 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - ./ms-consentimiento/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  db-notificaciones:
+    image: postgres:16.4-bookworm
+    environment:
+      POSTGRES_DB: solventa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./notificaciones/db:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
       interval: 2s
@@ -291,19 +305,18 @@ services:
       db-identidad:
         condition: service_healthy
 
-  db-notificaciones:
-    image: postgres:16.4-bookworm
+  ms-consentimiento:
+    build:
+      context: ./ms-consentimiento
+      target: runtime
     environment:
-      POSTGRES_DB: solventa
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - ./notificaciones/db:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d solventa"]
-      interval: 2s
-      timeout: 3s
-      retries: 20
+      SERVICE_NAME: ms-consentimiento
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-consentimiento:5432/solventa
+    ports:
+      - "8011:8080"
+    depends_on:
+      db-consentimiento:
+        condition: service_healthy
 
   notificaciones:
     build:
@@ -317,22 +330,9 @@ services:
       FCM_CREDENCIALES_JSON: '${FCM_CREDENCIALES_JSON:-}'
       PUSH_STUB_FALLAR: ${PUSH_STUB_FALLAR:-false}
     ports:
-      - "8011:8080"
-    depends_on:
-      db-notificaciones:
-        condition: service_healthy
-
-  ms-consentimiento:
-    build:
-      context: ./ms-consentimiento
-      target: runtime
-    environment:
-      SERVICE_NAME: ms-consentimiento
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-consentimiento:5432/solventa
-    ports:
       - "8012:8080"
     depends_on:
-      db-consentimiento:
+      db-notificaciones:
         condition: service_healthy
 
   api-socios:

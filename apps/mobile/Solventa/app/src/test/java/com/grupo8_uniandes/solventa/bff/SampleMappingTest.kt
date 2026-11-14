@@ -22,6 +22,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.HomeOfferDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomePolicyDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MortgageCreditDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticeDto
@@ -398,7 +399,11 @@ class SampleMappingTest {
         val policySlot = HomePolicyDto("POL-88219-CO", "Protección de dispositivo", "vigente")
         val claimSlot = HomeClaimDto("SIN-441", "en_evaluacion")
         assertNull(HomeDto(offerSlot, policySlot, claimSlot).hipotecario)
-        assertEquals("vida", HomeDto(offerSlot, policySlot, claimSlot, "vida").hipotecario)
+        assertEquals(
+            180,
+            HomeDto(offerSlot, policySlot, claimSlot, MortgageCreditDto(valor = 180_000_000L, plazoMeses = 180))
+                .hipotecario?.plazoMeses,
+        )
         assertEquals("android", PushRegistrationDto("fcm-stub", "android").plataforma)
         assertEquals(
             PushDestinationDto.`aviso-vencimiento`,
