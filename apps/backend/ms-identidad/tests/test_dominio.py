@@ -164,3 +164,19 @@ def test_verificar_password_con_hash_corrupto_no_lanza_excepcion():
     usuario.password_hash = "no-es-un-hash-bcrypt-valido"
 
     assert usuario.verificar_password("clave-secreta-123") is False
+
+
+def test_cambiar_rol_actualiza_el_rol():
+    usuario = _usuario()
+
+    usuario.cambiar_rol("asesor")
+
+    assert usuario.rol == "asesor"
+
+
+@pytest.mark.parametrize("rol", ["socio", "administrador", ""])
+def test_cambiar_rol_rechaza_un_rol_invalido(rol):
+    usuario = _usuario()
+
+    with pytest.raises(ReglaDeNegocioViolada):
+        usuario.cambiar_rol(rol)
