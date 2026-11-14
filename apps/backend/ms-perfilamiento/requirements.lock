@@ -61,7 +61,9 @@ pydantic-settings==2.16.1
 pygments==2.21.0
     # via pytest
 pyjwt==2.15.1
-    # via redis
+    # via
+    #   ms-perfilamiento (pyproject.toml)
+    #   redis
 pytest==9.1.1
     # via
     #   ms-perfilamiento (pyproject.toml)
