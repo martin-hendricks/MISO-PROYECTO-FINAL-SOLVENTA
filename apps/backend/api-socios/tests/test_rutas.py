@@ -1,4 +1,5 @@
 import httpx
+from fastapi.testclient import TestClient
 
 from .conftest import PRODUCTO
 
@@ -115,3 +116,23 @@ def test_solo_lectura(client):
     assert client.post("/v1/catalogo", json={}).status_code == 405
     assert client.put("/v1/catalogo/soat-motocicleta", json={}).status_code == 405
     assert client.delete("/v1/catalogo/soat-motocicleta").status_code == 405
+
+
+def test_sin_api_key_de_socio_es_401(app):
+    sin_auth = TestClient(app)
+
+    respuesta = sin_auth.get("/v1/catalogo")
+
+    assert respuesta.status_code == 401
+
+
+def test_api_key_de_socio_invalida_es_401(app):
+    sin_auth = TestClient(app, headers={"X-Socio-Api-Key": "clave-invalida"})
+
+    respuesta = sin_auth.get("/v1/catalogo")
+
+    assert respuesta.status_code == 401
+
+
+def test_api_key_de_socio_valida_permite_el_acceso(client):
+    assert client.get("/v1/catalogo").status_code == 200
