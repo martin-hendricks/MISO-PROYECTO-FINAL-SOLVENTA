@@ -130,6 +130,18 @@ describe('SessionService', () => {
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
 
+  it('sends the refresh token on sign out so the BFF can revoke it', () => {
+    const pair = fakeTokenPair();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(pair));
+    const { session, http } = setup();
+
+    session.signOut();
+    const request = http.expectOne('/web/sesion/salida');
+    request.flush({});
+
+    expect(request.request.body).toEqual({ refreshToken: pair.refreshToken });
+  });
+
   it('does not call the BFF on sign out without a session', () => {
     const { session, http } = setup();
 

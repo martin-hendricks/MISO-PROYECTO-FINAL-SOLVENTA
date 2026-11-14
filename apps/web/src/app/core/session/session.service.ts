@@ -158,11 +158,16 @@ export class SessionService {
 
   signOut(): void {
     const token = this.accessToken();
+    const refreshToken = this.pair()?.refreshToken;
     this.clearLocal();
     if (token) {
-      // Best effort: the local session ends even if the BFF cannot be reached.
+      // Best effort: the local session ends even if the BFF cannot be
+      // reached. The refresh token travels in the body so the BFF can
+      // revoke it too -- without this, a stolen refresh token keeps
+      // working to mint new pairs after the user signs out (see
+      // SessionService.refresh and bff-web/app/routers/sesion.py).
       this.http
-        .post(`${this.baseUrl}/sesion/salida`, null, {
+        .post(`${this.baseUrl}/sesion/salida`, { refreshToken }, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .subscribe({ error: () => undefined });

@@ -117,6 +117,65 @@ def test_salida_acepta_cualquier_rol_valido(client):
     assert client.post("/v1/sesion/salida", headers=headers).status_code == 200
 
 
+def test_salida_revoca_el_refresh_token(client):
+    """El hueco real: antes de esto, el logout no invalidaba nada del lado
+    servidor y un refresh token robado seguia sirviendo para generar pares
+    nuevos indefinidamente hasta su expiracion natural."""
+    ingreso = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto", "rol": "cliente"},
+    ).json()
+    headers = {"Authorization": f"Bearer {ingreso['accessToken']}"}
+
+    salida = client.post(
+        "/v1/sesion/salida",
+        headers=headers,
+        json={"refreshToken": ingreso["refreshToken"]},
+    )
+    assert salida.status_code == 200
+
+    refrescado = client.post("/v1/sesion/refresh", json={"refreshToken": ingreso["refreshToken"]})
+    assert refrescado.status_code == 401
+
+
+def test_salida_revoca_el_access_token(client):
+    """Un access token revocado no debe servir en ningun endpoint protegido
+    despues del logout."""
+    ingreso = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "operador.bogota@solventa.co", "contrasena": "secreto", "rol": "operador"},
+    ).json()
+    headers = {"Authorization": f"Bearer {ingreso['accessToken']}"}
+
+    assert client.post("/v1/sesion/salida", headers=headers).status_code == 200
+    assert client.get("/v1/operador/avisos", headers=headers).status_code == 401
+
+
+def test_tokens_no_revocados_siguen_funcionando(client):
+    """Complementa los dos tests anteriores: revocar la sesion de un
+    usuario no debe afectar a otro par de tokens valido y no revocado."""
+    ingreso = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "otra.persona@correo.com", "contrasena": "secreto", "rol": "cliente"},
+    ).json()
+    headers = {"Authorization": f"Bearer {ingreso['accessToken']}"}
+
+    # Otra sesion distinta se cierra, no afecta la de arriba.
+    otra = client.post(
+        "/v1/sesion/ingreso",
+        json={"correo": "camila@correo.com", "contrasena": "secreto", "rol": "cliente"},
+    ).json()
+    client.post(
+        "/v1/sesion/salida",
+        headers={"Authorization": f"Bearer {otra['accessToken']}"},
+        json={"refreshToken": otra["refreshToken"]},
+    )
+
+    assert client.post("/v1/sesion/salida", headers=headers).status_code == 200
+    refrescado = client.post("/v1/sesion/refresh", json={"refreshToken": ingreso["refreshToken"]})
+    assert refrescado.status_code == 200
+
+
 def test_sin_rol_el_bff_asigna_asesor(client, nucleo_identidad):
     import httpx
 
