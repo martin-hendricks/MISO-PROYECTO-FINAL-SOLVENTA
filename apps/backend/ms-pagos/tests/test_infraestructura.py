@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
@@ -167,8 +168,28 @@ async def test_motor_y_fabrica_no_abren_conexion_al_crearse():
         await motor.dispose()
 
 
+SECRETO = "test-secret"
+
+
 def _suscripciones(manejador) -> SuscripcionesHTTP:
-    return SuscripcionesHTTP(httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)))
+    return SuscripcionesHTTP(
+        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_suscripcion_http_envia_token_de_servicio():
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"decision": "ACEPTADA"})
+
+    await _suscripciones(manejador).aceptada(uuid4())
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-pagos", "servicio")
 
 
 @pytest.mark.parametrize(("decision", "esperado"), [("ACEPTADA", True), ("RECHAZADA", False)])

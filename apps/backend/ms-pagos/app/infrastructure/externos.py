@@ -9,19 +9,27 @@ import httpx
 from app.domain.errores import DependenciaNoDisponible
 from app.domain.modelos import EstadoPago, ResultadoPasarela
 
+from .token_servicio import token_de_servicio
+
 TOKEN_RECHAZO = "tok_rechazo"
 _ESPACIO_STUB = UUID("5f0c8a52-7d4f-4f6e-9a57-3b1c2d0e9f11")
 
 
 class SuscripcionesHTTP:
-    """Consulta la decisión de HU-13 en ms-suscripcion: GET /v1/suscripciones/{solicitud_id}."""
+    """Consulta la decisión de HU-13 en ms-suscripcion: GET /v1/suscripciones/{solicitud_id}.
+    ms-suscripcion exige autenticación: se genera un token de servicio nuevo en cada
+    llamada (dura 5 minutos, no se puede reusar de un arranque a otro del proceso)."""
 
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    def __init__(self, http: httpx.AsyncClient, secreto: str) -> None:
         self._http = http
+        self._secreto = secreto
 
     async def aceptada(self, solicitud_id: UUID) -> bool:
         try:
-            respuesta = await self._http.get(f"/v1/suscripciones/{solicitud_id}")
+            respuesta = await self._http.get(
+                f"/v1/suscripciones/{solicitud_id}",
+                headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-pagos')}"},
+            )
         except httpx.HTTPError as exc:
             raise DependenciaNoDisponible("ms-suscripcion") from exc
         if respuesta.status_code == 404:
