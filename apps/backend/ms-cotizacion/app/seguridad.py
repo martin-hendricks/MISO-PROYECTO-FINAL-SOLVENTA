@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 ALGORITHM = "HS256"
-ROLES = frozenset({"cliente", "asesor", "operador"})
+ROLES = frozenset({"cliente", "asesor", "operador", "socio"})
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -41,12 +41,14 @@ def exigir_llamante(
 
 
 def alcance(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
-    """El cliente solo ve lo suyo. Un rol de back-office debe declararse; omitir el filtro no abre datos a un anónimo."""
+    """El cliente solo ve lo suyo. Un rol de back-office -- o un socio externo que
+    cotiza en nombre de un cliente del canal aliado -- debe declararse; omitir el
+    filtro no abre datos a un anónimo."""
     if llamante.rol == "cliente":
         if usuario_id is not None and usuario_id != llamante.uid:
             raise HTTPException(status_code=404, detail="No existe")
         return llamante.uid
-    if llamante.rol not in ("asesor", "operador"):
+    if llamante.rol not in ("asesor", "operador", "socio"):
         raise HTTPException(status_code=403, detail="Rol no autorizado")
     return usuario_id
 
