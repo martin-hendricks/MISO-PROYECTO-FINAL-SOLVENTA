@@ -13,10 +13,10 @@ from app.domain.modelos import EstadoUsuario
 from app.ports.consentimiento import ConsultaConsentimiento
 from app.ports.perfilamiento import ConsultaPerfilamiento
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import LlamanteDep, exigir_rol_backoffice
+from app.seguridad import LlamanteDep, exigir_operador, exigir_rol_backoffice
 
-from .schemas import ErrorSalida
-from .schemas_clientes import ActualizarEstadoClienteEntrada, ClienteSalida, ClientesSalida
+from .schemas import ErrorSalida, UsuarioSalida
+from .schemas_clientes import ActualizarEstadoClienteEntrada, ActualizarRolUsuarioEntrada, ClienteSalida, ClientesSalida
 
 router = APIRouter(prefix="/v1/clientes", tags=["clientes"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
@@ -58,3 +58,18 @@ async def actualizar_estado(
     usuario = await casos_uso_clientes.actualizar_estado_cliente(uow, usuario_id, nuevo_estado)
     valor = await casos_uso_clientes.resolver_consentimiento(usuario.id, consentimiento, perfilamiento)
     return ClienteSalida.desde(usuario, valor)
+
+
+@router.patch("/{usuario_id}/rol", response_model=UsuarioSalida, responses=ERRORES)
+async def actualizar_rol(
+    usuario_id: UUID,
+    entrada: ActualizarRolUsuarioEntrada,
+    uow: Uow,
+    llamante: LlamanteDep,
+):
+    """Cambia el rol de un usuario (cliente/asesor/operador). Solo
+    operador: otorgar o retirar privilegios de back-office es más sensible
+    que activar/desactivar una cuenta, así que no se permite a asesor."""
+    exigir_operador(llamante)
+    usuario = await casos_uso_clientes.actualizar_rol_usuario(uow, usuario_id, entrada.rol)
+    return UsuarioSalida.desde(usuario)

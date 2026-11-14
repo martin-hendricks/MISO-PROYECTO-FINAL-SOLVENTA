@@ -66,6 +66,26 @@ async def actualizar_estado_cliente(
     return usuario
 
 
+async def actualizar_rol_usuario(
+    uow: FabricaUnidadDeTrabajo,
+    usuario_id,
+    nuevo_rol: str,
+) -> Usuario:
+    """Cambia el rol de un usuario (promoción/degradación entre cliente,
+    asesor y operador). A diferencia de actualizar_estado_cliente, no se
+    restringe a usuarios con rol="cliente": el propósito mismo de esta
+    operación es mover a alguien fuera (o dentro) de ese rol. Solo
+    accesible a operador (ver PATCH /v1/clientes/{usuario_id}/rol)."""
+    async with uow() as tx:
+        usuario = await tx.usuarios.obtener_por_id(usuario_id)
+        if usuario is None:
+            raise NoEncontrado("Usuario no encontrado")
+        usuario.cambiar_rol(nuevo_rol)
+        await tx.usuarios.actualizar(usuario)
+        await tx.confirmar()
+    return usuario
+
+
 async def resolver_consentimiento(
     cliente_id,
     consentimiento: ConsultaConsentimiento,

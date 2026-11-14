@@ -1,5 +1,8 @@
+import os
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,6 +19,18 @@ from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCO
 from app.main import crear_app
 
 from .dobles import AdaptadorConfigurable, AlmacenEnMemoria, UnidadDeTrabajoEnMemoria
+
+os.environ.setdefault("SOLVENTA_TOKEN_SECRET", "test-secret")
+
+
+def token(rol: str = "asesor") -> str:
+    payload = {
+        "sub": "persona@correo.com",
+        "rol": rol,
+        "typ": "access",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
+    return jwt.encode(payload, os.environ["SOLVENTA_TOKEN_SECRET"], algorithm="HS256")
 
 
 @pytest.fixture
@@ -57,4 +72,6 @@ def client(uow, config, adaptador_open_finance, adaptador_open_data) -> TestClie
     app.dependency_overrides[obtener_adaptador_open_finance] = lambda: adaptador_open_finance
     app.dependency_overrides[obtener_adaptador_open_data] = lambda: adaptador_open_data
     app.dependency_overrides[obtener_cache_fuentes] = lambda: CacheEnMemoria()
-    return TestClient(app)
+    cliente = TestClient(app)
+    cliente.headers.update({"Authorization": f"Bearer {token()}"})
+    return cliente

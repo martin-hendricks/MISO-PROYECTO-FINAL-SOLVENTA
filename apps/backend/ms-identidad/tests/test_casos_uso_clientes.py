@@ -178,3 +178,31 @@ async def test_actualizar_estado_cliente_con_rol_distinto_es_no_encontrado(uow, 
 
     with pytest.raises(NoEncontrado):
         await casos_uso_clientes.actualizar_estado_cliente(uow, asesor.id, EstadoUsuario.INACTIVO)
+
+
+# --- actualizar_rol_usuario ----------------------------------------------------
+
+
+async def test_actualizar_rol_usuario_promueve_un_cliente_a_asesor(uow, almacen):
+    cliente = await _agregar(almacen, _cliente())
+
+    actualizado = await casos_uso_clientes.actualizar_rol_usuario(uow, cliente.id, "asesor")
+
+    assert actualizado.rol == "asesor"
+    assert almacen.usuarios[cliente.id].rol == "asesor"
+
+
+async def test_actualizar_rol_usuario_opera_tambien_sobre_no_clientes(uow, almacen):
+    """A diferencia de actualizar_estado_cliente, no está restringido a
+    rol="cliente": el propósito es justamente mover a alguien dentro o
+    fuera de ese rol."""
+    asesor = await _agregar(almacen, _cliente(rol="asesor"))
+
+    actualizado = await casos_uso_clientes.actualizar_rol_usuario(uow, asesor.id, "operador")
+
+    assert actualizado.rol == "operador"
+
+
+async def test_actualizar_rol_usuario_inexistente_es_no_encontrado(uow):
+    with pytest.raises(NoEncontrado):
+        await casos_uso_clientes.actualizar_rol_usuario(uow, uuid4(), "asesor")

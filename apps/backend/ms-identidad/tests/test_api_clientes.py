@@ -181,3 +181,63 @@ def test_actualizar_estado_prohibido_para_cliente(client):
     )
 
     assert respuesta.status_code == 403
+
+
+# --- PATCH /v1/clientes/{usuario_id}/rol -------------------------------------
+
+
+def test_actualizar_rol_operador_puede_promover_un_cliente_a_asesor(client):
+    creado = _crear(client).json()
+
+    respuesta = client.patch(
+        f"/v1/clientes/{creado['usuario_id']}/rol",
+        json={"rol": "asesor"},
+        headers=_headers("operador"),
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["rol"] == "asesor"
+
+
+def test_actualizar_rol_prohibido_para_asesor(client):
+    creado = _crear(client).json()
+
+    respuesta = client.patch(
+        f"/v1/clientes/{creado['usuario_id']}/rol",
+        json={"rol": "asesor"},
+        headers=_headers("asesor"),
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_actualizar_rol_prohibido_para_cliente(client):
+    creado = _crear(client).json()
+
+    respuesta = client.patch(
+        f"/v1/clientes/{creado['usuario_id']}/rol",
+        json={"rol": "asesor"},
+        headers=_headers("cliente"),
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_actualizar_rol_con_valor_invalido_es_422(client):
+    creado = _crear(client).json()
+
+    respuesta = client.patch(
+        f"/v1/clientes/{creado['usuario_id']}/rol",
+        json={"rol": "socio"},
+        headers=_headers("operador"),
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_actualizar_rol_inexistente_es_404(client):
+    respuesta = client.patch(
+        f"/v1/clientes/{uuid4()}/rol", json={"rol": "asesor"}, headers=_headers("operador")
+    )
+
+    assert respuesta.status_code == 404

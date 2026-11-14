@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -43,3 +44,7 @@ class ClientesSalida(BaseModel):
 
 class ActualizarEstadoClienteEntrada(BaseModel):
     estado: str = Field(pattern="^(activo|inactivo)$")
+
+
+class ActualizarRolUsuarioEntrada(BaseModel):
+    rol: Literal["cliente", "asesor", "operador"]

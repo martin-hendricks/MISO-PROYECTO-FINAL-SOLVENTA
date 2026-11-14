@@ -1,3 +1,11 @@
+import os
+from datetime import datetime, timedelta, timezone
+
+import jwt
+
+from .conftest import token
+
+
 def _otorgar(client, cliente_id="cliente-1"):
     return client.post("/v1/consentimientos", json={"cliente_id": cliente_id})
 
@@ -85,3 +93,44 @@ def test_health_metrics_y_correlacion(client):
     assert salud.json() == {"status": "ok"}
     assert salud.headers["X-Correlation-Id"] == "c-123"
     assert "http_request_duration_seconds" in client.get("/metrics").text
+
+
+def test_otorgar_sin_token_es_401(client):
+    client.headers.pop("Authorization", None)
+    respuesta = _otorgar(client)
+    assert respuesta.status_code == 401
+
+
+def test_otorgar_con_rol_no_reconocido_es_401(client):
+    payload = {
+        "sub": "x",
+        "rol": "desconocido",
+        "typ": "access",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
+    malo = jwt.encode(payload, os.environ["SOLVENTA_TOKEN_SECRET"], algorithm="HS256")
+    client.headers.update({"Authorization": f"Bearer {malo}"})
+
+    respuesta = _otorgar(client)
+
+    assert respuesta.status_code == 401
+
+
+def test_otorgar_con_token_de_servicio_es_201(client):
+    client.headers.update({"Authorization": f"Bearer {token('servicio')}"})
+
+    respuesta = _otorgar(client)
+
+    assert respuesta.status_code == 201
+
+
+def test_consultar_sin_token_es_401(client):
+    client.headers.pop("Authorization", None)
+    respuesta = client.get("/v1/consentimientos/cliente-1")
+    assert respuesta.status_code == 401
+
+
+def test_revocar_sin_token_es_401(client):
+    client.headers.pop("Authorization", None)
+    respuesta = client.delete("/v1/consentimientos/cliente-1")
+    assert respuesta.status_code == 401

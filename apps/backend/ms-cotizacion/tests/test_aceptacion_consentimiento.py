@@ -134,7 +134,7 @@ async def test_adaptador_http_interpreta_la_respuesta_de_ms_perfilamiento(estado
         return httpx.Response(estado, json={})
 
     async with _http(manejador) as http:
-        adaptador = ConsentimientoPerfilamientoHTTP(http, ["vida-hipotecario"])
+        adaptador = ConsentimientoPerfilamientoHTTP(http, ["vida-hipotecario"], "test-secret")
         assert await adaptador.vigente(usuario) is vigente
 
     assert rutas == [("GET", f"/v1/consentimientos/{usuario}")]
@@ -143,7 +143,7 @@ async def test_adaptador_http_interpreta_la_respuesta_de_ms_perfilamiento(estado
 async def test_adaptador_http_error_del_servicio_es_dependencia_no_disponible():
     async with _http(lambda _: httpx.Response(500)) as http:
         with pytest.raises(DependenciaNoDisponible):
-            await ConsentimientoPerfilamientoHTTP(http, []).vigente(uuid4())
+            await ConsentimientoPerfilamientoHTTP(http, [], "test-secret").vigente(uuid4())
 
 
 async def test_adaptador_http_sin_red_es_dependencia_no_disponible():
@@ -152,11 +152,11 @@ async def test_adaptador_http_sin_red_es_dependencia_no_disponible():
 
     async with _http(manejador) as http:
         with pytest.raises(DependenciaNoDisponible):
-            await ConsentimientoPerfilamientoHTTP(http, []).vigente(uuid4())
+            await ConsentimientoPerfilamientoHTTP(http, [], "test-secret").vigente(uuid4())
 
 
 def test_adaptador_http_requiere_solo_los_productos_configurados():
-    adaptador = ConsentimientoPerfilamientoHTTP(httpx.AsyncClient(), ["vida-hipotecario"])
+    adaptador = ConsentimientoPerfilamientoHTTP(httpx.AsyncClient(), ["vida-hipotecario"], "test-secret")
 
     assert adaptador.requiere("vida-hipotecario") is True
     assert adaptador.requiere("soat-motocicleta") is False

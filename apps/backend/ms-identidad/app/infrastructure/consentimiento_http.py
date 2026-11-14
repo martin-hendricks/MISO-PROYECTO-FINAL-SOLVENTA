@@ -4,6 +4,8 @@ import logging
 
 import httpx
 
+from .token_servicio import token_de_servicio
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,14 +29,22 @@ class ClienteConsentimientoHTTP:
     back-office no puede caerse completo por un campo secundario de un
     cliente. Se deja constancia en el log como advertencia, no como error,
     porque es un comportamiento esperado mientras ms-consentimiento no esté
-    desplegado."""
+    desplegado.
 
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    ms-consentimiento ya exige autenticación (rechaza llamadas sin token):
+    se genera un token de servicio nuevo en cada llamada (dura 5 minutos,
+    no se puede reusar de un arranque a otro de este proceso)."""
+
+    def __init__(self, http: httpx.AsyncClient, secreto: str) -> None:
         self._http = http
+        self._secreto = secreto
 
     async def vigente(self, cliente_id: str) -> bool:
         try:
-            respuesta = await self._http.get(f"/v1/consentimientos/{cliente_id}")
+            respuesta = await self._http.get(
+                f"/v1/consentimientos/{cliente_id}",
+                headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-identidad')}"},
+            )
         except httpx.HTTPError:
             logger.warning("ms-consentimiento no disponible al consultar %s; se asume sin habeas data", cliente_id)
             return False

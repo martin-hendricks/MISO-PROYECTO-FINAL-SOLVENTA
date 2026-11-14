@@ -7,18 +7,28 @@ import httpx
 
 from app.domain.errores import DependenciaNoDisponible
 
+from .token_servicio import token_de_servicio
+
 
 class ConsentimientoPerfilamientoHTTP:
-    def __init__(self, http: httpx.AsyncClient, productos: Iterable[str]) -> None:
+    """ms-perfilamiento ya exige autenticación (rechaza llamadas sin token):
+    se genera un token de servicio nuevo en cada llamada (dura 5 minutos,
+    no se puede reusar de un arranque a otro de este proceso)."""
+
+    def __init__(self, http: httpx.AsyncClient, productos: Iterable[str], secreto: str) -> None:
         self._http = http
         self._productos = frozenset(productos)
+        self._secreto = secreto
 
     def requiere(self, producto: str) -> bool:
         return producto in self._productos
 
     async def vigente(self, usuario_id: UUID) -> bool:
         try:
-            respuesta = await self._http.get(f"/v1/consentimientos/{usuario_id}")
+            respuesta = await self._http.get(
+                f"/v1/consentimientos/{usuario_id}",
+                headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-cotizacion')}"},
+            )
         except httpx.HTTPError as exc:
             raise DependenciaNoDisponible("ms-perfilamiento") from exc
         if respuesta.status_code == 200:

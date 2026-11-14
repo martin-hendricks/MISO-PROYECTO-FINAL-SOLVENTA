@@ -25,6 +25,11 @@ class EstadoUsuario(StrEnum):
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+# Roles asignables a un Usuario real. "socio" no entra aquí: es un rol de
+# servicio emitido por api-socios para autenticar a un partner externo, no
+# un rol que un humano con cuenta en ms-identidad pueda tener.
+ROLES_USUARIO = frozenset({"cliente", "asesor", "operador"})
+
 
 @dataclass(frozen=True)
 class EventoDominio:
@@ -158,6 +163,23 @@ class Usuario:
         regla que la transición en sí: no hay flujo de aprobación ni
         reversión especial -- un asesor/operador puede alternar libremente."""
         self.estado = nuevo_estado
+
+    def cambiar_rol(self, nuevo_rol: str) -> None:
+        """Promueve/degrada el rol de la cuenta. Solo un operador puede
+        invocar esto (ver exigir_operador en seguridad.py): es más sensible
+        que cambiar_estado, porque otorga o retira privilegios de
+        back-office.
+
+        Sin más regla que la transición en sí -- igual que cambiar_estado,
+        no hay flujo de aprobación. En particular, no se valida que el
+        sistema se quede sin ningún operador (p.ej. el último operador
+        degradándose a sí mismo): no hay precedente de esa protección en
+        ningún otro flujo similar de este servicio, así que no se inventa
+        aquí. Si en el futuro resulta necesario, es deuda técnica a
+        resolver explícitamente, no una regla implícita."""
+        if nuevo_rol not in ROLES_USUARIO:
+            raise ReglaDeNegocioViolada("rol_invalido", "El rol no es válido")
+        self.rol = nuevo_rol
 
 
 def autenticar(usuario: Usuario | None, password_plano: str) -> Usuario:

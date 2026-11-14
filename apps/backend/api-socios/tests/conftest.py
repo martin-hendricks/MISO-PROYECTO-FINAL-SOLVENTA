@@ -72,9 +72,14 @@ def perfilamiento() -> ServicioSimulado:
     return ServicioSimulado()
 
 
+API_KEY_SOCIO = "clave-test-socio"
+SOCIO_ID = "socio-test"
+CABECERA_API_KEY_SOCIO = {"X-Socio-Api-Key": API_KEY_SOCIO}
+
+
 @pytest.fixture
 def app(nucleo, identidad, perfilamiento):
-    app = crear_app(Settings())
+    app = crear_app(Settings(socios_api_keys=f"{SOCIO_ID}:{API_KEY_SOCIO}"))
     http = httpx.AsyncClient(transport=httpx.MockTransport(nucleo), base_url="http://ms-cotizacion")
     http_identidad = httpx.AsyncClient(transport=httpx.MockTransport(identidad), base_url="http://ms-identidad")
     http_perfilamiento = httpx.AsyncClient(
@@ -92,4 +97,4 @@ def app(nucleo, identidad, perfilamiento):
 
 @pytest.fixture
 def client(app) -> TestClient:
-    return TestClient(app)
+    return TestClient(app, headers=CABECERA_API_KEY_SOCIO)

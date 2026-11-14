@@ -69,3 +69,16 @@ def test_rol_desconocido_responde_403():
 def test_operador_conserva_el_usuario_pedido():
     llamante = Llamante(uid=UID, rol="operador", sub="operador@solventa.com")
     assert alcance(llamante, OTRO) == OTRO
+
+
+def test_token_con_rol_socio_es_aceptado(monkeypatch):
+    monkeypatch.setenv("SOLVENTA_TOKEN_SECRET", "test-secret")
+    credenciales = HTTPAuthorizationCredentials(scheme="Bearer", credentials=_token(rol="socio"))
+    llamante = exigir_llamante(credenciales)
+    assert llamante.rol == "socio"
+    assert llamante.uid == UID
+
+
+def test_socio_conserva_el_usuario_pedido():
+    llamante = Llamante(uid=UID, rol="socio", sub="api-socios")
+    assert alcance(llamante, OTRO) == OTRO
