@@ -211,6 +211,71 @@ describe('SessionService', () => {
     expect(scheduled[0].handle.closed).toBeTrue();
     http.expectNone('/web/sesion/refresh');
   });
+
+  it('logging in as a second user leaves only that session, without mixing tokens or claims', () => {
+    const { session, http } = setup();
+    const userA = fakeTokenPair('asesor');
+    const userB = fakeTokenPair('operador');
+
+    session.start(userA);
+    expect(session.accessToken()).toBe(userA.accessToken);
+    expect(session.role()).toBe('asesor');
+
+    session.start(userB);
+
+    expect(session.accessToken()).toBe(userB.accessToken);
+    expect(session.accessToken()).not.toBe(userA.accessToken);
+    expect(session.role()).toBe('operador');
+    expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBe(JSON.stringify(userB));
+    http.expectNone('/web/sesion/refresh');
+  });
+
+  it("a stale refresh timer from user A's session cannot land on user B's session", () => {
+    const scheduled = captureSchedule();
+    const { session, http } = setup();
+    const userA = fakeTokenPair('asesor', 120);
+    const userB = fakeTokenPair('operador', 300);
+
+    // A inicia sesión: se programa su timer de refresco (sin dejarlo disparar).
+    session.start(userA);
+    expect(scheduled.length).toBe(1);
+    const staleTimerFromA = scheduled[0].handle;
+    expect(staleTimerFromA.closed).toBeFalse();
+
+    // A cierra sesión antes de que su timer llegara a ejecutarse.
+    session.signOut();
+    http.expectOne('/web/sesion/salida').flush({});
+
+    // El cierre de sesión debe cancelar ese timer de inmediato: es la
+    // garantía que evita que, si llegara a disparar, pise a quien inicie
+    // sesión después.
+    expect(staleTimerFromA.closed).toBeTrue();
+
+    // B inicia sesión en el mismo tab/servicio.
+    session.start(userB);
+
+    // Solo debe quedar programado el timer de B: el de A sigue cancelado y
+    // no se programó ninguno adicional en su nombre.
+    expect(scheduled.length).toBe(2);
+    expect(staleTimerFromA.closed).toBeTrue();
+    const timerFromB = scheduled[1].handle;
+    expect(timerFromB.closed).toBeFalse();
+
+    // Ninguna petición de refresh quedó pendiente en este punto: el timer
+    // fantasma de A nunca llegó a dispararse.
+    http.expectNone('/web/sesion/refresh');
+
+    // El estado de sesión sigue siendo el de B.
+    expect(session.accessToken()).toBe(userB.accessToken);
+    expect(session.role()).toBe('operador');
+
+    // Si B's propio timer dispara más adelante, rota con el refreshToken de
+    // B, nunca con el de A.
+    scheduled[1].run();
+    const request = http.expectOne('/web/sesion/refresh');
+    expect(request.request.body).toEqual({ refreshToken: userB.refreshToken });
+    request.flush(fakeTokenPair('operador', 300));
+  });
 });
 
 function captureSchedule(): Array<{ delay: number; run: () => void; handle: Subscription }> {
