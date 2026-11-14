@@ -22,7 +22,7 @@
     <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
       {{ 'backoffice.signOut' | translate }}
     </button>
-    <span class="avatar" aria-hidden="true"></span>
+    <span class="avatar" data-testid="avatar" [attr.title]="nombreCompleto()">{{ iniciales() }}</span>
   </div>
 </header>
 

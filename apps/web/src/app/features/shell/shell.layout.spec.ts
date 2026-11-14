@@ -1,14 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
 import { SessionService } from '../../core/session/session.service';
+import { PerfilGateway } from '../perfil/perfil.gateway';
 import { ShellLayout } from './shell.layout';
+
+/** Every test injects this: ShellLayout loads the profile on construction
+ * (for the avatar initials), and these specs are not about that flow. */
+const stubPerfilGateway = { provide: PerfilGateway, useValue: { load: () => of(null) } };
 
 describe('ShellLayout', () => {
   it('links the customer shell', async () => {
     await TestBed.configureTestingModule({
       imports: [ShellLayout],
-      providers: [provideRouter([]), ...provideSolventaI18n()],
+      providers: [provideRouter([]), ...provideSolventaI18n(), stubPerfilGateway],
     }).compileComponents();
     const fixture = TestBed.createComponent(ShellLayout);
     fixture.detectChanges();
@@ -39,6 +45,7 @@ describe('ShellLayout', () => {
         provideRouter([{ path: 'login', children: [] }]),
         ...provideSolventaI18n(),
         { provide: SessionService, useValue: { signOut } },
+        stubPerfilGateway,
       ],
     }).compileComponents();
     const fixture = TestBed.createComponent(ShellLayout);
@@ -56,7 +63,7 @@ describe('ShellLayout', () => {
   it('opens the hamburger overlay with the same five destinations', async () => {
     await TestBed.configureTestingModule({
       imports: [ShellLayout],
-      providers: [provideRouter([]), ...provideSolventaI18n()],
+      providers: [provideRouter([]), ...provideSolventaI18n(), stubPerfilGateway],
     }).compileComponents();
     const fixture = TestBed.createComponent(ShellLayout);
     fixture.detectChanges();
@@ -86,10 +93,59 @@ describe('ShellLayout', () => {
     );
   });
 
+  it('shows the initials of the logged-in customer next to sign out', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ShellLayout],
+      providers: [
+        provideRouter([]),
+        ...provideSolventaI18n(),
+        {
+          provide: PerfilGateway,
+          useValue: {
+            load: () =>
+              of({
+                usuarioId: 'u1',
+                correo: 'camila@correo.com',
+                nombre: 'Camila',
+                apellidos: 'Restrepo',
+                documento: '123',
+              }),
+          },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ShellLayout);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const avatar = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="avatar"]');
+    expect(avatar?.textContent?.trim()).toBe('CR');
+    expect(avatar?.getAttribute('title')).toBe('Camila Restrepo');
+  });
+
+  it('leaves the avatar empty if the profile fails to load, without crashing', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ShellLayout],
+      providers: [
+        provideRouter([]),
+        ...provideSolventaI18n(),
+        { provide: PerfilGateway, useValue: { load: () => throwError(() => new Error('caida')) } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ShellLayout);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const avatar = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="avatar"]');
+    expect(avatar?.textContent?.trim()).toBe('');
+  });
+
   it('closing the overlay does not navigate away from the current page', async () => {
     await TestBed.configureTestingModule({
       imports: [ShellLayout],
-      providers: [provideRouter([]), ...provideSolventaI18n()],
+      providers: [provideRouter([]), ...provideSolventaI18n(), stubPerfilGateway],
     }).compileComponents();
     const fixture = TestBed.createComponent(ShellLayout);
     fixture.detectChanges();
