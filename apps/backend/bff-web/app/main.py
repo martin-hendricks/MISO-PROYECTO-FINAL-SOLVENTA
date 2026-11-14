@@ -44,6 +44,9 @@ async def lifespan(app: FastAPI):
         httpx.AsyncClient(base_url=config.ms_siniestros_url, timeout=config.timeout_nucleo_s) as http_siniestros,
         httpx.AsyncClient(base_url=config.ms_suscripcion_url, timeout=config.timeout_nucleo_s) as http_suscripcion,
         httpx.AsyncClient(base_url=config.ms_identidad_url, timeout=config.timeout_nucleo_s) as http_identidad,
+        httpx.AsyncClient(
+            base_url=config.ms_consentimiento_url, timeout=config.timeout_nucleo_s
+        ) as http_consentimiento,
         httpx.AsyncClient(base_url=config.analitica_url, timeout=config.timeout_nucleo_s) as http_analitica,
         httpx.AsyncClient(
             base_url=config.ms_notificaciones_url, timeout=config.timeout_nucleo_s
@@ -56,6 +59,7 @@ async def lifespan(app: FastAPI):
         app.state.http_ms_siniestros = http_siniestros
         app.state.http_ms_suscripcion = http_suscripcion
         app.state.http_ms_identidad = http_identidad
+        app.state.http_ms_consentimiento = http_consentimiento
         app.state.http_analitica = http_analitica
         app.state.http_notificaciones = http_notificaciones
         yield

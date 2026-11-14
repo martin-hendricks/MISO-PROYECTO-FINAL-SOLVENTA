@@ -1,10 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import rutas
+from app.api.v1 import rutas, rutas_clientes
 from app.config import Settings
 from app.domain.errores import (
     Conflicto,
@@ -17,7 +18,9 @@ from app.domain.errores import (
     NoEncontrado,
     ReglaDeNegocioViolada,
 )
+from app.infrastructure.consentimiento_http import ClienteConsentimientoHTTP
 from app.infrastructure.kyc import VerificadorKYCStub
+from app.infrastructure.perfilamiento_http import ClientePerfilamientoHTTP
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
@@ -45,12 +48,28 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.verificador_kyc = VerificadorKYCStub(
             config.doble_kyc_latencia_ms, config.doble_kyc_fallar, config.documentos_rechazados_kyc()
         )
-        yield
+        # Clientes HTTP hacia ms-consentimiento (habeas data) y ms-perfilamiento
+        # (perfilamiento hipotecario), usados solo para resolver el campo
+        # "consentimiento" del listado de clientes (HU-141). Ambos adaptadores
+        # degradan a False si el servicio no responde -- ver
+        # infrastructure/consentimiento_http.py y perfilamiento_http.py.
+        async with (
+            httpx.AsyncClient(
+                base_url=config.ms_consentimiento_url, timeout=config.timeout_consentimiento_s
+            ) as http_consentimiento,
+            httpx.AsyncClient(
+                base_url=config.ms_perfilamiento_url, timeout=config.timeout_consentimiento_s
+            ) as http_perfilamiento,
+        ):
+            app.state.cliente_consentimiento = ClienteConsentimientoHTTP(http_consentimiento)
+            app.state.cliente_perfilamiento = ClientePerfilamientoHTTP(http_perfilamiento)
+            yield
         await motor.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
     instrumentar(app)
     app.include_router(rutas.router)
+    app.include_router(rutas_clientes.router)
 
     @app.exception_handler(ErrorDominio)
     async def error_dominio(_: Request, exc: ErrorDominio):

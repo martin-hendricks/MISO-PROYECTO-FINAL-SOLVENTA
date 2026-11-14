@@ -1,11 +1,13 @@
+import secrets
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_identidad import ClienteMsIdentidad
 from ..clients.ms_pagos import ClienteMsPagos
@@ -13,6 +15,7 @@ from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
 from ..clients.ms_suscripcion import ClienteMsSuscripcion
 from ..dependencies import (
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
     obtener_cliente_identidad,
     obtener_cliente_pagos,
@@ -64,6 +67,19 @@ def _contexto_atendido(cliente_id: str) -> ContextoUsuario:
     except (ValueError, AttributeError):
         return ContextoUsuario(cliente_id)
     return ContextoUsuario(cliente_id, canonico=True)
+
+
+class ClienteNuevo(BaseModel):
+    nombre: str = Field(min_length=1)
+    documento: str = Field(min_length=1)
+    correo: str = Field(min_length=1)
+    habeasData: bool
+    canal: str = "web"
+
+
+class Desactivar(BaseModel):
+    clienteId: str
+    estado: str
 
 
 def _asesor_id(sesion: dict) -> UUID:
@@ -458,3 +474,120 @@ def cartera() -> dict:
             },
         ],
     }
+
+
+def _cliente_desde_identidad(item: dict) -> dict:
+    """Traduce ClienteSalida de ms-identidad (HU-141) al shape que ya espera
+    el frontend (apps/web/.../clientes.gateway.ts, interfaz Cliente):
+    clienteId, nombre, documento, canal, estado, consentimiento. ms-identidad
+    ya entrega estado/consentimiento en minúsculas y documento como {tipo,
+    numero} -- aquí se aplana el documento a un único string y se junta
+    nombre+apellidos en un solo campo "nombre" (ms-identidad los separa, el
+    frontend espera el nombre completo, ver clientes.testing.ts)."""
+    documento = item["documento"]
+    nombre_completo = " ".join(parte for parte in (item["nombre"], item.get("apellidos", "")) if parte)
+    return {
+        "clienteId": item["clienteId"],
+        "nombre": nombre_completo,
+        "documento": documento["numero"],
+        "canal": item["canal"],
+        "estado": item["estado"],
+        "consentimiento": item["consentimiento"],
+    }
+
+
+@router.get("/clientes")
+async def listar(
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: listado real de clientes contra ms-identidad (GET
+    /v1/clientes), ya no el mock en memoria -- ver CLIENTES, que sigue
+    respaldando únicamente POST /clientes (alta) y la ficha reducida de
+    _cliente_salida() en /asesor/emisiones, ambos fuera de este alcance."""
+    clientes = await cliente_identidad.listar_clientes()
+    return {"clientes": [_cliente_desde_identidad(item) for item in clientes]}
+
+
+# ms-identidad exige tipo+numero de documento por separado; el formulario
+# de alta del back-office solo captura un numero (igual que registro.py,
+# ver TIPO_DOCUMENTO_DEFECTO ahi) -- se asume cedula de ciudadania.
+TIPO_DOCUMENTO_DEFECTO = "CC"
+
+
+def _separar_nombre(nombre_completo: str) -> tuple[str, str]:
+    """ms-identidad guarda nombre y apellidos por separado; el formulario de
+    alta del back-office solo captura un nombre completo. Se toma la primera
+    palabra como nombre y el resto como apellidos (mismo criterio ya usado
+    en este archivo para derivar un correo de prueba del mock, ver
+    _cliente()); si no hay mas de una palabra, "apellidos" queda vacio."""
+    partes = nombre_completo.split(maxsplit=1)
+    if len(partes) == 1:
+        return partes[0], ""
+    return partes[0], partes[1]
+
+
+def _password_temporal() -> str:
+    """El alta desde el back-office no captura una contrasena del cliente
+    (quien la define es el propio cliente al autogestionarse, no el asesor):
+    se genera una temporal aleatoria. No hay todavia un flujo de "cambiar
+    contrasena" ni de notificacion por correo en el proyecto -- documentado
+    como deuda en el ODD de esta HU."""
+    return secrets.token_urlsafe(18)
+
+
+@router.post("/clientes", status_code=201)
+async def crear(
+    body: ClienteNuevo,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+) -> dict:
+    """HU-141: alta real de cliente desde el back-office contra ms-identidad
+    (POST /v1/usuarios), ya no el mock CLIENTES. Si el asesor marca
+    habeasData, se otorga el consentimiento real en ms-consentimiento antes
+    de responder -- a diferencia de registro.py (alta del propio cliente),
+    que todavia simula ese consentimiento (ver su comentario "Stub hasta que
+    ms-consentimiento versione la politica")."""
+    if not body.habeasData:
+        raise HTTPException(status_code=422, detail="Consentimiento de datos requerido")
+
+    nombre, apellidos = _separar_nombre(body.nombre)
+    try:
+        creado = await cliente_identidad.crear_usuario(
+            tipo_documento=TIPO_DOCUMENTO_DEFECTO,
+            numero_documento=body.documento,
+            email=body.correo,
+            password=_password_temporal(),
+            nombre=nombre,
+            apellidos=apellidos,
+            canal=body.canal,
+        )
+    except RechazoDelNucleo as exc:
+        if exc.status == 409:
+            raise HTTPException(status_code=409, detail="El cliente ya existe") from exc
+        raise HTTPException(status_code=exc.status, detail=exc.mensaje) from exc
+
+    usuario_id = str(creado["usuario_id"])
+    await cliente_consentimiento.otorgar_consentimiento(usuario_id)
+
+    return _cliente_desde_identidad(
+        {
+            "clienteId": usuario_id,
+            "nombre": creado.get("nombre") or nombre,
+            "apellidos": creado.get("apellidos") or apellidos,
+            "documento": {"tipo": creado["tipo_documento"], "numero": creado["numero_documento"]},
+            "canal": creado.get("canal") or body.canal,
+            "estado": str(creado["estado"]).lower(),
+            "consentimiento": "habeas_data",
+        }
+    )
+
+
+@router.post("/clientes/estado")
+async def desactivar(
+    body: Desactivar,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: activa/desactiva un cliente real contra ms-identidad (PATCH
+    /v1/clientes/{usuario_id}/estado), ya no el mock en memoria."""
+    actualizado = await cliente_identidad.actualizar_estado_cliente(body.clienteId, body.estado)
+    return _cliente_desde_identidad(actualizado)

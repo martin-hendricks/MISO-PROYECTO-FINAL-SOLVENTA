@@ -31,6 +31,20 @@ def test_alta_devuelve_201_con_el_usuario_sin_password(client):
     assert "password_hash" not in cuerpo
 
 
+def test_alta_con_canal_lo_persiste(client):
+    respuesta = _crear(client, canal="android")
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["canal"] == "android"
+
+
+def test_alta_sin_canal_queda_nulo(client):
+    respuesta = _crear(client)
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["canal"] is None
+
+
 def test_alta_con_email_duplicado_es_409(client):
     _crear(client)
 

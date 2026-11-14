@@ -7,14 +7,15 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .clients.analitica import ClienteAnalitica
+from .clients.ms_consentimiento import ClienteMsConsentimiento
 from .clients.ms_cotizacion import ClienteMsCotizacion
 from .clients.ms_identidad import ClienteMsIdentidad
 from .clients.ms_pagos import ClienteMsPagos
-from .clients.notificaciones import ClienteNotificaciones
 from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
 from .clients.ms_siniestros import ClienteMsSiniestros
 from .clients.ms_suscripcion import ClienteMsSuscripcion
+from .clients.notificaciones import ClienteNotificaciones
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -112,6 +113,12 @@ def obtener_cliente_suscripcion(request: Request) -> ClienteMsSuscripcion:
 
 def obtener_cliente_identidad(request: Request) -> ClienteMsIdentidad:
     return ClienteMsIdentidad(request.app.state.http_ms_identidad, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_consentimiento(request: Request) -> ClienteMsConsentimiento:
+    return ClienteMsConsentimiento(
+        request.app.state.http_ms_consentimiento, getattr(request.state, "correlacion", None)
+    )
 
 
 def obtener_cliente_notificaciones(request: Request) -> ClienteNotificaciones:

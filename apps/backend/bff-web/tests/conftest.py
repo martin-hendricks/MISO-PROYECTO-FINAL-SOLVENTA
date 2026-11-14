@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.clients.analitica import ClienteAnalitica
+from app.clients.ms_consentimiento import ClienteMsConsentimiento
 from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_pagos import ClienteMsPagos
@@ -19,6 +20,7 @@ from app.clients.ms_siniestros import ClienteMsSiniestros
 from app.clients.ms_suscripcion import ClienteMsSuscripcion
 from app.dependencies import (
     obtener_cliente_analitica,
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
     obtener_cliente_identidad,
     obtener_cliente_notificaciones,
@@ -140,6 +142,25 @@ def nucleo_identidad() -> NucleoSimulado:
 
 
 @pytest.fixture
+def nucleo_consentimiento() -> NucleoSimulado:
+    # Otorgar es el caso feliz mas comun en los tests que ejercitan el alta
+    # de cliente desde el back-office -- un test que necesite ver la caida
+    # del servicio sobrescribe la respuesta, igual que con los demas.
+    doble = NucleoSimulado()
+    doble.respuestas[("POST", "/v1/consentimientos")] = lambda request: httpx.Response(
+        201,
+        json={
+            "id": "66666666-6666-6666-6666-666666666666",
+            "cliente_id": json.loads(request.content or b"{}").get("cliente_id"),
+            "otorgado_en": "2026-11-13T00:00:00Z",
+            "revocado_en": None,
+            "vigente": True,
+        },
+    )
+    return doble
+
+
+@pytest.fixture
 def client(
     nucleo_cotizacion,
     nucleo_pagos,
@@ -148,6 +169,7 @@ def client(
     nucleo_siniestros,
     nucleo_suscripcion,
     nucleo_identidad,
+    nucleo_consentimiento,
     nucleo_analitica,
     nucleo_notificaciones,
 ) -> TestClient:
@@ -165,6 +187,9 @@ def client(
     )
     http_identidad = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_identidad), base_url="http://ms-identidad"
+    )
+    http_consentimiento = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_consentimiento), base_url="http://ms-consentimiento"
     )
     http_analitica = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_analitica), base_url="http://analitica"
@@ -184,6 +209,9 @@ def client(
         http_suscripcion, "corr-test"
     )
     app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(http_identidad, "corr-test")
+    app.dependency_overrides[obtener_cliente_consentimiento] = lambda: ClienteMsConsentimiento(
+        http_consentimiento, "corr-test"
+    )
     app.dependency_overrides[obtener_cliente_analitica] = lambda: ClienteAnalitica(http_analitica, "corr-test")
     app.dependency_overrides[obtener_cliente_notificaciones] = lambda: ClienteNotificaciones(
         http_notificaciones, "corr-test"

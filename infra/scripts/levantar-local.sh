@@ -46,6 +46,7 @@ fi
 # igual al nombre del servicio (ver docker-compose.yml); se lista explícito
 # en vez de derivarlo de "ms-<algo>" a ciegas.
 SERVICIOS="
+ms-consentimiento:db-consentimiento
 ms-cotizacion:db-cotizacion
 ms-identidad:db-identidad
 ms-pagos:db-pagos
@@ -127,7 +128,7 @@ done
 
 echo ""
 echo "== Reiniciando microservicios para que tomen el esquema al día =="
-docker compose restart ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion notificaciones bff-web bff-movil api-socios
+docker compose restart ms-consentimiento ms-cotizacion ms-identidad ms-pagos ms-perfilamiento ms-polizas ms-siniestros ms-suscripcion notificaciones bff-web bff-movil api-socios
 
 echo ""
 echo "== Backend local listo =="
