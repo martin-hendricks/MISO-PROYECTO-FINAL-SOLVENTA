@@ -19,7 +19,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.ShowMortgageOffer
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.formatPremium
+import java.math.BigDecimal
 import com.grupo8_uniandes.solventa.mortgage.MortgageOfferUi
 import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
@@ -31,14 +34,17 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 fun VidaHipotecarioFlow(
     viewModel: MortgageOfferViewModel,
     region: Region,
-    onAccept: (prima: Long, moneda: String) -> Unit,
+    onAccept: (offerId: String, prima: Long, moneda: String) -> Unit,
     onDecline: () -> Unit,
     modifier: Modifier = Modifier,
+    credit: MortgageCredit? = null,
 ) {
     val state by viewModel.state.collectAsState()
     when (val current = state) {
         MortgageOfferUi.Consent -> ConsentimientoHipotecarioStep(
-            onAuthorize = viewModel::authorize,
+            credit = credit,
+            region = region,
+            onAuthorize = { viewModel.authorize(credit) },
             onDecline = onDecline,
             modifier = modifier,
         )
@@ -55,7 +61,7 @@ fun VidaHipotecarioFlow(
             SolventaButton(
                 text = stringResource(R.string.mortgage_offer_retry),
                 style = SolventaButtonStyle.Filled,
-                onClick = viewModel::authorize,
+                onClick = { viewModel.authorize(credit) },
                 modifier = Modifier.fillMaxWidth(),
                 testTag = "action_retry_mortgage",
             )
@@ -70,11 +76,15 @@ fun VidaHipotecarioFlow(
         is MortgageOfferUi.Offer -> {
             val quote = current.quote
             val offer = remember(quote, region) {
-                ShowMortgageOffer(region).show(prima = quote.prima, moneda = quote.moneda)
+                ShowMortgageOffer(region).show(
+                    coverage = quote.descripcion.ifBlank { ShowMortgageOffer.DEFAULT_COVERAGE },
+                    prima = quote.prima,
+                    moneda = quote.moneda,
+                )
             }
             OfertaHipotecarioScreen(
                 offer = offer,
-                onAccept = { onAccept(quote.prima, quote.moneda) },
+                onAccept = { onAccept(quote.cotizacionId.orEmpty(), quote.prima, quote.moneda) },
                 onReviewLater = onDecline,
                 modifier = modifier,
                 factores = quote.factores,
@@ -86,6 +96,8 @@ fun VidaHipotecarioFlow(
 
 @Composable
 private fun ConsentimientoHipotecarioStep(
+    credit: MortgageCredit?,
+    region: Region,
     onAuthorize: () -> Unit,
     onDecline: () -> Unit,
     modifier: Modifier = Modifier,
@@ -106,6 +118,17 @@ private fun ConsentimientoHipotecarioStep(
                 text = stringResource(R.string.mortgage_consent_body),
                 style = MaterialTheme.typography.bodyMedium,
             )
+            if (credit != null) {
+                Text(
+                    text = stringResource(
+                        R.string.mortgage_consent_credit,
+                        formatPremium(BigDecimal(credit.valor), CREDIT_CURRENCY, region),
+                        credit.plazoMeses,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag("mortgage_consent_credit"),
+                )
+            }
             Text(
                 text = stringResource(R.string.mortgage_consent_sources),
                 style = MaterialTheme.typography.bodyMedium,
@@ -152,3 +175,5 @@ private fun FlowMessage(
         actions()
     }
 }
+
+private const val CREDIT_CURRENCY = "COP"

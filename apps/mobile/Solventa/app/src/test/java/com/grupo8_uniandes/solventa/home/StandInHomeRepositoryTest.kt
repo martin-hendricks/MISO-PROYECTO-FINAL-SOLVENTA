@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.home
 
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.required
@@ -39,13 +40,14 @@ class StandInHomeRepositoryTest {
                         ofertaVigente = HomeOfferSlot("COT-1042", "Protección de dispositivo", "oferta_vigente"),
                         poliza = HomePolicySlot("POL-88219-CO", "Protección de dispositivo", "vigente"),
                         siniestroEnCurso = HomeClaimSlot("SIN-441", "en_evaluacion"),
-                        hipotecario = "vida",
+                        hipotecario = MortgageCredit(valor = 180_000_000L, plazoMeses = 180),
                     ),
                 )
             },
         )
 
         assertEquals(true, repository.load()!!.origination.present)
+        assertEquals(180, repository.load()!!.origination.credit?.plazoMeses)
     }
 
     @Test

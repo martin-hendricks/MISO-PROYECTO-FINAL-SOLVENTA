@@ -69,6 +69,7 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCoverage
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
@@ -293,7 +294,8 @@ internal fun PaymentDto.toPayment() = AutomaticPayment(siniestroId, poliza, umbr
 
 internal fun MortgageInDto.toProfile() = CreditProfile(credito.valor, credito.plazoMeses, consentimientoPerfil)
 
-internal fun MortgageOutDto.toQuote() = MortgageQuote(ramo, estado, prima, moneda, factores, degradada)
+internal fun MortgageOutDto.toQuote() =
+    MortgageQuote(ramo, estado, prima, moneda, factores, degradada, cotizacionId, descripcion)
 
 internal fun ProfilingConsentDto.toProfilingConsent(): ProfilingConsent = when (estado) {
     "vigente" -> ProfilingConsent.Granted(required(otorgadoEn))
@@ -311,7 +313,7 @@ internal fun HomeDto.toHome() = BffHome(
     ofertaVigente?.let { HomeOfferSlot(it.cotizacionId, it.ramo, it.estado) },
     poliza?.let { HomePolicySlot(it.numero, it.ramo, it.estado) },
     siniestroEnCurso?.let { HomeClaimSlot(it.siniestroId, it.estado) },
-    hipotecario,
+    hipotecario?.let { MortgageCredit(it.valor, it.plazoMeses) },
     cotizacionesPendientes.map { HomeOfferSlot(it.cotizacionId, it.ramo, it.estado) },
 )
 
