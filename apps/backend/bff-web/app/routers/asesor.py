@@ -504,7 +504,7 @@ async def listar(
     /v1/clientes), ya no el mock en memoria -- ver CLIENTES, que sigue
     respaldando únicamente POST /clientes (alta) y la ficha reducida de
     _cliente_salida() en /asesor/emisiones, ambos fuera de este alcance."""
-    clientes = await cliente_identidad.listar_clientes()
+    clientes = await cliente_identidad.listar_clientes_backoffice()
     return {"clientes": [_cliente_desde_identidad(item) for item in clientes]}
 
 

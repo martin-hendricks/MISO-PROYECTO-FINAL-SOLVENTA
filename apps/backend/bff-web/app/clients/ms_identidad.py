@@ -103,9 +103,14 @@ class ClienteMsIdentidad(ClienteServicio):
             json={"email": email, "password": password},
         )
 
-    async def listar_clientes(self) -> list[dict[str, Any]]:
+    async def listar_clientes_backoffice(self) -> list[dict[str, Any]]:
         """GET /v1/clientes (HU-141): back-office únicamente -- ms-identidad
-        ya exige rol asesor/operador, bff-web solo reenvía el token."""
+        ya exige rol asesor/operador, bff-web solo reenvía el token.
+
+        Distinto de `listar_clientes()` (arriba): esa paginación/búsqueda
+        contra GET /v1/usuarios?rol=cliente es de otra rama (operador_
+        clientes.py/operador_notificaciones.py); este método sin argumentos
+        es el que ya consumía /asesor/clientes (routers/asesor.py)."""
         return (await self._pedir("GET", "/v1/clientes"))["clientes"]
 
     async def actualizar_estado_cliente(self, usuario_id: str, estado: str) -> dict[str, Any]:
