@@ -13,11 +13,13 @@ import com.grupo8_uniandes.solventa.data.bff.mock.MockOfferRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockPaymentRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockPolicyCommandRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockPushRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockLivenessRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockSignupRepository
 
 class MobileBff(
     val session: MockMobileSessionRepository = MockMobileSessionRepository(),
     val signup: MockSignupRepository = MockSignupRepository(),
+    val liveness: MockLivenessRepository = MockLivenessRepository(),
     val offer: MockOfferRepository = MockOfferRepository(),
     val issuance: MockIssuanceRepository = MockIssuanceRepository(),
     val claim: MockClaimRepository = MockClaimRepository(),

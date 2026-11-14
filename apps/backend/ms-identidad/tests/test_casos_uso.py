@@ -237,3 +237,13 @@ async def test_listar_clientes_rechaza_rol_consulta_e_ids(uow):
             uow, rol="cliente", estado=None, q=None, ids=[uuid4() for _ in range(51)], pagina=1
         )
     assert ids.value.codigo == "ids_largos"
+
+
+async def test_la_cuenta_nueva_guarda_prueba_de_vida_no_y_el_dueno_puede_poner_ok(uow, almacen):
+    usuario = await _crear(uow)
+    assert usuario.prueba_de_vida == "no"
+    actualizado = await casos_uso.registrar_prueba_de_vida(uow, usuario.id, valor="ok")
+    assert actualizado.prueba_de_vida == "ok"
+    assert almacen.usuarios[usuario.id].prueba_de_vida == "ok"
+    with pytest.raises(ReglaDeNegocioViolada):
+        await casos_uso.registrar_prueba_de_vida(uow, usuario.id, valor="maybe")

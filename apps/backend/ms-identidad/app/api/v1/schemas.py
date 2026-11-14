@@ -16,7 +16,12 @@ class CrearUsuarioEntrada(BaseModel):
     apellidos: str = ""
     ingresos_mensuales: Decimal | None = Field(default=None, gt=0)
     gastos_mensuales: Decimal | None = Field(default=None, ge=0)
+    prueba_de_vida: Literal["ok", "no"] = "no"
     canal: str | None = Field(default=None, max_length=20)
+
+
+class PruebaDeVidaEntrada(BaseModel):
+    prueba_de_vida: Literal["ok", "no"]
 
 
 class PerfilEntrada(BaseModel):
@@ -50,6 +55,7 @@ class UsuarioSalida(BaseModel):
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
+    prueba_de_vida: str = "no"
     canal: str | None = None
 
     @classmethod
@@ -65,6 +71,7 @@ class UsuarioSalida(BaseModel):
             ingresos_mensuales=usuario.ingresos_mensuales,
             gastos_mensuales=usuario.gastos_mensuales,
             rol=usuario.rol,
+            prueba_de_vida=usuario.prueba_de_vida,
             canal=usuario.canal,
         )
 

@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
 import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
+import com.grupo8_uniandes.solventa.data.bff.dto.LivenessUpdateDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
@@ -82,8 +83,14 @@ import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.signup.ConsentRevocation
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessCheck
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -184,6 +191,40 @@ internal fun customerUid(accessToken: String): String? {
         android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
     )
     return org.json.JSONObject(String(payload)).optString("uid").ifBlank { null }
+}
+
+class RemoteLivenessRepository(
+    private val api: MobileBffApi,
+) : LivenessRepository {
+    override suspend fun check(photo: ByteArray): LivenessCheck {
+        return try {
+            val part = MultipartBody.Part.createFormData(
+                "foto",
+                "selfie.jpg",
+                photo.toRequestBody("image/jpeg".toMediaType()),
+            )
+            when (api.checkLiveness(part).resultado) {
+                "ok" -> LivenessCheck.Passed
+                else -> LivenessCheck.Failed
+            }
+        } catch (error: HttpException) {
+            if (error.code() >= 500) LivenessCheck.Unavailable else LivenessCheck.Failed
+        } catch (_: IOException) {
+            LivenessCheck.Unavailable
+        }
+    }
+
+    override suspend fun record(result: Liveness): StandInAnswer<Liveness> {
+        return try {
+            val sent = if (result == Liveness.OK) "ok" else "no"
+            val stored = api.recordLiveness(LivenessUpdateDto(sent)).pruebaDeVida
+            StandInAnswer.Ready(if (stored == "ok") Liveness.OK else Liveness.NO)
+        } catch (_: HttpException) {
+            StandInAnswer.Failed
+        } catch (_: IOException) {
+            StandInAnswer.Failed
+        }
+    }
 }
 
 class RemoteSignupRepository(

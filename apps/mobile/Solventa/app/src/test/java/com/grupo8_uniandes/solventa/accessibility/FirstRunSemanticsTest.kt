@@ -2,13 +2,18 @@ package com.grupo8_uniandes.solventa.accessibility
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.ui.consent.ConsentScreen
 import com.grupo8_uniandes.solventa.ui.login.LoginFailure
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
+import com.grupo8_uniandes.solventa.ui.registration.LivenessCameraContent
+import com.grupo8_uniandes.solventa.ui.registration.LivenessPhase
 import com.grupo8_uniandes.solventa.ui.registration.LivenessScreen
 import com.grupo8_uniandes.solventa.ui.registration.LivenessUiState
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
@@ -71,6 +76,27 @@ class FirstRunSemanticsTest {
             }
         }
         rule.onNode(isHeading() and androidx.compose.ui.test.hasText("Prueba de vida")).assertExists()
+    }
+
+    @Test
+    fun givenLivenessCamera_whenShown_thenTheShutterIsNamedAndAtLeast48dp() {
+        rule.setContent {
+            SolventaTheme {
+                LivenessCameraContent(
+                    state = LivenessUiState(phase = LivenessPhase.Camera),
+                    onShutter = {},
+                    onRepeat = {},
+                    onRetry = {},
+                    onContinue = {},
+                    onContinueWithDocument = {},
+                    onExistingAccount = {},
+                    preview = {},
+                )
+            }
+        }
+        rule.onNode(isHeading() and androidx.compose.ui.test.hasText("Prueba de vida")).assertExists()
+        rule.onNodeWithTag("action_liveness_shutter").assertHeightIsAtLeast(48.dp)
+        assertClicksNamed()
     }
 
     @Test

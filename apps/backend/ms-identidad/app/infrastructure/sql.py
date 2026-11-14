@@ -41,6 +41,7 @@ class UsuarioFila(Base):
     ingresos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     gastos_mensuales: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     rol: Mapped[str] = mapped_column(String, default="cliente")
+    prueba_de_vida: Mapped[str] = mapped_column(String, default="no")
     canal: Mapped[str | None] = mapped_column(String, default=None)
 
 
@@ -68,6 +69,7 @@ def _fila(usuario: Usuario) -> UsuarioFila:
         ingresos_mensuales=usuario.ingresos_mensuales,
         gastos_mensuales=usuario.gastos_mensuales,
         rol=usuario.rol,
+        prueba_de_vida=usuario.prueba_de_vida,
         canal=usuario.canal,
     )
 
@@ -85,6 +87,7 @@ def _a_dominio(fila: UsuarioFila) -> Usuario:
         ingresos_mensuales=fila.ingresos_mensuales,
         gastos_mensuales=fila.gastos_mensuales,
         rol=getattr(fila, "rol", None) or "cliente",
+        prueba_de_vida=getattr(fila, "prueba_de_vida", None) or "no",
         canal=getattr(fila, "canal", None),
     )
 
@@ -123,6 +126,7 @@ class RepositorioUsuariosSQL:
         fila.gastos_mensuales = usuario.gastos_mensuales
         fila.email = usuario.email
         fila.estado = usuario.estado.value
+        fila.prueba_de_vida = usuario.prueba_de_vida
 
     async def listar_clientes(
         self,

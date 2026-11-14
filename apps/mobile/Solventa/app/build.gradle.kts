@@ -99,6 +99,9 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.koin.test)
@@ -129,6 +132,7 @@ val unitTestCoverageExcludedSources = setOf(
     "IdiomaRegionSheet.kt",
     "PerfilScreen.kt",
     "SolventaApp.kt",
+    "FrontCameraPreview.kt",
 )
 
 val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {

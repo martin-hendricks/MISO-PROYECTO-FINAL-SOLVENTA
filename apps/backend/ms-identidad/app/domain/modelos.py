@@ -73,6 +73,7 @@ class Usuario:
     ingresos_mensuales: Decimal | None = None
     gastos_mensuales: Decimal | None = None
     rol: str = "cliente"
+    prueba_de_vida: str = "no"
     canal: str | None = None
 
     @classmethod
@@ -87,12 +88,15 @@ class Usuario:
         apellidos: str = "",
         ingresos_mensuales: Decimal | None = None,
         gastos_mensuales: Decimal | None = None,
+        prueba_de_vida: str = "no",
         canal: str | None = None,
     ) -> Usuario:
         if ingresos_mensuales is not None and ingresos_mensuales <= 0:
             raise ValueError("ingresos_mensuales debe ser mayor que cero")
         if gastos_mensuales is not None and gastos_mensuales < 0:
             raise ValueError("gastos_mensuales no puede ser negativo")
+        if prueba_de_vida not in {"ok", "no"}:
+            raise ReglaDeNegocioViolada("prueba_de_vida_invalida", "La prueba de vida es ok o no")
         return cls(
             id=uuid4(),
             tipo_documento=tipo_documento.strip().upper(),
@@ -105,8 +109,14 @@ class Usuario:
             ingresos_mensuales=ingresos_mensuales,
             gastos_mensuales=gastos_mensuales,
             rol="cliente",
+            prueba_de_vida=prueba_de_vida,
             canal=canal.strip().lower() if canal else None,
         )
+
+    def registrar_prueba_de_vida(self, valor: str) -> None:
+        if valor not in {"ok", "no"}:
+            raise ReglaDeNegocioViolada("prueba_de_vida_invalida", "La prueba de vida es ok o no")
+        self.prueba_de_vida = valor
 
     def actualizar_perfil(self, *, nombre: str, apellidos: str) -> None:
         self.nombre = nombre.strip()

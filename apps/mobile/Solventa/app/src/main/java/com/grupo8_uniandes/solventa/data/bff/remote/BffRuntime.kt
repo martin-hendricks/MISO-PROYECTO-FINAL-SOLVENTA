@@ -24,6 +24,7 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalPreferenceRepositor
 import com.grupo8_uniandes.solventa.domain.bff.policy.StandInRenewalPreferenceRepository
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.profile.IdleAccountNameRepository
@@ -51,6 +52,7 @@ class BffRuntime private constructor(
     val renewal: RenewalPreferenceRepository,
     val deposits: DepositRepository,
     val depositMemory: DepositMemory,
+    val liveness: LivenessRepository,
 ) {
     companion object {
         fun standIn(): BffRuntime {
@@ -75,6 +77,7 @@ class BffRuntime private constructor(
                 StandInRenewalPreferenceRepository(),
                 bff.deposits,
                 InMemoryDepositStore(),
+                bff.liveness,
             )
         }
 
@@ -103,6 +106,7 @@ class BffRuntime private constructor(
                 RemoteRenewalPreferenceRepository(api, gate),
                 RemoteDepositRepository(api, gate),
                 BffDepositMemory(cache),
+                RemoteLivenessRepository(api),
             )
         }
     }

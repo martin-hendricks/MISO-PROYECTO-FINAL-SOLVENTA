@@ -30,6 +30,12 @@ data class RefreshInDto(val refreshToken: String)
 enum class LivenessDto { ok, no }
 
 @Serializable
+data class LivenessResultDto(val resultado: String)
+
+@Serializable
+data class LivenessUpdateDto(val pruebaDeVida: String)
+
+@Serializable
 data class SignupDto(
     val nombre: String,
     val apellidos: String,

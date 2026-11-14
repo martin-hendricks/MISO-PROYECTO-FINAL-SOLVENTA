@@ -266,6 +266,17 @@
     <string name="liveness_step">Paso 4 de 4 · Prueba de vida</string>
     <string name="liveness_title">Prueba de vida</string>
     <string name="liveness_body">Una selfie confirma que eres tú. Si la verificación simulada no pasa, sigues con tu documento.</string>
+    <string name="liveness_camera_body">Encuadra tu cara en la elipse. La cámara frontal toma una sola foto.</string>
+    <string name="liveness_camera_hint">Cara dentro de la elipse</string>
+    <string name="liveness_shutter">Tomar foto</string>
+    <string name="liveness_photo_taken">Foto tomada</string>
+    <string name="liveness_sending">Verificando la foto</string>
+    <string name="liveness_failed">La verificación simulada no pasó.</string>
+    <string name="liveness_denied">Sin permiso de cámara. Puedes seguir con el documento que ya cargaste.</string>
+    <string name="liveness_unavailable">No pudimos verificar la foto. Reintenta.</string>
+    <string name="action_repetir_foto">Repetir foto</string>
+    <string name="action_reintentar">Reintentar</string>
+    <string name="action_continuar_documento">Continuar con el documento</string>
     <string name="onboarding_title">Crea tu cuenta</string>
     <string name="onboarding_intro">Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.</string>
     <string name="onboarding_photo">Una sola cara, sin flash</string>

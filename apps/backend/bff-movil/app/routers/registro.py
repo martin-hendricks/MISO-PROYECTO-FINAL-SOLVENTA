@@ -55,6 +55,7 @@ def alta(body: Alta, request: Request) -> dict:
             apellidos=body.apellidos,
             ingresos_mensuales=str(body.ingresos_mensuales),
             gastos_mensuales=str(body.gastos_mensuales),
+            prueba_de_vida=body.pruebaDeVida,
         )
     except HTTPException as exc:
         if exc.status_code == 409:

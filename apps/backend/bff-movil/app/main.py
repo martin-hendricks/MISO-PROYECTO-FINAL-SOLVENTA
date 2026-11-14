@@ -3,9 +3,9 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
-from .clients.nucleo import ClienteNucleo, RechazoNucleo, token_saliente
+from .clients.nucleo import ClienteNucleo, RechazoNucleo, correlacion_saliente, token_saliente
 from .observabilidad import instrumentar
-from .routers import cliente, registro, sesion
+from .routers import cliente, identidad, registro, sesion
 
 app = FastAPI(title="bff-movil")
 instrumentar(app)
@@ -16,10 +16,12 @@ async def reenviar_token(request: Request, call_next):
     autorizacion = request.headers.get("authorization", "")
     token = autorizacion.removeprefix("Bearer ").strip() if autorizacion.lower().startswith("bearer ") else None
     marca = token_saliente.set(token)
+    marca_correlacion = correlacion_saliente.set(request.headers.get("x-correlation-id"))
     try:
         return await call_next(request)
     finally:
         token_saliente.reset(marca)
+        correlacion_saliente.reset(marca_correlacion)
 
 @app.exception_handler(RechazoNucleo)
 async def rechazo_nucleo(_: Request, exc: RechazoNucleo):
@@ -33,6 +35,7 @@ app.include_router(cliente.router)
 app.include_router(sesion.router, prefix="/v1")
 app.include_router(registro.router, prefix="/v1")
 app.include_router(cliente.router, prefix="/v1")
+app.include_router(identidad.router, prefix="/v1")
 # /bff-movil/v1/*: bff-web y bff-movil comparten los mismos paths /v1/* (ver
 # sesion/registro/cliente), y el ALB de infra/terraform/environments/minimo
 # solo distingue por path prefix (nunca por host/header) -- sin un prefijo
@@ -44,6 +47,7 @@ app.include_router(cliente.router, prefix="/v1")
 app.include_router(sesion.router, prefix="/bff-movil/v1")
 app.include_router(registro.router, prefix="/bff-movil/v1")
 app.include_router(cliente.router, prefix="/bff-movil/v1")
+app.include_router(identidad.router, prefix="/bff-movil/v1")
 
 
 @app.get("/health", include_in_schema=False)

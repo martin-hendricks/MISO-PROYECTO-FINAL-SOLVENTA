@@ -5,6 +5,7 @@ from contextvars import ContextVar
 import httpx
 
 token_saliente: ContextVar[str | None] = ContextVar("token_saliente", default=None)
+correlacion_saliente: ContextVar[str | None] = ContextVar("correlacion_saliente", default=None)
 from fastapi import HTTPException
 
 DETALLE_INCOMPLETA = "Respuesta del nucleo incompleta"
@@ -56,6 +57,7 @@ class ClienteNucleo:
         apellidos: str = "",
         ingresos_mensuales: str | None = None,
         gastos_mensuales: str | None = None,
+        prueba_de_vida: str = "no",
     ) -> dict:
         return self._pedir(
             "ms-identidad",
@@ -70,7 +72,16 @@ class ClienteNucleo:
                 "apellidos": apellidos,
                 "ingresos_mensuales": ingresos_mensuales,
                 "gastos_mensuales": gastos_mensuales,
+                "prueba_de_vida": prueba_de_vida,
             },
+        )
+
+    def registrar_prueba_de_vida(self, usuario_id: str, valor: str) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/prueba-de-vida",
+            json={"prueba_de_vida": valor},
         )
 
     def obtener_usuario(self, usuario_id: str) -> dict:
@@ -350,6 +361,9 @@ class ClienteNucleo:
             token = token_saliente.get()
             if token and "Authorization" not in headers:
                 headers["Authorization"] = f"Bearer {token}"
+            correlacion = correlacion_saliente.get()
+            if correlacion and "X-Correlation-Id" not in headers:
+                headers["X-Correlation-Id"] = correlacion
             http = self._clientes.get(servicio)
             if http is None:
                 http = httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S)

@@ -93,6 +93,7 @@ class DobleNucleo:
         apellidos="",
         ingresos_mensuales=None,
         gastos_mensuales=None,
+        prueba_de_vida="no",
     ):
         valor = self.respuestas.get("crear_usuario")
         self.llamadas.append(
@@ -106,6 +107,7 @@ class DobleNucleo:
                 "apellidos": apellidos,
                 "ingresos_mensuales": ingresos_mensuales,
                 "gastos_mensuales": gastos_mensuales,
+                "prueba_de_vida": prueba_de_vida,
             }
         )
         if isinstance(valor, Exception):
@@ -948,6 +950,7 @@ def test_registro_v1_crea_el_usuario_sin_eco_de_contrasena(client, doble):
             "apellidos": "Restrepo",
             "ingresos_mensuales": "4500000.00",
             "gastos_mensuales": "1500000.00",
+            "prueba_de_vida": "no",
         }
     ]
 
@@ -972,6 +975,7 @@ def test_registro_sin_version_con_contrasena_crea_el_usuario(client, doble):
             "apellidos": "Restrepo",
             "ingresos_mensuales": "4500000.00",
             "gastos_mensuales": "1500000.00",
+            "prueba_de_vida": "ok",
         }
     ]
 

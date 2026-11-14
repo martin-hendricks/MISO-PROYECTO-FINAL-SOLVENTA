@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.app.ActivityCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -47,6 +48,7 @@ import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.VerifySelfie
 import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.push.PushPrompt
 import com.grupo8_uniandes.solventa.domain.push.PushOptIn
@@ -106,6 +108,7 @@ import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import com.grupo8_uniandes.solventa.ui.login.LoginEffect
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
+import com.grupo8_uniandes.solventa.ui.registration.FrontCameraPreview
 import com.grupo8_uniandes.solventa.ui.registration.LivenessEffect
 import com.grupo8_uniandes.solventa.ui.registration.LivenessScreen
 import com.grupo8_uniandes.solventa.ui.registration.LivenessViewModel
@@ -590,19 +593,41 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
     val repository = remember(context) {
         SharedPrefsRegistrationRepository(context.applicationContext)
     }
-    val viewModel = remember(repository, region) {
-        LivenessViewModel(repository, region)
+    startSolventaKoin(context)
+    val verify = remember { GlobalContext.get().get<VerifySelfie>() }
+    val viewModel = remember(repository, region, verify) {
+        LivenessViewModel(repository, region, verify)
     }
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
+    var askedCamera by remember { mutableStateOf(false) }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        askedCamera = true
+        viewModel.onCameraResult(granted)
+    }
     LaunchedEffect(state.effect) {
         if (state.effect == LivenessEffect.OpenHome) {
             activity?.openHomeAfterOnboarding()
+        }
+        if (state.effect == LivenessEffect.RequestCamera) {
+            viewModel.consumeEffect()
+            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+            val rationale = activity?.let {
+                ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.CAMERA)
+            } == true
+            when {
+                granted -> viewModel.onCameraResult(true)
+                askedCamera && !rationale -> viewModel.onCameraResult(false)
+                else -> cameraPermission.launch(Manifest.permission.CAMERA)
+            }
         }
     }
     if (state.effect == LivenessEffect.OpenLogin) {
         LoginHost(modifier = modifier, onLeaveToAccount = viewModel::dismissLogin)
     } else {
+        val grantedNow = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
         LivenessScreen(
             state = state,
             onGivenName = viewModel::onGivenName,
@@ -613,6 +638,19 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
             onPassword = viewModel::onPassword,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
+            onShutter = { viewModel.onShutter(grantedNow) },
+            onRepeat = viewModel::repetirFoto,
+            onRetry = viewModel::reintentar,
+            onContinueCamera = viewModel::continuarCamara,
+            onContinueWithDocument = viewModel::continuarConDocumento,
+            preview = {
+                FrontCameraPreview(
+                    captureTicket = state.captureTicket,
+                    onPhoto = viewModel::onPhoto,
+                    onUnavailable = viewModel::onCameraUnavailable,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            },
             modifier = modifier,
         )
     }
