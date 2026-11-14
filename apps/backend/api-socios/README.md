@@ -35,7 +35,14 @@ El banco aliado envía el crédito de un cliente que ya tiene cuenta en Solventa
 | `valor`/plazo que rechaza `ms-perfilamiento` | El `422` del núcleo con su `codigo` |
 | `ms-identidad` o `ms-perfilamiento` caídos, o el token rechazado | `503 {"codigo": "servicio_no_disponible"}` |
 
-**Pendiente:** la credencial de socio (`requiere_rol("socio")` de `solventa_seguridad`) entra con HU-76; hasta entonces el router `/v1` no exige token.
+### Autenticación de socios externos
+
+Cada socio (empresa aliada que integra cotización embebida, no una persona con cuenta en
+Solventa) tiene una API key propia, estática, enviada en la cabecera `X-Socio-Api-Key`. No es
+un JWT de sesión: no hay flujo de login para un socio externo, es autenticación
+servicio-a-servicio. Todos los endpoints de `/v1` la exigen (`app/seguridad.py`,
+`exigir_api_key_socio`) y responden `401 {"codigo": ...}` si falta la cabecera o la clave no
+coincide con ninguna configurada (`SOCIOS_API_KEYS`, ver tabla de variables abajo).
 
 ## Desarrollo
 
@@ -54,6 +61,7 @@ uvicorn app.main:app --reload --port 8080          # http://localhost:8080/docs
 | `MS_PERFILAMIENTO_URL` | `http://localhost:8004` | `ms-perfilamiento`: registra la originación |
 | `SOLVENTA_TOKEN_SECRET` | vacío | Firma el token de servicio `socio`; es el mismo secreto que bff-web y ms-identidad. En k8s llega por `ExternalSecret` desde `solventa-minimo-bff-web-token` |
 | `SOCIO_SERVICIO_UID` | `00000000-0000-0000-0000-00000000500c` | `uid` del token de servicio |
+| `SOCIOS_API_KEYS` | vacío | Credenciales de socios que llaman a `/v1` (cabecera `X-Socio-Api-Key`), formato `socio_id:api_key` separados por coma. Ej. `aliado-banco:clave-secreta,aliado-retail:otra-clave`. Formato de prueba/local; en un ambiente real cada socio tendría su propia fila en un almacén de credenciales |
 | `TIMEOUT_NUCLEO_S` | `1.0` | Timeout por llamada al núcleo |
 | `TIMEOUT_OPCIONAL_S` | `0.3` | Corte de fuentes opcionales en vistas agregadas |
 
