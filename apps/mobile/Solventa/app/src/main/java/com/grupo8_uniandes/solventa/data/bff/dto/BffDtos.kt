@@ -18,6 +18,9 @@ import java.math.RoundingMode
 data class SessionInDto(val correo: String, val contrasena: String)
 
 @Serializable
+data class AccountNameDto(val nombre: String = "", val apellidos: String = "")
+
+@Serializable
 data class SessionOutDto(val accessToken: String, val refreshToken: String, val expiraEn: Int)
 
 @Serializable
@@ -335,6 +338,9 @@ data class HomeDto(
 
 @Serializable
 data class PushRegistrationDto(val token: String, val plataforma: String)
+
+@Serializable
+data class PushTokenRetiroDto(val token: String)
 
 @Serializable
 enum class PushTypeDto { pago_automatico, vencimiento, renovacion, estado_siniestro }

@@ -1,7 +1,15 @@
 from __future__ import annotations
 
-from app.domain.errores import CuentaDuplicada, IdentidadNoVerificada, NoEncontrado
-from app.domain.modelos import Usuario, autenticar
+from uuid import UUID
+
+from app.domain.errores import (
+    Conflicto,
+    CuentaDuplicada,
+    IdentidadNoVerificada,
+    NoEncontrado,
+    ReglaDeNegocioViolada,
+)
+from app.domain.modelos import EstadoUsuario, Usuario, autenticar
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import CuentaYaExiste, FabricaUnidadDeTrabajo
 
@@ -87,6 +95,77 @@ async def actualizar_perfil(
             raise NoEncontrado()
         usuario.actualizar_perfil(nombre=nombre, apellidos=apellidos)
         await tx.usuarios.actualizar(usuario)
+        await tx.confirmar()
+    return usuario
+
+
+def _validar_listado(
+    *, rol: str, estado: str | None, q: str | None, ids: list[UUID] | None, pagina: int
+) -> None:
+    if rol != "cliente":
+        raise ReglaDeNegocioViolada("rol_no_soportado", "Solo se puede listar el rol cliente")
+    if q is not None and not 2 <= len(q) <= 80:
+        codigo = "consulta_corta" if len(q) < 2 else "consulta_larga"
+        raise ReglaDeNegocioViolada(codigo, "La búsqueda debe tener entre 2 y 80 caracteres")
+    if ids is not None and len(ids) > 50:
+        raise ReglaDeNegocioViolada("ids_largos", "No se pueden consultar más de 50 identificadores")
+    if estado is not None and estado not in (EstadoUsuario.ACTIVO.value, EstadoUsuario.INACTIVO.value):
+        raise ReglaDeNegocioViolada("estado_invalido", "El estado debe ser ACTIVO o INACTIVO")
+    if pagina < 1:
+        raise ReglaDeNegocioViolada("pagina_invalida", "La página empieza en 1")
+
+
+async def listar_clientes(
+    uow: FabricaUnidadDeTrabajo,
+    *,
+    rol: str,
+    estado: str | None,
+    q: str | None,
+    ids: list[UUID] | None,
+    pagina: int,
+) -> tuple[list[Usuario], bool]:
+    _validar_listado(rol=rol, estado=estado, q=q, ids=ids, pagina=pagina)
+    async with uow() as tx:
+        return await tx.usuarios.listar_clientes(estado, q, ids, pagina)
+
+
+def _exigir_cliente(usuario: Usuario | None) -> Usuario:
+    if usuario is None or usuario.rol != "cliente":
+        raise NoEncontrado()
+    return usuario
+
+
+async def editar_cliente(
+    uow: FabricaUnidadDeTrabajo,
+    usuario_id: UUID,
+    *,
+    nombre: str,
+    apellidos: str,
+    email: str,
+) -> Usuario:
+    async with uow() as tx:
+        usuario = _exigir_cliente(await tx.usuarios.obtener_por_id(usuario_id))
+        usuario.editar(nombre=nombre, apellidos=apellidos, email=email)
+        otro = await tx.usuarios.obtener_por_email(usuario.email)
+        if otro is not None and otro.id != usuario.id:
+            raise Conflicto("El correo ya está en uso")
+        await tx.usuarios.actualizar(usuario)
+        try:
+            await tx.confirmar()
+        except CuentaYaExiste as exc:
+            raise Conflicto("El correo ya está en uso") from exc
+    return usuario
+
+
+async def cambiar_estado_cliente(uow: FabricaUnidadDeTrabajo, usuario_id: UUID, estado: str) -> Usuario:
+    if estado not in (EstadoUsuario.ACTIVO.value, EstadoUsuario.INACTIVO.value):
+        raise ReglaDeNegocioViolada("estado_invalido", "El estado debe ser ACTIVO o INACTIVO")
+    async with uow() as tx:
+        usuario = _exigir_cliente(await tx.usuarios.obtener_por_id(usuario_id))
+        evento = usuario.inactivar() if estado == EstadoUsuario.INACTIVO.value else usuario.activar()
+        if evento is not None:
+            await tx.usuarios.actualizar(usuario)
+            await tx.outbox.agregar(evento)
         await tx.confirmar()
     return usuario
 

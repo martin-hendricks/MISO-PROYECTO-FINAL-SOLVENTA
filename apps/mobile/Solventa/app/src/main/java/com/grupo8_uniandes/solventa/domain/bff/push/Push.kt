@@ -3,17 +3,17 @@ package com.grupo8_uniandes.solventa.domain.bff.push
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 
 enum class PushType {
-    PAGO_AUTOMATICO,
-    VENCIMIENTO,
-    RENOVACION,
-    ESTADO_SINIESTRO,
+    POLIZA_EMITIDA,
+    POLIZA_RENOVADA,
+    POLIZA_MODIFICADA,
+    POLIZA_CANCELADA,
+    MENSAJE_OPERADOR,
+    DESCONOCIDO,
 }
 
 enum class PushDestination {
-    PARAMETRICO,
-    AVISO_VENCIMIENTO,
-    AVISO_RENOVACION,
-    DETALLE_SINIESTRO,
+    POLIZA_DETALLE,
+    INICIO,
 }
 
 data class PushRegistration(
@@ -21,16 +21,22 @@ data class PushRegistration(
     val plataforma: String,
 )
 
-data class PushNotice(
-    val tipo: PushType,
-    val titulo: String,
-    val cuerpo: String,
-    val destino: PushDestination,
-    val poliza: String,
-)
-
 interface PushRepository {
     suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration>
 
-    suspend fun notice(): StandInAnswer<PushNotice>
+    suspend fun unregister(token: String): StandInAnswer<Unit>
+}
+
+fun pushTypeFrom(tipo: String?): PushType = when (tipo) {
+    "poliza_emitida" -> PushType.POLIZA_EMITIDA
+    "poliza_renovada" -> PushType.POLIZA_RENOVADA
+    "poliza_modificada" -> PushType.POLIZA_MODIFICADA
+    "poliza_cancelada" -> PushType.POLIZA_CANCELADA
+    "mensaje_operador" -> PushType.MENSAJE_OPERADOR
+    else -> PushType.DESCONOCIDO
+}
+
+fun pushDestinationFrom(destino: String?): PushDestination = when (destino) {
+    "poliza-detalle" -> PushDestination.POLIZA_DETALLE
+    else -> PushDestination.INICIO
 }

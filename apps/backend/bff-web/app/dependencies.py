@@ -15,6 +15,7 @@ from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
 from .clients.ms_siniestros import ClienteMsSiniestros
 from .clients.ms_suscripcion import ClienteMsSuscripcion
+from .clients.notificaciones import ClienteNotificaciones
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -117,4 +118,10 @@ def obtener_cliente_identidad(request: Request) -> ClienteMsIdentidad:
 def obtener_cliente_consentimiento(request: Request) -> ClienteMsConsentimiento:
     return ClienteMsConsentimiento(
         request.app.state.http_ms_consentimiento, getattr(request.state, "correlacion", None)
+    )
+
+
+def obtener_cliente_notificaciones(request: Request) -> ClienteNotificaciones:
+    return ClienteNotificaciones(
+        request.app.state.http_notificaciones, getattr(request.state, "correlacion", None)
     )

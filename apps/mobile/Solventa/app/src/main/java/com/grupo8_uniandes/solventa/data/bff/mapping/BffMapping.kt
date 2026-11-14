@@ -83,10 +83,10 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.SoatRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.TravelRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.signup.ConsentRevocation
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
@@ -317,7 +317,7 @@ internal fun HomeDto.toHome() = BffHome(
 
 internal fun PushRegistrationDto.toRegistration() = PushRegistration(token, plataforma)
 
-internal fun PushNoticeDto.toNotice() = PushNotice(
+internal fun PushNoticeDto.toNotice() = NoticeEntry(
     tipo.toType(),
     titulo,
     cuerpo,
@@ -372,15 +372,15 @@ private fun ClaimStatusDto.toStatus() = when (this) {
 }
 
 private fun PushTypeDto.toType() = when (this) {
-    PushTypeDto.pago_automatico -> PushType.PAGO_AUTOMATICO
-    PushTypeDto.vencimiento -> PushType.VENCIMIENTO
-    PushTypeDto.renovacion -> PushType.RENOVACION
-    PushTypeDto.estado_siniestro -> PushType.ESTADO_SINIESTRO
+    PushTypeDto.pago_automatico -> NoticeKind.PAGO_AUTOMATICO
+    PushTypeDto.vencimiento -> NoticeKind.VENCIMIENTO
+    PushTypeDto.renovacion -> NoticeKind.RENOVACION
+    PushTypeDto.estado_siniestro -> NoticeKind.ESTADO_SINIESTRO
 }
 
 private fun PushDestinationDto.toDestination() = when (this) {
-    PushDestinationDto.parametrico -> PushDestination.PARAMETRICO
-    PushDestinationDto.`aviso-vencimiento` -> PushDestination.AVISO_VENCIMIENTO
-    PushDestinationDto.`aviso-renovacion` -> PushDestination.AVISO_RENOVACION
-    PushDestinationDto.`detalle-siniestro` -> PushDestination.DETALLE_SINIESTRO
+    PushDestinationDto.parametrico -> NoticeDestination.PARAMETRICO
+    PushDestinationDto.`aviso-vencimiento` -> NoticeDestination.AVISO_VENCIMIENTO
+    PushDestinationDto.`aviso-renovacion` -> NoticeDestination.AVISO_RENOVACION
+    PushDestinationDto.`detalle-siniestro` -> NoticeDestination.DETALLE_SINIESTRO
 }

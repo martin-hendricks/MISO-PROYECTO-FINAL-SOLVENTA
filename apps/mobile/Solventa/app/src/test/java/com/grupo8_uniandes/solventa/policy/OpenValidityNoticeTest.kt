@@ -9,9 +9,9 @@ import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityKind
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -107,21 +107,21 @@ class OpenValidityNoticeTest {
         val published = decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE)!!.toNotice()
         val expiry = notices.open(published)
         val renewal = notices.open(
-            PushNotice(
-                tipo = PushType.RENOVACION,
+            NoticeEntry(
+                tipo = NoticeKind.RENOVACION,
                 titulo = "Renovación vigente",
                 cuerpo = "Hasta 12 mar 2028",
-                destino = PushDestination.AVISO_RENOVACION,
+                destino = NoticeDestination.AVISO_RENOVACION,
                 poliza = OpenValidityNotice.POLICY,
             ),
         )
         val viewModel = AvisoVigenciaViewModel(notices)
         var requested: com.grupo8_uniandes.solventa.domain.bff.notice.ValidityReading? = null
 
-        assertEquals(PushDestination.AVISO_VENCIMIENTO, published.destino)
+        assertEquals(NoticeDestination.AVISO_VENCIMIENTO, published.destino)
         assertEquals(ValidityKind.EXPIRY, expiry!!.kind)
         assertEquals(ValidityKind.RENEWAL, renewal!!.kind)
-        assertNull(notices.open(published.copy(destino = PushDestination.DETALLE_SINIESTRO)))
+        assertNull(notices.open(published.copy(destino = NoticeDestination.DETALLE_SINIESTRO)))
         assertNull(notices.open(published.copy(poliza = "POL-9")))
         viewModel.loadExpiry()
         assertEquals(expiry, viewModel.reading.value)

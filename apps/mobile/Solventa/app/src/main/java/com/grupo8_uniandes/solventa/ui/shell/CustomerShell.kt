@@ -1,8 +1,13 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -14,11 +19,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import org.koin.androidx.compose.koinViewModel
@@ -40,6 +47,10 @@ import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
+import com.grupo8_uniandes.solventa.domain.push.PushPrompt
+import com.grupo8_uniandes.solventa.domain.push.PushOptIn
+import com.grupo8_uniandes.solventa.domain.push.PushTarget
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.RestoreRemoteSession
@@ -99,6 +110,7 @@ import com.grupo8_uniandes.solventa.ui.registration.LivenessViewModel
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingEffect
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun CustomerShell(
@@ -111,6 +123,9 @@ fun CustomerShell(
     openConsent: Boolean = false,
     resumeProfile: Boolean = false,
     signedOut: Boolean = false,
+    askPush: Boolean = false,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (signedOut) {
@@ -118,7 +133,13 @@ fun CustomerShell(
         return
     }
     if (enterSignedInShell) {
-        SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
+        SignedInShell(
+            modifier = modifier,
+            startOnProfile = resumeProfile,
+            askPush = askPush,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
+        )
         return
     }
     if (openOnboarding) {
@@ -181,7 +202,12 @@ fun CustomerShell(
             LoginHost(modifier = modifier, onLeaveToAccount = null)
         }
         else -> {
-            RestoredSessionHost(modifier = modifier, startOnProfile = resumeProfile)
+            RestoredSessionHost(
+                modifier = modifier,
+                startOnProfile = resumeProfile,
+                pushTarget = pushTarget,
+                onPushHandled = onPushHandled,
+            )
         }
     }
 }
@@ -190,6 +216,8 @@ fun CustomerShell(
 private fun RestoredSessionHost(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
 ) {
     val context = LocalContext.current
     startSolventaKoin(context)
@@ -218,6 +246,8 @@ private fun RestoredSessionHost(
         RestoredSession.Local, RestoredSession.Home -> SignedInShell(
             modifier = modifier,
             startOnProfile = startOnProfile,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
         )
     }
 }
@@ -332,6 +362,9 @@ internal fun SignedInShell(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean = false,
     homeState: HomeUiState? = null,
+    askPush: Boolean = false,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
 ) {
     val signedIn = true
     val navController = rememberNavController()
@@ -347,6 +380,29 @@ internal fun SignedInShell(
             if (SessionUnauthorized.onUnauthorized === notify) {
                 SessionUnauthorized.onUnauthorized = null
             }
+        }
+    }
+    val scope = rememberCoroutineScope()
+    val optIn = remember {
+        GlobalContext.get().get<PushOptIn>()
+    }
+    val publishName = remember { GlobalContext.get().get<PublishStoredName>() }
+    LaunchedEffect(publishName) { publishName() }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        scope.launch { optIn.onPermissionResult(granted) }
+    }
+    LaunchedEffect(askPush) {
+        val host = activity ?: return@LaunchedEffect
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(host, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            optIn.onPermissionResult(true)
+            return@LaunchedEffect
+        }
+        if (!askPush) return@LaunchedEffect
+        if (optIn.onSessionStarted() == PushPrompt.Ask) {
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
     val homeViewModel: HomeViewModel = koinViewModel()
@@ -423,6 +479,8 @@ internal fun SignedInShell(
             startDestination = start,
             onSignedOut = { activity?.signOutToLogin() },
             onInicioVisible = homeViewModel::refresh,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
         )
     }
 }
@@ -480,6 +538,7 @@ private fun LoginHost(
         val openHome = state.effect == LoginEffect.OpenHome ||
             (state.effect == LoginEffect.ConfirmBiometric && !deviceCanAuthenticate)
         if (openHome) {
+            activity?.intent?.putExtra(MainActivity.EXTRA_ASK_PUSH, true)
             activity?.openHomeAfterOnboarding()
             viewModel.consumeEffect()
         }

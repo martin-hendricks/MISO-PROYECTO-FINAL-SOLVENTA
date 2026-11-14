@@ -9,8 +9,6 @@ import { CLIENTES } from './clientes.testing';
 import { ClientesView } from './clientes.view';
 
 describe('ClientesView', () => {
-  const URL = '/web/asesor/clientes';
-
   function render(role: Role) {
     TestBed.configureTestingModule({
       imports: [ClientesView],
@@ -26,45 +24,148 @@ describe('ClientesView', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
-    const element = (testId: string) =>
-      host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+    const element = (testId: string) => host.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
     return { fixture, http, host, element };
+  }
+
+  function listado(role: Role = 'operador') {
+    const rendered = render(role);
+    const request = rendered.http.expectOne(
+      (candidate) =>
+        candidate.url === '/web/operador/clientes' && candidate.params.get('pagina') === '1',
+    );
+    request.flush({ clientes: CLIENTES, pagina: 1, hayMas: false });
+    rendered.fixture.detectChanges();
+    return rendered;
   }
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('shows the client KPIs and the read-only list for the advisor', () => {
-    const { fixture, http, host, element } = render('asesor');
+  it('shows push states and hides write controls for the advisor', () => {
+    const { element } = listado('asesor');
+    const activo = CLIENTES[0].usuarioId;
+    const sinPush = CLIENTES[1].usuarioId;
+    const desconocido = CLIENTES[2].usuarioId;
 
-    expect(element('clientes-loading')).not.toBeNull();
-    http.expectOne(URL).flush({ clientes: CLIENTES });
-    fixture.detectChanges();
-
-    expect(element('kpi-active')?.querySelector('.kpi-value')?.textContent).toBe('4');
-    expect(element('kpi-web')?.querySelector('.kpi-value')?.textContent).toBe('3');
-    expect(element('kpi-android')?.querySelector('.kpi-value')?.textContent).toBe('2');
-    expect(element('kpi-pendingConsent')?.querySelector('.kpi-value')?.textContent).toBe('1');
-    expect(host.querySelectorAll('tbody tr').length).toBe(5);
-    expect(element('cliente-CLI-22')?.textContent).toContain('Inactivo');
-    expect(element('cliente-CLI-22')?.textContent).toContain('Revocado');
-    expect((element('clientes-new') as HTMLButtonElement).disabled).toBeTrue();
+    expect(element(`push-${activo}`)?.getAttribute('data-push')).toBe('si');
+    expect(element(`push-${sinPush}`)?.textContent).toContain('No');
+    expect(element(`push-${desconocido}`)?.textContent).toContain('Desconocido');
+    expect(element('clientes-new')).toBeNull();
+    expect(element(`editar-${activo}`)).toBeNull();
+    expect(element(`desactivar-${activo}`)).toBeNull();
+    expect(element(`cotizar-${activo}`)?.getAttribute('href')).toContain(`cliente=${activo}`);
+    expect(element(`cotizar-${desconocido}`)).toBeNull();
   });
 
-  it('opens a quote prefilled with an active client and none for an inactive one', () => {
-    const { fixture, http, element } = render('asesor');
-    http.expectOne(URL).flush({ clientes: CLIENTES });
+  it('lets the operator open the create form', () => {
+    const { fixture, element } = listado('operador');
+
+    element('clientes-new')!.click();
     fixture.detectChanges();
 
-    expect(element('cotizar-CLI-18')?.getAttribute('href')).toBe(
-      '/cms/cotizaciones/nueva?cliente=CLI-18&nombre=Andr%C3%A9s%20G%C3%B3mez&documento=1020334556',
+    expect(element('clientes-form')).not.toBeNull();
+    expect((element('clientes-save') as HTMLButtonElement).disabled).toBeTrue();
+  });
+
+  it('keeps a customer out of the directory', () => {
+    const { http, element } = render('cliente');
+    http.expectNone('/web/operador/clientes');
+    expect(element('section-clientes')?.getAttribute('data-state')).toBe('no-permission');
+  });
+
+  it('creates, edits and confirms deactivation from the page', () => {
+    const { fixture, http, element } = listado('operador');
+    const activo = CLIENTES[0].usuarioId;
+    const inactivo = CLIENTES[2].usuarioId;
+    const escribir = (testId: string, valor: string) => {
+      const input = element(testId) as HTMLInputElement;
+      input.value = valor;
+      input.dispatchEvent(new Event('input'));
+    };
+    const listar = (hayMas = false, pagina = 1) =>
+      http
+        .expectOne((candidate) => candidate.method === 'GET' && candidate.url === '/web/operador/clientes')
+        .flush({ clientes: CLIENTES, pagina, hayMas });
+
+    const busqueda = element('clientes-search') as HTMLInputElement;
+    busqueda.value = 'Ana';
+    busqueda.dispatchEvent(new Event('input'));
+    listar();
+    const filtro = element('clientes-estado') as HTMLSelectElement;
+    filtro.value = 'INACTIVO';
+    filtro.dispatchEvent(new Event('change'));
+    listar(true);
+    fixture.detectChanges();
+    element('clientes-next')!.click();
+    listar(false, 2);
+    fixture.detectChanges();
+    element('clientes-prev')!.click();
+    listar();
+    fixture.detectChanges();
+
+    element(`editar-${activo}`)!.click();
+    fixture.detectChanges();
+    escribir('clientes-nombre', 'Ana');
+    escribir('clientes-apellidos', 'Ruiz');
+    escribir('clientes-email', 'ana@correo.com');
+    element('clientes-cancel')!.click();
+    fixture.detectChanges();
+
+    element('clientes-new')!.click();
+    fixture.detectChanges();
+    escribir('clientes-nombre', 'Ana');
+    escribir('clientes-apellidos', 'Ruiz');
+    escribir('clientes-email', 'ana@correo.com');
+    escribir('clientes-tipo-documento', 'CC');
+    escribir('clientes-documento', '1020');
+    escribir('clientes-password', 'secreto');
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http.expectOne((candidate) => candidate.method === 'POST' && candidate.url === '/web/operador/clientes').flush(
+      { mensaje: 'El correo ya existe' },
+      { status: 409, statusText: 'Conflict' },
     );
-    expect(element('cotizar-CLI-22')).toBeNull();
+    fixture.detectChanges();
+    expect(element('clientes-conflict')?.textContent).toContain('El correo ya existe');
+
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http.expectOne((candidate) => candidate.method === 'POST').flush(CLIENTES[0]);
+    listar();
+    fixture.detectChanges();
+
+    element(`editar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('clientes-form')!.dispatchEvent(new Event('submit'));
+    http
+      .expectOne((candidate) => candidate.method === 'PATCH')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    expect(element('clientes-not-found')).not.toBeNull();
+    element('clientes-cancel')!.click();
+    fixture.detectChanges();
+
+    element(`desactivar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('confirm-dialog-cancelar')!.click();
+    fixture.detectChanges();
+    element(`desactivar-${activo}`)!.click();
+    fixture.detectChanges();
+    element('confirm-dialog-confirmar')!.click();
+    http.expectOne((candidate) => candidate.url.endsWith('/estado')).flush({ ...CLIENTES[0], estado: 'INACTIVO' });
+    listar();
+    fixture.detectChanges();
+
+    element(`reactivar-${inactivo}`)!.click();
+    http.expectOne((candidate) => candidate.url.endsWith('/estado')).flush({ ...CLIENTES[2], estado: 'ACTIVO' });
+    listar();
+    fixture.detectChanges();
+    expect(element('clientes-table')).not.toBeNull();
   });
 
-  it('shows the empty state when the portfolio has no clients', () => {
+  it('shows the empty state when the page has no clients', () => {
     const { fixture, http, element } = render('asesor');
-
-    http.expectOne(URL).flush({ clientes: [] });
+    http
+      .expectOne((candidate) => candidate.url === '/web/operador/clientes')
+      .flush({ clientes: [], pagina: 1, hayMas: false });
     fixture.detectChanges();
 
     expect(element('clientes-empty')).not.toBeNull();
@@ -73,23 +174,16 @@ describe('ClientesView', () => {
 
   it('offers to retry in the same view when the list fails', () => {
     const { fixture, http, element } = render('asesor');
-    http.expectOne(URL).error(new ProgressEvent('error'));
+    http.expectOne((candidate) => candidate.url === '/web/operador/clientes').error(new ProgressEvent('error'));
     fixture.detectChanges();
 
     element('clientes-retry')!.click();
-    http.expectOne(URL).flush({ clientes: CLIENTES });
+    http
+      .expectOne((candidate) => candidate.url === '/web/operador/clientes')
+      .flush({ clientes: CLIENTES, pagina: 1, hayMas: false });
     fixture.detectChanges();
 
     expect(element('clientes-error')).toBeNull();
     expect(element('clientes-table')).not.toBeNull();
-  });
-
-  it('keeps the list from the operator without calling the BFF', () => {
-    const { http, element } = render('operador');
-
-    http.expectNone(URL);
-    expect(element('section-clientes')?.getAttribute('data-state')).toBe('no-permission');
-    expect(element('no-permission')?.getAttribute('data-required')).toBe('asesor');
-    expect(element('clientes-new')).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.errores import CredencialesInvalidas, CuentaInactiva
+from app.domain.errores import CredencialesInvalidas, CuentaInactiva, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoUsuario, Usuario, autenticar
 
 
@@ -100,6 +100,63 @@ def test_perfil_se_guarda_en_la_cuenta():
     usuario.actualizar_perfil(nombre="Ana", apellidos="Lopez")
 
     assert (usuario.nombre, usuario.apellidos, usuario.email) == ("Ana", "Lopez", "camila@correo.com")
+
+
+def test_inactivar_emite_evento_y_repetir_no_emite_nada():
+    usuario = _usuario()
+
+    evento = usuario.inactivar()
+
+    assert usuario.estado is EstadoUsuario.INACTIVO
+    assert evento is not None
+    assert evento.tipo == "UsuarioInactivado"
+    assert evento.agregado_id == usuario.id
+    assert evento.payload["usuario_id"] == str(usuario.id)
+    assert evento.payload["ocurrido_en"].endswith("Z")
+    assert usuario.inactivar() is None
+
+
+def test_activar_en_cuenta_activa_no_emite_y_desde_inactiva_si():
+    usuario = _usuario()
+
+    assert usuario.activar() is None
+
+    usuario.inactivar()
+    evento = usuario.activar()
+
+    assert usuario.estado is EstadoUsuario.ACTIVO
+    assert evento is not None
+    assert evento.tipo == "UsuarioReactivado"
+    assert set(evento.payload) == {"usuario_id", "ocurrido_en"}
+
+
+def test_editar_recorta_y_pasa_el_correo_a_minusculas():
+    usuario = _usuario()
+
+    usuario.editar(nombre=" Ana ", apellidos=" Lopez ", email=" ANA@Correo.com ")
+
+    assert (usuario.nombre, usuario.apellidos, usuario.email) == ("Ana", "Lopez", "ana@correo.com")
+    usuario.editar(nombre="n" * 80, apellidos="a" * 80, email="ana@correo.com")
+    assert len(usuario.nombre) == 80 and len(usuario.apellidos) == 80
+
+
+@pytest.mark.parametrize(
+    ("nombre", "apellidos", "email"),
+    [
+        ("", "Lopez", "ana@correo.com"),
+        (" ", "Lopez", "ana@correo.com"),
+        ("n" * 81, "Lopez", "ana@correo.com"),
+        ("Ana", "", "ana@correo.com"),
+        ("Ana", "a" * 81, "ana@correo.com"),
+        ("Ana", "Lopez", "no-es-correo"),
+        ("Ana", "Lopez", "ana@correo"),
+    ],
+)
+def test_editar_rechaza_nombre_apellidos_o_correo_invalidos(nombre, apellidos, email):
+    usuario = _usuario()
+
+    with pytest.raises(ReglaDeNegocioViolada):
+        usuario.editar(nombre=nombre, apellidos=apellidos, email=email)
 
 
 def test_verificar_password_con_hash_corrupto_no_lanza_excepcion():

@@ -42,7 +42,8 @@ async def test_push_stub_a_usuario_devuelve_un_id_por_dispositivo():
 
     proveedores = await PushStub().enviar_a_usuario(dispositivos, notificacion)
 
-    assert proveedores == [f"stub-{notificacion.notificacion_id}"] * 2
+    assert [r.proveedor_id for r in proveedores] == [f"stub-{notificacion.notificacion_id}"] * 2
+    assert {r.estado for r in proveedores} == {"enviado"}
 
 
 async def test_push_stub_con_fallo_lanza_error_de_dominio():

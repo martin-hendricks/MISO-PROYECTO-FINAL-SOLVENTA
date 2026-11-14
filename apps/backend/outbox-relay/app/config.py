@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     # ms_perfilamiento viven en DBCompartida (mismo secreto, misma URL salvo
     # que se separen a futuro); ms_polizas y ms_siniestros tienen su propio
     # RDS (infra/terraform/modules/secrets/main.tf: polizas_db, siniestros_db
-    # son secretos independientes de compartida_db) -- por eso son 6
-    # variables y no una sola, aunque varias terminen con el mismo valor.
+    # son secretos independientes de compartida_db). ms_identidad publica
+    # desde la base compartida. Cada productor tiene la suya, aunque varias
+    # terminen con el mismo valor.
     # Vacía = esa fuente no se arma en main.py (permite desplegar con un
     # subconjunto configurado sin fallar por las que faltan).
     database_url_ms_cotizacion: str = ""
@@ -22,6 +23,7 @@ class Settings(BaseSettings):
     database_url_ms_perfilamiento: str = ""
     database_url_ms_polizas: str = ""
     database_url_ms_siniestros: str = ""
+    database_url_ms_identidad: str = ""
 
     lote: int = 100
     intervalo_segundos: float = 5.0

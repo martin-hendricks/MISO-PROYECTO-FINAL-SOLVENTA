@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Index, MetaData, String, UniqueConstraint, func, select
+from sqlalchemy import Boolean, DateTime, Index, Integer, MetaData, String, UniqueConstraint, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -14,7 +15,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
-from app.domain.modelos import DispositivoPush, EstadoNotificacion, Notificacion
+from app.domain.modelos import Difusion, DispositivoPush, EstadoNotificacion, Notificacion
 from app.ports.persistencia import DispositivoDuplicado, NotificacionDuplicada
 
 ESQUEMA = "notificaciones"
@@ -40,6 +41,8 @@ class NotificacionFila(Base):
     titulo: Mapped[str] = mapped_column(String)
     cuerpo: Mapped[str] = mapped_column(String)
     destino: Mapped[str | None]
+    poliza: Mapped[str | None]
+    difusion_id: Mapped[UUID | None]
     estado: Mapped[str] = mapped_column(String)
     creada_en: Mapped[datetime] = mapped_column(server_default=func.now())
     enviada_en: Mapped[datetime | None]
@@ -73,6 +76,8 @@ def _notificacion_a_dominio(fila: NotificacionFila) -> Notificacion:
         titulo=fila.titulo,
         cuerpo=fila.cuerpo,
         destino=fila.destino,
+        poliza=fila.poliza,
+        difusion_id=fila.difusion_id,
         estado=fila.estado,
         creada_en=fila.creada_en,
         enviada_en=fila.enviada_en,
@@ -148,6 +153,8 @@ class RepositorioNotificacionesSQL:
                 titulo=notificacion.titulo,
                 cuerpo=notificacion.cuerpo,
                 destino=notificacion.destino,
+                poliza=notificacion.poliza,
+                difusion_id=notificacion.difusion_id,
                 estado=notificacion.estado,
                 creada_en=notificacion.creada_en,
                 enviada_en=notificacion.enviada_en,
@@ -215,6 +222,121 @@ class RepositorioDispositivosSQL:
         fila.activo = dispositivo.activo
         fila.actualizado_en = dispositivo.actualizado_en
 
+    async def contar_activos(self, usuario_ids: list[UUID] | None) -> list[tuple[UUID, int]]:
+        consulta = select(DispositivoPushFila.usuario_id, func.count()).where(
+            DispositivoPushFila.activo.is_(True)
+        )
+        if usuario_ids is not None:
+            consulta = consulta.where(DispositivoPushFila.usuario_id.in_(usuario_ids))
+        consulta = consulta.group_by(DispositivoPushFila.usuario_id)
+        filas = await self._s.execute(consulta)
+        return [(usuario_id, int(cantidad)) for usuario_id, cantidad in filas.all()]
+
+    async def desactivar_de_usuario(self, usuario_id: UUID) -> None:
+        filas = await self._s.scalars(
+            select(DispositivoPushFila).where(
+                DispositivoPushFila.usuario_id == usuario_id,
+                DispositivoPushFila.activo.is_(True),
+            )
+        )
+        momento = datetime.now(UTC)
+        for fila in filas:
+            fila.activo = False
+            fila.actualizado_en = momento
+
+
+class DifusionFila(Base):
+    __tablename__ = "difusion"
+    __table_args__ = (Index("ix_difusion_creada", "creada_en"),)
+
+    difusion_id: Mapped[UUID] = mapped_column(primary_key=True)
+    autor_id: Mapped[UUID]
+    titulo: Mapped[str] = mapped_column(String)
+    cuerpo: Mapped[str] = mapped_column(String)
+    poliza: Mapped[str | None]
+    audiencia: Mapped[str] = mapped_column(String)
+    destinatarios: Mapped[int] = mapped_column(Integer)
+    enviadas: Mapped[int] = mapped_column(Integer, default=0)
+    fallidas: Mapped[int] = mapped_column(Integer, default=0)
+    sin_dispositivo: Mapped[int] = mapped_column(Integer, default=0)
+    creada_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class EventoConsumidoFila(Base):
+    __tablename__ = "evento_consumido"
+
+    evento_id: Mapped[UUID] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String)
+    procesado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+def _difusion_a_dominio(fila: DifusionFila) -> Difusion:
+    return Difusion(
+        difusion_id=fila.difusion_id,
+        autor_id=fila.autor_id,
+        titulo=fila.titulo,
+        cuerpo=fila.cuerpo,
+        poliza=fila.poliza,
+        audiencia=fila.audiencia,
+        destinatarios=fila.destinatarios,
+        enviadas=fila.enviadas,
+        fallidas=fila.fallidas,
+        sin_dispositivo=fila.sin_dispositivo,
+        creada_en=fila.creada_en,
+    )
+
+
+class RepositorioDifusionesSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def agregar(self, difusion: Difusion) -> None:
+        self._s.add(
+            DifusionFila(
+                difusion_id=difusion.difusion_id,
+                autor_id=difusion.autor_id,
+                titulo=difusion.titulo,
+                cuerpo=difusion.cuerpo,
+                poliza=difusion.poliza,
+                audiencia=difusion.audiencia,
+                destinatarios=difusion.destinatarios,
+                enviadas=difusion.enviadas,
+                fallidas=difusion.fallidas,
+                sin_dispositivo=difusion.sin_dispositivo,
+                creada_en=difusion.creada_en,
+            )
+        )
+
+    async def actualizar_totales(self, difusion_id, enviadas, fallidas, sin_dispositivo) -> None:
+        fila = await self._s.get(DifusionFila, difusion_id)
+        if fila is None:
+            raise RuntimeError(f"Difusión {difusion_id} no persistida")
+        fila.enviadas = enviadas
+        fila.fallidas = fallidas
+        fila.sin_dispositivo = sin_dispositivo
+
+    async def listar(self, limite: int, antes_de: datetime | None = None) -> list[Difusion]:
+        consulta = select(DifusionFila)
+        if antes_de is not None:
+            consulta = consulta.where(DifusionFila.creada_en < antes_de)
+        filas = await self._s.scalars(
+            consulta.order_by(DifusionFila.creada_en.desc()).limit(limite)
+        )
+        return [_difusion_a_dominio(fila) for fila in filas]
+
+
+class RepositorioEventosSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def consumir(self, evento_id: UUID, tipo: str) -> bool:
+        resultado = await self._s.execute(
+            pg_insert(EventoConsumidoFila)
+            .values(evento_id=evento_id, tipo=tipo, procesado_en=datetime.now(UTC))
+            .on_conflict_do_nothing(index_elements=[EventoConsumidoFila.evento_id])
+        )
+        return resultado.rowcount == 1
+
 
 class UnidadDeTrabajoSQL:
     def __init__(self, fabrica: async_sessionmaker[AsyncSession]) -> None:
@@ -224,6 +346,8 @@ class UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.notificaciones = RepositorioNotificacionesSQL(self._sesion)
         self.dispositivos = RepositorioDispositivosSQL(self._sesion)
+        self.difusiones = RepositorioDifusionesSQL(self._sesion)
+        self.eventos = RepositorioEventosSQL(self._sesion)
         return self
 
     async def __aexit__(self, *exc: object) -> None:

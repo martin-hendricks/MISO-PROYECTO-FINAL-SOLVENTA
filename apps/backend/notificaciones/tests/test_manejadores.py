@@ -53,7 +53,7 @@ def test_tipos_soportados_son_los_cuatro_del_contrato():
                 "poliza_emitida",
                 "Tu póliza fue emitida",
                 "La póliza POL-1 está vigente hasta 2027-01-01.",
-                "aviso-vigencia",
+                "poliza-detalle",
             ),
         ),
         (
@@ -63,7 +63,7 @@ def test_tipos_soportados_son_los_cuatro_del_contrato():
                 "poliza_renovada",
                 "Tu póliza fue renovada",
                 "La póliza POL-1 ahora vence el 2028-01-01.",
-                "aviso-vigencia",
+                "poliza-detalle",
             ),
         ),
         (
@@ -112,6 +112,8 @@ def test_construir_contenido_omite_numero_cuando_falta():
 
     assert contenido is not None
     assert contenido.cuerpo == "Tu póliza está vigente hasta 2027-01-01."
+    assert contenido.destino == "inicio"
+    assert contenido.poliza is None
     assert "None" not in contenido.cuerpo
 
 
@@ -188,6 +190,19 @@ async def test_manejar_evento_con_push_caido_deja_la_notificacion_fallida(uow, a
 
     assert notificacion is not None
     assert almacen.notificaciones[notificacion.notificacion_id].estado == "fallida"
+
+
+async def test_usuario_inactivado_apaga_dispositivos_una_sola_vez(uow, almacen, push):
+    usuario = uuid4()
+    dispositivo = _sembrar_dispositivo(almacen, usuario)
+    evento = _evento("UsuarioInactivado", {"usuario_id": str(usuario)})
+
+    assert await manejar_evento(uow, push, evento) is None
+    assert await manejar_evento(uow, push, evento) is None
+
+    assert almacen.dispositivos[dispositivo.dispositivo_id].activo is False
+    assert evento.evento_id in almacen.eventos_consumidos
+    assert almacen.notificaciones == {}
 
 
 async def test_manejar_evento_no_propaga_errores_inesperados(uow, push):

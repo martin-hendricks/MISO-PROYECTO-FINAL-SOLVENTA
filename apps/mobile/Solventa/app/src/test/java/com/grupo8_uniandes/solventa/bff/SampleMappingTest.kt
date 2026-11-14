@@ -63,9 +63,9 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
@@ -235,11 +235,11 @@ class SampleMappingTest {
         val registration = bff.push.register(PushRegistration("fcm-stub", "android")).ready()
         assertEquals("fcm-stub", registration.token)
         assertEquals("android", registration.plataforma)
-        val push = bff.push.notice().ready()
-        assertEquals(PushType.VENCIMIENTO, push.tipo)
+        val push = decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE)!!.toNotice()
+        assertEquals(NoticeKind.VENCIMIENTO, push.tipo)
         assertEquals("Tu póliza vence", push.titulo)
         assertEquals("En 7 días", push.cuerpo)
-        assertEquals(PushDestination.AVISO_VENCIMIENTO, push.destino)
+        assertEquals(NoticeDestination.AVISO_VENCIMIENTO, push.destino)
         assertEquals("POL-88219-CO", push.poliza)
 
         val providers = bff.assistance.providers().ready()

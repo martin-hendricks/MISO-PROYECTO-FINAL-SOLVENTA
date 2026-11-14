@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from app.domain.modelos import DispositivoPush, Notificacion
+from app.domain.modelos import Difusion, DispositivoPush, Notificacion
 
 
 class NotificacionDuplicada(Exception):
@@ -49,10 +49,30 @@ class RepositorioDispositivos(Protocol):
 
     async def actualizar(self, dispositivo: DispositivoPush) -> None: ...
 
+    async def contar_activos(self, usuario_ids: list[UUID] | None) -> list[tuple[UUID, int]]: ...
+
+    async def desactivar_de_usuario(self, usuario_id: UUID) -> None: ...
+
+
+class RepositorioDifusiones(Protocol):
+    async def agregar(self, difusion: Difusion) -> None: ...
+
+    async def actualizar_totales(
+        self, difusion_id: UUID, enviadas: int, fallidas: int, sin_dispositivo: int
+    ) -> None: ...
+
+    async def listar(self, limite: int, antes_de: datetime | None = None) -> list[Difusion]: ...
+
+
+class RepositorioEventos(Protocol):
+    async def consumir(self, evento_id: UUID, tipo: str) -> bool: ...
+
 
 class UnidadDeTrabajo(Protocol):
     notificaciones: RepositorioNotificaciones
     dispositivos: RepositorioDispositivos
+    difusiones: RepositorioDifusiones
+    eventos: RepositorioEventos
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...
 

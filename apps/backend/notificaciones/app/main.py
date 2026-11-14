@@ -14,6 +14,7 @@ from app.domain.errores import (
     TransicionInvalida,
 )
 from app.infrastructure.kafka_consumer import ConsumidorMSK
+from app.infrastructure.push_fcm import EnviadorFCM
 from app.infrastructure.push_stub import PushStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
@@ -26,9 +27,21 @@ ESTADO_HTTP = {
 }
 
 
+def construir_push(config: Settings):
+    """Stub solo sin bus. Con MSK, o con proveedor fcm, exige credenciales reales."""
+    if config.push_proveedor == "fcm":
+        if not config.fcm_credenciales_json.strip():
+            raise RuntimeError("FCM_CREDENCIALES_JSON requerido cuando PUSH_PROVEEDOR=fcm")
+        return EnviadorFCM(config.fcm_credenciales_json)
+    if config.msk_bootstrap_brokers:
+        raise RuntimeError("PUSH_PROVEEDOR=stub no se permite con MSK_BOOTSTRAP_BROKERS")
+    return PushStub(config.push_stub_fallar)
+
+
 def crear_app(config: Settings | None = None) -> FastAPI:
     config = config or Settings()
     logging.basicConfig(level=config.log_level)
+    push = construir_push(config)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -50,8 +63,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
             await motor.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
-    # El adaptador real (FCM/APNs) se conecta cambiando esta fábrica; ver README.
-    app.state.push = PushStub(config.push_stub_fallar)
+    app.state.push = push
     instrumentar(app)
     app.include_router(rutas.router)
 

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityReading
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +24,7 @@ class AvisoVigenciaViewModel(
         viewModelScope.launch { _reading.value = notices.openRenewal() }
     }
 
-    fun openPush(push: PushNotice) {
+    fun openPush(push: NoticeEntry) {
         viewModelScope.launch { _reading.value = notices.open(push) }
     }
 

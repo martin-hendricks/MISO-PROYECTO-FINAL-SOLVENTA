@@ -290,7 +290,8 @@
       "polizas": "Pólizas",
       "avisos": "Avisos",
       "reportes": "Reportes",
-      "metricas": "Métricas"
+      "metricas": "Métricas",
+      "notificaciones": "Notificaciones"
     },
     "role": {
       "label": "Rol:",
@@ -396,43 +397,76 @@
     "clientes": {
       "title": "Clientes",
       "new": "Nuevo cliente",
-      "kpi": {
-        "active": { "label": "Clientes activos", "hint": "web y móvil" },
-        "web": { "label": "Canal web", "hint": "portal web" },
-        "android": { "label": "Canal Android", "hint": "app Android" },
-        "pendingConsent": { "label": "Consentimiento pendiente", "hint": "perfil hipotecario" }
-      },
+      "search": "Buscar por nombre, correo o documento",
+      "edit": "Editar",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "deactivateTitle": "Desactivar cliente",
+      "deactivateWarning": "La cuenta deja de entrar y sus dispositivos dejan de recibir avisos.",
+      "notFound": "No encontramos ese cliente.",
       "column": {
         "cliente": "Cliente",
         "documento": "Documento",
-        "canal": "Canal",
+        "email": "Correo",
         "estado": "Estado",
-        "consentimiento": "Consentimiento",
+        "push": "Push",
         "acciones": "Acciones"
       },
+      "filter": {
+        "status": "Estado",
+        "all": "Todos"
+      },
+      "push": {
+        "si": "Sí",
+        "no": "No",
+        "desconocido": "Desconocido"
+      },
+      "form": {
+        "create": "Nuevo cliente",
+        "edit": "Editar cliente",
+        "nombre": "Nombre",
+        "apellidos": "Apellidos",
+        "email": "Correo",
+        "documento": "Documento",
+        "tipoDocumento": "Tipo de documento",
+        "password": "Contraseña",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+      },
+      "page": {
+        "prev": "Anterior",
+        "next": "Siguiente"
+      },
       "cotizar": "Cotizar",
-      "canal": {
-        "web": "Web",
-        "android": "Android"
-      },
       "estado": {
-        "activo": "Activo",
-        "inactivo": "Inactivo"
-      },
-      "consentimiento": {
-        "habeas_data": "Habeas data",
-        "hipotecario_pendiente": "Hipotecario pendiente",
-        "revocado": "Revocado"
+        "ACTIVO": "Activo",
+        "INACTIVO": "Inactivo"
       },
       "loading": "Cargando clientes…",
       "empty": {
-        "title": "Aún no tienes clientes",
+        "title": "Aún no hay clientes",
         "body": "Los clientes que registres aparecerán aquí."
       },
       "error": {
         "body": "No pudimos cargar los clientes.",
         "retry": "Reintentar"
       }
+    },
+    "notificaciones": {
+      "title": "Notificaciones",
+      "subtitle": "Escribe un aviso para quien tiene la app activa.",
+      "titulo": "Título",
+      "cuerpo": "Mensaje",
+      "audiencia": "Audiencia",
+      "todos": "Todas las personas con dispositivo",
+      "elegidos": "Personas elegidas",
+      "poliza": "Póliza (opcional)",
+      "preview": "Vista previa",
+      "enviar": "Enviar",
+      "historial": "Historial",
+      "error": "No pudimos cargar las notificaciones.",
+      "retry": "Reintentar",
+      "sendError": "No pudimos enviar el aviso."
     },
     "cotizacion": {
       "title": "Nueva cotización",

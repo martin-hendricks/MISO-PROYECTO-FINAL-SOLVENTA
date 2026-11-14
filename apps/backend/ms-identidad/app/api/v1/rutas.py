@@ -7,12 +7,22 @@ from app.application import casos_uso
 from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import LlamanteDep, alcance, exigir_busqueda_por_documento
+from app.seguridad import (
+    Llamante,
+    LlamanteDep,
+    alcance,
+    exigir_backoffice,
+    exigir_busqueda_por_documento,
+    exigir_operador,
+)
 
 from .schemas import (
     AutenticarEntrada,
     CrearUsuarioEntrada,
+    EditarClienteEntrada,
     ErrorSalida,
+    EstadoEntrada,
+    ListaUsuariosSalida,
     PerfilEntrada,
     UsuarioPorDocumentoSalida,
     UsuarioSalida,
@@ -47,6 +57,27 @@ async def crear(entrada: CrearUsuarioEntrada, uow: Uow, kyc: Kyc):
         canal=entrada.canal,
     )
     return UsuarioSalida.desde(usuario)
+
+
+@router.get("", response_model=ListaUsuariosSalida, responses=ERRORES)
+async def listar(
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_backoffice)],
+    rol: Annotated[str, Query()],
+    estado: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    ids: Annotated[list[UUID] | None, Query()] = None,
+    pagina: Annotated[int, Query(ge=1)] = 1,
+):
+    """Lista cuentas con rol cliente. Operador y asesor; el cliente recibe 403."""
+    usuarios, hay_mas = await casos_uso.listar_clientes(
+        uow, rol=rol, estado=estado, q=q, ids=ids, pagina=pagina
+    )
+    return ListaUsuariosSalida(
+        usuarios=[UsuarioSalida.desde(usuario) for usuario in usuarios],
+        pagina=pagina,
+        hay_mas=hay_mas,
+    )
 
 
 @router.post("/autenticacion", response_model=UsuarioSalida, responses=ERRORES)
@@ -91,4 +122,28 @@ async def actualizar_perfil(usuario_id: UUID, entrada: PerfilEntrada, uow: Uow, 
     usuario = await casos_uso.actualizar_perfil(
         uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos
     )
+    return UsuarioSalida.desde(usuario)
+
+
+@router.patch("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)
+async def editar(
+    usuario_id: UUID,
+    entrada: EditarClienteEntrada,
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_operador)],
+):
+    usuario = await casos_uso.editar_cliente(
+        uow, usuario_id, nombre=entrada.nombre, apellidos=entrada.apellidos, email=entrada.email
+    )
+    return UsuarioSalida.desde(usuario)
+
+
+@router.post("/{usuario_id}/estado", response_model=UsuarioSalida, responses=ERRORES)
+async def cambiar_estado(
+    usuario_id: UUID,
+    entrada: EstadoEntrada,
+    uow: Uow,
+    _llamante: Annotated[Llamante, Depends(exigir_operador)],
+):
+    usuario = await casos_uso.cambiar_estado_cliente(uow, usuario_id, entrada.estado)
     return UsuarioSalida.desde(usuario)

@@ -7,7 +7,7 @@ import { CotizacionGateway } from '../../cotizacion/cotizacion.gateway';
 import { RiesgoFields } from '../../cotizacion/riesgo-fields';
 import { VidaCrediticiaGateway } from '../../vida-crediticia/vida-crediticia.gateway';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { AsesorCotizacionViewModel, CampoCliente } from './asesor-cotizacion.viewmodel';
 
 @Component({
@@ -25,9 +25,9 @@ export class AsesorCotizacionView {
   private readonly gateway = inject(CotizacionGateway);
   private readonly vidaCrediticia = inject(VidaCrediticiaGateway);
   private readonly translate = inject(TranslateService);
-  protected readonly required = requiredRole('cotizaciones');
+  protected readonly required = allowedRoles('cotizaciones');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('cotizaciones', this.role());
   protected readonly campos: readonly CampoCliente[] = ['nombre', 'documento'];
   protected readonly vm = new AsesorCotizacionViewModel(
     (ramo) => this.gateway.catalog('asesor', ramo),

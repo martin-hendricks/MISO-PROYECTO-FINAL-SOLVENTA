@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Protocol
+from uuid import UUID
 
-from app.domain.modelos import Usuario
+from app.domain.modelos import EventoDominio, Usuario
+
+TAMANO_PAGINA_CLIENTES = 20
 
 
 class CuentaYaExiste(Exception):
@@ -23,11 +26,24 @@ class RepositorioUsuarios(Protocol):
 
     async def actualizar(self, usuario: Usuario) -> None: ...
 
+    async def listar_clientes(
+        self,
+        estado: str | None,
+        q: str | None,
+        ids: list[UUID] | None,
+        pagina: int,
+    ) -> tuple[list[Usuario], bool]: ...
+
     async def listar_por_rol(self, rol: str) -> list[Usuario]: ...
+
+
+class Outbox(Protocol):
+    async def agregar(self, evento: EventoDominio) -> None: ...
 
 
 class UnidadDeTrabajo(Protocol):
     usuarios: RepositorioUsuarios
+    outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...
 

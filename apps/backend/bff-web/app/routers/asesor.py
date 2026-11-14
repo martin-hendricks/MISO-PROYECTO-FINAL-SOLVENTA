@@ -47,35 +47,6 @@ router = APIRouter(
 )
 
 
-def _cliente(
-    cliente_id: str,
-    nombre: str,
-    documento: str,
-    canal: str,
-    estado: str,
-    consentimiento: str,
-) -> dict:
-    return {
-        "clienteId": cliente_id,
-        "nombre": nombre,
-        "documento": documento,
-        "correo": f"{nombre.split()[0].lower()}@correo.com",
-        "habeasData": consentimiento != "revocado",
-        "estado": estado,
-        "canal": canal,
-        "consentimiento": consentimiento,
-    }
-
-
-CLIENTES = [
-    _cliente("CLI-18", "Andrés Gómez", "1020334556", "web", "activo", "habeas_data"),
-    _cliente("CLI-19", "Laura Peña", "52448901", "android", "activo", "habeas_data"),
-    _cliente("CLI-20", "Ricardo Salas", "80112334", "web", "activo", "hipotecario_pendiente"),
-    _cliente("CLI-21", "Marcela Ruiz", "41778220", "android", "activo", "habeas_data"),
-    _cliente("CLI-22", "Julián Torres", "79330114", "web", "inactivo", "revocado"),
-]
-
-
 class VentaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     ramo: str
@@ -86,6 +57,16 @@ class OfertaHipotecariaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     credito: Credito
     consentimientoPerfil: bool
+
+
+def _contexto_atendido(cliente_id: str) -> ContextoUsuario:
+    """Un clienteId que ya es el usuario_id (UUID de ms-identidad) se usa tal
+    cual. Cualquier otra referencia sigue derivando un UUID estable."""
+    try:
+        UUID(cliente_id)
+    except (ValueError, AttributeError):
+        return ContextoUsuario(cliente_id)
+    return ContextoUsuario(cliente_id, canonico=True)
 
 
 class ClienteNuevo(BaseModel):
@@ -122,7 +103,7 @@ async def venta(
     ms-identidad real que resuelva clienteId a una identidad verificada;
     ContextoUsuario deriva UUIDs deterministas a partir del string tal cual
     llega (mismo patrón ya documentado en cliente.py)."""
-    contexto = ContextoUsuario(body.clienteId)
+    contexto = _contexto_atendido(body.clienteId)
     producto = _producto_de(body.ramo)
 
     datos = await cliente_cotizacion.cotizar(
@@ -156,7 +137,7 @@ async def oferta_hipotecaria(
         return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
 
     return await ofertar_vida_hipotecario(
-        ContextoUsuario(body.clienteId),
+        _contexto_atendido(body.clienteId),
         body.credito,
         "asesor",
         cliente_perfilamiento,
@@ -263,13 +244,20 @@ def _pasos(aceptada: bool) -> list[dict]:
     ]
 
 
-def _cliente_salida(cliente_id: str | None) -> dict:
-    """Datos del cliente atendido. Sin ms-identidad se resuelve contra la
-    cartera de ejemplo; si no está, el id hace de nombre para no dejar vacío
-    el encabezado de la pantalla."""
+async def _cliente_salida(cliente_id: str | None, identidad: ClienteMsIdentidad) -> dict:
+    """Nombre del cliente atendido, leído de ms-identidad. Si no se puede
+    resolver, el id ocupa el encabezado para no dejarlo vacío."""
     cliente_id = cliente_id or ""
-    conocido = next((c for c in CLIENTES if c["clienteId"] == cliente_id), None)
-    return {"clienteId": cliente_id, "nombre": conocido["nombre"] if conocido else cliente_id}
+    nombre = cliente_id
+    if cliente_id:
+        try:
+            usuario = await identidad.obtener(cliente_id)
+            nombre = " ".join(
+                parte for parte in (usuario.get("nombre"), usuario.get("apellidos")) if parte
+            ).strip() or cliente_id
+        except (RecursoNoEncontrado, RechazoDelNucleo, ServicioNoDisponible):
+            nombre = cliente_id
+    return {"clienteId": cliente_id, "nombre": nombre}
 
 
 def _decision_salida(suscripcion: dict) -> dict:
@@ -321,6 +309,7 @@ async def consultar_emision(
     body: ConsultarEmision,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_suscripcion: Annotated[ClienteMsSuscripcion, Depends(obtener_cliente_suscripcion)],
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
 ) -> dict:
     """Consulta la decisión de suscripción SIN emitir (HU-149, SOLV-112).
 
@@ -349,7 +338,7 @@ async def consultar_emision(
     decision = _decision_salida(suscripcion)
     return {
         "solicitudId": body.cotizacionId,
-        "cliente": _cliente_salida(body.clienteId),
+        "cliente": await _cliente_salida(body.clienteId, cliente_identidad),
         "producto": await _nombre_producto(cliente_cotizacion, cotizacion["producto"]),
         "referencia": body.cotizacionId,
         "pasos": _pasos(decision["resultado"] == "ACEPTADA"),
@@ -515,7 +504,7 @@ async def listar(
     /v1/clientes), ya no el mock en memoria -- ver CLIENTES, que sigue
     respaldando únicamente POST /clientes (alta) y la ficha reducida de
     _cliente_salida() en /asesor/emisiones, ambos fuera de este alcance."""
-    clientes = await cliente_identidad.listar_clientes()
+    clientes = await cliente_identidad.listar_clientes_backoffice()
     return {"clientes": [_cliente_desde_identidad(item) for item in clientes]}
 
 

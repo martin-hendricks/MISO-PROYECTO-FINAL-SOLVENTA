@@ -88,3 +88,7 @@ uv pip compile pyproject.toml --extra test --python-version 3.12.7 --python-plat
 ## Despliegue
 
 Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/NN_ms_<nombre>.sql` del repo y se aplica sobre su propia instancia o schema RDS.
+
+## Fuentes
+
+`ESQUEMAS_PERMITIDOS` incluye `ms_identidad`. `DATABASE_URL_MS_IDENTIDAD` apunta a la base compartida (el mismo secreto que cotización, suscripción, pagos y perfilamiento). Vacía, esa fuente no se arma. Los eventos que publica son `UsuarioInactivado` y `UsuarioReactivado`.

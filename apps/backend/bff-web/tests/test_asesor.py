@@ -198,7 +198,7 @@ def test_consultar_emision_feliz_devuelve_decision_y_oferta(client, nucleo_cotiz
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["solicitudId"] == COTIZACION_ID
-    assert cuerpo["cliente"] == {"clienteId": "CLI-18", "nombre": "Andrés Gómez"}
+    assert cuerpo["cliente"] == {"clienteId": "CLI-18", "nombre": "CLI-18"}
     assert cuerpo["producto"] == PRODUCTO_SALIDA["nombre"]
     assert cuerpo["referencia"] == COTIZACION_ID
     assert [(p["paso"], p["estado"]) for p in cuerpo["pasos"]][2] == ("EMISION", "ACTUAL")
@@ -375,6 +375,54 @@ def test_cliente_no_abre_pantallas_de_asesor(client):
     assert client.get("/v1/operador/avisos", headers=headers).status_code == 403
 
 
+CLIENTE_UUID = "12345678-1234-4123-8123-123456789abc"
+
+
+def test_venta_con_uuid_usa_ese_usuario_id(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = lambda _: httpx.Response(
+        201, json=COTIZACION_SALIDA
+    )
+    respuesta = client.post(
+        "/v1/asesor/cotizaciones",
+        headers=_auth(client, "asesor"),
+        json={"clienteId": CLIENTE_UUID, "ramo": "Protección de dispositivo", "datosRiesgo": {}},
+    )
+    assert respuesta.status_code == 200
+    enviado = json.loads(nucleo_cotizacion.peticiones[-1].content)
+    assert enviado["usuario_id"] == CLIENTE_UUID
+    assert enviado["cliente_ref"] == CLIENTE_UUID
+
+
+def test_cliente_salida_resuelve_el_nombre_en_ms_identidad(client, nucleo_cotizacion, nucleo_suscripcion, nucleo_identidad):
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
+    nucleo_suscripcion.respuestas[("POST", "/v1/suscripciones")] = lambda _: httpx.Response(
+        201, json=SUSCRIPCION_ACEPTADA
+    )
+    nucleo_identidad.respuestas[("GET", f"/v1/usuarios/{CLIENTE_UUID}")] = lambda _: httpx.Response(
+        200,
+        json={
+            "usuario_id": CLIENTE_UUID,
+            "nombre": "Laura",
+            "apellidos": "Peña",
+            "email": "laura@correo.com",
+            "numero_documento": "52448901",
+            "estado": "ACTIVO",
+            "rol": "cliente",
+        },
+    )
+
+    respuesta = client.post(
+        "/v1/asesor/emisiones",
+        headers=_auth(client, "asesor"),
+        json={"cotizacionId": COTIZACION_ID, "clienteId": CLIENTE_UUID},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["cliente"] == {"clienteId": CLIENTE_UUID, "nombre": "Laura Peña"}
+
+
 CLIENTES_IDENTIDAD = [
     {
         "clienteId": "11111111-1111-1111-1111-111111111111",
@@ -447,7 +495,6 @@ def test_desactivar_cliente_inexistente_es_404(client, nucleo_identidad):
 
 # --- HU-163 (SOLV-262): cotizaciones pendientes del asesor ---------------
 
-import json  # noqa: E402
 import uuid  # noqa: E402
 
 from app.routers.cliente import _NAMESPACE_SOLVENTA  # noqa: E402

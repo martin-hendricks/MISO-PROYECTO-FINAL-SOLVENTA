@@ -1,8 +1,8 @@
 package com.grupo8_uniandes.solventa.domain.bff.notice
 
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
 
 enum class ValidityKind {
     EXPIRY,
@@ -27,10 +27,10 @@ class OpenValidityNotice(
     // real correspondiente a esa póliza en vez de confiar en el cuerpo del
     // push. Si esa póliza ya no tiene un aviso activo (venció el push, o el
     // backend ya lo resolvió), no abre nada.
-    suspend fun open(push: PushNotice): ValidityReading? = when (push.destino) {
-        PushDestination.AVISO_VENCIMIENTO -> openExpiry()?.takeIf { it.poliza == push.poliza }
-        PushDestination.AVISO_RENOVACION -> openRenewal()?.takeIf { it.poliza == push.poliza }
-        else -> null
+    suspend fun open(push: NoticeEntry): ValidityReading? = when (push.destino) {
+        NoticeDestination.AVISO_VENCIMIENTO -> openExpiry()?.takeIf { it.poliza == push.poliza }
+        NoticeDestination.AVISO_RENOVACION -> openRenewal()?.takeIf { it.poliza == push.poliza }
+        NoticeDestination.PARAMETRICO, NoticeDestination.DETALLE_SINIESTRO -> null
     }
 
     private suspend fun reading(kind: ValidityKind): ValidityReading? {

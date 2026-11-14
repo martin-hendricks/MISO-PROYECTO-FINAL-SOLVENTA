@@ -56,6 +56,19 @@ def alcance(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
 LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]
 
 
+def exigir_backoffice(llamante: LlamanteDep) -> Llamante:
+    """Operador o asesor. El cliente no lista cuentas ajenas."""
+    if llamante.rol not in ("operador", "asesor"):
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+    return llamante
+
+
+def exigir_operador(llamante: LlamanteDep) -> Llamante:
+    if llamante.rol != "operador":
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+    return llamante
+
+
 def exigir_busqueda_por_documento(llamante: Llamante) -> None:
     """Saber a quién pertenece una cédula es un dato personal: no lo resuelve un cliente."""
     if llamante.rol not in ROLES_BUSQUEDA_POR_DOCUMENTO:

@@ -116,6 +116,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/backoffice/metricas/metricas.view').then((m) => m.MetricasView),
       },
+      {
+        path: 'notificaciones',
+        loadComponent: () =>
+          import('./features/backoffice/notificaciones/notificaciones.view').then(
+            (m) => m.NotificacionesView,
+          ),
+      },
     ],
   },
   {

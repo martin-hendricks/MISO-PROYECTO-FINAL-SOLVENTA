@@ -37,6 +37,15 @@ describe('BackofficeLayout', () => {
     return { harness, host, element, signOuts: session.signOuts };
   }
 
+  it('shows Notificaciones only to the operator', async () => {
+    const advisor = await open('asesor', '/cms/clientes');
+    expect(advisor.element('nav-notificaciones')).toBeNull();
+
+    TestBed.resetTestingModule();
+    const operator = await open('operador', '/cms/avisos');
+    expect(operator.element('nav-notificaciones')?.textContent).toContain('Notificaciones');
+  });
+
   it('shows the Back-office tag and exactly six destinations', async () => {
     const { host, element } = await open('asesor', '/cms/clientes');
 

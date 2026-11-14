@@ -1,12 +1,12 @@
 # outbox-relay — publicador del outbox transaccional hacia MSK (Grupo B)
 #
-# Worker de polling: lee `outbox_evento` en los seis esquemas productores y
+# Worker de polling: lee `outbox_evento` en los siete esquemas productores y
 # publica lo pendiente en el tópico BusEventos. No es una API; expone solo
 # /health y /metrics en el mismo puerto porque el chart genérico exige
 # httpGet para liveness/readiness (ver apps/backend/outbox-relay/app/main.py).
 #
 # Sin este servicio ningún evento de ms-cotizacion/ms-suscripcion/ms-pagos/
-# ms-perfilamiento/ms-polizas/ms-siniestros llega a Kafka, así que
+# ms-perfilamiento/ms-identidad/ms-polizas/ms-siniestros llega a Kafka, así que
 # `notificaciones` y `analitica` nunca reciben nada. Ver
 # docs/validacion-kafka-r6.md.
 
@@ -64,9 +64,10 @@ externalSecrets:
   habilitado: true
   secretStoreRef: solventa-secretstore
   remoteSecrets:
-    # Las seis URLs salen de tres secretos de Secrets Manager, un
-    # `database_url` por instancia RDS: cuatro esquemas viven en la base
-    # compartida, ms_polizas y ms_siniestros en las suyas. Se proyecta solo
+    # Las URLs salen de tres secretos de Secrets Manager, un `database_url`
+    # por instancia RDS: ms_cotizacion, ms_suscripcion, ms_pagos,
+    # ms_perfilamiento y ms_identidad viven en la base compartida; ms_polizas
+    # y ms_siniestros en las suyas. Se proyecta solo
     # `database_url` (con `claves`) para no meter username/password/host en el
     # entorno del pod.
     - nombreRemoto: solventa-minimo-compartida-db-credentials
@@ -120,8 +121,8 @@ variablesEntorno:
     valor: "INFO"
 
 variablesEntornoSecreto:
-  # El chart renderiza un env por entrada: las cuatro primeras apuntan al
-  # mismo `database_url` de la instancia compartida.
+  # El chart renderiza un env por entrada: las de la instancia compartida
+  # apuntan al mismo `database_url`.
   - nombre: DATABASE_URL_MS_COTIZACION
     nombreSecreto: outbox-relay-db-compartida
     claveSecreto: database_url
@@ -132,6 +133,9 @@ variablesEntornoSecreto:
     nombreSecreto: outbox-relay-db-compartida
     claveSecreto: database_url
   - nombre: DATABASE_URL_MS_PERFILAMIENTO
+    nombreSecreto: outbox-relay-db-compartida
+    claveSecreto: database_url
+  - nombre: DATABASE_URL_MS_IDENTIDAD
     nombreSecreto: outbox-relay-db-compartida
     claveSecreto: database_url
   - nombre: DATABASE_URL_MS_POLIZAS

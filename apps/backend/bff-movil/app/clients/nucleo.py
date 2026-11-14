@@ -293,6 +293,31 @@ class ClienteNucleo:
             json={"plataforma": plataforma, "token": token},
         )
 
+    def desactivar_dispositivo(self, *, token: str) -> None:
+        """DELETE devuelve 204 sin cuerpo. _pedir exige JSON, así que se pide aparte."""
+        try:
+            headers = {}
+            token_sesion = token_saliente.get()
+            if token_sesion:
+                headers["Authorization"] = f"Bearer {token_sesion}"
+            http = self._clientes.get("notificaciones")
+            if http is None:
+                http = httpx.Client(base_url=self._base("notificaciones"), timeout=TIMEOUT_S)
+                self._clientes["notificaciones"] = http
+            respuesta = http.request(
+                "DELETE",
+                "/v1/notificaciones/dispositivos",
+                json={"token": token},
+                headers=headers,
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="notificaciones no disponible") from exc
+        if respuesta.status_code == 204:
+            return
+        if respuesta.status_code in (401, 403, 422):
+            raise HTTPException(status_code=respuesta.status_code, detail="Operación rechazada")
+        raise HTTPException(status_code=503, detail="notificaciones no disponible")
+
     def _base(self, servicio: str) -> str:
         base = (self._urls.get(servicio) or "").strip().rstrip("/")
         if not base:
@@ -345,4 +370,5 @@ class ClienteNucleo:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible")
         if cuerpo is None:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        self.ultimo_estado = respuesta.status_code
         return cuerpo

@@ -11,9 +11,9 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -95,11 +95,11 @@ class OpenParametricPaymentTest {
         val fromPush = payments.open(push)
         val fromList = payments.open(OpenParametricPayment.STORED_ID)
 
-        assertEquals(PushType.PAGO_AUTOMATICO, push.tipo)
-        assertEquals(PushDestination.PARAMETRICO, push.destino)
+        assertEquals(NoticeKind.PAGO_AUTOMATICO, push.tipo)
+        assertEquals(NoticeDestination.PARAMETRICO, push.destino)
         assertEquals(fromList, fromPush)
         assertEquals(push, OpenParametricPayment.reviewPush())
-        assertNull(payments.open(push.copy(destino = PushDestination.DETALLE_SINIESTRO)))
+        assertNull(payments.open(push.copy(destino = NoticeDestination.DETALLE_SINIESTRO)))
         assertNull(payments.open(push.copy(titulo = "Otro aviso")))
         assertNull(payments.open(push.copy(cuerpo = "mensaje del tercero")))
         assertFalse(push.cuerpo.contains("tercero"))
@@ -120,7 +120,7 @@ class OpenParametricPaymentTest {
         val receipt = payments.receipt(notice)
         val viewModel = ParametricoViewModel(payments)
         assertNull(viewModel.offerReceipt())
-        viewModel.openPush(PushNotice(PushType.VENCIMIENTO, "Tu póliza vence", "En 7 días", PushDestination.AVISO_VENCIMIENTO, "POL-88219-CO"))
+        viewModel.openPush(NoticeEntry(NoticeKind.VENCIMIENTO, "Tu póliza vence", "En 7 días", NoticeDestination.AVISO_VENCIMIENTO, "POL-88219-CO"))
         assertNull(viewModel.state.value.notice)
         viewModel.openPush(OpenParametricPayment.reviewPush())
         assertEquals(notice, viewModel.state.value.notice)

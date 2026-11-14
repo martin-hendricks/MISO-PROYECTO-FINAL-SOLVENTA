@@ -499,58 +499,59 @@
               ]}}]
             },
             {
-              "name": "Clientes (stub, listar)",
+              "name": "Clientes (listar)",
               "request": {
                 "method": "GET",
-                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
                 "url": {
-                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes",
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/clientes?pagina=1",
                   "host": ["{{baseUrlBffWeb}}"],
-                  "path": ["v1", "asesor", "clientes"]
+                  "path": ["v1", "operador", "clientes"],
+                  "query": [{"key": "pagina", "value": "1"}]
                 },
-                "description": "Rol asesor. Stub fijo: lista hardcodeada en memoria, no persiste en ningún microservicio todavía."
+                "description": "Rol operador o asesor. Lista real de ms-identidad con dispositivosActivos."
               },
               "event": [{"listen": "test", "script": {"exec": [
                 "pm.test('200 OK', () => pm.response.to.have.status(200));"
               ]}}]
             },
             {
-              "name": "Clientes (stub, crear)",
+              "name": "Clientes (crear)",
               "request": {
                 "method": "POST",
-                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"nombre\": \"Cliente de prueba\",\n  \"documento\": \"{{$randomInt}}\",\n  \"correo\": \"prospecto.{{$timestamp}}@solventa.com\",\n  \"habeasData\": true,\n  \"estado\": \"activo\"\n}",
+                  "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"documento\": \"{{$randomInt}}\",\n  \"email\": \"prospecto.{{$timestamp}}@solventa.com\",\n  \"password\": \"clave-temporal\",\n  \"nombre\": \"Cliente\",\n  \"apellidos\": \"De prueba\"\n}",
                   "options": {"raw": {"language": "json"}}
                 },
                 "url": {
-                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes",
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/clientes",
                   "host": ["{{baseUrlBffWeb}}"],
-                  "path": ["v1", "asesor", "clientes"]
+                  "path": ["v1", "operador", "clientes"]
                 },
-                "description": "Rol asesor. Stub: no persiste en ms-identidad, solo responde con el payload hardcodeado del stub."
+                "description": "Rol operador. Alta en ms-identidad."
               },
               "event": [{"listen": "test", "script": {"exec": [
-                "pm.test('200 u 201', () => pm.expect([200, 201]).to.include(pm.response.code));"
+                "pm.test('201 Created', () => pm.response.to.have.status(201));"
               ]}}]
             },
             {
-              "name": "Clientes (stub, cambiar estado)",
+              "name": "Clientes (cambiar estado)",
               "request": {
                 "method": "POST",
-                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"clienteId\": \"{{$guid}}\",\n  \"estado\": \"inactivo\"\n}",
+                  "raw": "{\n  \"estado\": \"INACTIVO\"\n}",
                   "options": {"raw": {"language": "json"}}
                 },
                 "url": {
-                  "raw": "{{baseUrlBffWeb}}/v1/asesor/clientes/estado",
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/clientes/{{usuarioId}}/estado",
                   "host": ["{{baseUrlBffWeb}}"],
-                  "path": ["v1", "asesor", "clientes", "estado"]
+                  "path": ["v1", "operador", "clientes", "{{usuarioId}}", "estado"]
                 },
-                "description": "Rol asesor. Stub."
+                "description": "Rol operador. Publica UsuarioInactivado o UsuarioReactivado."
               },
               "event": [{"listen": "test", "script": {"exec": [
                 "pm.test('200 OK', () => pm.response.to.have.status(200));"
@@ -561,6 +562,59 @@
         {
           "name": "Operador",
           "item": [
+            {
+              "name": "Audiencia de push",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/notificaciones/audiencia",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "notificaciones", "audiencia"]
+                },
+                "description": "Rol operador. Clientes con dispositivos activos."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
+            {
+              "name": "Difundir aviso",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"titulo\": \"Aviso\",\n  \"cuerpo\": \"Mensaje del operador\",\n  \"audiencia\": {\"tipo\": \"todos\"}\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/notificaciones/difusiones",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "notificaciones", "difusiones"]
+                },
+                "description": "Rol operador. Si poliza no existe, 422 poliza_desconocida."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('201 Created', () => pm.response.to.have.status(201));"
+              ]}}]
+            },
+            {
+              "name": "Historial de difusiones",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/notificaciones/difusiones?limite=20",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "notificaciones", "difusiones"],
+                  "query": [{"key": "limite", "value": "20"}]
+                }
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));"
+              ]}}]
+            },
             {
               "name": "Listar avisos de siniestros",
               "request": {
@@ -1107,18 +1161,24 @@
           ]}}]
         },
         {
-          "name": "Avisos push (stub)",
+          "name": "Retirar token de notificaciones push",
           "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/avisos/push",
-              "host": ["{{baseUrlBffMovil}}"],
-              "path": ["bff-movil", "v1", "cliente", "avisos", "push"]
+            "method": "DELETE",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"token-push-de-prueba\"\n}",
+              "options": {"raw": {"language": "json"}}
             },
-            "description": "Stub fijo."
+            "url": {
+              "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/avisos/token",
+              "host": ["{{baseUrlBffMovil}}"],
+              "path": ["bff-movil", "v1", "cliente", "avisos", "token"]
+            },
+            "description": "Desactiva el dispositivo de ese token. 204 aunque el token no exista."
           },
           "event": [{"listen": "test", "script": {"exec": [
-            "pm.test('200 OK', () => pm.response.to.have.status(200));"
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
           ]}}]
         },
         {

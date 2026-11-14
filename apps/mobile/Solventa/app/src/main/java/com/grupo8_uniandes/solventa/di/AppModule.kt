@@ -41,7 +41,12 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.SaveRenewalPreference
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
 import com.grupo8_uniandes.solventa.issuance.ConfirmacionTarjetaViewModel
 import com.grupo8_uniandes.solventa.policy.RenewalChoiceViewModel
+import com.google.firebase.FirebaseApp
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
+import com.grupo8_uniandes.solventa.domain.push.PushOptIn
+import com.grupo8_uniandes.solventa.domain.push.PushToken
+import com.grupo8_uniandes.solventa.push.FirebasePushToken
+import com.grupo8_uniandes.solventa.push.NoPushToken
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
@@ -50,7 +55,9 @@ import com.grupo8_uniandes.solventa.domain.home.HomeRepository
 import com.grupo8_uniandes.solventa.domain.home.LoadInicio
 import com.grupo8_uniandes.solventa.domain.login.SignIn
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
 import com.grupo8_uniandes.solventa.domain.profile.SessionRepository
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -111,17 +118,32 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     single<PolicyCommandRepository> { get<BffRuntime>().policyCommand }
     single<HomeBffRepository> { get<BffRuntime>().home }
     single<PushRepository> { get<BffRuntime>().push }
+    single<PushToken> {
+        val context = androidContext()
+        if (FirebaseApp.getApps(context).isEmpty()) NoPushToken() else FirebasePushToken(context)
+    }
+    single { PushOptIn(get(), get()) }
     single<AssistanceRepository> { get<BffRuntime>().assistance }
     single<HomeRepository> { StandInHomeRepository(get()) }
     single { LoadInicio(get()) }
     single { RequestFirmOffer(get()) }
     single { ShowFirmOffer(get()) }
     single { SignIn(get()) }
-    single { SignOut(get<SessionRepository>(), get<MobileSessionRepository>()) }
+    single {
+        SignOut(
+            get<SessionRepository>(),
+            get<MobileSessionRepository>(),
+            get<PushRepository>(),
+            get<PushToken>(),
+            get<PushOptIn>(),
+        )
+    }
     factory { (originationActive: Boolean) ->
         LoadProfile(get(), get(), get(), get(), get(), originationActive)
     }
     single<RegistrationRepository> { SharedPrefsRegistrationRepository(androidContext()) }
+    single<AccountNameRepository> { get<BffRuntime>().accountName }
+    single { PublishStoredName(get(), get()) }
     single<RegionRepository> { SharedPrefsRegionRepository(androidContext()) }
     single<ConsentRepository> { SharedPrefsConsentRepository(androidContext()) }
     single<SessionRepository> { SharedPrefsSessionRepository(androidContext()) }

@@ -4,7 +4,7 @@ import { DatePipe, DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { AvisosGateway, FILTROS } from './avisos.gateway';
 import { AvisosViewModel } from './avisos.viewmodel';
 
@@ -18,9 +18,9 @@ import { AvisosViewModel } from './avisos.viewmodel';
 })
 export class AvisosView {
   private readonly gateway = inject(AvisosGateway);
-  protected readonly required = requiredRole('avisos');
+  protected readonly required = allowedRoles('avisos');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('avisos', this.role());
   protected readonly filtros = FILTROS;
 
   protected readonly vm = new AvisosViewModel({

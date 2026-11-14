@@ -3,7 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { DatePipe } from '../../../core/i18n/format';
 import { SessionService } from '../../../core/session/session.service';
 import { NoPermission } from '../no-permission/no-permission';
-import { requiredRole } from '../sections';
+import { admite, allowedRoles } from '../sections';
 import { MetricasGateway } from './metricas.gateway';
 import { MetricasViewModel } from './metricas.viewmodel';
 
@@ -28,9 +28,9 @@ const RANGO_DIAS = 30;
 })
 export class MetricasView {
   private readonly gateway = inject(MetricasGateway);
-  protected readonly required = requiredRole('metricas');
+  protected readonly required = allowedRoles('metricas');
   protected readonly role = inject(SessionService).role;
-  protected readonly allowed = this.role() === this.required;
+  protected readonly allowed = admite('metricas', this.role());
 
   protected readonly vm = new MetricasViewModel((desde, hasta) =>
     this.gateway.conteos(desde, hasta),

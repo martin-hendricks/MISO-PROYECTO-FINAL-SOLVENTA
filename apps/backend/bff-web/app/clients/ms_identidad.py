@@ -51,6 +51,41 @@ class ClienteMsIdentidad(ClienteServicio):
     async def obtener(self, usuario_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/usuarios/{usuario_id}")
 
+    async def listar_clientes(
+        self,
+        q: str | None = None,
+        estado: str | None = None,
+        pagina: int | None = None,
+        ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """GET /v1/usuarios?rol=cliente. `ids` se repite (máximo 50 por llamada)."""
+        params: dict[str, Any] = {"rol": "cliente"}
+        if q:
+            params["q"] = q
+        if estado:
+            params["estado"] = estado
+        if pagina is not None:
+            params["pagina"] = pagina
+        if ids:
+            params["ids"] = ids
+        return await self._pedir("GET", "/v1/usuarios", params=params)
+
+    async def editar_cliente(
+        self, usuario_id: str, *, nombre: str, apellidos: str, email: str
+    ) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}",
+            json={"nombre": nombre, "apellidos": apellidos, "email": email},
+        )
+
+    async def cambiar_estado(self, usuario_id: str, *, estado: str) -> dict[str, Any]:
+        return await self._pedir(
+            "POST",
+            f"/v1/usuarios/{usuario_id}/estado",
+            json={"estado": estado},
+        )
+
     async def actualizar_perfil(self, usuario_id: str, *, nombre: str, apellidos: str) -> dict[str, Any]:
         return await self._pedir(
             "PATCH",
@@ -68,9 +103,14 @@ class ClienteMsIdentidad(ClienteServicio):
             json={"email": email, "password": password},
         )
 
-    async def listar_clientes(self) -> list[dict[str, Any]]:
+    async def listar_clientes_backoffice(self) -> list[dict[str, Any]]:
         """GET /v1/clientes (HU-141): back-office únicamente -- ms-identidad
-        ya exige rol asesor/operador, bff-web solo reenvía el token."""
+        ya exige rol asesor/operador, bff-web solo reenvía el token.
+
+        Distinto de `listar_clientes()` (arriba): esa paginación/búsqueda
+        contra GET /v1/usuarios?rol=cliente es de otra rama (operador_
+        clientes.py/operador_notificaciones.py); este método sin argumentos
+        es el que ya consumía /asesor/clientes (routers/asesor.py)."""
         return (await self._pedir("GET", "/v1/clientes"))["clientes"]
 
     async def actualizar_estado_cliente(self, usuario_id: str, estado: str) -> dict[str, Any]:

@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.application import casos_uso
-from app.domain.errores import NoEncontrado
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import DispositivoPush, Notificacion
 from app.infrastructure.push_stub import PushStub
 from tests.dobles import PushDoble, sembrar_notificaciones
@@ -244,6 +244,22 @@ async def test_despachar_no_reenvia_una_ya_enviada(uow, almacen):
     assert almacen.notificaciones[notificacion.notificacion_id].estado == "enviada"
 
 
+async def test_token_invalido_desactiva_el_dispositivo_sin_reintento(uow, almacen):
+    usuario = uuid4()
+    dispositivo = DispositivoPush.registrar(usuario, "android", "token-malo")
+    almacen.dispositivos[dispositivo.dispositivo_id] = dispositivo
+    notificacion = await casos_uso.crear_notificacion(
+        uow, usuario, uuid4(), "push", "tipo", "Título", "Cuerpo"
+    )
+    push = PushDoble()
+    push.tokens_invalidos = {"token-malo"}
+
+    assert await casos_uso.despachar_notificacion(uow, push, notificacion.notificacion_id) is False
+    assert almacen.dispositivos[dispositivo.dispositivo_id].activo is False
+    assert len(push.llamadas) == 1
+    assert almacen.notificaciones[notificacion.notificacion_id].estado == "fallida"
+
+
 async def test_despachar_sin_proveedores_marca_fallida(uow, almacen):
     """enviar_a_usuario() puede devolver una lista vacía sin lanzar (p. ej.
     todos los proveedores de push rechazaron el token) -- distinto del
@@ -334,3 +350,71 @@ async def test_despachar_ignora_canal_email(uow, almacen):
 
     assert await casos_uso.despachar_pendientes(uow, PushDoble()) == 0
     assert almacen.notificaciones[email.notificacion_id].estado == "pendiente"
+
+
+async def test_difundir_cuenta_enviadas_fallidas_y_sin_dispositivo(uow, almacen):
+    con_token, sin_token, otro_con_token = uuid4(), uuid4(), uuid4()
+    await casos_uso.registrar_dispositivo(uow, con_token, "android", "token-1")
+    await casos_uso.registrar_dispositivo(uow, otro_con_token, "android", "token-2")
+    push = PushDoble()
+
+    resultado = await casos_uso.difundir(
+        uow,
+        push,
+        uuid4(),
+        "Aviso",
+        "Cuerpo del aviso",
+        "usuarios",
+        [con_token, sin_token],
+        "POL-1",
+    )
+
+    assert resultado.enviadas == 1
+    assert resultado.fallidas == 0
+    assert resultado.sin_dispositivo == 1
+    assert len(push.llamadas) == 1
+    creada = next(iter(almacen.notificaciones.values()))
+    assert creada.tipo == "mensaje_operador"
+    assert creada.difusion_id == resultado.difusion_id
+    assert creada.poliza == "POL-1"
+    assert creada.usuario_id == con_token
+    assert almacen.difusiones[resultado.difusion_id].enviadas == 1
+
+    a_todos = await casos_uso.difundir(
+        uow, PushDoble(), uuid4(), "Aviso", "Cuerpo del aviso", "todos", None, None
+    )
+    assert a_todos.enviadas == 2
+    assert a_todos.sin_dispositivo == 0
+
+
+async def test_difundir_cuenta_proveedor_caido_como_fallida(uow, almacen):
+    usuario = uuid4()
+    await casos_uso.registrar_dispositivo(uow, usuario, "android", "token-1")
+    resultado = await casos_uso.difundir(
+        uow, PushDoble(fallar=True), uuid4(), "Aviso", "Cuerpo", "usuarios", [usuario], None
+    )
+    assert resultado.fallidas == 1
+    assert resultado.enviadas == 0
+    assert almacen.notificaciones[next(iter(almacen.notificaciones))].estado == "fallida"
+
+
+async def test_difundir_rechaza_titulo_vacio_antes_de_escribir(uow, almacen):
+    with pytest.raises(ReglaDeNegocioViolada):
+        await casos_uso.difundir(uow, PushDoble(), uuid4(), "  ", "Cuerpo", "todos", None, None)
+    assert almacen.difusiones == {}
+
+
+async def test_un_dispositivo_invalido_no_anula_el_envio_del_otro(uow, almacen):
+    usuario = uuid4()
+    await casos_uso.registrar_dispositivo(uow, usuario, "android", "malo")
+    await casos_uso.registrar_dispositivo(uow, usuario, "android", "bueno")
+    push = PushDoble()
+    push.tokens_invalidos = {"malo"}
+    notificacion = await casos_uso.crear_notificacion(
+        uow, usuario, uuid4(), "push", "tipo", "Título", "Cuerpo"
+    )
+
+    assert await casos_uso.despachar_notificacion(uow, push, notificacion.notificacion_id)
+    assert almacen.notificaciones[notificacion.notificacion_id].estado == "enviada"
+    activos = [d for d in almacen.dispositivos.values() if d.activo]
+    assert [d.token for d in activos] == ["bueno"]

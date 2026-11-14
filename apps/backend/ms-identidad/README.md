@@ -36,3 +36,13 @@ DOBLE_KYC_DOCUMENTOS_RECHAZADOS=0000000000 docker compose up -d ms-identidad   #
 ```
 
 `bff-web` traduce el 422 a un 422 con el mensaje del núcleo (no a "la cuenta ya existe") y el 503 a `servicio_no_disponible`.
+
+## Cuentas de cliente (operador y asesor)
+
+| Método | Ruta | Quién | Efecto |
+| --- | --- | --- | --- |
+| `GET` | `/v1/usuarios?rol=cliente&estado=&q=&ids=&pagina=` | operador, asesor | Solo `rol=cliente`. Página de 20, o `len(ids)` si hay ids (máximo 50). `q` de menos de 2 caracteres y un `rol` distinto de `cliente` responden 422 |
+| `PATCH` | `/v1/usuarios/{id}` | operador | `nombre`, `apellidos` (1–80) y `email` en minúsculas. 404 si no es cliente. 409 si el correo ya existe |
+| `POST` | `/v1/usuarios/{id}/estado` | operador | `{estado: ACTIVO\|INACTIVO}`. El mismo estado no escribe evento. Un cambio escribe `UsuarioInactivado` o `UsuarioReactivado` (`{usuario_id, ocurrido_en}`) en `ms_identidad.outbox_evento`, en la misma transacción |
+
+Una cuenta `INACTIVO` no puede autenticarse. Reactivarla no vuelve a encender los dispositivos push.

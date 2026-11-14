@@ -1,0 +1,129 @@
+<section
+  data-testid="section-notificaciones"
+  [attr.data-state]="allowed ? vm.status() : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.notificaciones.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <h1>{{ 'backoffice.notificaciones.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.notificaciones.subtitle' | translate }}</p>
+
+    @if (vm.status() === 'error') {
+      <div class="empty-state" role="alert" data-testid="notificaciones-error">
+        <p>{{ 'backoffice.notificaciones.error' | translate }}</p>
+        <button type="button" class="outlined" data-testid="notificaciones-retry" (click)="vm.cargar()">
+          {{ 'backoffice.notificaciones.retry' | translate }}
+        </button>
+      </div>
+    }
+
+    <form class="ficha" data-testid="notificaciones-form" (submit)="$event.preventDefault(); vm.enviar()">
+      <fieldset>
+        <legend>{{ 'backoffice.notificaciones.audiencia' | translate }}</legend>
+        <label class="opcion">
+          <input
+            type="radio"
+            name="audiencia"
+            data-testid="notificaciones-audiencia-todos"
+            [checked]="vm.modo() === 'todos'"
+            (change)="vm.elegirModo('todos')"
+          />
+          {{ 'backoffice.notificaciones.todos' | translate }}
+        </label>
+        <label class="opcion">
+          <input
+            type="radio"
+            name="audiencia"
+            data-testid="notificaciones-audiencia-elegidos"
+            [checked]="vm.modo() === 'usuarios'"
+            (change)="vm.elegirModo('usuarios')"
+          />
+          {{ 'backoffice.notificaciones.elegidos' | translate }}
+        </label>
+        @if (vm.modo() === 'usuarios') {
+          <ul class="personas" data-testid="notificaciones-audiencia">
+            @for (usuario of vm.audiencia(); track usuario.usuarioId) {
+              <li>
+                <label class="opcion">
+                  <input
+                    type="checkbox"
+                    [attr.data-testid]="'notificaciones-usuario-' + usuario.usuarioId"
+                    [checked]="vm.elegidos().includes(usuario.usuarioId)"
+                    (change)="vm.alternar(usuario.usuarioId)"
+                  />
+                  <span>{{ vm.persona(usuario) }}</span>
+                  <span class="documento">{{ vm.documento(usuario) }}</span>
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </fieldset>
+
+      <label>
+        {{ 'backoffice.notificaciones.titulo' | translate }}
+        <input
+          data-testid="notificaciones-titulo"
+          [value]="vm.titulo()"
+          (input)="vm.titulo.set($any($event.target).value)"
+        />
+        <span data-testid="notificaciones-restante-titulo">{{ vm.restantesTitulo() }}</span>
+      </label>
+      <label>
+        {{ 'backoffice.notificaciones.cuerpo' | translate }}
+        <textarea
+          data-testid="notificaciones-cuerpo"
+          [value]="vm.cuerpo()"
+          (input)="vm.cuerpo.set($any($event.target).value)"
+        ></textarea>
+        <span data-testid="notificaciones-restante-cuerpo">{{ vm.restantesCuerpo() }}</span>
+      </label>
+
+      <label>
+        {{ 'backoffice.notificaciones.poliza' | translate }}
+        <input
+          data-testid="notificaciones-poliza"
+          [value]="vm.poliza()"
+          (input)="vm.poliza.set($any($event.target).value)"
+        />
+      </label>
+
+      <aside data-testid="notificaciones-preview">
+        <h2>{{ 'backoffice.notificaciones.preview' | translate }}</h2>
+        <p data-testid="notificaciones-preview-titulo">{{ vm.vistaPrevia().titulo }}</p>
+        <p data-testid="notificaciones-preview-cuerpo">{{ vm.vistaPrevia().cuerpo }}</p>
+      </aside>
+
+      <button
+        type="submit"
+        class="filled"
+        data-testid="notificaciones-enviar"
+        [disabled]="!vm.puedeEnviar()"
+      >
+        {{ 'backoffice.notificaciones.enviar' | translate }}
+      </button>
+      @if (vm.errorEnvio()) {
+        <p role="alert" data-testid="notificaciones-envio-error">
+          {{ 'backoffice.notificaciones.sendError' | translate }}
+        </p>
+      }
+    </form>
+
+    @if (vm.resultado(); as resultado) {
+      <p role="status" data-testid="notificaciones-resultado">
+        <span data-testid="notificaciones-enviadas">{{ resultado.enviadas }}</span>
+        <span data-testid="notificaciones-fallidas">{{ resultado.fallidas }}</span>
+        <span data-testid="notificaciones-sin-dispositivo">{{ resultado.sinDispositivo }}</span>
+      </p>
+    }
+
+    <h2>{{ 'backoffice.notificaciones.historial' | translate }}</h2>
+    <ul data-testid="notificaciones-historial">
+      @for (item of vm.historial(); track item.difusionId) {
+        <li [attr.data-testid]="'notificaciones-item-' + item.difusionId">{{ item.titulo }}</li>
+      }
+    </ul>
+  }
+</section>

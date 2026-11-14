@@ -18,7 +18,6 @@ import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
-import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
@@ -82,7 +81,6 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
@@ -271,8 +269,7 @@ class MockPushRepository(
     override suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
         control.ready { decode<PushRegistrationDto>(PublishedSamples.PUSH_REGISTRATION).let(::required).toRegistration() }
 
-    override suspend fun notice(): StandInAnswer<PushNotice> =
-        control.ready { decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE).let(::required).toNotice() }
+    override suspend fun unregister(token: String): StandInAnswer<Unit> = control.ready { }
 }
 
 class MockAssistanceRepository(

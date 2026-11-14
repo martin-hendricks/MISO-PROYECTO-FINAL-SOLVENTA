@@ -9,9 +9,35 @@
         <h1>{{ 'backoffice.clientes.title' | translate }}</h1>
         <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
       </div>
-      <button type="button" class="filled" data-testid="clientes-new" disabled>
-        {{ 'backoffice.clientes.new' | translate }}
-      </button>
+      @if (vm.puedeEditar) {
+        <button type="button" class="filled" data-testid="clientes-new" (click)="vm.abrirCrear()">
+          {{ 'backoffice.clientes.new' | translate }}
+        </button>
+      }
+    </div>
+
+    <div class="filtros">
+      <label>
+        <span class="visually-hidden">{{ 'backoffice.clientes.search' | translate }}</span>
+        <input
+          data-testid="clientes-search"
+          [value]="vm.q()"
+          (input)="vm.buscar($any($event.target).value)"
+          [attr.placeholder]="'backoffice.clientes.search' | translate"
+        />
+      </label>
+      <label>
+        <span class="visually-hidden">{{ 'backoffice.clientes.filter.status' | translate }}</span>
+        <select
+          data-testid="clientes-estado"
+          [value]="vm.estado()"
+          (change)="vm.filtrar($any($event.target).value)"
+        >
+          <option value="">{{ 'backoffice.clientes.filter.all' | translate }}</option>
+          <option value="ACTIVO">{{ 'backoffice.clientes.estado.ACTIVO' | translate }}</option>
+          <option value="INACTIVO">{{ 'backoffice.clientes.estado.INACTIVO' | translate }}</option>
+        </select>
+      </label>
     </div>
 
     @switch (vm.status()) {
@@ -23,7 +49,7 @@
       @case ('error') {
         <div class="empty-state" role="alert" data-testid="clientes-error">
           <p>{{ 'backoffice.clientes.error.body' | translate }}</p>
-          <button type="button" class="outlined" data-testid="clientes-retry" (click)="vm.load()">
+          <button type="button" class="outlined" data-testid="clientes-retry" (click)="vm.cargar()">
             {{ 'backoffice.clientes.error.retry' | translate }}
           </button>
         </div>
@@ -35,73 +61,189 @@
         </div>
       }
       @default {
-        <ul class="kpis">
-          @for (kpi of kpis; track kpi) {
-            <li [attr.data-testid]="'kpi-' + kpi">
-              <span class="kpi-label">{{
-                'backoffice.clientes.kpi.' + kpi + '.label' | translate
-              }}</span>
-              <span class="kpi-value">{{ vm.kpis()[kpi] }}</span>
-              <span class="kpi-hint">{{
-                'backoffice.clientes.kpi.' + kpi + '.hint' | translate
-              }}</span>
-            </li>
-          }
-        </ul>
-
         <table data-testid="clientes-table">
           <caption class="visually-hidden">
-            {{
-              'backoffice.clientes.title' | translate
-            }}
+            {{ 'backoffice.clientes.title' | translate }}
           </caption>
           <thead>
             <tr>
               <th scope="col">{{ 'backoffice.clientes.column.cliente' | translate }}</th>
               <th scope="col">{{ 'backoffice.clientes.column.documento' | translate }}</th>
-              <th scope="col">{{ 'backoffice.clientes.column.canal' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.email' | translate }}</th>
               <th scope="col">{{ 'backoffice.clientes.column.estado' | translate }}</th>
-              <th scope="col">{{ 'backoffice.clientes.column.consentimiento' | translate }}</th>
+              <th scope="col">{{ 'backoffice.clientes.column.push' | translate }}</th>
               <th scope="col">{{ 'backoffice.clientes.column.acciones' | translate }}</th>
             </tr>
           </thead>
           <tbody>
-            @for (cliente of vm.clientes(); track cliente.clienteId) {
-              <tr [attr.data-testid]="'cliente-' + cliente.clienteId">
-                <th scope="row">{{ cliente.nombre }}</th>
+            @for (cliente of vm.clientes(); track cliente.usuarioId) {
+              <tr [attr.data-testid]="'cliente-' + cliente.usuarioId">
+                <th scope="row">{{ nombre(cliente) }}</th>
                 <td class="mono">{{ cliente.documento }}</td>
-                <td class="mono">{{ 'backoffice.clientes.canal.' + cliente.canal | translate }}</td>
+                <td>{{ cliente.email }}</td>
                 <td>
                   <span class="badge" [attr.data-estado]="cliente.estado">{{
                     'backoffice.clientes.estado.' + cliente.estado | translate
                   }}</span>
                 </td>
-                <td class="mono">
-                  {{ 'backoffice.clientes.consentimiento.' + cliente.consentimiento | translate }}
+                <td [attr.data-testid]="'push-' + cliente.usuarioId" [attr.data-push]="push(cliente)">
+                  {{ 'backoffice.clientes.push.' + push(cliente) | translate }}
                 </td>
                 <td>
-                  @if (cliente.estado === 'activo') {
+                  @if (cliente.estado === 'ACTIVO') {
                     <a
                       class="text"
                       routerLink="/cms/cotizaciones/nueva"
-                      [queryParams]="{
-                        cliente: cliente.clienteId,
-                        nombre: cliente.nombre,
-                        documento: cliente.documento,
-                      }"
-                      [attr.data-testid]="'cotizar-' + cliente.clienteId"
+                      [queryParams]="cotizarDe(cliente)"
+                      [attr.data-testid]="'cotizar-' + cliente.usuarioId"
                       [attr.aria-label]="
-                        ('backoffice.clientes.cotizar' | translate) + ' ' + cliente.nombre
+                        ('backoffice.clientes.cotizar' | translate) + ' ' + nombre(cliente)
                       "
                       >{{ 'backoffice.clientes.cotizar' | translate }}</a
                     >
+                  }
+                  @if (vm.puedeEditar) {
+                    <button
+                      type="button"
+                      class="text"
+                      [attr.data-testid]="'editar-' + cliente.usuarioId"
+                      (click)="vm.abrirEditar(cliente)"
+                    >
+                      {{ 'backoffice.clientes.edit' | translate }}
+                    </button>
+                    @if (cliente.estado === 'ACTIVO') {
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'desactivar-' + cliente.usuarioId"
+                        (click)="vm.pedirDesactivar(cliente.usuarioId)"
+                      >
+                        {{ 'backoffice.clientes.deactivate' | translate }}
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'reactivar-' + cliente.usuarioId"
+                        (click)="vm.reactivar(cliente.usuarioId)"
+                      >
+                        {{ 'backoffice.clientes.reactivate' | translate }}
+                      </button>
+                    }
                   }
                 </td>
               </tr>
             }
           </tbody>
         </table>
+
+        <div class="paginacion">
+          <button
+            type="button"
+            class="outlined"
+            data-testid="clientes-prev"
+            [disabled]="vm.pagina() <= 1"
+            (click)="vm.anterior()"
+          >
+            {{ 'backoffice.clientes.page.prev' | translate }}
+          </button>
+          <span data-testid="clientes-page">{{ vm.pagina() }}</span>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="clientes-next"
+            [disabled]="!vm.hayMas()"
+            (click)="vm.siguiente()"
+          >
+            {{ 'backoffice.clientes.page.next' | translate }}
+          </button>
+        </div>
       }
+    }
+
+    @if (vm.formulario(); as formulario) {
+      <form class="ficha" data-testid="clientes-form" (submit)="$event.preventDefault(); vm.guardar()">
+        <h2>
+          {{
+            (formulario === 'crear' ? 'backoffice.clientes.form.create' : 'backoffice.clientes.form.edit')
+              | translate
+          }}
+        </h2>
+        <label>
+          {{ 'backoffice.clientes.form.nombre' | translate }}
+          <input
+            data-testid="clientes-nombre"
+            [value]="vm.borrador().nombre"
+            (input)="vm.editarCampo('nombre', $any($event.target).value)"
+          />
+        </label>
+        <label>
+          {{ 'backoffice.clientes.form.apellidos' | translate }}
+          <input
+            data-testid="clientes-apellidos"
+            [value]="vm.borrador().apellidos"
+            (input)="vm.editarCampo('apellidos', $any($event.target).value)"
+          />
+        </label>
+        <label>
+          {{ 'backoffice.clientes.form.email' | translate }}
+          <input
+            data-testid="clientes-email"
+            [value]="vm.borrador().email"
+            (input)="vm.editarCampo('email', $any($event.target).value)"
+          />
+        </label>
+        @if (formulario === 'crear') {
+          <label>
+            {{ 'backoffice.clientes.form.tipoDocumento' | translate }}
+            <input
+              data-testid="clientes-tipo-documento"
+              [value]="vm.borrador().tipoDocumento"
+              (input)="vm.editarCampo('tipoDocumento', $any($event.target).value)"
+            />
+          </label>
+          <label>
+            {{ 'backoffice.clientes.form.documento' | translate }}
+            <input
+              data-testid="clientes-documento"
+              [value]="vm.borrador().documento"
+              (input)="vm.editarCampo('documento', $any($event.target).value)"
+            />
+          </label>
+          <label>
+            {{ 'backoffice.clientes.form.password' | translate }}
+            <input
+              type="password"
+              data-testid="clientes-password"
+              [value]="vm.borrador().password"
+              (input)="vm.editarCampo('password', $any($event.target).value)"
+            />
+          </label>
+        }
+        @if (vm.conflicto(); as conflicto) {
+          <p role="alert" data-testid="clientes-conflict">{{ conflicto }}</p>
+        }
+        @if (vm.noEncontrado()) {
+          <p role="alert" data-testid="clientes-not-found">
+            {{ 'backoffice.clientes.notFound' | translate }}
+          </p>
+        }
+        <button type="submit" class="filled" data-testid="clientes-save" [disabled]="!vm.puedeGuardar()">
+          {{ 'backoffice.clientes.form.save' | translate }}
+        </button>
+        <button type="button" class="outlined" data-testid="clientes-cancel" (click)="vm.cerrarFormulario()">
+          {{ 'backoffice.clientes.form.cancel' | translate }}
+        </button>
+      </form>
+    }
+
+    @if (vm.confirmando()) {
+      <sv-confirm-dialog
+        [titulo]="'backoffice.clientes.deactivateTitle' | translate"
+        [advertencia]="'backoffice.clientes.deactivateWarning' | translate"
+        (cancelar)="vm.cancelarConfirmacion()"
+        (confirmar)="vm.confirmarDesactivacion()"
+      />
     }
   }
 </section>

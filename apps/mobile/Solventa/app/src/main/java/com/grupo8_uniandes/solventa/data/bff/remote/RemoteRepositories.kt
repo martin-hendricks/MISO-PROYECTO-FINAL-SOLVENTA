@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
@@ -27,7 +28,6 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toRecord
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRegistration
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRejection
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
-import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toParts
 import com.grupo8_uniandes.solventa.data.bff.mapping.toResult
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRevocation
@@ -35,6 +35,8 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toTokens
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.profile.AccountName
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
@@ -69,7 +71,7 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.RenewalSave
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.data.bff.dto.PushTokenRetiroDto
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
@@ -442,10 +444,17 @@ class RemotePushRepository(
     private val gate: BffGate,
 ) : PushRepository {
     override suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
-        gate.call { api.registerPush(registration.toDto()).toRegistration() }
+        gate.call {
+            val response = api.registerPush(registration.toDto())
+            if (!response.isSuccessful) throw HttpException(response)
+            registration
+        }
 
-    override suspend fun notice(): StandInAnswer<PushNotice> =
-        gate.call { api.pushNotice().toNotice() }
+    override suspend fun unregister(token: String): StandInAnswer<Unit> =
+        gate.call {
+            val response = api.unregisterPush(PushTokenRetiroDto(token))
+            if (!response.isSuccessful) throw HttpException(response)
+        }
 }
 
 class RemoteAssistanceRepository(
@@ -458,6 +467,19 @@ class RemoteAssistanceRepository(
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }
 }
+
+class RemoteAccountNameRepository(
+    private val api: MobileBffApi,
+    private val gate: BffGate,
+) : AccountNameRepository {
+    override suspend fun read(): StandInAnswer<AccountName> =
+        gate.call { api.accountName().toAccountName() }
+
+    override suspend fun save(nombre: String, apellidos: String): StandInAnswer<AccountName> =
+        gate.call { api.saveAccountName(AccountNameDto(nombre, apellidos)).toAccountName() }
+}
+
+private fun AccountNameDto.toAccountName() = AccountName(nombre, apellidos)
 
 class RemoteRenewalPreferenceRepository(
     private val api: MobileBffApi,

@@ -35,13 +35,21 @@ Cualquier rol autenticado (`cliente`, `asesor`, `operador`) opera solo sobre lo 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `POST` | `/v1/notificaciones/dispositivos` | Upsert por `(usuario_id, token)`. 201 la primera vez, 200 si ya existía; reactiva si estaba inactivo. Body `{plataforma, token}` |
+| `DELETE` | `/v1/notificaciones/dispositivos` | Body `{token}`. 204 aunque el token no exista. Token vacío: 422 `token_vacio` |
 | `DELETE` | `/v1/notificaciones/dispositivos/{dispositivo_id}` | Desactiva el dispositivo del llamante. 204; 404 si no es suyo |
+| `GET` | `/v1/notificaciones/audiencia?usuarioIds=` | Operador siempre. Asesor solo si envía `usuarioIds` (máximo 50). 403 en otro caso |
+| `POST` | `/v1/notificaciones/difusiones` | Operador. Audiencia `todos` o `usuarios` (1 a 500). 201 `{difusionId, enviadas, fallidas, sinDispositivo}` |
+| `GET` | `/v1/notificaciones/difusiones?limite=20&antesDe=` | Operador. Historial, más reciente primero |
 | `GET` | `/v1/notificaciones?limite=20&antes_de=<ISO>` | Notificaciones del llamante, `creada_en DESC`. `limite` 1..100; `antes_de` es cursor |
 | `POST` | `/v1/notificaciones/{notificacion_id}/leida` | Marca leída (idempotente). 404 si no es suya |
 | `GET` | `/v1/notificaciones/{notificacion_id}` | Detalle. 404 si no es suya |
 
-No hay endpoint HTTP de creación: las notificaciones las crea el consumidor de MSK a través
-del caso de uso `crear_notificacion` (idempotente por `(evento_origen_id, canal)`).
+Las notificaciones de póliza las crea el consumidor de MSK a través de `crear_notificacion`
+(idempotente por `(evento_origen_id, canal)`). Las difusiones las crea el operador por HTTP.
+
+`PUSH_PROVEEDOR=stub` arranca solo si `MSK_BOOTSTRAP_BROKERS` está vacío. Con brokers, el
+proceso exige `PUSH_PROVEEDOR=fcm` y un `FCM_CREDENCIALES_JSON` válido (JSON con
+`project_id`). Sin eso, o con JSON inválido, el arranque falla.
 
 ## Variables de entorno
 
@@ -52,11 +60,12 @@ del caso de uso `crear_notificacion` (idempotente por `(evento_origen_id, canal)
 | `DB_POOL_SIZE` | `10` | Conexiones por réplica |
 | `LOG_LEVEL` | `INFO` | |
 | `SOLVENTA_TOKEN_SECRET` | — (obligatoria) | Secreto HS256 compartido con ms-identidad |
-| `PUSH_PROVEEDOR` | `stub` | Adaptador de push activo |
+| `PUSH_PROVEEDOR` | `stub` | `stub` o `fcm` |
 | `PUSH_STUB_FALLAR` | `false` | Fuerza el camino de fallo del stub |
-| `MSK_BOOTSTRAP_BROKERS` | vacío | Brokers de MSK (consumidor futuro) |
+| `FCM_CREDENCIALES_JSON` | vacío | JSON de la cuenta de servicio de Firebase. Obligatorio si `PUSH_PROVEEDOR=fcm` |
+| `MSK_BOOTSTRAP_BROKERS` | vacío | Brokers de MSK. Si está definido, el proveedor no puede ser `stub` |
 | `MSK_TOPIC` | `BusEventos` | Tópico del bus |
-| `MSK_CONSUMER_GROUP` | `notificaciones-cg` | Grupo del consumidor |
+| `MSK_CONSUMER_GROUP` | `notificaciones` | Grupo del consumidor. En el clúster coincide con el rol IRSA |
 | `MSK_AUTH_MECHANISM` | `AWS_MSK_IAM` | Autenticación de MSK |
 
 ## Esquema

@@ -13,9 +13,9 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryRenewal
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -93,7 +93,7 @@ class ParametricoStoredTest {
         model.load("ausente")
         assertTrue(model.state.value.failed)
         model.openPush(
-            PushNotice(PushType.VENCIMIENTO, "otro", "cuerpo", PushDestination.AVISO_VENCIMIENTO, "POL-1"),
+            NoticeEntry(NoticeKind.VENCIMIENTO, "otro", "cuerpo", NoticeDestination.AVISO_VENCIMIENTO, "POL-1"),
         )
         assertNull(model.state.value.notice)
         ParametricoViewModel(OpenParametricPayment(claims), null).loadStored("ausente")

@@ -56,18 +56,17 @@ locals {
     }
     # outbox-relay es productor puro (publica eventos de ms_cotizacion,
     # ms_suscripcion, ms_pagos, ms_perfilamiento, ms_polizas, ms_siniestros
-    # hacia BusEventos vía PublicadorMSK), nunca consume -- pero el bloque
-    # ConsumerGroupAccess de abajo exige al menos un grupo por entrada de
-    # msk_consumers. Se le da un consumer_group propio, inofensivo porque
-    # nunca se usa.
+    # y ms_identidad hacia BusEventos vía PublicadorMSK), nunca consume. El
+    # grupo existe solo porque la política de consumidores se arma por
+    # entrada; el relay no hace JoinGroup. MSK corre con
+    # auto.create.topics.enable=false, así que BusEventos debe crearse
+    # explícitamente antes del primer publish. Solo este componente recibe
+    # CreateTopic/AlterTopic (operación de bootstrap, no de runtime).
     "outbox-relay" = {
       service_account = "outbox-relay"
       topics          = ["BusEventos"]
       consumer_groups = ["outbox-relay"]
-      # MSK corre con auto.create.topics.enable=false, así que BusEventos debe
-      # crearse explícitamente antes del primer publish. Solo este componente
-      # recibe CreateTopic/AlterTopic (operación de bootstrap, no de runtime).
-      crear_topicos = true
+      crear_topicos   = true
     }
   }
 
@@ -258,18 +257,21 @@ data "aws_iam_policy_document" "msk" {
     }
   }
 
-  statement {
-    sid    = "ConsumerGroupAccess"
-    effect = "Allow"
+  dynamic "statement" {
+    for_each = length(each.value.consumer_groups) > 0 ? [1] : []
+    content {
+      sid    = "ConsumerGroupAccess"
+      effect = "Allow"
 
-    actions = [
-      "kafka-cluster:AlterGroup",
-      "kafka-cluster:DescribeGroup",
-    ]
+      actions = [
+        "kafka-cluster:AlterGroup",
+        "kafka-cluster:DescribeGroup",
+      ]
 
-    resources = [
-      for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
-    ]
+      resources = [
+        for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
+      ]
+    }
   }
 
   # Los datos en reposo de MSK están cifrados con CMK.

@@ -22,6 +22,8 @@ import com.grupo8_uniandes.solventa.domain.bff.policy.StandInRenewalPreferenceRe
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
+import com.grupo8_uniandes.solventa.domain.profile.IdleAccountNameRepository
 
 /**
  * One stand-in bag when the address is empty. One client and one token store when it is not.
@@ -40,6 +42,7 @@ class BffRuntime private constructor(
     val home: HomeBffRepository,
     val push: PushRepository,
     val assistance: AssistanceRepository,
+    val accountName: AccountNameRepository,
     val memory: PolicyMemory,
     val claimHold: ClaimHold,
     val renewal: RenewalPreferenceRepository,
@@ -61,6 +64,7 @@ class BffRuntime private constructor(
                 bff.home,
                 bff.push,
                 bff.assistance,
+                IdleAccountNameRepository(),
                 InMemoryPolicyStore(),
                 MemoryClaimHold(),
                 StandInRenewalPreferenceRepository(),
@@ -86,6 +90,7 @@ class BffRuntime private constructor(
                 RemoteHomeBffRepository(api, gate, tokens),
                 RemotePushRepository(api, gate),
                 RemoteAssistanceRepository(api, gate),
+                RemoteAccountNameRepository(api, gate),
                 BffPolicyMemory(cache),
                 CachedClaimHold(cache),
                 RemoteRenewalPreferenceRepository(api, gate),

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1 import rutas, rutas_clientes
 from app.config import Settings
 from app.domain.errores import (
+    Conflicto,
     CredencialesInvalidas,
     CuentaDuplicada,
     CuentaInactiva,
@@ -15,6 +16,7 @@ from app.domain.errores import (
     ErrorDominio,
     IdentidadNoVerificada,
     NoEncontrado,
+    ReglaDeNegocioViolada,
 )
 from app.infrastructure.consentimiento_http import ClienteConsentimientoHTTP
 from app.infrastructure.kyc import VerificadorKYCStub
@@ -24,10 +26,12 @@ from app.observabilidad import instrumentar
 
 ESTADO_HTTP = {
     CuentaDuplicada: 409,
+    Conflicto: 409,
     CredencialesInvalidas: 401,
     CuentaInactiva: 403,
     NoEncontrado: 404,
     IdentidadNoVerificada: 422,
+    ReglaDeNegocioViolada: 422,
     DependenciaNoDisponible: 503,
 }
 

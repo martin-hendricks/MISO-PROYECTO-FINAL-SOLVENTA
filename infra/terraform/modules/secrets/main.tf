@@ -244,6 +244,40 @@ resource "aws_secretsmanager_secret_version" "siniestros_config" {
   secret_string = jsonencode({ S3_EVIDENCIAS_BUCKET = var.evidencias_bucket_name })
 }
 
+# Credenciales de FCM. El JSON real se carga a mano; Terraform no lo pisa.
+resource "aws_secretsmanager_secret" "notificaciones_fcm" {
+  name                    = "${var.project_name}-${var.environment}-notificaciones-fcm"
+  description             = "Cuenta de servicio de Firebase para notificaciones (FCM_CREDENCIALES_JSON)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-notificaciones-fcm" })
+}
+
+resource "aws_secretsmanager_secret_version" "notificaciones_fcm" {
+  secret_id     = aws_secretsmanager_secret.notificaciones_fcm.id
+  secret_string = jsonencode({ FCM_CREDENCIALES_JSON = "" })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+# Brokers de MSK. La clave es el nombre de la variable de entorno.
+resource "aws_secretsmanager_secret" "msk_config" {
+  name                    = "${var.project_name}-${var.environment}-msk-config"
+  description             = "Bootstrap brokers SASL/IAM (MSK_BOOTSTRAP_BROKERS)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-msk-config" })
+}
+
+resource "aws_secretsmanager_secret_version" "msk_config" {
+  secret_id     = aws_secretsmanager_secret.msk_config.id
+  secret_string = jsonencode({ MSK_BOOTSTRAP_BROKERS = var.msk_bootstrap_brokers_sasl_iam })
+}
+
 # --- Grafana: credenciales de administrador ---
 #
 # Mismo patrón que bff_web_token: una contraseña aleatoria estable (no

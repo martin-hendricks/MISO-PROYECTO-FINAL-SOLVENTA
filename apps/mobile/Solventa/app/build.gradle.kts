@@ -97,6 +97,8 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.osmdroid.android)
     implementation(libs.retrofit.kotlinx.serialization)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.koin.test)
@@ -152,3 +154,7 @@ private fun Project.remoteBffAddress(): String {
 
 private fun String.asBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

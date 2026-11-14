@@ -9,7 +9,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.MemoryRenewal
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
 import com.grupo8_uniandes.solventa.domain.bff.claim.ParametricNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ParametricReceipt
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -73,7 +73,7 @@ class ParametricoViewModel(
         _state.value = _state.value.copy(renewalChecked = enabled)
     }
 
-    fun openPush(push: PushNotice) {
+    fun openPush(push: NoticeEntry) {
         val notice = payments.open(push) ?: return
         _state.value = _state.value.copy(notice = notice)
     }

@@ -24,6 +24,7 @@ ESQUEMAS_PERMITIDOS = frozenset(
         "ms_perfilamiento",
         "ms_polizas",
         "ms_siniestros",
+        "ms_identidad",
     }
 )
 _PATRON_ESQUEMA = re.compile(r"^[a-z][a-z0-9_]*$")

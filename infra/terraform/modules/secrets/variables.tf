@@ -79,6 +79,12 @@ variable "seed_external_provider_placeholders" {
   default     = true
 }
 
+variable "msk_bootstrap_brokers_sasl_iam" {
+  type        = string
+  description = "Brokers SASL/IAM de MSK. Se publican como MSK_BOOTSTRAP_BROKERS para los pods que no pueden leer terraform output."
+  default     = ""
+}
+
 variable "evidencias_bucket_name" {
   type        = string
   description = "Name of the claim evidence bucket (s3_evidencias module bucket_id). Published as S3_EVIDENCIAS_BUCKET in the siniestros-config secret."
