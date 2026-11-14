@@ -17,6 +17,7 @@ from .routers import (
     operador,
     operador_clientes,
     operador_notificaciones,
+    perfil_backoffice,
     registro,
     reportes,
     billetera,
@@ -116,6 +117,7 @@ app.include_router(cliente.router, prefix="/v1")
 app.include_router(asesor.router, prefix="/v1")
 app.include_router(operador.router, prefix="/v1")
 app.include_router(operador_clientes.router, prefix="/v1")
+app.include_router(perfil_backoffice.router, prefix="/v1")
 app.include_router(operador_notificaciones.router, prefix="/v1")
 app.include_router(billetera.router_cliente, prefix="/v1")
 app.include_router(siniestros.router_cliente, prefix="/v1")
