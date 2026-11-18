@@ -71,7 +71,6 @@ import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
 import com.grupo8_uniandes.solventa.domain.push.PushTarget
@@ -334,19 +333,34 @@ fun CustomerNavHost(
         }
         composable<AsistenciaSitioRoute> { entry ->
             val route = entry.toRoute<AsistenciaSitioRoute>()
-            val request = remember { OpenAssistanceRequest() }
-            val form = remember { request.open(locationAllowed = true) }
             val viewModel: AsistenciaSitioViewModel = koinViewModel { parametersOf(route.prestadorId) }
-            if (form != null) {
-                AsistenciaSitioScreen(
-                    form = form,
-                    onContinue = viewModel::submit,
-                    onCancel = {
-                        request.cancel()
-                        navController.popBackStack()
-                    },
-                )
-            }
+            val form by viewModel.form.collectAsState()
+            val policies by viewModel.policies.collectAsState()
+            val policiesLoaded by viewModel.policiesLoaded.collectAsState()
+            val aviso = avisoViewModel()
+            AsistenciaSitioScreen(
+                form = form,
+                policies = policies,
+                policiesLoaded = policiesLoaded,
+                onPolicy = viewModel::onPolicy,
+                onDate = viewModel::onDate,
+                onDescription = viewModel::onDescription,
+                onPlace = viewModel::onPlace,
+                onContinue = {
+                    viewModel.submit()
+                    aviso.openFromAssistance(
+                        policy = form.policyValue,
+                        date = form.dateValue,
+                        description = form.descriptionValue,
+                        place = form.placeValue,
+                    )
+                    navController.navigate(EvidenciaAvisoRoute)
+                },
+                onCancel = {
+                    aviso.cancel()
+                    navController.popBackStack()
+                },
+            )
         }
         composable<AvisoSiniestroRoute> {
             val viewModel = avisoViewModel()

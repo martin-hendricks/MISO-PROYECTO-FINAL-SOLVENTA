@@ -258,10 +258,15 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
         rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
         rule.onNodeWithTag("action_continuar_evidencia").performClick()
-        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
-        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is AsistenciaSitioRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
 
+        holder[0]!!.popBackStack()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
         rule.onNodeWithTag("action_cancelar_asistencia").performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("screen_prestador_ficha").assertIsDisplayed()
     }
 
