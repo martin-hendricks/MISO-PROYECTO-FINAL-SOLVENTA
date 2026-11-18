@@ -1,0 +1,173 @@
+<section
+  data-testid="prestadores"
+  [attr.data-status]="vm.status()"
+  [attr.data-mode]="vm.modo()"
+>
+  <div class="page-head">
+    <div>
+      @if (vm.modo() === 'claim' && vm.siniestro(); as siniestro) {
+        <h1 data-testid="prestadores-titulo">
+          {{ siniestro.numero }} ·
+          {{
+            siniestro.ramo
+              ? ('prestadores.ramo.' + siniestro.ramo | translate)
+              : ('prestadores.chip.todos' | translate)
+          }}
+        </h1>
+        <p class="subtitle" data-testid="prestadores-subtitulo">
+          {{ 'prestadores.claim.subtitle' | translate }}
+        </p>
+      } @else {
+        <h1 data-testid="prestadores-titulo">{{ 'prestadores.title' | translate }}</h1>
+        @if (vm.diceCercaDeTi()) {
+          <p class="subtitle" data-testid="prestadores-subtitulo">
+            @if (vm.prestadores()[0]; as cercano) {
+              {{
+                'prestadores.subtitle.cerca'
+                  | translate: { lugar: cercano.barrio + ', ' + cercano.ciudad, radio: vm.radioKm() }
+              }}
+            } @else {
+              {{ 'prestadores.subtitle.cercaRadio' | translate: { radio: vm.radioKm() } }}
+            }
+          </p>
+        }
+      }
+    </div>
+    @if (vm.modo() !== 'claim') {
+      <a class="outlined" routerLink="/siniestros" data-testid="ver-cerca-siniestro">
+        {{ 'prestadores.verSiniestro' | translate }}
+      </a>
+    }
+  </div>
+
+  <div class="chips" role="group" [attr.aria-label]="'prestadores.chip.grupo' | translate">
+    <button
+      type="button"
+      data-testid="chip-ramo-todos"
+      [class.selected]="vm.ramo() === null"
+      [disabled]="vm.ramoBloqueado() && vm.ramo() !== null"
+      (click)="vm.seleccionarRamo(null)"
+    >
+      {{ 'prestadores.chip.todos' | translate }}
+    </button>
+    @for (ramo of ramos; track ramo) {
+      <button
+        type="button"
+        [attr.data-testid]="'chip-ramo-' + ramo"
+        [class.selected]="vm.ramo() === ramo"
+        [disabled]="vm.ramoBloqueado() && vm.ramo() !== ramo"
+        (click)="vm.seleccionarRamo(ramo)"
+      >
+        {{ 'prestadores.ramo.' + ramo | translate }}
+      </button>
+    }
+  </div>
+
+  @if (vm.status() === 'loading') {
+    <p class="subtitle" role="status" data-testid="prestadores-loading">
+      {{ 'prestadores.loading' | translate }}
+    </p>
+  } @else if (vm.status() === 'error') {
+    <div class="empty-state" role="alert" data-testid="prestadores-error">
+      <p>{{ 'prestadores.error' | translate }}</p>
+      <button type="button" class="outlined" data-testid="prestadores-reintentar" (click)="vm.cargar()">
+        {{ 'prestadores.reintentar' | translate }}
+      </button>
+    </div>
+  } @else if (vm.status() === 'not-found') {
+    <div class="empty-state" data-testid="prestadores-not-found">
+      <h2>{{ 'prestadores.claim.notFound' | translate }}</h2>
+      <a class="outlined" routerLink="/siniestros">{{ 'prestadores.verSiniestro' | translate }}</a>
+    </div>
+  } @else {
+    <div class="rejilla">
+      <div class="mapa-col">
+        <button
+          type="button"
+          class="outlined"
+          data-testid="usar-ubicacion"
+          (click)="vm.usarUbicacion()"
+        >
+          {{ 'prestadores.usarUbicacion' | translate }}
+        </button>
+        @if (vm.modo() === 'chooseCity') {
+          <p data-testid="prestadores-bloqueado">{{ 'prestadores.bloqueado' | translate }}</p>
+          <div class="chips" role="group">
+            @for (ciudad of ciudades; track ciudad.id) {
+              <button
+                type="button"
+                [attr.data-testid]="'chip-ciudad-' + ciudad.slug"
+                [class.selected]="vm.ciudad() === ciudad.id"
+                (click)="vm.elegirCiudad(ciudad.id)"
+              >
+                {{ ciudad.id }}
+              </button>
+            }
+          </div>
+        }
+        @if (vm.status() === 'sin-geo') {
+          <p data-testid="prestadores-sin-geo">{{ 'prestadores.claim.sinGeo' | translate }}</p>
+        }
+        @if (mapa() === 'disponible') {
+          <sv-mapa-prestadores
+            data-testid="prestadores-mapa"
+            [disponible]="true"
+            [prestadores]="vm.prestadores()"
+            [centro]="vm.centro() ?? vm.posicion() ?? { lat: 4.6097, lng: -74.0817 }"
+            [posicion]="vm.modo() === 'nearMe' ? vm.posicion() : null"
+            [siniestro]="vm.modo() === 'claim' ? vm.centro() : null"
+            [etiquetaSiniestro]="'prestadores.claim.pin' | translate"
+            (elegir)="vm.abrir($event)"
+            (fallo)="mapaNoDisponible()"
+          />
+        }
+      </div>
+      <aside>
+        <h2>{{ 'prestadores.masCercanos' | translate }}</h2>
+        @if (vm.status() === 'empty') {
+          <p data-testid="prestadores-vacio">{{ 'prestadores.vacio' | translate }}</p>
+        }
+        <ul class="lista" data-testid="prestadores-lista">
+          @for (prestador of vm.prestadores(); track prestador.id) {
+            <li>
+              <button
+                type="button"
+                [attr.data-testid]="'fila-prestador-' + prestador.id"
+                (click)="vm.abrir(prestador.id)"
+              >
+                <strong>{{ prestador.nombre }}</strong>
+                <span>{{ 'prestadores.tipo.' + prestador.tipo | translate }}</span>
+                <span>{{ prestador.barrio }}</span>
+                @if (vm.km(prestador); as km) {
+                  <span [attr.data-testid]="'distancia-' + prestador.id">
+                    {{
+                      (vm.referenciaDistancia() === 'evento'
+                        ? 'prestadores.distanciaEvento'
+                        : 'prestadores.distancia'
+                      ) | translate: { km }
+                    }}
+                  </span>
+                }
+              </button>
+              @if (vm.abiertoId() === prestador.id) {
+                <div [attr.data-testid]="'detalle-' + prestador.id">
+                  <p>{{ prestador.direccion }}</p>
+                  <p>{{ prestador.telefono }}</p>
+                  <p>{{ prestador.horario }}</p>
+                  <a
+                    [href]="vm.comoLlegar(prestador)"
+                    target="_blank"
+                    rel="noopener"
+                    [attr.data-testid]="'como-llegar-' + prestador.id"
+                  >
+                    {{ 'prestadores.comoLlegar' | translate }}
+                  </a>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      </aside>
+    </div>
+  }
+</section>

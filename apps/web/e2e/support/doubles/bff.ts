@@ -12,6 +12,22 @@ import {
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
+export interface OperadorPrestador {
+  id: string;
+  nombre: string;
+  tipo: string;
+  ramos: string[];
+  direccion: string;
+  ciudad: string;
+  barrio: string;
+  lat: number;
+  lng: number;
+  telefono: string;
+  horario: string;
+  estado: 'activo' | 'inactivo';
+  actualizadoEn: string;
+}
+
 const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
 const CLIENTES = '**/web/operador/clientes**';
@@ -524,6 +540,87 @@ export class BffDoubles {
   profilingConsentRevoked(): number {
     return this.profilingConsentRevocations;
   }
+
+  async serveCustomerPrestadores(body: unknown): Promise<void> {
+    const url = '**/web/cliente/prestadores**';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => route.fulfill({ json: body }));
+  }
+
+  async serveClaimPrestadores(id: string, status: number, body: unknown): Promise<void> {
+    const url = `**/web/cliente/siniestros/${id}/prestadores**`;
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => route.fulfill({ status, json: body }));
+  }
+
+  async serveOperadorPrestadores(
+    filas: OperadorPrestador[],
+    conteos: Record<string, number>,
+  ): Promise<void> {
+    this.operadorPrestadores = filas.map((fila) => ({ ...fila, ramos: [...fila.ramos] }));
+    const url = '**/web/operador/prestadores**';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      const request = route.request();
+      const partes = new URL(request.url()).pathname.split('/').filter(Boolean);
+      const indice = partes.lastIndexOf('prestadores');
+      const id = partes[indice + 1];
+      const cola = partes[indice + 2];
+      if (!id && request.method() === 'GET') {
+        const params = new URL(request.url()).searchParams;
+        const ramo = params.get('ramo');
+        const ciudad = params.get('ciudad');
+        const estado = params.get('estado');
+        const prestadores = this.operadorPrestadores.filter((fila) => {
+          if (ramo && !fila.ramos.includes(ramo)) {
+            return false;
+          }
+          if (ciudad && fila.ciudad !== ciudad) {
+            return false;
+          }
+          if (estado && fila.estado !== estado) {
+            return false;
+          }
+          return true;
+        });
+        return route.fulfill({
+          json: { conteos, centro: { lat: 4.6097, lng: -74.0817 }, prestadores },
+        });
+      }
+      if (!id && request.method() === 'POST') {
+        const body = request.postDataJSON() as Omit<
+          OperadorPrestador,
+          'id' | 'estado' | 'actualizadoEn'
+        >;
+        const creada: OperadorPrestador = {
+          ...body,
+          id: 'PRE-E2E-01',
+          estado: 'activo',
+          actualizadoEn: new Date().toISOString(),
+        };
+        this.operadorPrestadores.push(creada);
+        return route.fulfill({ status: 201, json: creada });
+      }
+      const fila = this.operadorPrestadores.find((item) => item.id === id);
+      if (!fila) {
+        return route.fulfill({ status: 404, json: { detail: 'no_encontrado' } });
+      }
+      if (request.method() === 'GET') {
+        return route.fulfill({ json: fila });
+      }
+      if (request.method() === 'PATCH') {
+        Object.assign(fila, request.postDataJSON());
+        return route.fulfill({ json: fila });
+      }
+      if (request.method() === 'POST' && cola === 'estado') {
+        fila.estado = (request.postDataJSON() as { estado: 'activo' | 'inactivo' }).estado;
+        return route.fulfill({ json: fila });
+      }
+      return route.fulfill({ status: 404, json: {} });
+    });
+  }
+
+  private operadorPrestadores: OperadorPrestador[] = [];
 
   private async replaceClients(handler: Parameters<Page['route']>[1]): Promise<void> {
     await this.page.unroute(CLIENTES);

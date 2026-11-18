@@ -1,0 +1,44 @@
+:host {
+  display: block;
+  min-height: 280px;
+}
+
+.lienzo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+google-map {
+  display: block;
+  flex: 1;
+  min-height: 280px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.pines,
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pines button,
+.pin-claim,
+.leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}

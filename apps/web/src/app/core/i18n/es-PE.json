@@ -311,7 +311,8 @@
       "avisos": "Avisos",
       "reportes": "Reportes",
       "metricas": "Métricas",
-      "notificaciones": "Notificaciones"
+      "notificaciones": "Notificaciones",
+      "prestadores": "Prestadores"
     },
     "role": {
       "label": "Rol:",
@@ -323,6 +324,71 @@
       "motivo": "Motivo",
       "cancelar": "Cancelar",
       "confirmar": "Confirmar"
+    },
+    "prestadores": {
+      "title": "Prestadores",
+      "subtitle": "Red de atención por ramo. Bogotá {{bogota}} · Medellín {{medellin}} · Chía {{chia}}",
+      "nuevo": "Nuevo prestador",
+      "loading": "Cargando prestadores…",
+      "reintentar": "Reintentar",
+      "quitarFiltros": "Quitar filtros",
+      "inactivar": "Inactivar",
+      "reactivar": "Reactivar",
+      "inactivarTitulo": "Inactivar prestador",
+      "inactivarCuerpo": "Inactivar deja de mostrar {{nombre}} en el mapa del cliente. Las asistencias ya pedidas conservan el nombre.",
+      "volver": "Volver a prestadores",
+      "filtro": {
+        "ramo": "Ramo",
+        "ciudad": "Ciudad",
+        "estado": "Estado",
+        "todos": "Todos",
+        "todas": "Todas"
+      },
+      "column": {
+        "nombre": "Nombre",
+        "tipo": "Tipo",
+        "ramo": "Ramo",
+        "barrio": "Barrio",
+        "ciudad": "Ciudad",
+        "estado": "Estado",
+        "acciones": "Acciones"
+      },
+      "estado": {
+        "activo": "Activo",
+        "inactivo": "Inactivo"
+      },
+      "vacio": {
+        "title": "No hay prestadores con ese filtro.",
+        "body": "Clima y vuelos solo tiene puntos en El Dorado y en Olaya Herrera. Chía queda vacía a propósito."
+      },
+      "error": {
+        "carga": "No pudimos cargar los prestadores.",
+        "ramo": "Elige al menos un ramo.",
+        "prestador_sin_ramo": "Elige al menos un ramo.",
+        "ramo_desconocido": "Ese ramo no está en el catálogo.",
+        "coordenada_fuera_de_rango": "La coordenada está fuera de rango.",
+        "generico": "No pudimos guardar el prestador."
+      },
+      "form": {
+        "title": "Prestador",
+        "subtitle": "Alta y edición. El pin del mapa guarda la coordenada.",
+        "nombre": "Nombre",
+        "barrio": "Barrio",
+        "tipo": "Tipo",
+        "telefono": "Teléfono",
+        "direccion": "Dirección",
+        "horario": "Horario",
+        "ciudad": "Ciudad",
+        "eligeTipo": "Elige un tipo",
+        "eligeCiudad": "Elige una ciudad",
+        "ramos": "Ramos",
+        "ramosAyuda": "Al menos un ramo. Un local puede atender varios.",
+        "pin": "Arrastra el pin para fijar lat y lng",
+        "lat": "Latitud",
+        "lng": "Longitud",
+        "guardar": "Guardar",
+        "notFound": "No encontramos ese prestador."
+      }
     },
     "polizas": {
       "title": "Pólizas",
@@ -891,6 +957,7 @@
       "title": "Siniestros",
       "subtitle": "Avisos en evaluación, pagados y cerrados. Cada fila muestra ramo y estado.",
       "reportar": "Reportar siniestro",
+      "prestadores": "Prestadores",
       "loading": "Cargando tus siniestros…",
       "error": "No pudimos cargar tus siniestros.",
       "empty": {
@@ -964,7 +1031,8 @@
       "evidencia": "Evidencia adjunta",
       "sinEvidencia": "Sin evidencia",
       "historial": "Historial del caso",
-      "verEnBilletera": "Ver en billetera"
+      "verEnBilletera": "Ver en billetera",
+      "prestadores": "Prestadores cerca del siniestro"
     }
   },
   "billetera": {
@@ -1005,6 +1073,55 @@
       "depositado": "Depositado",
       "estadoValor": "Depositado · {{tipo}}",
       "notFound": "No encontramos ese depósito."
+    }
+  },
+  "prestadores": {
+    "title": "Prestadores",
+    "loading": "Cargando prestadores…",
+    "error": "No pudimos cargar los prestadores.",
+    "reintentar": "Reintentar",
+    "vacio": "No hay prestadores en este radio.",
+    "usarUbicacion": "Usar mi ubicación",
+    "verSiniestro": "Ver cerca de un siniestro",
+    "masCercanos": "Más cercanos",
+    "comoLlegar": "Cómo llegar",
+    "bloqueado": "El navegador bloqueó la ubicación. Elige una ciudad: la lista no promete estar cerca de ti.",
+    "distancia": "A {{km}} km",
+    "distanciaEvento": "A {{km}} km del evento",
+    "subtitle": {
+      "cerca": "Cerca de ti · {{lugar}}. Radio {{radio}} km.",
+      "cercaRadio": "Cerca de ti · Radio {{radio}} km."
+    },
+    "chip": {
+      "todos": "Todos",
+      "grupo": "Ramo"
+    },
+    "ramo": {
+      "proteccion-dispositivo": "Protección de dispositivo",
+      "soat-motocicleta": "SOAT motocicleta",
+      "microseguro-de-vida": "Microseguro de vida",
+      "clima-y-vuelos": "Clima y vuelos",
+      "vida-hipotecario": "Vida hipotecario",
+      "pagos": "Pagos",
+      "viaje": "Viaje",
+      "vida-crediticia": "Vida crediticia"
+    },
+    "tipo": {
+      "servicio-tecnico": "Servicio técnico",
+      "taller-motos": "Taller de motos",
+      "ips-urgencias": "IPS de urgencias",
+      "grua": "Grúa",
+      "asistencia-viajero": "Asistencia al viajero",
+      "punto-aeropuerto": "Punto de aeropuerto",
+      "ips-examenes": "IPS de exámenes",
+      "funeraria": "Funeraria",
+      "centro-atencion": "Centro de atención"
+    },
+    "claim": {
+      "subtitle": "Prestadores cerca de donde registraste el evento. El ramo queda fijo.",
+      "pin": "Tu siniestro",
+      "sinGeo": "Este siniestro no tiene ubicación. Usa tu ubicación para ver prestadores cerca de ti.",
+      "notFound": "No encontramos este siniestro."
     }
   }
 }

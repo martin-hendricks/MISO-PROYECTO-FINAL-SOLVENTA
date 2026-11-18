@@ -1,6 +1,8 @@
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
 import { Browser, chromium, Page } from 'playwright';
 import { BilleteraPage } from '../pages/billetera.page';
+import { BoPrestadoresPage } from '../pages/bo-prestadores.page';
+import { PrestadoresPage } from '../pages/prestadores.page';
 import { BackofficePage } from '../pages/backoffice.page';
 import { NotificacionesPage } from '../pages/notificaciones.page';
 import { CotizacionPage } from '../pages/cotizacion.page';
@@ -29,6 +31,8 @@ export class PortalWorld extends World {
   notificaciones!: NotificacionesPage;
   inicio!: InicioPage;
   billetera!: BilleteraPage;
+  prestadores!: PrestadoresPage;
+  boPrestadores!: BoPrestadoresPage;
   cotizacion!: CotizacionPage;
   polizaDetalle!: PolizaDetallePage;
   idiomaRegion!: IdiomaRegionPage;
@@ -60,6 +64,8 @@ export class PortalWorld extends World {
     this.notificaciones = new NotificacionesPage(this.page);
     this.inicio = new InicioPage(this.page);
     this.billetera = new BilleteraPage(this.page);
+    this.prestadores = new PrestadoresPage(this.page);
+    this.boPrestadores = new BoPrestadoresPage(this.page);
     this.cotizacion = new CotizacionPage(this.page);
     this.polizaDetalle = new PolizaDetallePage(this.page);
     this.idiomaRegion = new IdiomaRegionPage(this.page);

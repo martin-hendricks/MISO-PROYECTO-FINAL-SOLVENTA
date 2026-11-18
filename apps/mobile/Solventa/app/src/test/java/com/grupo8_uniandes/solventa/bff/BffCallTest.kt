@@ -26,6 +26,7 @@ import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
@@ -488,7 +489,15 @@ class BffCallTest {
 
         enqueue(PublishedSamples.PROVIDERS)
         val assistance = RemoteAssistanceRepository(api(), gate)
-        assertEquals(2, (assistance.providers() as StandInAnswer.Ready).value.size)
+        val page = assistance.providers(
+            ProviderQuery(lat = 4.64, lng = -74.06, ramo = "soat-motocicleta", radioKm = 10.0),
+        ) as StandInAnswer.Ready
+        assertEquals("PRE-BOG-06", page.value.prestadores.single().id)
+        val asked = server.takeRequest()
+        assertTrue(asked.path.orEmpty().contains("cliente/prestadores"))
+        assertTrue(asked.path.orEmpty().contains("lat=4.64"))
+        assertTrue(asked.path.orEmpty().contains("ramo=soat-motocicleta"))
+        assertTrue(asked.path.orEmpty().contains("radioKm=10"))
         enqueue(PublishedSamples.ASSISTANCE_OUT)
         val requested = assistance.request(AssistanceRequest("PR-1", 4.65, -74.08, "POL-88219-CO"))
         assertTrue(requested is StandInAnswer.Ready)

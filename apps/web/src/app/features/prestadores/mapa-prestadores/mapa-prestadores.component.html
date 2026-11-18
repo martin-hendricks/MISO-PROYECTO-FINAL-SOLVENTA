@@ -1,0 +1,61 @@
+@if (disponible()) {
+  <div class="lienzo">
+    <google-map
+      height="100%"
+      width="100%"
+      [center]="centro()"
+      [zoom]="13"
+      (authFailure)="fallo.emit()"
+    >
+      @if (posicion(); as tu) {
+        <map-marker [position]="tu" />
+      }
+      @if (siniestro(); as evento) {
+        <map-marker [position]="evento" [label]="etiquetaSiniestro()" />
+      }
+      @if (arrastrable()) {
+        @if (pin(); as punto) {
+          <map-marker
+            [position]="punto"
+            [options]="{ draggable: true }"
+            (mapDragend)="soltar($event)"
+          />
+        }
+      } @else {
+        @for (prestador of prestadores(); track prestador.id) {
+          <map-marker
+            [position]="{ lat: prestador.lat, lng: prestador.lng }"
+            [title]="prestador.nombre"
+            [icon]="$any(icono(prestador.tipo))"
+            (mapClick)="elegir.emit(prestador.id)"
+          />
+        }
+      }
+    </google-map>
+    <div class="pines">
+      @if (siniestro()) {
+        <span class="pin-claim" [style.background]="colorSiniestro" data-testid="pin-siniestro">
+          {{ etiquetaSiniestro() }}
+        </span>
+      }
+      @for (prestador of prestadores(); track prestador.id) {
+        <button
+          type="button"
+          [attr.data-testid]="'pin-' + prestador.id"
+          (click)="elegir.emit(prestador.id)"
+        >
+          <span class="swatch" [style.background]="color(prestador.tipo)"></span>
+          {{ prestador.nombre }}
+        </button>
+      }
+    </div>
+    <ul class="leyenda" data-testid="prestadores-leyenda">
+      @for (tipo of tipos; track tipo) {
+        <li>
+          <span class="swatch" [style.background]="color(tipo)"></span>
+          {{ 'prestadores.tipo.' + tipo | translate }}
+        </li>
+      }
+    </ul>
+  </div>
+}

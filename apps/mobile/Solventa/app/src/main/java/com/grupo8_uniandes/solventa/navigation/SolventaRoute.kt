@@ -42,7 +42,13 @@ data class ConfirmacionAvisoRoute(val siniestroId: String)
 data object MapaPrestadoresRoute
 
 @Serializable
-data object AsistenciaSitioRoute
+data class MapaPrestadoresSiniestroRoute(val siniestroId: String)
+
+@Serializable
+data class PrestadorFichaRoute(val prestadorId: String)
+
+@Serializable
+data class AsistenciaSitioRoute(val prestadorId: String)
 
 @Serializable
 data object BilleteraRoute

@@ -247,19 +247,22 @@ class CustomerNavHostTest {
         rule.waitForIdle()
 
         rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
-        rule.onNodeWithText("Taller Norte").assertIsDisplayed()
+        rule.onNodeWithText("Bogotá").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Taller Moto Chapinero").assertIsDisplayed()
         assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
 
         rule.onNodeWithTag("action_open_provider_0").performClick()
+        rule.onNodeWithTag("screen_prestador_ficha").assertIsDisplayed()
+        rule.onNodeWithTag("action_pedir_asistencia").performClick()
         rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
         rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
         rule.onNodeWithTag("action_continuar_evidencia").performClick()
         rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
-        assertEquals(AsistenciaSitioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is AsistenciaSitioRoute)
 
         rule.onNodeWithTag("action_cancelar_asistencia").performClick()
-        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
-        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("screen_prestador_ficha").assertIsDisplayed()
     }
 
     @Test

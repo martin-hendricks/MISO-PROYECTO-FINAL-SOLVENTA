@@ -60,10 +60,12 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConsentimientoRevocadoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
-import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
+import com.grupo8_uniandes.solventa.prestadores.AsistenciaSitioViewModel
+import com.grupo8_uniandes.solventa.prestadores.MapaPrestadoresViewModel
+import com.grupo8_uniandes.solventa.prestadores.PrestadorFichaViewModel
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
 import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
+import com.grupo8_uniandes.solventa.ui.shell.PrestadorFichaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
@@ -294,23 +296,49 @@ fun CustomerNavHost(
                 onRetry = viewModel::refresh,
                 onOpenClaim = viewModel::openClaim,
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
+                onOpenProviders = { navController.navigate(MapaPrestadoresRoute) },
             )
         }
         composable<MapaPrestadoresRoute> {
-            val catalog = OpenProviderCatalog().open(locationAllowed = true) as ProviderCatalog.Open
-            MapaPrestadoresScreen(
-                rows = catalog.rows,
-                onOpenAssistance = { navController.navigate(AsistenciaSitioRoute) },
+            ProviderMapRoute(
+                claimId = "",
+                onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
             )
         }
-        composable<AsistenciaSitioRoute> {
+        composable<MapaPrestadoresSiniestroRoute> { entry ->
+            val route = entry.toRoute<MapaPrestadoresSiniestroRoute>()
+            ProviderMapRoute(
+                claimId = route.siniestroId,
+                onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
+                onReport = { navController.navigate(AvisoSiniestroRoute) },
+            )
+        }
+        composable<PrestadorFichaRoute> { entry ->
+            val route = entry.toRoute<PrestadorFichaRoute>()
+            val viewModel: PrestadorFichaViewModel = koinViewModel { parametersOf(route.prestadorId) }
+            val context = LocalContext.current
+            PrestadorFichaScreen(
+                provider = viewModel.provider,
+                onDirections = {
+                    val uri = viewModel.directionsUri()
+                    if (uri.isNotBlank()) {
+                        val view = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                        runCatching { context.startActivity(view) }
+                    }
+                },
+                onRequestAssistance = { navController.navigate(AsistenciaSitioRoute(route.prestadorId)) },
+            )
+        }
+        composable<AsistenciaSitioRoute> { entry ->
+            val route = entry.toRoute<AsistenciaSitioRoute>()
             val request = remember { OpenAssistanceRequest() }
             val form = remember { request.open(locationAllowed = true) }
+            val viewModel: AsistenciaSitioViewModel = koinViewModel { parametersOf(route.prestadorId) }
             if (form != null) {
                 AsistenciaSitioScreen(
                     form = form,
-                    onContinue = {},
+                    onContinue = viewModel::submit,
                     onCancel = {
                         request.cancel()
                         navController.popBackStack()
@@ -439,6 +467,7 @@ fun CustomerNavHost(
                 onOpenWallet = {
                     navController.openWalletFor(detail.claim?.summary?.siniestroId ?: route.claimId)
                 },
+                onOpenProviders = { navController.navigate(MapaPrestadoresSiniestroRoute(route.claimId)) },
             )
         }
         composable<BilleteraRoute> { entry ->
@@ -584,6 +613,25 @@ private fun ValidityNoticeRoute(
 }
 
 @Composable
+private fun ProviderMapRoute(
+    claimId: String,
+    onOpenProvider: (String) -> Unit,
+    onReport: () -> Unit,
+) {
+    val viewModel: MapaPrestadoresViewModel = koinViewModel { parametersOf(claimId) }
+    val state by viewModel.state.collectAsState()
+    MapaPrestadoresScreen(
+        state = state,
+        onPermission = viewModel::onLocationPermission,
+        onSelectCity = viewModel::selectCity,
+        onSelectRamo = viewModel::selectRamo,
+        onOpenProvider = onOpenProvider,
+        onRetry = viewModel::retry,
+        onReport = onReport,
+    )
+}
+
+@Composable
 private fun avisoViewModel(): AvisoSiniestroViewModel {
     val activity = LocalContext.current.findActivity() as? ComponentActivity
     return if (activity != null) {
@@ -610,7 +658,9 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<EvidenciaAvisoRoute>() -> EvidenciaAvisoRoute
         destination.hasRoute<ConfirmacionAvisoRoute>() -> toRoute<ConfirmacionAvisoRoute>()
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
-        destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
+        destination.hasRoute<MapaPrestadoresSiniestroRoute>() -> toRoute<MapaPrestadoresSiniestroRoute>()
+        destination.hasRoute<PrestadorFichaRoute>() -> toRoute<PrestadorFichaRoute>()
+        destination.hasRoute<AsistenciaSitioRoute>() -> toRoute<AsistenciaSitioRoute>()
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<BilleteraRoute>() -> BilleteraRoute
         destination.hasRoute<DepositoRoute>() -> toRoute<DepositoRoute>()

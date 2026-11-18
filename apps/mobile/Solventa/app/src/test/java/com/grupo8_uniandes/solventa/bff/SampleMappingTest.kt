@@ -247,12 +247,13 @@ class SampleMappingTest {
         assertEquals(NoticeDestination.AVISO_VENCIMIENTO, push.destino)
         assertEquals("POL-88219-CO", push.poliza)
 
-        val providers = bff.assistance.providers().ready()
-        assertEquals("PR-1", providers[0].id)
-        assertEquals("Taller Norte", providers[0].nombre)
-        assertEquals(1.2, providers[0].distanciaKm, 0.0)
-        assertEquals("Chapinero", providers[0].zona)
-        assertEquals("Kennedy", providers[1].zona)
+        val providers = bff.assistance.providers(com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery()).ready()
+        assertEquals("PRE-BOG-06", providers.prestadores[0].id)
+        assertEquals("Taller Moto Chapinero", providers.prestadores[0].nombre)
+        assertEquals(0.9, providers.prestadores[0].distanciaKm!!, 0.0)
+        assertEquals("Chapinero", providers.prestadores[0].barrio)
+        assertEquals("posicion", providers.centro!!.origen)
+        assertEquals(10.0, providers.radioKm, 0.0)
         val request = publishedAssistanceRequest()!!
         assertEquals("PR-1", request.prestadorId)
         assertEquals(4.6533, request.lat, 0.0)
@@ -409,8 +410,23 @@ class SampleMappingTest {
             PushDestinationDto.`aviso-vencimiento`,
             PushNoticeDto(PushTypeDto.vencimiento, "Tu póliza vence", "En 7 días", PushDestinationDto.`aviso-vencimiento`, "POL-88219-CO").destino,
         )
-        val provider = ProviderDto("PR-1", "Taller Norte", 1.2, "Chapinero")
-        assertEquals(provider.id, ProvidersDto(listOf(provider)).prestadores.single().id)
+        val provider = ProviderDto(
+            id = "PRE-BOG-06",
+            nombre = "Taller Moto Chapinero",
+            tipo = "taller-motos",
+            ramos = listOf("soat-motocicleta"),
+            direccion = "Cra 13 #45-18",
+            ciudad = "Bogotá",
+            barrio = "Chapinero",
+            lat = 4.6355,
+            lng = -74.0655,
+            telefono = "601 555 0112",
+            horario = "Lun–Sáb 7:00–19:00",
+            distanciaKm = 0.9,
+        )
+        val center = com.grupo8_uniandes.solventa.data.bff.dto.ProviderCenterDto(4.6432, -74.0631, "posicion")
+        assertEquals(provider.id, ProvidersDto(center, 10.0, listOf(provider)).prestadores.single().id)
+        assertNull(provider.copy(distanciaKm = null).distanciaKm)
         val where = AssistanceGeoDto(4.6533, -74.0836)
         assertEquals("PR-1", AssistanceInDto("PR-1", where, "POL-88219-CO").prestadorId)
         assertEquals("registrada", AssistanceOutDto("AS-18", "registrada").estado)

@@ -15,6 +15,7 @@ import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.assistance.FindProviders
 import com.grupo8_uniandes.solventa.billetera.BilleteraViewModel
 import com.grupo8_uniandes.solventa.billetera.DepositoViewModel
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
@@ -75,6 +76,9 @@ import com.grupo8_uniandes.solventa.domain.registration.RegistrationRepository
 import com.grupo8_uniandes.solventa.claim.ClaimsPhase
 import com.grupo8_uniandes.solventa.claim.SiniestroDetalleViewModel
 import com.grupo8_uniandes.solventa.claim.SiniestrosViewModel
+import com.grupo8_uniandes.solventa.prestadores.AsistenciaSitioViewModel
+import com.grupo8_uniandes.solventa.prestadores.MapaPrestadoresViewModel
+import com.grupo8_uniandes.solventa.prestadores.PrestadorFichaViewModel
 import com.grupo8_uniandes.solventa.home.HomeViewModel
 import com.grupo8_uniandes.solventa.mortgage.MortgageOfferViewModel
 import com.grupo8_uniandes.solventa.offer.OfferViewModel
@@ -139,6 +143,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     single { PushOptIn(get(), get()) }
     single<AssistanceRepository> { get<BffRuntime>().assistance }
+    single { FindProviders(get()) }
     single<HomeRepository> { StandInHomeRepository(get()) }
     single { LoadInicio(get()) }
     single { RequestFirmOffer(get()) }
@@ -195,6 +200,11 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     }
     viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
+    viewModel { (claimId: String) ->
+        MapaPrestadoresViewModel(get(), get(), BuildConfig.MAPS_API_KEY, claimId.ifBlank { null })
+    }
+    viewModel { (prestadorId: String) -> PrestadorFichaViewModel(prestadorId, get()) }
+    viewModel { (prestadorId: String) -> AsistenciaSitioViewModel(prestadorId, get(), get()) }
     viewModel { BilleteraViewModel(get(), get()) }
     viewModel { (id: String) -> DepositoViewModel(id, get(), get(), get()) }
     viewModel { (claimId: String) -> SiniestroDetalleViewModel(get(), claimId) }

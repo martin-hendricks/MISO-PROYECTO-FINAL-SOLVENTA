@@ -3,10 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
 from app.domain.aviso import Adjunto, Decision, IntentoPago, PagoSiniestro, ParametroRamo
+from app.domain.prestador import Prestador, PrestadorCercano
 from app.domain.modelos import (
     EstadoSiniestro,
     EvaluacionUmbral,
@@ -112,6 +114,33 @@ class RepositorioPagos(Protocol):
     async def agregar(self, pago: PagoParametrico) -> None: ...
 
 
+class RepositorioPrestadores(Protocol):
+    async def cercanos(
+        self,
+        lat: Decimal,
+        lng: Decimal,
+        radio_km: Decimal,
+        ramo: str | None,
+        estados: tuple[str, ...],
+        limite: int,
+        ciudad: str | None = None,
+    ) -> list[PrestadorCercano]: ...
+
+    async def por_ciudad(
+        self, ciudad: str, ramo: str | None, estados: tuple[str, ...], limite: int
+    ) -> list[PrestadorCercano]: ...
+
+    async def listar(
+        self, ramo: str | None, ciudad: str | None, estados: tuple[str, ...]
+    ) -> list[Prestador]: ...
+
+    async def conteos_por_ciudad(self) -> dict[str, int]: ...
+
+    async def obtener(self, prestador_id: str) -> Prestador | None: ...
+
+    async def guardar(self, prestador: Prestador) -> None: ...
+
+
 class Outbox(Protocol):
     async def agregar(self, evento: EventoDominio) -> None: ...
 
@@ -125,6 +154,7 @@ class UnidadDeTrabajo(Protocol):
     decisiones: RepositorioDecisiones
     pagos_siniestro: RepositorioPagosSiniestro
     parametros: RepositorioParametros
+    prestadores: RepositorioPrestadores
     outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...

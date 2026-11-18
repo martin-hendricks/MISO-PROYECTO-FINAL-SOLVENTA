@@ -10,7 +10,8 @@ export type Section =
   | 'avisos'
   | 'reportes'
   | 'metricas'
-  | 'notificaciones';
+  | 'notificaciones'
+  | 'prestadores';
 
 export class BackofficePage {
   constructor(private readonly page: Page) {}
@@ -55,6 +56,7 @@ export class BackofficePage {
     if (role === 'operador') {
       expected.push('Notificaciones');
     }
+    expected.push('Prestadores');
     assert.deepEqual(
       destinations.map((text) => text.trim()),
       expected,

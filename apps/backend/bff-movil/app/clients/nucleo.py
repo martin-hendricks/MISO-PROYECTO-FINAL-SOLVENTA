@@ -227,6 +227,14 @@ class ClienteNucleo:
         params = {"usuario_id": usuario_id} if usuario_id else None
         return self._pedir("ms-polizas", "GET", f"/v1/polizas/numero/{numero}", params=params)
 
+    def prestadores(self, **filtros) -> dict:
+        params = {clave: valor for clave, valor in filtros.items() if valor is not None}
+        return self._pedir("ms-siniestros", "GET", "/v1/prestadores", params=params)
+
+    def prestadores_siniestro(self, siniestro_id: str, radio_km: float | None = None) -> dict:
+        params = {"radio_km": radio_km} if radio_km is not None else None
+        return self._pedir("ms-siniestros", "GET", f"/v1/siniestros/{siniestro_id}/prestadores", params=params)
+
     def listar_siniestros(self, *, usuario_id: str) -> list:
         cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
         return cuerpo if isinstance(cuerpo, list) else []

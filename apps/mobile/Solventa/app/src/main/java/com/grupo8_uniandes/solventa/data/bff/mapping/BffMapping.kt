@@ -34,6 +34,8 @@ import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushDestinationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
@@ -50,7 +52,11 @@ import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
 import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCenter
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
@@ -332,9 +338,40 @@ internal fun PushNoticeDto.toNotice() = NoticeEntry(
     poliza,
 )
 
-internal fun ProvidersDto.toProviders() = prestadores.map {
-    Provider(it.id, it.nombre, it.distanciaKm, it.zona)
-}
+internal fun ProvidersDto.toProviderPage() = ProviderPage(
+    centro?.let { ProviderCenter(it.lat, it.lng, it.origen) },
+    radioKm,
+    prestadores.map { it.toProvider() },
+)
+
+internal fun ClaimProvidersDto.toClaimProviders() = ClaimProviders(
+    siniestroId = siniestro.id,
+    numero = siniestro.numero,
+    ramo = siniestro.ramo,
+    ramoFijo = ramoFijo,
+    sinGeoetiqueta = sinGeoetiqueta,
+    centro = centro?.let { ProviderCenter(it.lat, it.lng, it.origen) },
+    radioKm = radioKm,
+    prestadores = prestadores.map { it.toProvider() },
+)
+
+private fun ProviderDto.toProvider() = Provider(
+    id,
+    nombre,
+    tipo.toProviderType(),
+    ramos,
+    direccion,
+    ciudad,
+    barrio,
+    lat,
+    lng,
+    telefono,
+    horario,
+    distanciaKm,
+)
+
+private fun String.toProviderType(): ProviderType =
+    ProviderType.entries.firstOrNull { it.code == this } ?: throw SerializationException("tipo")
 
 internal fun AssistanceInDto.toRequest() = AssistanceRequest(prestadorId, geo.lat, geo.lng, poliza)
 

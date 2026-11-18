@@ -319,8 +319,13 @@ class AvisoSiniestroScreenTest {
         rule.setContent {
             SolventaTheme {
                 MapaPrestadoresScreen(
-                    rows = emptyList(),
-                    onOpenAssistance = {},
+                    state = com.grupo8_uniandes.solventa.prestadores.MapaPrestadoresUi(
+                        phase = com.grupo8_uniandes.solventa.prestadores.ProviderMapPhase.ChooseCity,
+                    ),
+                    onPermission = {},
+                    onSelectCity = {},
+                    onSelectRamo = {},
+                    onOpenProvider = {},
                     onReport = { reported = true },
                 )
             }

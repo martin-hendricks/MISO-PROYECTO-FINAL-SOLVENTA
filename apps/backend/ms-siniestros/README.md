@@ -18,6 +18,7 @@ CQRS: separación comando/consulta pendiente de aplicar según el resultado del 
 | HU-157 · Aviso de siniestro en el portal y back-office | [SOLV-256](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-256) | Alta del aviso asistido con evidencia en S3 (N5/N6), motor de reglas que aprueba y paga el bajo monto, rechaza lo objetivo o retiene para el operador (N15), cola del operador con decisión auditada (HU-26/27), perito (HU-28) y pago de bajo monto idempotente (HU-29). |
 | HU-160 · Lista de siniestros en el portal | [SOLV-259](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-259) | `GET /v1/siniestros?usuario_id=` y `GET /v1/siniestros/{id}/detalle?usuario_id=` (el cliente nunca ve un siniestro ajeno). |
 | Billetera · depósitos recibidos | SOLV-144 / SOLV-145 | `GET /v1/pagos-recibidos` y `GET /v1/pagos-recibidos/{id}`: pagos ejecutados del cliente (asistido con intento `ejecutado`, o paramétrico pagado). El evento paramétrico acepta `usuario_id`, `ramo` (máx. 60), `poliza_numero` (máx. 60) y `descripcion` (máx. 200), todos opcionales. `pago_parametrico.comprobante` es `CMP-` + 10 hex y no cambia en una reingesta. |
+| Prestadores | SOLV-132 / SOLV-133 / SOLV-134 | `prestador` y `prestador_ramo` (migración 08, 60 filas de semilla). `GET /v1/prestadores` calcula la distancia (haversine, radio máximo 50 km). `GET /v1/siniestros/{id}/prestadores` fija el ramo del aviso. Alta, edición y estado son solo del operador. El cliente solo ve `activo`. |
 
 ### Estados del siniestro (HU-30)
 

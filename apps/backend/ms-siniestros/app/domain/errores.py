@@ -26,3 +26,23 @@ class NoEncontrado(ErrorDominio):
 class EventoParametricoInvalido(ReglaDeNegocioViolada):
     def __init__(self, codigo: str, mensaje: str) -> None:
         super().__init__(codigo, mensaje)
+
+
+class PrestadorSinRamo(ReglaDeNegocioViolada):
+    def __init__(self) -> None:
+        super().__init__("prestador_sin_ramo", "Elige al menos un ramo.")
+
+
+class RamoDesconocido(ReglaDeNegocioViolada):
+    def __init__(self, ramo: str) -> None:
+        super().__init__("ramo_desconocido", f"El ramo '{ramo}' no existe")
+
+
+class CoordenadaFueraDeRango(ReglaDeNegocioViolada):
+    def __init__(self) -> None:
+        super().__init__("coordenada_fuera_de_rango", "La coordenada está fuera de rango")
+
+
+class CentroRequerido(ReglaDeNegocioViolada):
+    def __init__(self) -> None:
+        super().__init__("centro_requerido", "Indica una ubicación o una ciudad")

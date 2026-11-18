@@ -1,7 +1,10 @@
+import math
 from copy import deepcopy
 from decimal import Decimal
 from itertools import count
 from uuid import UUID
+
+from app.domain.prestador import Prestador, PrestadorCercano
 
 from app.domain.aviso import Adjunto, Decision, IntentoPago, PagoSiniestro, ParametroRamo
 from app.domain.modelos import (
@@ -37,6 +40,7 @@ class AlmacenEnMemoria:
             )
         }
         self.secuencia_numero = count(1001)
+        self.prestadores: dict[str, Prestador] = {}
         self.chocar_evento_en_proximo_commit: str | None = None
         self.chocar_pago_en_proximo_commit: str | None = None
 
@@ -268,6 +272,69 @@ class _Outbox:
         self._uow.eventos_dominio_pendientes.append(evento)
 
 
+def _km(lat1, lng1, lat2, lng2) -> float:
+    radio = 6371.0
+    p1, p2 = math.radians(float(lat1)), math.radians(float(lat2))
+    dphi = math.radians(float(lat2) - float(lat1))
+    dlmb = math.radians(float(lng2) - float(lng1))
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * radio * math.asin(math.sqrt(a))
+
+
+class _RepoPrestadores:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    def _vista(self) -> dict[str, Prestador]:
+        return {**self._uow.almacen.prestadores, **self._uow.prestadores_pendientes}
+
+    def _filtra(self, prestador: Prestador, ramo, estados) -> bool:
+        return prestador.estado in estados and (ramo is None or ramo in prestador.ramos)
+
+    async def cercanos(self, lat, lng, radio_km, ramo, estados, limite, ciudad=None):
+        filas = []
+        for prestador in self._vista().values():
+            if not self._filtra(prestador, ramo, estados):
+                continue
+            if ciudad is not None and prestador.ciudad != ciudad:
+                continue
+            distancia = _km(lat, lng, prestador.lat, prestador.lng)
+            if distancia <= float(radio_km):
+                filas.append(PrestadorCercano(deepcopy(prestador), distancia))
+        filas.sort(key=lambda fila: (fila.distancia_km, fila.prestador.nombre))
+        return filas[:limite]
+
+    async def por_ciudad(self, ciudad, ramo, estados, limite):
+        filas = [
+            PrestadorCercano(deepcopy(p), None)
+            for p in self._vista().values()
+            if p.ciudad == ciudad and self._filtra(p, ramo, estados)
+        ]
+        filas.sort(key=lambda fila: fila.prestador.nombre)
+        return filas[:limite]
+
+    async def listar(self, ramo, ciudad, estados):
+        filas = [
+            deepcopy(p)
+            for p in self._vista().values()
+            if self._filtra(p, ramo, estados) and (ciudad is None or p.ciudad == ciudad)
+        ]
+        return sorted(filas, key=lambda p: (p.ciudad, p.nombre))
+
+    async def conteos_por_ciudad(self):
+        conteos = {"Bogotá": 0, "Medellín": 0, "Chía": 0}
+        for prestador in self._vista().values():
+            conteos[prestador.ciudad] = conteos.get(prestador.ciudad, 0) + 1
+        return conteos
+
+    async def obtener(self, prestador_id):
+        prestador = self._vista().get(prestador_id)
+        return deepcopy(prestador) if prestador else None
+
+    async def guardar(self, prestador: Prestador) -> None:
+        self._uow.prestadores_pendientes[prestador.id] = deepcopy(prestador)
+
+
 class UnidadDeTrabajoEnMemoria:
     """Doble en memoria del Protocol UnidadDeTrabajo, igual patrón que ms-arquetipo:
     permite probar el núcleo (dominio + casos de uso) sin PostgreSQL ni red, incluyendo
@@ -284,7 +351,9 @@ class UnidadDeTrabajoEnMemoria:
         self.decisiones_pendientes: list[Decision] = []
         self.pagos_siniestro_pendientes: dict[UUID, PagoSiniestro] = {}
         self.intentos_pendientes: list[IntentoPago] = []
+        self.prestadores_pendientes: dict[str, Prestador] = {}
         self.siniestros = _RepoSiniestros(self)
+        self.prestadores = _RepoPrestadores(self)
         self.adjuntos = _RepoAdjuntos(self)
         self.decisiones = _RepoDecisiones(self)
         self.pagos_siniestro = _RepoPagosSiniestro(self)
@@ -343,6 +412,7 @@ class UnidadDeTrabajoEnMemoria:
         self.almacen.decisiones.extend(self.decisiones_pendientes)
         self.almacen.pagos_siniestro.update(self.pagos_siniestro_pendientes)
         self.almacen.intentos_pago.extend(self.intentos_pendientes)
+        self.almacen.prestadores.update(self.prestadores_pendientes)
         self._limpiar_aviso()
 
         self.siniestros_pendientes.clear()
@@ -356,3 +426,4 @@ class UnidadDeTrabajoEnMemoria:
         self.decisiones_pendientes.clear()
         self.pagos_siniestro_pendientes.clear()
         self.intentos_pendientes.clear()
+        self.prestadores_pendientes.clear()

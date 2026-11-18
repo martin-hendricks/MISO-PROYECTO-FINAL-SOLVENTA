@@ -24,7 +24,8 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
-import com.grupo8_uniandes.solventa.data.bff.mapping.toProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toClaimProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRecord
@@ -46,7 +47,9 @@ import com.grupo8_uniandes.solventa.domain.profile.AccountNameRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
-import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
@@ -507,8 +510,13 @@ class RemoteAssistanceRepository(
     private val api: MobileBffApi,
     private val gate: BffGate,
 ) : AssistanceRepository {
-    override suspend fun providers(): StandInAnswer<List<Provider>> =
-        gate.call { api.providers().toProviders() }
+    override suspend fun providers(query: ProviderQuery): StandInAnswer<ProviderPage> =
+        gate.call {
+            api.providers(query.lat, query.lng, query.ramo, query.ciudad, query.radioKm).toProviderPage()
+        }
+
+    override suspend fun providersNearClaim(id: String): StandInAnswer<ClaimProviders> =
+        gate.call { api.providersNearClaim(id).toClaimProviders() }
 
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }

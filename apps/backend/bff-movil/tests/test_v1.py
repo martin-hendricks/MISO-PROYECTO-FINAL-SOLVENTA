@@ -160,6 +160,31 @@ class DobleNucleo:
             usuario_id=usuario_id,
         ) or {"numero": poliza_id, "renovacion_automatica": renovacion_automatica}
 
+    def prestadores(self, **kwargs):
+        return self._llamar("prestadores", **kwargs) or {
+            "centro": {"lat": 4.64, "lng": -74.06, "origen": "posicion"},
+            "radio_km": 10,
+            "prestadores": [
+                {
+                    "id": "PRE-BOG-06",
+                    "nombre": "Taller Moto Chapinero",
+                    "tipo": "taller-motos",
+                    "ramos": ["soat-motocicleta"],
+                    "direccion": "Cra 13",
+                    "ciudad": "Bogotá",
+                    "barrio": "Chapinero",
+                    "lat": 4.63,
+                    "lng": -74.06,
+                    "telefono": "601",
+                    "horario": "Lun",
+                    "distancia_km": 0.9,
+                }
+            ],
+        }
+
+    def prestadores_siniestro(self, siniestro_id, radio_km=None):
+        return self._llamar("prestadores_siniestro", siniestro_id=siniestro_id, radio_km=radio_km)
+
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
 
@@ -1051,6 +1076,7 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
         "listar_siniestros",
         "polizas_por_vencer",
         "registrar_dispositivo",
+        "prestadores",
     ]
 
 
