@@ -18,7 +18,12 @@ class PrestadorFichaViewModelTest {
                     ProviderPage(centro = null, radioKm = 10.0, prestadores = listOf(provider)),
                 )
 
-                override suspend fun providersNearClaim(id: String) = StandInAnswer.Failed
+                override suspend fun cities(pais: String) = StandInAnswer.Failed
+
+                override suspend fun providersNearClaim(
+                    id: String,
+                    area: com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea?,
+                ) = StandInAnswer.Failed
 
                 override suspend fun request(body: com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest) =
                     StandInAnswer.Failed

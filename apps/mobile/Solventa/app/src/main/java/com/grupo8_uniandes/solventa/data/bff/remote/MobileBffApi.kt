@@ -17,6 +17,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushTokenRetiroDto
@@ -167,6 +168,9 @@ interface MobileBffApi {
     @HTTP(method = "DELETE", path = "cliente/avisos/token", hasBody = true)
     suspend fun unregisterPush(@Body body: PushTokenRetiroDto): Response<ResponseBody>
 
+    @GET("cliente/prestadores/ciudades")
+    suspend fun providerCities(@Query("pais") pais: String): ProviderCitiesDto
+
     @GET("cliente/prestadores")
     suspend fun providers(
         @Query("lat") lat: Double? = null,
@@ -174,12 +178,21 @@ interface MobileBffApi {
         @Query("ramo") ramo: String? = null,
         @Query("ciudad") ciudad: String? = null,
         @Query("radioKm") radioKm: Double? = null,
+        @Query("pais") pais: String? = null,
+        @Query("norte") norte: Double? = null,
+        @Query("sur") sur: Double? = null,
+        @Query("este") este: Double? = null,
+        @Query("oeste") oeste: Double? = null,
     ): ProvidersDto
 
     @GET("cliente/siniestros/{id}/prestadores")
     suspend fun providersNearClaim(
         @Path("id") id: String,
         @Query("radioKm") radioKm: Double? = null,
+        @Query("norte") norte: Double? = null,
+        @Query("sur") sur: Double? = null,
+        @Query("este") este: Double? = null,
+        @Query("oeste") oeste: Double? = null,
     ): ClaimProvidersDto
 
     @POST("cliente/asistencias")

@@ -7,7 +7,9 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
 import com.grupo8_uniandes.solventa.domain.bff.assistance.FindProviders
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCenter
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
@@ -70,11 +72,22 @@ class FindProvidersTest {
                 ),
             ),
         )
-        val page = (FindProviders(repo).nearClaim("SIN-1") as StandInAnswer.Ready).value
+        val area = ProviderArea(4.66, 4.62, -74.05, -74.08)
+        val page = (FindProviders(repo).nearClaim("SIN-1", area) as StandInAnswer.Ready).value
 
         assertEquals("SIN-1", repo.lastClaimId)
+        assertEquals(area, repo.lastClaimArea)
         assertEquals(true, page.sinGeoetiqueta)
         assertEquals("SIN-1988", page.numero)
+    }
+
+    @Test
+    fun givenACountry_whenCitiesAreAsked_thenThePaisIsForwarded() = runBlocking {
+        val repo = RecordingAssistance()
+        val cities = (FindProviders(repo).cities("PE") as StandInAnswer.Ready).value
+
+        assertEquals("PE", repo.lastPais)
+        assertEquals("Lima", cities.single().nombre)
     }
 }
 
@@ -99,14 +112,22 @@ private class RecordingAssistance(
 ) : AssistanceRepository {
     var lastQuery: ProviderQuery? = null
     var lastClaimId: String? = null
+    var lastClaimArea: ProviderArea? = null
+    var lastPais: String? = null
 
     override suspend fun providers(query: ProviderQuery): StandInAnswer<ProviderPage> {
         lastQuery = query
         return page
     }
 
-    override suspend fun providersNearClaim(id: String): StandInAnswer<ClaimProviders> {
+    override suspend fun cities(pais: String): StandInAnswer<List<ProviderCity>> {
+        lastPais = pais
+        return StandInAnswer.Ready(listOf(ProviderCity("Lima", -12.0464, -77.0428, 11, 5)))
+    }
+
+    override suspend fun providersNearClaim(id: String, area: ProviderArea?): StandInAnswer<ClaimProviders> {
         lastClaimId = id
+        lastClaimArea = area
         return claim
     }
 

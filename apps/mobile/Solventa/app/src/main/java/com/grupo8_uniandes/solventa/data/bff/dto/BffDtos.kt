@@ -422,13 +422,30 @@ data class ProviderDto(
     val telefono: String,
     val horario: String,
     val distanciaKm: Double? = null,
+    val pais: String = "CO",
 )
 
 @Serializable
 data class ProvidersDto(
     val centro: ProviderCenterDto? = null,
-    val radioKm: Double = 10.0,
+    val radioKm: Double? = null,
     val prestadores: List<ProviderDto>,
+    val truncado: Boolean = false,
+)
+
+@Serializable
+data class ProviderCityDto(
+    val nombre: String,
+    val lat: Double,
+    val lng: Double,
+    val zoom: Int,
+    val prestadores: Int = 0,
+)
+
+@Serializable
+data class ProviderCitiesDto(
+    val pais: String,
+    val ciudades: List<ProviderCityDto> = emptyList(),
 )
 
 @Serializable
@@ -444,8 +461,9 @@ data class ClaimProvidersDto(
     val ramoFijo: String,
     val sinGeoetiqueta: Boolean,
     val centro: ProviderCenterDto? = null,
-    val radioKm: Double = 10.0,
+    val radioKm: Double? = null,
     val prestadores: List<ProviderDto> = emptyList(),
+    val truncado: Boolean = false,
 )
 
 @Serializable

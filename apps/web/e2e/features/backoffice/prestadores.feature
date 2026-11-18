@@ -23,3 +23,19 @@ Feature: Operator provider catalog
     And an asesor signed in to the back-office
     When the operator opens the provider catalog
     Then the advisor cannot create or deactivate a provider
+
+  Scenario: Operator filters by country
+    Given the operator catalog lists the Chapinero workshop and a Santiago point
+    And an operador signed in to the back-office
+    When the operator opens the provider catalog
+    And the operator filters providers by the country "CL"
+    Then the city filter offers "Santiago, Valparaíso, Concepción"
+    And the provider catalog lists only the Santiago point with the Chilean counts
+
+  Scenario: Form cities follow the country
+    Given the operator catalog lists the Chapinero workshop
+    And an operador signed in to the back-office
+    When the operator opens a new provider form
+    Then the form cities are "Bogotá, Medellín, Chía"
+    When the operator picks the country "MX" in the form
+    Then the form cities are "Ciudad de México, Guadalajara, Monterrey"

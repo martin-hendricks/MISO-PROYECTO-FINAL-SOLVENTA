@@ -46,3 +46,18 @@ class CoordenadaFueraDeRango(ReglaDeNegocioViolada):
 class CentroRequerido(ReglaDeNegocioViolada):
     def __init__(self) -> None:
         super().__init__("centro_requerido", "Indica una ubicación o una ciudad")
+
+
+class PaisDesconocido(ReglaDeNegocioViolada):
+    def __init__(self, pais: str) -> None:
+        super().__init__("pais_desconocido", f"El país '{pais}' no existe")
+
+
+class CiudadDesconocida(ReglaDeNegocioViolada):
+    def __init__(self, pais: str, ciudad: str) -> None:
+        super().__init__("ciudad_desconocida", f"La ciudad '{ciudad}' no existe en {pais}")
+
+
+class AreaInvalida(ReglaDeNegocioViolada):
+    def __init__(self) -> None:
+        super().__init__("area_invalida", "El área visible no es válida")

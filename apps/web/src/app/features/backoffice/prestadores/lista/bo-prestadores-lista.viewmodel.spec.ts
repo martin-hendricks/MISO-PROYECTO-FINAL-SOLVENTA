@@ -1,5 +1,8 @@
-import { of, throwError } from 'rxjs';
-import { PrestadorOperador } from '../bo-prestadores.gateway';
+import { Observable, of, Subject, throwError } from 'rxjs';
+import { CiudadMapa } from '../../../prestadores/prestadores.gateway';
+import { CIUDADES_CO } from '../../../prestadores/prestadores.testing';
+import { Pais } from '../../../prestadores/tipo-prestador';
+import { ListadoOperador, PrestadorOperador } from '../bo-prestadores.gateway';
 import { BoPrestadoresListaViewModel } from './bo-prestadores-lista.viewmodel';
 
 const FILA: PrestadorOperador = {
@@ -8,6 +11,7 @@ const FILA: PrestadorOperador = {
   tipo: 'taller-motos',
   ramos: ['soat-motocicleta'],
   direccion: 'Cra 13',
+  pais: 'CO',
   ciudad: 'Bogotá',
   barrio: 'Chapinero',
   lat: 4.63,
@@ -20,11 +24,21 @@ const FILA: PrestadorOperador = {
 
 const OTRA: PrestadorOperador = { ...FILA, id: 'PRE-MED-01', ciudad: 'Medellín', nombre: 'Otra' };
 
+const CIUDADES_CL: CiudadMapa[] = [
+  { nombre: 'Santiago', lat: -33.4489, lng: -70.6693, zoom: 11, prestadores: 7 },
+  { nombre: 'Valparaíso', lat: -33.0472, lng: -71.6127, zoom: 13, prestadores: 3 },
+  { nombre: 'Concepción', lat: -36.827, lng: -73.0503, zoom: 13, prestadores: 0 },
+];
+
 describe('BoPrestadoresListaViewModel', () => {
   function crear(canWrite = true) {
     const filtros: unknown[] = [];
     const estados: string[] = [];
-    let listado = of({
+    const paises: Pais[] = [];
+    let ciudades: (pais: Pais) => Observable<CiudadMapa[]> = (pais) =>
+      of(pais === 'CL' ? CIUDADES_CL : CIUDADES_CO);
+    let listado: Observable<ListadoOperador> = of({
+      pais: 'CO' as Pais,
       conteos: { Bogotá: 30, Medellín: 20, Chía: 10 },
       centro: { lat: 4.6, lng: -74.08 },
       prestadores: [FILA, OTRA],
@@ -36,22 +50,35 @@ describe('BoPrestadoresListaViewModel', () => {
           filtros.push(filtro);
           return listado;
         },
+        ciudades: (pais) => {
+          paises.push(pais);
+          return ciudades(pais);
+        },
         cambiarEstado: (id, estado) => {
           estados.push(`${id}:${estado}`);
           return estado$;
         },
       },
       canWrite,
+      'CO',
     );
     return {
       vm,
       filtros,
       estados,
+      paises,
+      usarCiudades: (fuente: (pais: Pais) => Observable<CiudadMapa[]>) => {
+        ciudades = fuente;
+      },
+      usarListado: (nuevo: Observable<ListadoOperador>) => {
+        listado = nuevo;
+      },
       fallarLista: () => {
         listado = throwError(() => new Error('caido'));
       },
       vaciar: () => {
         listado = of({
+          pais: 'CO' as Pais,
           conteos: { Bogotá: 30, Medellín: 20, Chía: 10 },
           centro: { lat: 4.6, lng: -74.08 },
           prestadores: [],
@@ -63,21 +90,22 @@ describe('BoPrestadoresListaViewModel', () => {
     };
   }
 
-  it('loads counts and rows, then filters and clears them', () => {
-    const { vm, filtros } = crear();
-    vm.cargar();
+  it('loads cities, counts and rows, then filters and clears them', () => {
+    const { vm, filtros, paises } = crear();
+    vm.iniciar();
     expect(vm.status()).toBe('ready');
+    expect(paises).toEqual(['CO']);
+    expect(vm.ciudades()).toEqual(CIUDADES_CO);
     expect(vm.conteos()).toEqual({ Bogotá: 30, Medellín: 20, Chía: 10 });
-    expect(vm.bogota()).toBe(30);
-    expect(vm.medellin()).toBe(20);
-    expect(vm.chia()).toBe(10);
+    expect(vm.resumenConteos()).toBe('Bogotá 30 · Medellín 20 · Chía 10');
     expect(vm.prestadores().length).toBe(2);
-    expect(filtros[0]).toEqual({});
+    expect(filtros[0]).toEqual({ pais: 'CO' });
 
     vm.filtrarRamo('soat-motocicleta');
     vm.filtrarCiudad('Chía');
     vm.filtrarEstado('activo');
     expect(filtros.at(-1)).toEqual({
+      pais: 'CO',
       ramo: 'soat-motocicleta',
       ciudad: 'Chía',
       estado: 'activo',
@@ -87,7 +115,62 @@ describe('BoPrestadoresListaViewModel', () => {
     expect(vm.ramo()).toBe('');
     expect(vm.ciudad()).toBe('');
     expect(vm.estado()).toBe('');
-    expect(filtros.at(-1)).toEqual({});
+    expect(filtros.at(-1)).toEqual({ pais: 'CO' });
+  });
+
+  it('switches country: reloads the city catalog, clears the city and reads any city counts', () => {
+    const { vm, filtros, paises, usarListado } = crear();
+    vm.iniciar();
+    vm.filtrarCiudad('Chía');
+    usarListado(
+      of({
+        pais: 'CL' as Pais,
+        conteos: { Santiago: 7, Valparaíso: 3 },
+        centro: null,
+        prestadores: [],
+      }),
+    );
+
+    vm.filtrarPais('CL');
+
+    expect(vm.pais()).toBe('CL');
+    expect(vm.ciudad()).toBe('');
+    expect(paises).toEqual(['CO', 'CL']);
+    expect(filtros.at(-1)).toEqual({ pais: 'CL' });
+    expect(vm.ciudades().map((ciudad) => ciudad.nombre)).toEqual([
+      'Santiago',
+      'Valparaíso',
+      'Concepción',
+    ]);
+    expect(vm.resumenConteos()).toBe('Santiago 7 · Valparaíso 3 · Concepción 0');
+    expect(vm.status()).toBe('empty');
+    expect(vm.centroMapa()).toEqual({ lat: -33.4489, lng: -70.6693 });
+  });
+
+  it('centers the map on the answer, then the first row, then the first city', () => {
+    const { vm, usarListado, usarCiudades } = crear();
+    expect(vm.centroMapa()).toBeNull();
+    vm.iniciar();
+    expect(vm.centroMapa()).toEqual({ lat: 4.6, lng: -74.08 });
+
+    usarListado(of({ pais: 'CO' as Pais, conteos: {}, centro: null, prestadores: [OTRA] }));
+    vm.cargar();
+    expect(vm.centroMapa()).toEqual({ lat: OTRA.lat, lng: OTRA.lng });
+
+    usarCiudades(() => throwError(() => new Error('caido')));
+    vm.filtrarPais('PE');
+    expect(vm.ciudades()).toEqual([]);
+    expect(vm.resumenConteos()).toBe('');
+  });
+
+  it('ignores a city catalog that arrives after another country was picked', () => {
+    const { vm, usarCiudades } = crear();
+    const lento = new Subject<CiudadMapa[]>();
+    usarCiudades((pais) => (pais === 'MX' ? lento : of(CIUDADES_CL)));
+    vm.filtrarPais('MX');
+    vm.filtrarPais('CL');
+    lento.next(CIUDADES_CO);
+    expect(vm.ciudades()).toEqual(CIUDADES_CL);
   });
 
   it('uses the empty state instead of an error when the filter matches nothing', () => {

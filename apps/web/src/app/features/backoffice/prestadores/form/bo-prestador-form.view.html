@@ -47,7 +47,9 @@
         >
           <option value="">{{ 'backoffice.prestadores.form.eligeTipo' | translate }}</option>
           @for (tipo of tipos; track tipo) {
-            <option [value]="tipo">{{ 'prestadores.tipo.' + tipo | translate }}</option>
+            <option [value]="tipo" [selected]="vm.tipo() === tipo">
+              {{ 'prestadores.tipo.' + tipo | translate }}
+            </option>
           }
         </select>
       </label>
@@ -79,16 +81,33 @@
         />
       </label>
       <label>
+        {{ 'backoffice.prestadores.form.pais' | translate }}
+        <select
+          data-testid="prestador-pais"
+          [value]="vm.pais()"
+          (change)="vm.elegirPais($any($event.target).value)"
+          required
+        >
+          @for (pais of paises; track pais) {
+            <option [value]="pais" [selected]="vm.pais() === pais">
+              {{ 'prestadores.pais.' + pais | translate }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
         {{ 'backoffice.prestadores.form.ciudad' | translate }}
         <select
           data-testid="prestador-ciudad"
           [value]="vm.ciudad()"
-          (change)="vm.ciudad.set($any($event.target).value)"
+          (change)="vm.elegirCiudad($any($event.target).value)"
           required
         >
           <option value="">{{ 'backoffice.prestadores.form.eligeCiudad' | translate }}</option>
-          @for (ciudad of ciudades; track ciudad.id) {
-            <option [value]="ciudad.id">{{ ciudad.id }}</option>
+          @for (ciudad of vm.ciudades(); track ciudad.nombre) {
+            <option [value]="ciudad.nombre" [selected]="vm.ciudad() === ciudad.nombre">
+              {{ ciudad.nombre }}
+            </option>
           }
         </select>
       </label>
@@ -115,15 +134,16 @@
         }
       </fieldset>
 
-      @if (mapa() === 'disponible') {
+      @if (mapa() === 'disponible' && vm.pin(); as pin) {
         <p data-testid="prestador-pin">{{ 'backoffice.prestadores.form.pin' | translate }}</p>
-        <p class="mono" data-testid="prestador-coords">{{ pin().lat }}, {{ pin().lng }}</p>
+        <p class="mono" data-testid="prestador-coords">{{ pin.lat }}, {{ pin.lng }}</p>
         <sv-mapa-prestadores
           data-testid="prestadores-mapa"
           [disponible]="true"
           [arrastrable]="true"
-          [centro]="pin()"
-          [pin]="pin()"
+          [centro]="pin"
+          [objetivo]="vm.objetivo()"
+          [pin]="pin"
           [prestadores]="[]"
           (mover)="vm.fijarPin($event.lat, $event.lng)"
         />

@@ -8,6 +8,7 @@ const ENTRADA: PrestadorEntrada = {
   tipo: 'taller-motos',
   ramos: ['soat-motocicleta'],
   direccion: 'Cra 7 #120-10',
+  pais: 'CO',
   ciudad: 'Bogotá',
   barrio: 'Usaquén',
   lat: 4.7,
@@ -42,21 +43,24 @@ describe('BoPrestadoresGateway', () => {
     const { gateway, http } = setup();
     let cuerpo: unknown;
     gateway
-      .listar({ ramo: 'soat-motocicleta', ciudad: 'Bogotá', estado: 'activo' })
+      .listar({ pais: 'CO', ramo: 'soat-motocicleta', ciudad: 'Bogotá', estado: 'activo' })
       .subscribe((r) => (cuerpo = r));
     const req = http.expectOne(
       (call) => call.url === '/web/operador/prestadores' && call.method === 'GET',
     );
+    expect(req.request.params.get('pais')).toBe('CO');
     expect(req.request.params.get('ramo')).toBe('soat-motocicleta');
     expect(req.request.params.get('ciudad')).toBe('Bogotá');
     expect(req.request.params.get('estado')).toBe('activo');
     req.flush({
-      conteos: { Bogotá: 30 },
+      pais: 'CO',
+      conteos: { Bogotá: 30, Medellín: '20', Chía: 0 },
       centro: { lat: 4.6097, lng: -74.0817 },
       prestadores: [FILA],
     });
     expect(cuerpo).toEqual({
-      conteos: { Bogotá: 30, Medellín: 0, Chía: 0 },
+      pais: 'CO',
+      conteos: { Bogotá: 30, Medellín: 20, Chía: 0 },
       centro: { lat: 4.6097, lng: -74.0817 },
       prestadores: [jasmine.objectContaining({ id: 'PRE-BOG-99', lat: 4.7, lng: -74.03, ramos: ['soat-motocicleta'] })],
     });
@@ -69,11 +73,50 @@ describe('BoPrestadoresGateway', () => {
     const req = http.expectOne('/web/operador/prestadores');
     expect(req.request.params.keys().length).toBe(0);
     req.flush({});
+    expect(cuerpo).toEqual({ pais: 'CO', conteos: {}, centro: null, prestadores: [] });
+  });
+
+  it('keeps counts for any city name of the asked country', () => {
+    const { gateway, http } = setup();
+    let cuerpo: unknown;
+    gateway.listar({ pais: 'CL' }).subscribe((r) => (cuerpo = r));
+    http
+      .expectOne((call) => call.url === '/web/operador/prestadores' && call.params.get('pais') === 'CL')
+      .flush({
+        conteos: { Santiago: 7, Valparaíso: 3, Concepción: 0 },
+        prestadores: [{ ...FILA, id: 'PRE-SCL-01', pais: 'CL', ciudad: 'Santiago' }],
+      });
     expect(cuerpo).toEqual({
-      conteos: { Bogotá: 0, Medellín: 0, Chía: 0 },
+      pais: 'CL',
+      conteos: { Santiago: 7, Valparaíso: 3, Concepción: 0 },
       centro: null,
-      prestadores: [],
+      prestadores: [jasmine.objectContaining({ id: 'PRE-SCL-01', pais: 'CL' })],
     });
+  });
+
+  it('lists the catalog cities of a country, with or without providers', () => {
+    const { gateway, http } = setup();
+    let ciudades: unknown;
+    gateway.ciudades('CL').subscribe((r) => (ciudades = r));
+    const req = http.expectOne(
+      (call) => call.url === '/web/operador/prestadores/ciudades' && call.method === 'GET',
+    );
+    expect(req.request.params.get('pais')).toBe('CL');
+    req.flush({
+      pais: 'CL',
+      ciudades: [
+        { nombre: 'Santiago', lat: '-33.448900', lng: '-70.669300', zoom: 11, prestadores: 7 },
+        { nombre: 'Concepción', lat: -36.827, lng: -73.0503, zoom: 13, prestadores: 0 },
+      ],
+    });
+    expect(ciudades).toEqual([
+      { nombre: 'Santiago', lat: -33.4489, lng: -70.6693, zoom: 11, prestadores: 7 },
+      { nombre: 'Concepción', lat: -36.827, lng: -73.0503, zoom: 13, prestadores: 0 },
+    ]);
+
+    gateway.ciudades('PE').subscribe((r) => (ciudades = r));
+    http.expectOne((call) => call.params.get('pais') === 'PE').flush({});
+    expect(ciudades).toEqual([]);
   });
 
   it('reads one provider and returns null on 404', () => {
@@ -81,8 +124,17 @@ describe('BoPrestadoresGateway', () => {
     let fila: unknown;
     let falta: unknown = 'pendiente';
     gateway.obtener('PRE-BOG-99').subscribe((r) => (fila = r));
-    http.expectOne('/web/operador/prestadores/PRE-BOG-99').flush({ ...FILA, ramos: undefined });
-    expect(fila).toEqual(jasmine.objectContaining({ id: 'PRE-BOG-99', ramos: [], actualizadoEn: FILA.actualizadoEn }));
+    http
+      .expectOne('/web/operador/prestadores/PRE-BOG-99')
+      .flush({ ...FILA, ramos: undefined, pais: undefined });
+    expect(fila).toEqual(
+      jasmine.objectContaining({
+        id: 'PRE-BOG-99',
+        pais: 'CO',
+        ramos: [],
+        actualizadoEn: FILA.actualizadoEn,
+      }),
+    );
 
     gateway.obtener('nope').subscribe((r) => (falta = r));
     http
@@ -110,12 +162,15 @@ describe('BoPrestadoresGateway', () => {
     expect(crear.request.body).toEqual(ENTRADA);
     crear.flush(FILA);
 
-    gateway.editar('PRE-BOG-99', { ...ENTRADA, ramos: ['soat-motocicleta', 'viaje'] }).subscribe((r) =>
+    gateway
+      .editar('PRE-BOG-99', { ...ENTRADA, pais: 'MX', ramos: ['soat-motocicleta', 'viaje'] })
+      .subscribe((r) =>
       vistos.push(`editar:${r.ramos.length}`),
     );
     const editar = http.expectOne('/web/operador/prestadores/PRE-BOG-99');
     expect(editar.request.method).toBe('PATCH');
     expect(editar.request.body.ramos).toEqual(['soat-motocicleta', 'viaje']);
+    expect(editar.request.body.pais).toBe('MX');
     editar.flush({ ...FILA, ramos: ['soat-motocicleta', 'viaje'] });
 
     gateway.cambiarEstado('PRE-BOG-99', 'inactivo').subscribe((r) => vistos.push(r.estado));

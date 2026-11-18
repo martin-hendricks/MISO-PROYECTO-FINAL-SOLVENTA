@@ -130,11 +130,22 @@ object PublishedSamples {
     """
 
     const val PROVIDERS = """
-        {"centro":{"lat":4.6432,"lng":-74.0631,"origen":"posicion"},"radioKm":10,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+        {"centro":{"lat":4.6432,"lng":-74.0631,"origen":"posicion"},"radioKm":10,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+    """
+
+    const val PROVIDERS_AREA = """
+        {"centro":{"lat":4.6432,"lng":-74.0631,"origen":"posicion"},"radioKm":null,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+    """
+
+    const val PROVIDER_CITIES = """
+        [{"pais":"CO","ciudades":[{"nombre":"Bogotá","lat":4.6097,"lng":-74.0817,"zoom":12,"prestadores":30},{"nombre":"Medellín","lat":6.2442,"lng":-75.5812,"zoom":13,"prestadores":20},{"nombre":"Chía","lat":4.8619,"lng":-74.0597,"zoom":13,"prestadores":10}]},
+         {"pais":"MX","ciudades":[{"nombre":"Ciudad de México","lat":19.4326,"lng":-99.1332,"zoom":11,"prestadores":5},{"nombre":"Guadalajara","lat":20.6597,"lng":-103.3496,"zoom":13,"prestadores":4},{"nombre":"Monterrey","lat":25.6866,"lng":-100.3161,"zoom":13,"prestadores":4}]},
+         {"pais":"CL","ciudades":[{"nombre":"Santiago","lat":-33.4489,"lng":-70.6693,"zoom":11,"prestadores":5},{"nombre":"Valparaíso","lat":-33.0472,"lng":-71.6127,"zoom":13,"prestadores":4},{"nombre":"Concepción","lat":-36.827,"lng":-73.0503,"zoom":13,"prestadores":4}]},
+         {"pais":"PE","ciudades":[{"nombre":"Lima","lat":-12.0464,"lng":-77.0428,"zoom":11,"prestadores":5},{"nombre":"Arequipa","lat":-16.409,"lng":-71.5375,"zoom":13,"prestadores":4},{"nombre":"Trujillo","lat":-8.1116,"lng":-79.0288,"zoom":13,"prestadores":4}]}]
     """
 
     const val CLAIM_PROVIDERS = """
-        {"siniestro":{"id":"SIN-1","numero":"SIN-1988","ramo":"soat-motocicleta"},"ramoFijo":"soat-motocicleta","sinGeoetiqueta":false,"centro":{"lat":4.626,"lng":-74.15,"origen":"siniestro"},"radioKm":10,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+        {"siniestro":{"id":"SIN-1","numero":"SIN-1988","ramo":"soat-motocicleta"},"ramoFijo":"soat-motocicleta","sinGeoetiqueta":false,"centro":{"lat":4.626,"lng":-74.15,"origen":"siniestro"},"radioKm":10,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
     """
 
     const val ASSISTANCE_IN = """

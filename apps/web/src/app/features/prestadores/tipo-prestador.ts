@@ -1,3 +1,5 @@
+import type { Locale } from '../../core/i18n/locale.service';
+
 export const TIPOS_PRESTADOR = [
   'servicio-tecnico',
   'taller-motos',
@@ -25,15 +27,17 @@ export const RAMOS_PRESTADOR = [
 
 export type RamoPrestador = (typeof RAMOS_PRESTADOR)[number];
 
-export const CIUDADES_PRESTADOR = [
-  { id: 'Bogotá', slug: 'bogota', lat: 4.6097, lng: -74.0817 },
-  { id: 'Medellín', slug: 'medellin', lat: 6.2442, lng: -75.5812 },
-  { id: 'Chía', slug: 'chia', lat: 4.8619, lng: -74.0597 },
-] as const;
+export const PAISES = ['CO', 'MX', 'CL', 'PE'] as const;
 
-export type CiudadPrestador = (typeof CIUDADES_PRESTADOR)[number]['id'];
+export type Pais = (typeof PAISES)[number];
 
-export const CENTRO_BOGOTA = { lat: 4.6097, lng: -74.0817 };
+/** The country of the map and the catalog follows the app language. */
+export const PAIS_POR_LOCALE: Record<Locale, Pais> = {
+  'es-CO': 'CO',
+  'es-MX': 'MX',
+  'es-CL': 'CL',
+  'es-PE': 'PE',
+};
 
 /** One color per type so the legend and the pins name the same thing. */
 export const COLOR_PIN: Record<TipoPrestador, string> = {
@@ -50,8 +54,23 @@ export const COLOR_PIN: Record<TipoPrestador, string> = {
 
 export const COLOR_SINIESTRO = '#005050';
 
+export function formatoKm(km: number): string {
+  return km.toFixed(1).replace('.', ',');
+}
+
+export function enlaceComoLlegar(punto: { lat: number; lng: number }): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${punto.lat},${punto.lng}`;
+}
+
+export function enlaceLlamada(telefono: string): string {
+  return `tel:${telefono.replace(/[^\d+]/g, '')}`;
+}
+
 /** Circle symbol. `path: 0` is `google.maps.SymbolPath.CIRCLE` without touching `google`. */
-export function iconoPin(tipo: TipoPrestador): {
+export function iconoPin(
+  tipo: TipoPrestador,
+  elegido = false,
+): {
   path: number;
   fillColor: string;
   fillOpacity: number;
@@ -64,7 +83,7 @@ export function iconoPin(tipo: TipoPrestador): {
     fillColor: COLOR_PIN[tipo],
     fillOpacity: 1,
     strokeColor: '#181c1c',
-    strokeWeight: 1,
-    scale: 9,
+    strokeWeight: elegido ? 2 : 1,
+    scale: elegido ? 13 : 9,
   };
 }

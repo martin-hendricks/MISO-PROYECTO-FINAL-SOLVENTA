@@ -19,8 +19,62 @@ const TALLER = {
   actualizadoEn: '2026-11-17T12:00:00Z',
 };
 
+const SANTIAGO = {
+  ...TALLER,
+  id: 'PRE-SCL-01',
+  nombre: 'Servicio Técnico Providencia',
+  tipo: 'servicio-tecnico',
+  ramos: ['proteccion-dispositivo'],
+  pais: 'CL',
+  ciudad: 'Santiago',
+  barrio: 'Providencia',
+  lat: -33.4263,
+  lng: -70.6176,
+};
+
+function lista(texto: string): string[] {
+  return texto.split(',').map((item) => item.trim());
+}
+
 Given('the operator catalog lists the Chapinero workshop', async function (this: PortalWorld) {
   await this.bff.serveOperadorPrestadores([TALLER], CONTEOS);
+});
+
+Given(
+  'the operator catalog lists the Chapinero workshop and a Santiago point',
+  async function (this: PortalWorld) {
+    await this.bff.serveOperadorPrestadores([TALLER, SANTIAGO], CONTEOS);
+  },
+);
+
+When('the operator filters providers by the country {string}', async function (this: PortalWorld, pais: string) {
+  await this.boPrestadores.filterCountry(pais);
+});
+
+When('the operator opens a new provider form', async function (this: PortalWorld) {
+  await this.boPrestadores.open();
+  await this.boPrestadores.openNew();
+});
+
+When('the operator picks the country {string} in the form', async function (this: PortalWorld, pais: string) {
+  await this.boPrestadores.pickFormCountry(pais);
+});
+
+Then('the city filter offers {string}', async function (this: PortalWorld, ciudades: string) {
+  await this.boPrestadores.expectFilterCities(lista(ciudades));
+});
+
+Then(
+  'the provider catalog lists only the Santiago point with the Chilean counts',
+  async function (this: PortalWorld) {
+    await this.boPrestadores.expectRow('PRE-SCL-01');
+    await this.boPrestadores.expectNoRow('PRE-BOG-06');
+    await this.boPrestadores.expectCounts(/Santiago 1 · Valparaíso 0 · Concepción 0/);
+  },
+);
+
+Then('the form cities are {string}', async function (this: PortalWorld, ciudades: string) {
+  await this.boPrestadores.expectFormCities(lista(ciudades));
 });
 
 When('the operator opens the provider catalog', async function (this: PortalWorld) {

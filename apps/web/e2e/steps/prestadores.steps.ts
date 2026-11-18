@@ -20,8 +20,27 @@ const FILA = {
 const BUSQUEDA = {
   centro: { lat: 4.6432, lng: -74.0631, origen: 'posicion' },
   radioKm: 10,
+  truncado: false,
   prestadores: [FILA],
 };
+
+function filaMx(id: string, nombre: string, ciudad: string) {
+  return { ...FILA, id, nombre, ciudad, pais: 'MX', ramos: ['proteccion-dispositivo'], distanciaKm: null };
+}
+
+const CDMX = ['PRE-CDMX-01', 'PRE-CDMX-02', 'PRE-CDMX-03', 'PRE-CDMX-04', 'PRE-CDMX-05'];
+const GDL = ['PRE-GDL-01', 'PRE-GDL-02', 'PRE-GDL-03', 'PRE-GDL-04'];
+
+function busquedaMexico(query: URLSearchParams) {
+  const ciudad = query.get('ciudad');
+  const ids = query.get('pais') !== 'MX' ? [] : ciudad === 'Guadalajara' ? GDL : ciudad === 'Ciudad de México' ? CDMX : [];
+  return {
+    centro: null,
+    radioKm: null,
+    truncado: false,
+    prestadores: ids.map((id) => filaMx(id, id, ciudad ?? '')),
+  };
+}
 
 async function entrar(world: PortalWorld): Promise<void> {
   await world.bff.acceptSignIn(world.account.email, 'cliente');
@@ -33,6 +52,12 @@ async function entrar(world: PortalWorld): Promise<void> {
 
 Given('providers near the customer', async function (this: PortalWorld) {
   await this.bff.serveCustomerPrestadores(BUSQUEDA);
+  await entrar(this);
+});
+
+Given('providers in Mexico for a customer using es-MX', async function (this: PortalWorld) {
+  await this.page.addInitScript(() => localStorage.setItem('solventa.locale', 'es-MX'));
+  await this.bff.serveCustomerPrestadores(busquedaMexico);
   await entrar(this);
 });
 
@@ -74,6 +99,10 @@ When('the customer opens providers without location', async function (this: Port
   await this.prestadores.openBlocked();
 });
 
+When('the customer picks the city {string}', async function (this: PortalWorld, ciudad: string) {
+  await this.prestadores.pickCity(ciudad);
+});
+
 When('the customer opens providers for {string}', async function (this: PortalWorld, id: string) {
   await this.prestadores.openClaim(id);
 });
@@ -93,6 +122,22 @@ Then('the provider list has no distances and offers the cities', async function 
   await this.prestadores.expectRow('PRE-BOG-06');
   await this.prestadores.expectNoDistance('PRE-BOG-06');
   await this.prestadores.expectBlockedCities();
+});
+
+Then('the Mexican cities are offered with Ciudad de México marked', async function (this: PortalWorld) {
+  await this.prestadores.expectCities(['ciudad-de-mexico', 'guadalajara', 'monterrey'], 'ciudad-de-mexico');
+});
+
+Then('the five Mexico City providers are listed without distances', async function (this: PortalWorld) {
+  await this.prestadores.expectRows(CDMX);
+  for (const id of CDMX) {
+    await this.prestadores.expectNoDistance(id);
+  }
+});
+
+Then('the four Guadalajara providers are listed', async function (this: PortalWorld) {
+  await this.prestadores.expectRows(GDL);
+  await this.prestadores.expectCities(['ciudad-de-mexico', 'guadalajara', 'monterrey'], 'guadalajara');
 });
 
 Then('the provider list is shown without a map', async function (this: PortalWorld) {

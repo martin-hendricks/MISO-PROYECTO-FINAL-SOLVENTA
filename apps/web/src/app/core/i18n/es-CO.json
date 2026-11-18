@@ -327,7 +327,7 @@
     },
     "prestadores": {
       "title": "Prestadores",
-      "subtitle": "Red de atención por ramo. Bogotá {{bogota}} · Medellín {{medellin}} · Chía {{chia}}",
+      "subtitle": "Red de atención por ramo. {{conteos}}",
       "nuevo": "Nuevo prestador",
       "loading": "Cargando prestadores…",
       "reintentar": "Reintentar",
@@ -342,7 +342,8 @@
         "ciudad": "Ciudad",
         "estado": "Estado",
         "todos": "Todos",
-        "todas": "Todas"
+        "todas": "Todas",
+        "pais": "País"
       },
       "column": {
         "nombre": "Nombre",
@@ -359,7 +360,7 @@
       },
       "vacio": {
         "title": "No hay prestadores con ese filtro.",
-        "body": "Clima y vuelos solo tiene puntos en El Dorado y en Olaya Herrera. Chía queda vacía a propósito."
+        "body": "Prueba con otro ramo, otra ciudad u otro país."
       },
       "error": {
         "carga": "No pudimos cargar los prestadores.",
@@ -367,7 +368,9 @@
         "prestador_sin_ramo": "Elige al menos un ramo.",
         "ramo_desconocido": "Ese ramo no está en el catálogo.",
         "coordenada_fuera_de_rango": "La coordenada está fuera de rango.",
-        "generico": "No pudimos guardar el prestador."
+        "generico": "No pudimos guardar el prestador.",
+        "ciudad_desconocida": "Esa ciudad no está en el catálogo de ese país.",
+        "pais_desconocido": "Ese país no está en el catálogo."
       },
       "form": {
         "title": "Prestador",
@@ -387,7 +390,8 @@
         "lat": "Latitud",
         "lng": "Longitud",
         "guardar": "Guardar",
-        "notFound": "No encontramos ese prestador."
+        "notFound": "No encontramos ese prestador.",
+        "pais": "País"
       }
     },
     "polizas": {
@@ -1089,7 +1093,7 @@
     "loading": "Cargando prestadores…",
     "error": "No pudimos cargar los prestadores.",
     "reintentar": "Reintentar",
-    "vacio": "No hay prestadores en este radio.",
+    "vacio": "No hay prestadores en esta zona.",
     "usarUbicacion": "Usar mi ubicación",
     "verSiniestro": "Ver cerca de un siniestro",
     "masCercanos": "Más cercanos",
@@ -1098,8 +1102,10 @@
     "distancia": "A {{km}} km",
     "distanciaEvento": "A {{km}} km del evento",
     "subtitle": {
-      "cerca": "Cerca de ti · {{lugar}}. Radio {{radio}} km.",
-      "cercaRadio": "Cerca de ti · Radio {{radio}} km."
+      "cerca": "Cerca de ti · {{lugar}}.",
+      "cercaSola": "Cerca de ti.",
+      "enCiudad": "Prestadores en {{ciudad}}.",
+      "zona": "Prestadores en la zona del mapa."
     },
     "chip": {
       "todos": "Todos",
@@ -1131,6 +1137,23 @@
       "pin": "Tu siniestro",
       "sinGeo": "Este siniestro no tiene ubicación. Usa tu ubicación para ver prestadores cerca de ti.",
       "notFound": "No encontramos este siniestro."
+    },
+    "truncado": "Acerca el mapa para ver todos los prestadores.",
+    "miUbicacion": "Mi ubicación",
+    "ciudades": "Ciudades",
+    "grupo": "{{n}} prestadores, toca para acercar",
+    "marcador": "{{nombre}}, {{tipo}}",
+    "vacioPais": "Aún no hay prestadores en {{pais}}.",
+    "pais": {
+      "CO": "Colombia",
+      "MX": "México",
+      "CL": "Chile",
+      "PE": "Perú"
+    },
+    "tarjeta": {
+      "cerrar": "Cerrar ficha",
+      "llamar": "Llamar",
+      "varios": "{{n}} prestadores en este punto"
     }
   }
 }

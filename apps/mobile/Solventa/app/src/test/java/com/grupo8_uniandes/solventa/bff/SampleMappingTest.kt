@@ -31,7 +31,10 @@ import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PesosSerializer
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCityDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProviderDto
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushDestinationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
@@ -50,6 +53,8 @@ import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
+import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
 import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
 import java.math.BigDecimal
@@ -253,7 +258,30 @@ class SampleMappingTest {
         assertEquals(0.9, providers.prestadores[0].distanciaKm!!, 0.0)
         assertEquals("Chapinero", providers.prestadores[0].barrio)
         assertEquals("posicion", providers.centro!!.origen)
-        assertEquals(10.0, providers.radioKm, 0.0)
+        assertEquals(10.0, providers.radioKm!!, 0.0)
+        assertEquals("CO", providers.prestadores[0].pais)
+        assertFalse(providers.truncado)
+        val area = com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea(4.66, 4.62, -74.05, -74.08)
+        val areaPage = bff.assistance.providers(
+            com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery(area = area),
+        ).ready()
+        assertNull(areaPage.radioKm)
+        val truncated = decode<ProvidersDto>(
+            PublishedSamples.PROVIDERS_AREA.replace("\"truncado\":false", "\"truncado\":true"),
+        )!!.toProviderPage()
+        assertTrue(truncated.truncado)
+        val mexico = bff.assistance.cities("MX").ready()
+        assertEquals(listOf("Ciudad de México", "Guadalajara", "Monterrey"), mexico.map { it.nombre })
+        assertEquals(11, mexico[0].zoom)
+        assertEquals(5, mexico[0].prestadores)
+        assertEquals(19.4326, mexico[0].lat, 0.0)
+        assertEquals("Lima", bff.assistance.cities("PE").ready().first().nombre)
+        assertEquals(listOf("Bogotá", "Medellín", "Chía"), bff.assistance.cities("CO").ready().map { it.nombre })
+        assertEquals("Santiago", bff.assistance.cities("CL").ready().first().nombre)
+        assertTrue(bff.assistance.cities("AR").ready().isEmpty())
+        val claimProviders = bff.assistance.providersNearClaim("SIN-1", area).ready()
+        assertFalse(claimProviders.truncado)
+        assertEquals("CO", claimProviders.prestadores.single().pais)
         val request = publishedAssistanceRequest()!!
         assertEquals("PR-1", request.prestadorId)
         assertEquals(4.6533, request.lat, 0.0)
@@ -427,6 +455,12 @@ class SampleMappingTest {
         val center = com.grupo8_uniandes.solventa.data.bff.dto.ProviderCenterDto(4.6432, -74.0631, "posicion")
         assertEquals(provider.id, ProvidersDto(center, 10.0, listOf(provider)).prestadores.single().id)
         assertNull(provider.copy(distanciaKm = null).distanciaKm)
+        val page = ProvidersDto(center, null, listOf(provider.copy(pais = "MX")), truncado = true).toProviderPage()
+        assertEquals("MX", page.prestadores.single().pais)
+        assertTrue(page.truncado)
+        assertNull(page.radioKm)
+        val cities = ProviderCitiesDto("PE", listOf(ProviderCityDto("Lima", -12.0464, -77.0428, 11, 5))).toCities()
+        assertEquals(ProviderCity("Lima", -12.0464, -77.0428, 11, 5), cities.single())
         val where = AssistanceGeoDto(4.6533, -74.0836)
         assertEquals("PR-1", AssistanceInDto("PR-1", where, "POL-88219-CO").prestadorId)
         assertEquals("registrada", AssistanceOutDto("AS-18", "registrada").estado)

@@ -17,8 +17,8 @@ class FindProviders(
         return answer
     }
 
-    suspend fun nearClaim(id: String): StandInAnswer<ClaimProviders> {
-        val answer = assistance.providersNearClaim(id)
+    suspend fun nearClaim(id: String, area: ProviderArea? = null): StandInAnswer<ClaimProviders> {
+        val answer = assistance.providersNearClaim(id, area)
         if (answer is StandInAnswer.Ready) {
             val ordered = answer.value.copy(prestadores = answer.value.prestadores.nearestFirst())
             remember(ordered.prestadores)
@@ -26,6 +26,8 @@ class FindProviders(
         }
         return answer
     }
+
+    suspend fun cities(pais: String): StandInAnswer<List<ProviderCity>> = assistance.cities(pais)
 
     fun cached(id: String): Provider? = remembered[id]
 

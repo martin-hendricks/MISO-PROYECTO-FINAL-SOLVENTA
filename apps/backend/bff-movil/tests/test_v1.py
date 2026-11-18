@@ -182,8 +182,11 @@ class DobleNucleo:
             ],
         }
 
-    def prestadores_siniestro(self, siniestro_id, radio_km=None):
-        return self._llamar("prestadores_siniestro", siniestro_id=siniestro_id, radio_km=radio_km)
+    def prestadores_siniestro(self, siniestro_id, **filtros):
+        return self._llamar("prestadores_siniestro", siniestro_id=siniestro_id, **filtros)
+
+    def ciudades_prestadores(self, pais):
+        return self._llamar("ciudades_prestadores", pais=pais)
 
     def listar_siniestros(self, *, usuario_id):
         return self._llamar("listar_siniestros", usuario_id=usuario_id) or []
@@ -1078,6 +1081,71 @@ def test_rutas_sin_mapa_no_llaman_y_el_aviso_es_estable(client, doble):
         "registrar_dispositivo",
         "prestadores",
     ]
+
+
+def test_prestadores_por_area_y_ciudades_v1(client, doble):
+    headers = {"Authorization": f"Bearer {customer_token(client)}"}
+    doble.respuestas["prestadores"] = {
+        "centro": {"lat": "4.643200", "lng": "-74.063100", "origen": "posicion"},
+        "radio_km": None,
+        "truncado": True,
+        "prestadores": [
+            {
+                "id": "PRE-BOG-06",
+                "nombre": "Taller Moto Chapinero",
+                "tipo": "taller-motos",
+                "ramos": ["soat-motocicleta"],
+                "direccion": "Cra 13",
+                "ciudad": "Bogotá",
+                "pais": "CO",
+                "barrio": "Chapinero",
+                "lat": "4.635500",
+                "lng": "-74.065500",
+                "telefono": "601",
+                "horario": "Lun",
+                "distancia_km": 0.9,
+            }
+        ],
+    }
+    area = client.get(
+        "/v1/cliente/prestadores",
+        headers=headers,
+        params={"norte": 4.66, "sur": 4.62, "este": -74.05, "oeste": -74.08, "lat": 4.6432, "lng": -74.0631},
+    ).json()
+    assert area["truncado"] is True
+    assert area["prestadores"][0]["pais"] == "CO"
+    assert area["prestadores"][0]["lat"] == 4.6355
+    llamada = doble.llamadas[-1]
+    assert (llamada["norte"], llamada["oeste"], llamada["limite"]) == (4.66, -74.08, 500)
+    assert "radio_km" not in llamada
+
+    doble.respuestas["ciudades_prestadores"] = {
+        "pais": "PE",
+        "ciudades": [{"nombre": "Lima", "lat": "-12.046400", "lng": "-77.042800", "zoom": 11, "orden": 1, "prestadores": 5}],
+    }
+    ciudades = client.get("/v1/cliente/prestadores/ciudades", headers=headers, params={"pais": "PE"}).json()
+    assert ciudades == {
+        "pais": "PE",
+        "ciudades": [{"nombre": "Lima", "lat": -12.0464, "lng": -77.0428, "zoom": 11, "prestadores": 5}],
+    }
+    assert doble.llamadas[-1] == {"metodo": "ciudades_prestadores", "pais": "PE"}
+
+    doble.respuestas["prestadores_siniestro"] = {
+        "siniestro": {"id": "s-1", "numero": "SIN-1988"},
+        "ramo_fijo": "soat-motocicleta",
+        "sin_geoetiqueta": False,
+        "centro": {"lat": "4.626", "lng": "-74.15", "origen": "siniestro"},
+        "radio_km": None,
+        "truncado": False,
+        "prestadores": [],
+    }
+    aviso = client.get(
+        "/v1/cliente/siniestros/s-1/prestadores",
+        headers=headers,
+        params={"norte": 4.66, "sur": 4.6, "este": -74.1, "oeste": -74.2},
+    ).json()
+    assert aviso["truncado"] is False
+    assert doble.llamadas[-1]["limite"] == 500
 
 
 def test_prueba_de_vida_v1_solo_ok_o_no(client, doble):

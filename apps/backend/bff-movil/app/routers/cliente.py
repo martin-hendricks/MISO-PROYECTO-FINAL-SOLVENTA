@@ -1084,6 +1084,17 @@ def _radio(valor: float | None) -> float:
     return min(valor, 50)
 
 
+LIMITE_AREA = 500
+
+
+def _bordes(norte, sur, este, oeste) -> dict:
+    """Con área se pide el tope del núcleo y no se manda radio; un área incompleta la rechaza el núcleo."""
+    bordes = {"norte": norte, "sur": sur, "este": este, "oeste": oeste}
+    if all(valor is None for valor in bordes.values()):
+        return {}
+    return bordes | {"limite": LIMITE_AREA}
+
+
 def _numero(valor):
     if valor is None:
         return None
@@ -1098,6 +1109,7 @@ def _fila_prestador(fila: dict) -> dict:
         "ramos": fila["ramos"],
         "direccion": fila["direccion"],
         "ciudad": fila["ciudad"],
+        "pais": fila.get("pais", "CO"),
         "barrio": fila["barrio"],
         "lat": _numero(fila["lat"]),
         "lng": _numero(fila["lng"]),
@@ -1114,6 +1126,7 @@ def _respuesta_prestadores(cuerpo: dict) -> dict:
         if centro is None
         else {"lat": _numero(centro["lat"]), "lng": _numero(centro["lng"]), "origen": centro["origen"]},
         "radioKm": _numero(cuerpo.get("radio_km")),
+        "truncado": cuerpo.get("truncado", False),
         "prestadores": [_fila_prestador(fila) for fila in cuerpo["prestadores"]],
     }
 
@@ -1121,6 +1134,7 @@ def _respuesta_prestadores(cuerpo: dict) -> dict:
 _MUESTRA_PRESTADORES = {
     "centro": {"lat": 4.6432, "lng": -74.0631, "origen": "posicion"},
     "radio_km": 10,
+    "truncado": False,
     "prestadores": [
         {
             "id": "PRE-BOG-06",
@@ -1129,6 +1143,7 @@ _MUESTRA_PRESTADORES = {
             "ramos": ["soat-motocicleta"],
             "direccion": "Cra 13 #45-18",
             "ciudad": "Bogotá",
+            "pais": "CO",
             "barrio": "Chapinero",
             "lat": 4.6355,
             "lng": -74.0655,
@@ -1139,6 +1154,31 @@ _MUESTRA_PRESTADORES = {
     ],
 }
 
+_MUESTRA_CIUDADES = {
+    "pais": "CO",
+    "ciudades": [{"nombre": "Bogotá", "lat": 4.6097, "lng": -74.0817, "zoom": 12, "prestadores": 30}],
+}
+
+
+@router.get("/prestadores/ciudades")
+def ciudades_prestadores(request: Request, pais: str) -> dict:
+    if not es_v1(request):
+        return _MUESTRA_CIUDADES
+    cuerpo = request.app.state.nucleo.ciudades_prestadores(pais)
+    return {
+        "pais": cuerpo["pais"],
+        "ciudades": [
+            {
+                "nombre": c["nombre"],
+                "lat": _numero(c["lat"]),
+                "lng": _numero(c["lng"]),
+                "zoom": c["zoom"],
+                "prestadores": c["prestadores"],
+            }
+            for c in cuerpo["ciudades"]
+        ],
+    }
+
 
 @router.get("/prestadores")
 def prestadores(
@@ -1147,17 +1187,32 @@ def prestadores(
     lng: float | None = None,
     ramo: str | None = None,
     ciudad: str | None = None,
+    pais: str | None = None,
     radioKm: float | None = None,
+    norte: float | None = None,
+    sur: float | None = None,
+    este: float | None = None,
+    oeste: float | None = None,
 ) -> dict:
     if not es_v1(request):
         return _respuesta_prestadores(_MUESTRA_PRESTADORES)
-    cuerpo = request.app.state.nucleo.prestadores(lat=lat, lng=lng, ramo=ramo, ciudad=ciudad, radio_km=_radio(radioKm), limite=50)
+    alcance = _bordes(norte, sur, este, oeste) or {"radio_km": _radio(radioKm), "limite": 50}
+    cuerpo = request.app.state.nucleo.prestadores(lat=lat, lng=lng, ramo=ramo, ciudad=ciudad, pais=pais, **alcance)
     return _respuesta_prestadores(cuerpo)
 
 
 @router.get("/siniestros/{siniestro_id}/prestadores")
-def prestadores_siniestro(siniestro_id: str, request: Request, radioKm: float | None = None) -> dict:
-    cuerpo = request.app.state.nucleo.prestadores_siniestro(siniestro_id, _radio(radioKm))
+def prestadores_siniestro(
+    siniestro_id: str,
+    request: Request,
+    radioKm: float | None = None,
+    norte: float | None = None,
+    sur: float | None = None,
+    este: float | None = None,
+    oeste: float | None = None,
+) -> dict:
+    alcance = _bordes(norte, sur, este, oeste) or {"radio_km": _radio(radioKm)}
+    cuerpo = request.app.state.nucleo.prestadores_siniestro(siniestro_id, **alcance)
     aviso = cuerpo["siniestro"]
     centro = cuerpo.get("centro")
     return {
@@ -1166,6 +1221,7 @@ def prestadores_siniestro(siniestro_id: str, request: Request, radioKm: float | 
         "sinGeoetiqueta": cuerpo["sin_geoetiqueta"],
         "centro": None if centro is None else {"lat": _numero(centro["lat"]), "lng": _numero(centro["lng"]), "origen": centro["origen"]},
         "radioKm": _numero(cuerpo.get("radio_km")),
+        "truncado": cuerpo.get("truncado", False),
         "prestadores": [_fila_prestador(fila) for fila in cuerpo["prestadores"]],
     }
 

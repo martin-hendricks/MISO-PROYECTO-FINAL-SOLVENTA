@@ -75,3 +75,49 @@ def test_asesor_no_escribe_y_cliente_no_ve_inactivo(client):
     )
     assert parche.status_code == 200
     assert parche.json()["ramos"] == ["viaje"]
+
+
+def test_ciudades_no_chocan_con_el_id(client):
+    client.post("/v1/prestadores", json=CUERPO, headers=cabecera("operador"))
+    ciudades = client.get("/v1/prestadores/ciudades", params={"pais": "CO"}, headers=cabecera("cliente"))
+    assert ciudades.status_code == 200
+    assert ciudades.json()["pais"] == "CO"
+    assert [c["nombre"] for c in ciudades.json()["ciudades"]] == ["Bogotá"]
+    todas = client.get(
+        "/v1/prestadores/ciudades", params={"pais": "CO", "con_prestadores": "false"}, headers=cabecera("asesor")
+    )
+    assert [c["nombre"] for c in todas.json()["ciudades"]] == ["Bogotá", "Medellín", "Chía"]
+    assert todas.json()["ciudades"][0]["zoom"] == 12
+    pais = client.get("/v1/prestadores/ciudades", params={"pais": "AR"}, headers=cabecera("cliente"))
+    assert pais.status_code == 422
+    assert pais.json()["codigo"] == "pais_desconocido"
+
+
+def test_area_visible(client):
+    alta = client.post("/v1/prestadores", json=CUERPO, headers=cabecera("operador")).json()
+    bordes = {"norte": "4.75", "sur": "4.68", "este": "-74.00", "oeste": "-74.10"}
+    area = client.get("/v1/prestadores", params={**bordes, "limite": 500}, headers=cabecera("cliente"))
+    assert area.status_code == 200
+    cuerpo = area.json()
+    assert cuerpo["truncado"] is False
+    assert cuerpo["prestadores"][0]["id"] == alta["id"]
+    assert cuerpo["prestadores"][0]["pais"] == "CO"
+    assert cuerpo["prestadores"][0]["distancia_km"] is None
+    invertida = client.get("/v1/prestadores", params={**bordes, "sur": "4.80"}, headers=cabecera("cliente"))
+    assert invertida.status_code == 422
+    assert invertida.json()["codigo"] == "area_invalida"
+    parcial = client.get("/v1/prestadores", params={"norte": "4.75"}, headers=cabecera("cliente"))
+    assert parcial.json()["codigo"] == "area_invalida"
+    sin_area = client.get("/v1/prestadores", params={"ciudad": "Bogotá", "limite": 101}, headers=cabecera("cliente"))
+    assert sin_area.status_code == 422
+
+
+def test_alta_con_ciudad_de_otro_pais(client):
+    lima = client.post("/v1/prestadores", json={**CUERPO, "ciudad": "Lima"}, headers=cabecera("operador"))
+    assert lima.status_code == 422
+    assert lima.json()["codigo"] == "ciudad_desconocida"
+    peru = client.post(
+        "/v1/prestadores", json={**CUERPO, "ciudad": "Lima", "pais": "PE"}, headers=cabecera("operador")
+    )
+    assert peru.status_code == 201
+    assert peru.json()["pais"] == "PE"

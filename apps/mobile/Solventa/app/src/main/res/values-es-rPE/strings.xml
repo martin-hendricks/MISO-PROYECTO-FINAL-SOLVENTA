@@ -415,6 +415,26 @@
     <string name="providers_address">Dirección</string>
     <string name="providers_city">Ciudad</string>
     <string name="providers_type">Tipo</string>
+    <string name="providers_truncated">Acerca el mapa para ver todos los prestadores.</string>
+    <string name="providers_my_location">Mi ubicación</string>
+    <string name="providers_zoom_in">Acercar</string>
+    <string name="providers_zoom_out">Alejar</string>
+    <plurals name="providers_cluster_a11y">
+        <item quantity="one">%d prestador, toca para acercar</item>
+        <item quantity="many">%d prestadores, toca para acercar</item>
+        <item quantity="other">%d prestadores, toca para acercar</item>
+    </plurals>
+    <string name="providers_marker_a11y">%1$s, %2$s</string>
+    <string name="providers_call">Llamar</string>
+    <string name="providers_close_card">Cerrar</string>
+    <string name="providers_distance_event">A %1$s km del evento</string>
+    <string name="providers_in_city">Prestadores en %1$s</string>
+    <string name="providers_enable_location">Activar ubicación</string>
+    <string name="providers_country_empty">Aún no hay prestadores en %1$s.</string>
+    <string name="country_name_co">Colombia</string>
+    <string name="country_name_mx">México</string>
+    <string name="country_name_cl">Chile</string>
+    <string name="country_name_pe">Perú</string>
     <string name="ramo_proteccion_dispositivo">Protección de dispositivo</string>
     <string name="ramo_soat_motocicleta">SOAT motocicleta</string>
     <string name="ramo_microseguro_de_vida">Microseguro de vida</string>

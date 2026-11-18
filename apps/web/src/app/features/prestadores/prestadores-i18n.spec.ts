@@ -17,6 +17,26 @@ const CLAVES = [
   'prestadores.claim.subtitle',
   'prestadores.claim.sinGeo',
   'prestadores.chip.todos',
+  'prestadores.subtitle.cercaSola',
+  'prestadores.subtitle.enCiudad',
+  'prestadores.subtitle.zona',
+  'prestadores.truncado',
+  'prestadores.miUbicacion',
+  'prestadores.ciudades',
+  'prestadores.grupo',
+  'prestadores.marcador',
+  'prestadores.vacioPais',
+  'prestadores.pais.CO',
+  'prestadores.pais.MX',
+  'prestadores.pais.CL',
+  'prestadores.pais.PE',
+  'prestadores.tarjeta.cerrar',
+  'prestadores.tarjeta.llamar',
+  'prestadores.tarjeta.varios',
+  'backoffice.prestadores.filtro.pais',
+  'backoffice.prestadores.form.pais',
+  'backoffice.prestadores.error.ciudad_desconocida',
+  'backoffice.prestadores.error.pais_desconocido',
   'siniestros.lista.prestadores',
   'siniestros.detalle.prestadores',
   'backoffice.nav.prestadores',
@@ -52,6 +72,11 @@ describe('prestadores catalogs', () => {
       }
       expect(leer(esCO, 'backoffice.prestadores.error.ramo')).toBe('Elige al menos un ramo.');
       expect(leer(esCO, 'prestadores.no.existe')).toBeUndefined();
+      expect(leer(catalogo, 'prestadores.truncado')).toBe(
+        'Acerca el mapa para ver todos los prestadores.',
+      );
+      expect(leer(catalogo, 'prestadores.grupo')).toBe('{{n}} prestadores, toca para acercar');
+      expect(leer(catalogo, 'prestadores.vacioPais')).toBe('Aún no hay prestadores en {{pais}}.');
       expect(Object.keys(catalogo.prestadores.tipo).length).toBe(9);
       expect(Object.keys(catalogo.prestadores.ramo).length).toBe(8);
     }

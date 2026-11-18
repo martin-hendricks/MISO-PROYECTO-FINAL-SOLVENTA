@@ -92,3 +92,75 @@ def test_operador_crea(client, nucleo_siniestros):
     assert respuesta.status_code == 201
     assert respuesta.json()["id"] == "PRE-BOG-06"
     assert respuesta.json()["estado"] == "activo"
+
+
+CIUDADES_MX = {
+    "pais": "MX",
+    "ciudades": [{"nombre": "Ciudad de México", "lat": 19.4326, "lng": -99.1332, "zoom": 11, "orden": 1, "prestadores": 5}],
+}
+
+
+def test_ciudades_cliente_y_operador(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/prestadores/ciudades")] = _ok(CIUDADES_MX)
+    cliente = client.get(
+        "/v1/cliente/prestadores/ciudades",
+        params={"pais": "MX"},
+        headers={"Authorization": f"Bearer {token(client, 'cliente')}"},
+    )
+    assert cliente.status_code == 200
+    assert cliente.json() == {
+        "pais": "MX",
+        "ciudades": [{"nombre": "Ciudad de México", "lat": 19.4326, "lng": -99.1332, "zoom": 11, "prestadores": 5}],
+    }
+    assert nucleo_siniestros.peticiones[-1].url.params["con_prestadores"] == "true"
+    asesor = client.get(
+        "/v1/operador/prestadores/ciudades",
+        params={"pais": "MX"},
+        headers={"Authorization": f"Bearer {token(client, 'asesor')}"},
+    )
+    assert asesor.status_code == 200
+    assert nucleo_siniestros.peticiones[-1].url.params["con_prestadores"] == "false"
+
+
+def test_area_reenvia_bordes_sin_radio(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/prestadores")] = _ok(
+        {"centro": None, "radio_km": None, "truncado": True, "prestadores": [{**FILA, "pais": "CO"}], "conteos": None}
+    )
+    respuesta = client.get(
+        "/v1/cliente/prestadores",
+        params={"norte": 4.66, "sur": 4.62, "este": -74.05, "oeste": -74.08, "lat": 4.64, "lng": -74.06},
+        headers={"Authorization": f"Bearer {token(client, 'cliente')}"},
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["truncado"] is True
+    assert respuesta.json()["prestadores"][0]["pais"] == "CO"
+    enviada = nucleo_siniestros.peticiones[-1].url.params
+    assert (enviada["norte"], enviada["oeste"], enviada["limite"]) == ("4.66", "-74.08", "500")
+    assert "radio_km" not in enviada
+
+
+def test_area_invalida_pasa_tal_cual(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/prestadores")] = lambda _: httpx.Response(
+        422, json={"codigo": "area_invalida", "mensaje": "El área visible no es válida"}
+    )
+    respuesta = client.get(
+        "/v1/cliente/prestadores",
+        params={"norte": 4.6, "sur": 4.7, "este": -74.0, "oeste": -74.1},
+        headers={"Authorization": f"Bearer {token(client, 'cliente')}"},
+    )
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "area_invalida"
+
+
+def test_operador_filtra_por_pais(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/prestadores")] = _ok(
+        {"centro": None, "radio_km": None, "truncado": False, "prestadores": [], "conteos": {"Santiago": 0}}
+    )
+    respuesta = client.get(
+        "/v1/operador/prestadores",
+        params={"pais": "CL"},
+        headers={"Authorization": f"Bearer {token(client, 'asesor')}"},
+    )
+    assert respuesta.json()["pais"] == "CL"
+    assert respuesta.json()["conteos"] == {"Santiago": 0}
+    assert nucleo_siniestros.peticiones[-1].url.params["pais"] == "CL"

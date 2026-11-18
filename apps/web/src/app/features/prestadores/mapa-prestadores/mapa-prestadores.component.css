@@ -10,12 +10,29 @@
   height: 100%;
 }
 
-google-map {
-  display: block;
+.marco {
+  position: relative;
   flex: 1;
-  min-height: 280px;
+  min-height: 420px;
   overflow: hidden;
   border-radius: 12px;
+}
+
+google-map {
+  display: block;
+  height: 100%;
+}
+
+.capa-tarjeta {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1;
+}
+
+.capa-tarjeta:empty {
+  display: none;
 }
 
 .pines,

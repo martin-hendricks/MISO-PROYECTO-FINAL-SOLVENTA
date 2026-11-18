@@ -7,7 +7,14 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from app.domain.errores import CoordenadaFueraDeRango, PrestadorSinRamo, RamoDesconocido, ReglaDeNegocioViolada
+from app.domain.errores import (
+    AreaInvalida,
+    CoordenadaFueraDeRango,
+    PaisDesconocido,
+    PrestadorSinRamo,
+    RamoDesconocido,
+    ReglaDeNegocioViolada,
+)
 
 RAMOS_PRESTADOR = frozenset(
     {
@@ -34,13 +41,53 @@ TIPOS_PRESTADOR = frozenset(
         "centro-atencion",
     }
 )
-CIUDADES: dict[str, tuple[Decimal, Decimal]] = {
-    "Bogotá": (Decimal("4.609700"), Decimal("-74.081700")),
-    "Medellín": (Decimal("6.244200"), Decimal("-75.581200")),
-    "Chía": (Decimal("4.861900"), Decimal("-74.059700")),
-}
+PAISES = frozenset({"CO", "MX", "CL", "PE"})
+PAIS_DEFECTO = "CO"
 RADIO_MAX_KM = Decimal("50")
 RADIO_DEFECTO_KM = Decimal("10")
+AREA_LIMITE = 500
+
+
+def exigir_pais(pais: str) -> str:
+    if pais not in PAISES:
+        raise PaisDesconocido(pais)
+    return pais
+
+
+@dataclass(frozen=True)
+class CiudadPrestador:
+    pais: str
+    nombre: str
+    lat: Decimal
+    lng: Decimal
+    zoom: int
+    orden: int
+
+
+@dataclass(frozen=True)
+class AreaVisible:
+    norte: Decimal
+    sur: Decimal
+    este: Decimal
+    oeste: Decimal
+
+    @classmethod
+    def desde(cls, norte, sur, este, oeste) -> AreaVisible | None:
+        """Las cuatro coordenadas o ninguna; un área que cruza el antimeridiano no se acepta."""
+        valores = (norte, sur, este, oeste)
+        if all(valor is None for valor in valores):
+            return None
+        if any(valor is None for valor in valores):
+            raise AreaInvalida()
+        area = cls(*(Decimal(str(valor)) for valor in valores))
+        area.validar()
+        return area
+
+    def validar(self) -> None:
+        latitudes_validas = all(Decimal("-90") <= lat <= Decimal("90") for lat in (self.norte, self.sur))
+        longitudes_validas = all(Decimal("-180") <= lng <= Decimal("180") for lng in (self.este, self.oeste))
+        if not (latitudes_validas and longitudes_validas) or self.sur > self.norte or self.oeste > self.este:
+            raise AreaInvalida()
 
 
 def _exigir_ramos(ramos: frozenset[str]) -> None:
@@ -59,9 +106,8 @@ def _exigir_coordenada(lat: Decimal, lng: Decimal) -> None:
 def _exigir_campos(nombre: str, tipo: str, direccion: str, ciudad: str, barrio: str, telefono: str, horario: str) -> None:
     if tipo not in TIPOS_PRESTADOR:
         raise ReglaDeNegocioViolada("tipo_desconocido", f"El tipo '{tipo}' no existe")
-    if ciudad not in CIUDADES:
-        raise ReglaDeNegocioViolada("ciudad_desconocida", f"La ciudad '{ciudad}' no existe")
     for campo, valor, tope in (
+        ("ciudad", ciudad, 80),
         ("nombre", nombre, 120),
         ("direccion", direccion, 200),
         ("barrio", barrio, 80),
@@ -87,6 +133,7 @@ class Prestador:
     tipo: str
     direccion: str
     ciudad: str
+    pais: str
     barrio: str
     lat: Decimal
     lng: Decimal
@@ -115,7 +162,9 @@ class Prestador:
         horario: str,
         actor: str,
         ahora: datetime | None = None,
+        pais: str = PAIS_DEFECTO,
     ) -> Prestador:
+        exigir_pais(pais)
         _exigir_ramos(ramos)
         _exigir_coordenada(lat, lng)
         _exigir_campos(nombre, tipo, direccion, ciudad, barrio, telefono, horario)
@@ -125,7 +174,8 @@ class Prestador:
             nombre=nombre.strip(),
             tipo=tipo,
             direccion=direccion.strip(),
-            ciudad=ciudad,
+            ciudad=ciudad.strip(),
+            pais=pais,
             barrio=barrio.strip(),
             lat=lat,
             lng=lng,
@@ -149,12 +199,14 @@ class Prestador:
         ramos: frozenset[str] | None = None,
         direccion: str | None = None,
         ciudad: str | None = None,
+        pais: str | None = None,
         barrio: str | None = None,
         lat: Decimal | None = None,
         lng: Decimal | None = None,
         telefono: str | None = None,
         horario: str | None = None,
     ) -> Prestador:
+        nuevo_pais = exigir_pais(self.pais if pais is None else pais)
         nuevo_lat = self.lat if lat is None else lat
         nuevo_lng = self.lng if lng is None else lng
         nuevos_ramos = self.ramos if ramos is None else ramos
@@ -166,7 +218,8 @@ class Prestador:
             tipo=tipo if tipo is not None else self.tipo,
             ramos=frozenset(nuevos_ramos),
             direccion=(direccion if direccion is not None else self.direccion).strip(),
-            ciudad=ciudad if ciudad is not None else self.ciudad,
+            ciudad=(ciudad if ciudad is not None else self.ciudad).strip(),
+            pais=nuevo_pais,
             barrio=(barrio if barrio is not None else self.barrio).strip(),
             lat=nuevo_lat,
             lng=nuevo_lng,

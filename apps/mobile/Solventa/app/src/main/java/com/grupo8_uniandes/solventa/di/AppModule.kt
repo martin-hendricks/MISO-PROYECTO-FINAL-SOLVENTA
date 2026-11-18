@@ -201,7 +201,7 @@ fun appModule(baseUrl: String = BuildConfig.BFF_BASE_URL) = module {
     viewModel { (numero: String) -> RenewalChoiceViewModel(numero, get()) }
     viewModel { SiniestrosViewModel(get()) }
     viewModel { (claimId: String) ->
-        MapaPrestadoresViewModel(get(), get(), BuildConfig.MAPS_API_KEY, claimId.ifBlank { null })
+        MapaPrestadoresViewModel(get(), get(), get(), BuildConfig.MAPS_API_KEY, claimId.ifBlank { null })
     }
     viewModel { (prestadorId: String) -> PrestadorFichaViewModel(prestadorId, get()) }
     viewModel { (prestadorId: String) -> AsistenciaSitioViewModel(prestadorId, get(), get()) }

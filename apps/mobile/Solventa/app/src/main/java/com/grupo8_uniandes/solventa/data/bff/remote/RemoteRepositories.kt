@@ -24,6 +24,7 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
+import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
 import com.grupo8_uniandes.solventa.data.bff.mapping.toClaimProviders
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
@@ -48,6 +49,8 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
@@ -512,11 +515,34 @@ class RemoteAssistanceRepository(
 ) : AssistanceRepository {
     override suspend fun providers(query: ProviderQuery): StandInAnswer<ProviderPage> =
         gate.call {
-            api.providers(query.lat, query.lng, query.ramo, query.ciudad, query.radioKm).toProviderPage()
+            val area = query.area
+            api.providers(
+                lat = query.lat,
+                lng = query.lng,
+                ramo = query.ramo,
+                ciudad = query.ciudad,
+                radioKm = query.radioKm,
+                pais = query.pais,
+                norte = area?.norte,
+                sur = area?.sur,
+                este = area?.este,
+                oeste = area?.oeste,
+            ).toProviderPage()
         }
 
-    override suspend fun providersNearClaim(id: String): StandInAnswer<ClaimProviders> =
-        gate.call { api.providersNearClaim(id).toClaimProviders() }
+    override suspend fun cities(pais: String): StandInAnswer<List<ProviderCity>> =
+        gate.call { api.providerCities(pais).toCities() }
+
+    override suspend fun providersNearClaim(id: String, area: ProviderArea?): StandInAnswer<ClaimProviders> =
+        gate.call {
+            api.providersNearClaim(
+                id = id,
+                norte = area?.norte,
+                sur = area?.sur,
+                este = area?.este,
+                oeste = area?.oeste,
+            ).toClaimProviders()
+        }
 
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         gate.call { api.assistance(body.toDto()).toResult() }

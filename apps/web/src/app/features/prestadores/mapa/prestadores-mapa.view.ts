@@ -1,17 +1,19 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { LocaleService } from '../../../core/i18n/locale.service';
 import { GoogleMapsLoaderService } from '../../../core/maps/google-maps-loader.service';
 import { GEOLOCATION_PORT } from '../geolocation-port';
 import { MapaPrestadoresComponent } from '../mapa-prestadores/mapa-prestadores.component';
 import { PrestadoresGateway } from '../prestadores.gateway';
-import { CIUDADES_PRESTADOR, RAMOS_PRESTADOR } from '../tipo-prestador';
+import { TarjetaPrestadorComponent } from '../tarjeta/tarjeta-prestador.component';
+import { RAMOS_PRESTADOR } from '../tipo-prestador';
 import { PrestadoresMapaViewModel } from './prestadores-mapa.viewmodel';
 
 @Component({
   selector: 'sv-prestadores-mapa',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, RouterLink, MapaPrestadoresComponent],
+  imports: [TranslatePipe, RouterLink, MapaPrestadoresComponent, TarjetaPrestadorComponent],
   templateUrl: './prestadores-mapa.view.html',
   styleUrls: ['../../polizas/polizas.page.css', './prestadores-mapa.view.css'],
 })
@@ -23,25 +25,30 @@ export class PrestadoresMapaView {
   protected readonly vm = new PrestadoresMapaViewModel(
     {
       cercanos: (consulta) => this.gateway.buscar(consulta),
-      porSiniestro: (id) => this.gateway.porSiniestro(id),
+      ciudades: (pais) => this.gateway.ciudades(pais),
+      porSiniestro: (id, area) => this.gateway.porSiniestro(id, area),
     },
     inject(GEOLOCATION_PORT),
     this.claimId,
+    inject(LocaleService).locale,
   );
-  protected readonly mapa = signal(this.loader.estado());
   protected readonly ramos = RAMOS_PRESTADOR;
-  protected readonly ciudades = CIUDADES_PRESTADOR;
+  protected readonly idsSeleccion = computed(() =>
+    this.vm.seleccion().map((prestador) => prestador.id),
+  );
 
   constructor() {
-    void this.loader.cargar().then((estado) => {
-      this.mapa.set(estado);
-      this.vm.fijarMapa(estado);
-    });
+    this.vm.fijarMapa(this.loader.estado());
+    void this.loader.cargar().then((estado) => this.vm.fijarMapa(estado));
     this.vm.cargar();
   }
 
-  protected mapaNoDisponible(): void {
-    this.mapa.set('no-disponible');
-    this.vm.fijarMapa('no-disponible');
+  protected slug(nombre: string): string {
+    return nombre
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   }
 }

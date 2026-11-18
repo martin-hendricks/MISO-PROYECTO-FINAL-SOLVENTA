@@ -3,8 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from app.domain.errores import CoordenadaFueraDeRango, PrestadorSinRamo, RamoDesconocido
-from app.domain.prestador import Prestador
+from app.domain.errores import AreaInvalida, CoordenadaFueraDeRango, PaisDesconocido, PrestadorSinRamo, RamoDesconocido
+from app.domain.prestador import AreaVisible, Prestador
 
 AHORA = datetime(2026, 11, 17, tzinfo=timezone.utc)
 
@@ -59,3 +59,27 @@ def test_editar_reemplaza_ramos_y_mismo_estado_no_cambia():
     assert igual is editado
     inactivo = editado.cambiar_estado("inactivo", "operador@solventa.co", ahora=AHORA)
     assert inactivo.estado == "inactivo"
+
+
+def test_pais_por_defecto_y_desconocido():
+    assert Prestador.crear(**_datos()).pais == "CO"
+    assert Prestador.crear(**_datos(pais="MX", ciudad="Guadalajara")).pais == "MX"
+    with pytest.raises(PaisDesconocido):
+        Prestador.crear(**_datos(pais="AR"))
+    with pytest.raises(PaisDesconocido):
+        Prestador.crear(**_datos()).editar(actor="op", pais="BR")
+
+
+def test_area_visible():
+    assert AreaVisible.desde(None, None, None, None) is None
+    bogota = AreaVisible.desde(Decimal("4.8"), Decimal("4.5"), Decimal("-74.0"), Decimal("-74.2"))
+    assert bogota.norte == Decimal("4.8")
+    for bordes in (
+        (Decimal("4.5"), Decimal("4.8"), Decimal("-74.0"), Decimal("-74.2")),
+        (Decimal("4.8"), Decimal("4.5"), Decimal("-74.2"), Decimal("-74.0")),
+        (Decimal("91"), Decimal("4.5"), Decimal("-74.0"), Decimal("-74.2")),
+        (Decimal("4.8"), Decimal("4.5"), Decimal("181"), Decimal("-74.2")),
+        (Decimal("4.8"), None, Decimal("-74.0"), Decimal("-74.2")),
+    ):
+        with pytest.raises(AreaInvalida):
+            AreaVisible.desde(*bordes)

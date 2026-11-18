@@ -35,6 +35,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProviderDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushDestinationDto
@@ -55,6 +56,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
 import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCenter
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
@@ -342,7 +344,12 @@ internal fun ProvidersDto.toProviderPage() = ProviderPage(
     centro?.let { ProviderCenter(it.lat, it.lng, it.origen) },
     radioKm,
     prestadores.map { it.toProvider() },
+    truncado,
 )
+
+internal fun ProviderCitiesDto.toCities() = ciudades.map {
+    ProviderCity(it.nombre, it.lat, it.lng, it.zoom, it.prestadores)
+}
 
 internal fun ClaimProvidersDto.toClaimProviders() = ClaimProviders(
     siniestroId = siniestro.id,
@@ -353,6 +360,7 @@ internal fun ClaimProvidersDto.toClaimProviders() = ClaimProviders(
     centro = centro?.let { ProviderCenter(it.lat, it.lng, it.origen) },
     radioKm = radioKm,
     prestadores = prestadores.map { it.toProvider() },
+    truncado = truncado,
 )
 
 private fun ProviderDto.toProvider() = Provider(
@@ -368,6 +376,7 @@ private fun ProviderDto.toProvider() = Provider(
     telefono,
     horario,
     distanciaKm,
+    pais,
 )
 
 private fun String.toProviderType(): ProviderType =

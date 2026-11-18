@@ -1,12 +1,23 @@
-"""Casos de uso del catálogo de prestadores. La distancia, el radio y el alcance viven aquí."""
+"""Casos de uso del catálogo de prestadores. La distancia, el radio, el área y el alcance viven aquí."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
 
-from app.domain.errores import NoEncontrado, RamoDesconocido
-from app.domain.prestador import CIUDADES, RADIO_DEFECTO_KM, RAMOS_PRESTADOR, Centro, Prestador, PrestadorCercano
+from app.domain.errores import CentroRequerido, CiudadDesconocida, NoEncontrado, RamoDesconocido
+from app.domain.prestador import (
+    AREA_LIMITE,
+    PAIS_DEFECTO,
+    RADIO_DEFECTO_KM,
+    RAMOS_PRESTADOR,
+    AreaVisible,
+    Centro,
+    CiudadPrestador,
+    Prestador,
+    PrestadorCercano,
+    exigir_pais,
+)
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.seguridad import Llamante, dueno_visible, exigir_rol
 
@@ -18,10 +29,12 @@ class ConsultaPrestadores:
     lat: Decimal | None = None
     lng: Decimal | None = None
     ciudad: str | None = None
+    pais: str | None = None
     ramo: str | None = None
     radio_km: Decimal = RADIO_DEFECTO_KM
     estado: str | None = None
     limite: int = 50
+    area: AreaVisible | None = None
 
 
 @dataclass(frozen=True)
@@ -30,6 +43,7 @@ class ResultadoBusqueda:
     radio_km: Decimal | None
     prestadores: list[PrestadorCercano]
     conteos: dict[str, int] | None
+    truncado: bool = False
 
 
 def _ramo(ramo: str | None) -> str | None:
@@ -58,34 +72,72 @@ def _redondear(filas: list[PrestadorCercano]) -> list[PrestadorCercano]:
     ]
 
 
+async def _en_area(uow, area: AreaVisible, ramo, estados, limite: int, origen) -> tuple[list[PrestadorCercano], bool]:
+    tope = min(limite, AREA_LIMITE)
+    filas = await uow.prestadores.en_area(area, ramo, estados, tope + 1, origen)
+    return filas[:tope], len(filas) > tope
+
+
+async def _ciudad_del_catalogo(uow, pais: str, nombre: str) -> CiudadPrestador:
+    ciudad = await uow.prestadores.ciudad(pais, nombre)
+    if ciudad is None:
+        raise CiudadDesconocida(pais, nombre)
+    return ciudad
+
+
 async def buscar(uow_fabrica: FabricaUnidadDeTrabajo, llamante: Llamante, consulta: ConsultaPrestadores) -> ResultadoBusqueda:
     ramo = _ramo(consulta.ramo)
     estados = _estados(llamante, consulta.estado)
     personal = llamante.rol in ("asesor", "operador")
+    pais = exigir_pais(consulta.pais or PAIS_DEFECTO)
+    hay_origen = consulta.lat is not None and consulta.lng is not None
+    truncado = False
     async with uow_fabrica() as uow:
-        if consulta.lat is not None and consulta.lng is not None:
+        if consulta.area is not None:
+            origen = (consulta.lat, consulta.lng) if hay_origen else None
+            filas, truncado = await _en_area(uow, consulta.area, ramo, estados, consulta.limite, origen)
+            centro = Centro(consulta.lat, consulta.lng, "posicion") if hay_origen else None
+            radio = None
+        elif hay_origen:
             filas = await uow.prestadores.cercanos(
-                consulta.lat, consulta.lng, consulta.radio_km, ramo, estados, consulta.limite, consulta.ciudad
+                consulta.lat,
+                consulta.lng,
+                consulta.radio_km,
+                ramo,
+                estados,
+                consulta.limite,
+                consulta.ciudad,
+                consulta.pais,
             )
             centro = Centro(consulta.lat, consulta.lng, "posicion")
             radio = consulta.radio_km
         elif consulta.ciudad is not None:
-            filas = await uow.prestadores.por_ciudad(consulta.ciudad, ramo, estados, consulta.limite)
-            lat, lng = CIUDADES[consulta.ciudad]
-            centro = Centro(lat, lng, "ciudad")
+            ciudad = await _ciudad_del_catalogo(uow, pais, consulta.ciudad)
+            filas = await uow.prestadores.por_ciudad(pais, ciudad.nombre, ramo, estados, consulta.limite)
+            centro = Centro(ciudad.lat, ciudad.lng, "ciudad")
             radio = None
         elif personal:
-            planos = await uow.prestadores.listar(ramo, None, estados)
+            planos = await uow.prestadores.listar(ramo, pais, None, estados)
             filas = [PrestadorCercano(p, None) for p in planos]
-            lat, lng = CIUDADES["Bogotá"]
-            centro = Centro(lat, lng, "ciudad")
+            catalogo = await uow.prestadores.ciudades(pais, solo_activos=False)
+            centro = Centro(catalogo[0][0].lat, catalogo[0][0].lng, "ciudad") if catalogo else None
             radio = None
         else:
-            from app.domain.errores import CentroRequerido
-
             raise CentroRequerido()
-        conteos = await uow.prestadores.conteos_por_ciudad() if personal else None
-    return ResultadoBusqueda(centro, radio, _redondear(filas), conteos)
+        conteos = await uow.prestadores.conteos_por_ciudad(pais) if personal else None
+    return ResultadoBusqueda(centro, radio, _redondear(filas), conteos, truncado)
+
+
+async def ciudades(
+    uow_fabrica: FabricaUnidadDeTrabajo, llamante: Llamante, pais: str, con_prestadores: bool = True
+) -> list[tuple[CiudadPrestador, int]]:
+    exigir_pais(pais)
+    solo_con_activos = con_prestadores or llamante.rol == "cliente"
+    async with uow_fabrica() as uow:
+        filas = await uow.prestadores.ciudades(pais, solo_activos=solo_con_activos)
+    if solo_con_activos:
+        return [(ciudad, total) for ciudad, total in filas if total > 0]
+    return filas
 
 
 async def obtener(uow_fabrica: FabricaUnidadDeTrabajo, llamante: Llamante, prestador_id: str) -> Prestador:
@@ -102,6 +154,7 @@ async def buscar_por_siniestro(
     siniestro_id,
     radio_km: Decimal,
     limite: int,
+    area: AreaVisible | None = None,
 ) -> dict:
     dueno = dueno_visible(llamante, None)
     async with uow_fabrica() as uow:
@@ -118,17 +171,27 @@ async def buscar_por_siniestro(
                 "sin_geoetiqueta": True,
                 "centro": None,
                 "radio_km": None,
+                "truncado": False,
                 "prestadores": [],
             }
-        filas = await uow.prestadores.cercanos(
-            siniestro.geo.lat, siniestro.geo.lng, radio_km, ramo, ("activo",), limite
-        )
+        truncado = False
+        if area is not None:
+            filas, truncado = await _en_area(
+                uow, area, ramo, ("activo",), limite, (siniestro.geo.lat, siniestro.geo.lng)
+            )
+            radio = None
+        else:
+            filas = await uow.prestadores.cercanos(
+                siniestro.geo.lat, siniestro.geo.lng, radio_km, ramo, ("activo",), limite
+            )
+            radio = radio_km
         return {
             "siniestro": siniestro,
             "ramo_fijo": ramo,
             "sin_geoetiqueta": False,
             "centro": Centro(siniestro.geo.lat, siniestro.geo.lng, "siniestro"),
-            "radio_km": radio_km,
+            "radio_km": radio,
+            "truncado": truncado,
             "prestadores": _redondear(filas),
         }
 
@@ -137,6 +200,7 @@ async def crear(uow_fabrica: FabricaUnidadDeTrabajo, llamante: Llamante, datos: 
     exigir_rol(llamante, "operador")
     prestador = Prestador.crear(actor=llamante.sub, **datos)
     async with uow_fabrica() as uow:
+        await _ciudad_del_catalogo(uow, prestador.pais, prestador.ciudad)
         await uow.prestadores.guardar(prestador)
         await uow.confirmar()
     return prestador
@@ -149,6 +213,8 @@ async def editar(uow_fabrica: FabricaUnidadDeTrabajo, llamante: Llamante, presta
         if actual is None:
             raise NoEncontrado("No existe")
         nuevo = actual.editar(actor=llamante.sub, **datos)
+        if (nuevo.pais, nuevo.ciudad) != (actual.pais, actual.ciudad):
+            await _ciudad_del_catalogo(uow, nuevo.pais, nuevo.ciudad)
         await uow.prestadores.guardar(nuevo)
         await uow.confirmar()
     return nuevo

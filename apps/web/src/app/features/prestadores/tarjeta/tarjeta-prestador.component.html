@@ -1,0 +1,66 @@
+<section
+  class="tarjeta"
+  role="dialog"
+  aria-labelledby="tarjeta-prestador-titulo"
+  data-testid="tarjeta-prestador"
+>
+  <header>
+    <h2 id="tarjeta-prestador-titulo" tabindex="-1" #titulo>
+      @if (prestadores().length === 1) {
+        {{ prestadores()[0].nombre }}
+      } @else {
+        {{ 'prestadores.tarjeta.varios' | translate: { n: prestadores().length } }}
+      }
+    </h2>
+    <button
+      type="button"
+      class="cerrar"
+      data-testid="tarjeta-cerrar"
+      [attr.aria-label]="'prestadores.tarjeta.cerrar' | translate"
+      (click)="cerrar.emit()"
+    >
+      ×
+    </button>
+  </header>
+  @for (prestador of prestadores(); track prestador.id) {
+    <div class="fila" [attr.data-testid]="'tarjeta-fila-' + prestador.id">
+      @if (prestadores().length > 1) {
+        <h3>{{ prestador.nombre }}</h3>
+      }
+      <p class="tipo">{{ 'prestadores.tipo.' + prestador.tipo | translate }}</p>
+      <p>{{ prestador.direccion }} · {{ prestador.barrio }}</p>
+      @if (km(prestador); as km) {
+        <p class="distancia" [attr.data-testid]="'tarjeta-distancia-' + prestador.id">
+          {{
+            (referencia() === 'evento' ? 'prestadores.distanciaEvento' : 'prestadores.distancia')
+              | translate: { km }
+          }}
+        </p>
+      }
+      <p>{{ prestador.horario }}</p>
+      <ul class="ramos" [attr.data-testid]="'tarjeta-ramos-' + prestador.id">
+        @for (ramo of prestador.ramos; track ramo) {
+          <li>{{ 'prestadores.ramo.' + ramo | translate }}</li>
+        }
+      </ul>
+      <div class="acciones">
+        <a
+          class="outlined"
+          [href]="llamar(prestador.telefono)"
+          [attr.data-testid]="'tarjeta-llamar-' + prestador.id"
+        >
+          {{ 'prestadores.tarjeta.llamar' | translate }} · {{ prestador.telefono }}
+        </a>
+        <a
+          class="filled"
+          [href]="comoLlegar(prestador)"
+          target="_blank"
+          rel="noopener"
+          [attr.data-testid]="'tarjeta-como-llegar-' + prestador.id"
+        >
+          {{ 'prestadores.comoLlegar' | translate }}
+        </a>
+      </div>
+    </div>
+  }
+</section>

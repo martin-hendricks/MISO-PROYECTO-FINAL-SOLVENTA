@@ -8,7 +8,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.domain.aviso import Adjunto, Decision, IntentoPago, PagoSiniestro, ParametroRamo
-from app.domain.prestador import Prestador, PrestadorCercano
+from app.domain.prestador import AreaVisible, CiudadPrestador, Prestador, PrestadorCercano
 from app.domain.modelos import (
     EstadoSiniestro,
     EvaluacionUmbral,
@@ -124,17 +124,31 @@ class RepositorioPrestadores(Protocol):
         estados: tuple[str, ...],
         limite: int,
         ciudad: str | None = None,
+        pais: str | None = None,
     ) -> list[PrestadorCercano]: ...
 
     async def por_ciudad(
-        self, ciudad: str, ramo: str | None, estados: tuple[str, ...], limite: int
+        self, pais: str, ciudad: str, ramo: str | None, estados: tuple[str, ...], limite: int
+    ) -> list[PrestadorCercano]: ...
+
+    async def en_area(
+        self,
+        area: AreaVisible,
+        ramo: str | None,
+        estados: tuple[str, ...],
+        limite: int,
+        origen: tuple[Decimal, Decimal] | None,
     ) -> list[PrestadorCercano]: ...
 
     async def listar(
-        self, ramo: str | None, ciudad: str | None, estados: tuple[str, ...]
+        self, ramo: str | None, pais: str, ciudad: str | None, estados: tuple[str, ...]
     ) -> list[Prestador]: ...
 
-    async def conteos_por_ciudad(self) -> dict[str, int]: ...
+    async def conteos_por_ciudad(self, pais: str) -> dict[str, int]: ...
+
+    async def ciudades(self, pais: str, solo_activos: bool) -> list[tuple[CiudadPrestador, int]]: ...
+
+    async def ciudad(self, pais: str, nombre: str) -> CiudadPrestador | None: ...
 
     async def obtener(self, prestador_id: str) -> Prestador | None: ...
 

@@ -81,9 +81,13 @@ class ClienteMsSiniestros(ClienteServicio):
     async def prestador(self, prestador_id: str) -> dict[str, Any]:
         return await self._pedir("GET", f"/v1/prestadores/{prestador_id}")
 
-    async def prestadores_siniestro(self, siniestro_id: str, radio_km: float | None = None) -> dict[str, Any]:
-        params = {"radio_km": radio_km} if radio_km is not None else None
-        return await self._pedir("GET", f"/v1/siniestros/{siniestro_id}/prestadores", params=params)
+    async def ciudades_prestadores(self, pais: str, con_prestadores: bool) -> dict[str, Any]:
+        params = {"pais": pais, "con_prestadores": str(con_prestadores).lower()}
+        return await self._pedir("GET", "/v1/prestadores/ciudades", params=params)
+
+    async def prestadores_siniestro(self, siniestro_id: str, **filtros: Any) -> dict[str, Any]:
+        params = {clave: str(valor) for clave, valor in filtros.items() if valor is not None}
+        return await self._pedir("GET", f"/v1/siniestros/{siniestro_id}/prestadores", params=params or None)
 
     async def crear_prestador(self, cuerpo: dict[str, Any]) -> dict[str, Any]:
         return await self._pedir("POST", "/v1/prestadores", json=cuerpo)

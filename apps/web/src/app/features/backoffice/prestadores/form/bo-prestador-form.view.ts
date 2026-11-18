@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { LocaleService } from '../../../../core/i18n/locale.service';
 import { GoogleMapsLoaderService } from '../../../../core/maps/google-maps-loader.service';
 import { MapaPrestadoresComponent } from '../../../prestadores/mapa-prestadores/mapa-prestadores.component';
 import {
-  CENTRO_BOGOTA,
-  CIUDADES_PRESTADOR,
+  PAIS_POR_LOCALE,
+  PAISES,
   RAMOS_PRESTADOR,
   TIPOS_PRESTADOR,
 } from '../../../prestadores/tipo-prestador';
@@ -28,36 +29,30 @@ export class BoPrestadorFormView {
   protected readonly vm = new BoPrestadorFormViewModel(
     {
       obtener: (prestadorId) => this.gateway.obtener(prestadorId),
+      ciudades: (pais) => this.gateway.ciudades(pais),
       guardar: (entrada, prestadorId) =>
         prestadorId ? this.gateway.editar(prestadorId, entrada) : this.gateway.crear(entrada),
     },
     this.id,
+    PAIS_POR_LOCALE[inject(LocaleService).locale()],
   );
   protected readonly mapa = signal(this.loader.estado());
   protected readonly tipos = TIPOS_PRESTADOR;
   protected readonly ramos = RAMOS_PRESTADOR;
-  protected readonly ciudades = CIUDADES_PRESTADOR;
-  protected readonly centro = CENTRO_BOGOTA;
+  protected readonly paises = PAISES;
 
   constructor() {
-    void this.loader.cargar().then((estado) => {
-      this.mapa.set(estado);
-      if (estado === 'disponible' && this.vm.lat() === null) {
-        this.vm.fijarPin(this.centro.lat, this.centro.lng);
+    void this.loader.cargar().then((estado) => this.mapa.set(estado));
+    this.vm.cargar();
+    effect(() => {
+      if (this.mapa() === 'disponible' && this.vm.pin()) {
+        this.vm.anclarPin();
       }
     });
-    this.vm.cargar();
     effect(() => {
       if (this.vm.guardado()) {
         void this.router.navigateByUrl('/cms/prestadores');
       }
     });
-  }
-
-  protected pin(): { lat: number; lng: number } {
-    return {
-      lat: this.vm.lat() ?? this.centro.lat,
-      lng: this.vm.lng() ?? this.centro.lng,
-    };
   }
 }

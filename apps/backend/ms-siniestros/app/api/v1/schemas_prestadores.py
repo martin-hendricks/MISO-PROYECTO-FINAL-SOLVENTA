@@ -1,11 +1,13 @@
 from datetime import datetime
 from decimal import Decimal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.application.prestadores import ConsultaPrestadores, ResultadoBusqueda
-from app.domain.prestador import CIUDADES, RADIO_DEFECTO_KM, Prestador, PrestadorCercano
+from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.prestador import AREA_LIMITE, RADIO_DEFECTO_KM, AreaVisible, CiudadPrestador, Prestador, PrestadorCercano
+
+LIMITE_SIN_AREA = 100
 
 
 class PrestadorEntrada(BaseModel):
@@ -13,7 +15,8 @@ class PrestadorEntrada(BaseModel):
     tipo: str = Field(min_length=1)
     ramos: list[str] = Field(min_length=1)
     direccion: str = Field(min_length=1, max_length=200)
-    ciudad: str
+    ciudad: str = Field(min_length=1, max_length=80)
+    pais: str = Field(default="CO", min_length=2, max_length=2)
     barrio: str = Field(min_length=1, max_length=80)
     lat: Decimal
     lng: Decimal
@@ -31,7 +34,8 @@ class PrestadorEdicion(BaseModel):
     tipo: str | None = None
     ramos: list[str] | None = None
     direccion: str | None = Field(default=None, min_length=1, max_length=200)
-    ciudad: str | None = None
+    ciudad: str | None = Field(default=None, min_length=1, max_length=80)
+    pais: str | None = Field(default=None, min_length=2, max_length=2)
     barrio: str | None = Field(default=None, min_length=1, max_length=80)
     lat: Decimal | None = None
     lng: Decimal | None = None
@@ -62,6 +66,7 @@ class PrestadorSalida(BaseModel):
     ramos: list[str]
     direccion: str
     ciudad: str
+    pais: str
     barrio: str
     lat: Decimal
     lng: Decimal
@@ -80,6 +85,7 @@ class PrestadorSalida(BaseModel):
             ramos=sorted(prestador.ramos),
             direccion=prestador.direccion,
             ciudad=prestador.ciudad,
+            pais=prestador.pais,
             barrio=prestador.barrio,
             lat=prestador.lat,
             lng=prestador.lng,
@@ -98,6 +104,7 @@ class PrestadorSalida(BaseModel):
 class BusquedaSalida(BaseModel):
     centro: CentroSalida | None
     radio_km: Decimal | None
+    truncado: bool
     prestadores: list[PrestadorSalida]
     conteos: dict[str, int] | None
 
@@ -109,6 +116,7 @@ class BusquedaSalida(BaseModel):
         return cls(
             centro=centro,
             radio_km=resultado.radio_km,
+            truncado=resultado.truncado,
             prestadores=[PrestadorSalida.desde_cercano(fila) for fila in resultado.prestadores],
             conteos=resultado.conteos,
         )
@@ -120,7 +128,40 @@ class SiniestroPrestadoresSalida(BaseModel):
     sin_geoetiqueta: bool
     centro: CentroSalida | None
     radio_km: Decimal | None
+    truncado: bool
     prestadores: list[PrestadorSalida]
+
+
+class CiudadSalida(BaseModel):
+    nombre: str
+    lat: Decimal
+    lng: Decimal
+    zoom: int
+    orden: int
+    prestadores: int
+
+
+class CiudadesSalida(BaseModel):
+    pais: str
+    ciudades: list[CiudadSalida]
+
+    @classmethod
+    def desde(cls, pais: str, filas: list[tuple[CiudadPrestador, int]]) -> "CiudadesSalida":
+        return cls(
+            pais=pais,
+            ciudades=[
+                CiudadSalida(nombre=c.nombre, lat=c.lat, lng=c.lng, zoom=c.zoom, orden=c.orden, prestadores=total)
+                for c, total in filas
+            ],
+        )
+
+
+def limite_para(area: AreaVisible | None, limite: int | None) -> int:
+    if area is None:
+        if limite is not None and limite > LIMITE_SIN_AREA:
+            raise ReglaDeNegocioViolada("limite_invalido", f"Sin área el límite es {LIMITE_SIN_AREA}")
+        return limite or 50
+    return limite or AREA_LIMITE
 
 
 def consulta_desde(
@@ -131,17 +172,17 @@ def consulta_desde(
     radio_km: Decimal | None,
     estado: str | None,
     limite: int,
+    pais: str | None = None,
+    area: AreaVisible | None = None,
 ) -> ConsultaPrestadores:
-    if ciudad is not None and ciudad not in CIUDADES:
-        from app.domain.errores import ReglaDeNegocioViolada
-
-        raise ReglaDeNegocioViolada("ciudad_desconocida", f"La ciudad '{ciudad}' no existe")
     return ConsultaPrestadores(
         lat=lat,
         lng=lng,
         ciudad=ciudad,
+        pais=pais,
         ramo=ramo,
         radio_km=RADIO_DEFECTO_KM if radio_km is None else radio_km,
         estado=estado,
         limite=limite,
+        area=area,
     )

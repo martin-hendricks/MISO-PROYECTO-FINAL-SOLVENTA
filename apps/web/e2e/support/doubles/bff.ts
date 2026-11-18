@@ -18,6 +18,7 @@ export interface OperadorPrestador {
   tipo: string;
   ramos: string[];
   direccion: string;
+  pais?: string;
   ciudad: string;
   barrio: string;
   lat: number;
@@ -27,6 +28,38 @@ export interface OperadorPrestador {
   estado: 'activo' | 'inactivo';
   actualizadoEn: string;
 }
+
+export interface CiudadPrestadores {
+  nombre: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+  prestadores: number;
+}
+
+/** The seeded city catalog (db/schema/17), with the active provider counts of the seed. */
+export const CIUDADES_E2E: Record<string, CiudadPrestadores[]> = {
+  CO: [
+    { nombre: 'Bogotá', lat: 4.6097, lng: -74.0817, zoom: 12, prestadores: 30 },
+    { nombre: 'Medellín', lat: 6.2442, lng: -75.5812, zoom: 13, prestadores: 20 },
+    { nombre: 'Chía', lat: 4.8619, lng: -74.0597, zoom: 13, prestadores: 10 },
+  ],
+  MX: [
+    { nombre: 'Ciudad de México', lat: 19.4326, lng: -99.1332, zoom: 11, prestadores: 5 },
+    { nombre: 'Guadalajara', lat: 20.6597, lng: -103.3496, zoom: 13, prestadores: 4 },
+    { nombre: 'Monterrey', lat: 25.6866, lng: -100.3161, zoom: 13, prestadores: 4 },
+  ],
+  CL: [
+    { nombre: 'Santiago', lat: -33.4489, lng: -70.6693, zoom: 11, prestadores: 5 },
+    { nombre: 'Valparaíso', lat: -33.0472, lng: -71.6127, zoom: 13, prestadores: 4 },
+    { nombre: 'Concepción', lat: -36.827, lng: -73.0503, zoom: 13, prestadores: 4 },
+  ],
+  PE: [
+    { nombre: 'Lima', lat: -12.0464, lng: -77.0428, zoom: 11, prestadores: 5 },
+    { nombre: 'Arequipa', lat: -16.409, lng: -71.5375, zoom: 13, prestadores: 4 },
+    { nombre: 'Trujillo', lat: -8.1116, lng: -79.0288, zoom: 13, prestadores: 4 },
+  ],
+};
 
 const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
@@ -541,10 +574,22 @@ export class BffDoubles {
     return this.profilingConsentRevocations;
   }
 
-  async serveCustomerPrestadores(body: unknown): Promise<void> {
+  /** `body` may depend on the query (pais, ciudad, area); `/ciudades` answers from the catalog. */
+  async serveCustomerPrestadores(
+    body: unknown | ((query: URLSearchParams) => unknown),
+    ciudades: Record<string, CiudadPrestadores[]> = CIUDADES_E2E,
+  ): Promise<void> {
     const url = '**/web/cliente/prestadores**';
     await this.page.unroute(url);
-    await this.page.route(url, (route) => route.fulfill({ json: body }));
+    await this.page.route(url, (route) => {
+      const destino = new URL(route.request().url());
+      if (destino.pathname.endsWith('/prestadores/ciudades')) {
+        const pais = destino.searchParams.get('pais') ?? 'CO';
+        return route.fulfill({ json: { pais, ciudades: ciudades[pais] ?? [] } });
+      }
+      const respuesta = typeof body === 'function' ? body(destino.searchParams) : body;
+      return route.fulfill({ json: respuesta });
+    });
   }
 
   async serveClaimPrestadores(id: string, status: number, body: unknown): Promise<void> {
@@ -566,12 +611,25 @@ export class BffDoubles {
       const indice = partes.lastIndexOf('prestadores');
       const id = partes[indice + 1];
       const cola = partes[indice + 2];
+      const params = new URL(request.url()).searchParams;
+      const pais = params.get('pais') ?? 'CO';
+      if (id === 'ciudades' && request.method() === 'GET') {
+        const catalogo = (CIUDADES_E2E[pais] ?? []).map((item) => ({
+          ...item,
+          prestadores: this.operadorPrestadores.filter(
+            (fila) => (fila.pais ?? 'CO') === pais && fila.ciudad === item.nombre,
+          ).length,
+        }));
+        return route.fulfill({ json: { pais, ciudades: catalogo } });
+      }
       if (!id && request.method() === 'GET') {
-        const params = new URL(request.url()).searchParams;
         const ramo = params.get('ramo');
         const ciudad = params.get('ciudad');
         const estado = params.get('estado');
         const prestadores = this.operadorPrestadores.filter((fila) => {
+          if ((fila.pais ?? 'CO') !== pais) {
+            return false;
+          }
           if (ramo && !fila.ramos.includes(ramo)) {
             return false;
           }
@@ -583,8 +641,25 @@ export class BffDoubles {
           }
           return true;
         });
+        const conteosPais =
+          pais === 'CO'
+            ? conteos
+            : Object.fromEntries(
+                (CIUDADES_E2E[pais] ?? []).map((item) => [
+                  item.nombre,
+                  this.operadorPrestadores.filter(
+                    (fila) => (fila.pais ?? 'CO') === pais && fila.ciudad === item.nombre,
+                  ).length,
+                ]),
+              );
+        const primera = CIUDADES_E2E[pais]?.[0];
         return route.fulfill({
-          json: { conteos, centro: { lat: 4.6097, lng: -74.0817 }, prestadores },
+          json: {
+            pais,
+            conteos: conteosPais,
+            centro: primera ? { lat: primera.lat, lng: primera.lng } : null,
+            prestadores,
+          },
         });
       }
       if (!id && request.method() === 'POST') {

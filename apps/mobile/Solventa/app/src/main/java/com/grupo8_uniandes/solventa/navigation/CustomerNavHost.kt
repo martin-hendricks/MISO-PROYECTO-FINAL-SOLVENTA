@@ -303,6 +303,7 @@ fun CustomerNavHost(
             ProviderMapRoute(
                 claimId = "",
                 onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
+                onRequestAssistance = { id -> navController.navigate(AsistenciaSitioRoute(id)) },
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
             )
         }
@@ -311,6 +312,7 @@ fun CustomerNavHost(
             ProviderMapRoute(
                 claimId = route.siniestroId,
                 onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
+                onRequestAssistance = { id -> navController.navigate(AsistenciaSitioRoute(id)) },
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
             )
         }
@@ -616,10 +618,12 @@ private fun ValidityNoticeRoute(
 private fun ProviderMapRoute(
     claimId: String,
     onOpenProvider: (String) -> Unit,
+    onRequestAssistance: (String) -> Unit,
     onReport: () -> Unit,
 ) {
     val viewModel: MapaPrestadoresViewModel = koinViewModel { parametersOf(claimId) }
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
     MapaPrestadoresScreen(
         state = state,
         onPermission = viewModel::onLocationPermission,
@@ -628,6 +632,19 @@ private fun ProviderMapRoute(
         onOpenProvider = onOpenProvider,
         onRetry = viewModel::retry,
         onReport = onReport,
+        onSelectProviders = viewModel::selectProviders,
+        onCloseCard = viewModel::closeCard,
+        onCameraIdle = viewModel::onCameraIdle,
+        onUserPan = viewModel::onUserPan,
+        onRecenter = viewModel::recenterOnMe,
+        onDirections = { provider ->
+            val uri = PrestadorFichaViewModel.directionsUri(provider.lat, provider.lng)
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) }
+        },
+        onCall = { phone ->
+            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) }
+        },
+        onRequestAssistance = onRequestAssistance,
     )
 }
 

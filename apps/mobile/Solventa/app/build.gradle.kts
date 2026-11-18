@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.osmdroid.android)
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
+    implementation(libs.maps.compose.utils)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

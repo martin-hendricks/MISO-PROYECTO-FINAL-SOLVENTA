@@ -15,6 +15,43 @@ export class BoPrestadoresPage {
     assert.match((await conteos.textContent()) ?? '', texto);
   }
 
+  async filterCountry(pais: string): Promise<void> {
+    await this.page.getByTestId('filtro-pais').selectOption(pais);
+  }
+
+  async expectFilterCities(ciudades: string[]): Promise<void> {
+    await this.expectOptions('filtro-ciudad', ciudades);
+  }
+
+  async openNew(): Promise<void> {
+    await this.page.getByTestId('prestadores-nuevo').click();
+    await this.page.getByTestId('prestador-nombre').waitFor({ state: 'visible' });
+  }
+
+  async pickFormCountry(pais: string): Promise<void> {
+    await this.page.getByTestId('prestador-pais').selectOption(pais);
+  }
+
+  async expectFormCities(ciudades: string[]): Promise<void> {
+    await this.expectOptions('prestador-ciudad', ciudades);
+  }
+
+  async expectNoRow(id: string): Promise<void> {
+    assert.equal(await this.page.getByTestId(`bo-prestador-${id}`).count(), 0);
+  }
+
+  /** Options with a value, in order, once the first expected city has arrived. */
+  private async expectOptions(testId: string, ciudades: string[]): Promise<void> {
+    const select = this.page.getByTestId(testId);
+    await select.locator(`option[value="${ciudades[0]}"]`).waitFor({ state: 'attached' });
+    const valores = await select
+      .locator('option')
+      .evaluateAll((opciones) =>
+        opciones.map((opcion) => (opcion as HTMLOptionElement).value).filter(Boolean),
+      );
+    assert.deepEqual(valores, ciudades);
+  }
+
   async expectRow(id: string): Promise<void> {
     await this.page.getByTestId(`bo-prestador-${id}`).waitFor({ state: 'visible' });
   }

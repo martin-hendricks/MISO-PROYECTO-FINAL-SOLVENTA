@@ -11,15 +11,7 @@
       <div>
         <h1>{{ 'backoffice.prestadores.title' | translate }}</h1>
         <p class="subtitle" data-testid="prestadores-conteos">
-          {{
-            'backoffice.prestadores.subtitle'
-              | translate
-                : {
-                    bogota: vm.bogota(),
-                    medellin: vm.medellin(),
-                    chia: vm.chia(),
-                  }
-          }}
+          {{ 'backoffice.prestadores.subtitle' | translate: { conteos: vm.resumenConteos() } }}
         </p>
       </div>
       @if (vm.canWrite) {
@@ -30,6 +22,20 @@
     </div>
 
     <div class="filtros">
+      <label>
+        {{ 'backoffice.prestadores.filtro.pais' | translate }}
+        <select
+          data-testid="filtro-pais"
+          [value]="vm.pais()"
+          (change)="vm.filtrarPais($any($event.target).value)"
+        >
+          @for (pais of paises; track pais) {
+            <option [value]="pais" [selected]="vm.pais() === pais">
+              {{ 'prestadores.pais.' + pais | translate }}
+            </option>
+          }
+        </select>
+      </label>
       <label>
         {{ 'backoffice.prestadores.filtro.ramo' | translate }}
         <select
@@ -51,9 +57,11 @@
           (change)="vm.filtrarCiudad($any($event.target).value)"
         >
           <option value="">{{ 'backoffice.prestadores.filtro.todas' | translate }}</option>
-          <option value="Bogotá">Bogotá</option>
-          <option value="Medellín">Medellín</option>
-          <option value="Chía">Chía</option>
+          @for (ciudad of vm.ciudades(); track ciudad.nombre) {
+            <option [value]="ciudad.nombre" [selected]="vm.ciudad() === ciudad.nombre">
+              {{ ciudad.nombre }}
+            </option>
+          }
         </select>
       </label>
       <label>
@@ -177,7 +185,7 @@
           data-testid="prestadores-mapa"
           [disponible]="true"
           [prestadores]="vm.prestadores()"
-          [centro]="centroMapa()"
+          [centro]="vm.centroMapa()"
         />
       } @else {
         <ul data-testid="prestadores-mapa-lista">

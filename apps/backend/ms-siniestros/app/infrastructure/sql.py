@@ -58,7 +58,7 @@ from app.domain.modelos import (
     TipoSiniestro,
     TransicionEstado,
 )
-from app.domain.prestador import Prestador, PrestadorCercano
+from app.domain.prestador import CiudadPrestador, Prestador, PrestadorCercano
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FiltroSiniestros
 
 ESQUEMA = "ms_siniestros"
@@ -759,6 +759,7 @@ class PrestadorFila(Base):
     tipo: Mapped[str]
     direccion: Mapped[str]
     ciudad: Mapped[str]
+    pais: Mapped[str]
     barrio: Mapped[str]
     lat: Mapped[Decimal] = mapped_column(Numeric(9, 6))
     lng: Mapped[Decimal] = mapped_column(Numeric(9, 6))
@@ -769,6 +770,17 @@ class PrestadorFila(Base):
     creado_en: Mapped[datetime]
     actualizado_por: Mapped[str]
     actualizado_en: Mapped[datetime]
+
+
+class CiudadPrestadorFila(Base):
+    __tablename__ = "ciudad_prestador"
+
+    pais: Mapped[str] = mapped_column(String, primary_key=True)
+    nombre: Mapped[str] = mapped_column(String, primary_key=True)
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    zoom: Mapped[int]
+    orden: Mapped[int]
 
 
 class PrestadorRamoFila(Base):
@@ -808,6 +820,7 @@ class RepositorioPrestadoresSQL:
             tipo=fila.tipo,
             direccion=fila.direccion,
             ciudad=fila.ciudad,
+            pais=fila.pais,
             barrio=fila.barrio,
             lat=fila.lat,
             lng=fila.lng,
@@ -821,8 +834,10 @@ class RepositorioPrestadoresSQL:
             actualizado_en=fila.actualizado_en,
         )
 
-    def _filtro(self, ramo: str | None, estados: tuple[str, ...], ciudad: str | None = None):
+    def _filtro(self, ramo: str | None, estados: tuple[str, ...], ciudad: str | None = None, pais: str | None = None):
         clausulas = [PrestadorFila.estado.in_(estados)]
+        if pais is not None:
+            clausulas.append(PrestadorFila.pais == pais)
         if ciudad is not None:
             clausulas.append(PrestadorFila.ciudad == ciudad)
         if ramo is not None:
@@ -835,7 +850,7 @@ class RepositorioPrestadoresSQL:
             )
         return and_(*clausulas)
 
-    async def cercanos(self, lat, lng, radio_km, ramo, estados, limite, ciudad=None):
+    async def cercanos(self, lat, lng, radio_km, ramo, estados, limite, ciudad=None, pais=None):
         margen_lat = float(radio_km) / 111
         coseno = max(math.cos(math.radians(float(lat))), 0.01)
         margen_lng = float(radio_km) / (111 * coseno)
@@ -843,7 +858,7 @@ class RepositorioPrestadoresSQL:
         consulta = (
             select(PrestadorFila, distancia)
             .where(
-                self._filtro(ramo, estados, ciudad),
+                self._filtro(ramo, estados, ciudad, pais),
                 PrestadorFila.lat.between(float(lat) - margen_lat, float(lat) + margen_lat),
                 PrestadorFila.lng.between(float(lng) - margen_lng, float(lng) + margen_lng),
             )
@@ -857,32 +872,70 @@ class RepositorioPrestadoresSQL:
         ramos = await self._ramos([fila.id for fila, _ in dentro])
         return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), km) for fila, km in dentro]
 
-    async def por_ciudad(self, ciudad, ramo, estados, limite):
+    async def por_ciudad(self, pais, ciudad, ramo, estados, limite):
         filas = list(
             await self._s.scalars(
-                select(PrestadorFila).where(self._filtro(ramo, estados, ciudad)).order_by(PrestadorFila.nombre).limit(limite)
+                select(PrestadorFila)
+                .where(self._filtro(ramo, estados, ciudad, pais))
+                .order_by(PrestadorFila.nombre)
+                .limit(limite)
             )
         )
         ramos = await self._ramos([fila.id for fila in filas])
         return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), None) for fila in filas]
 
-    async def listar(self, ramo, ciudad, estados):
+    async def en_area(self, area, ramo, estados, limite, origen):
+        caja = and_(
+            self._filtro(ramo, estados),
+            PrestadorFila.lat.between(area.sur, area.norte),
+            PrestadorFila.lng.between(area.oeste, area.este),
+        )
+        if origen is None:
+            filas = list(
+                await self._s.scalars(select(PrestadorFila).where(caja).order_by(PrestadorFila.nombre).limit(limite))
+            )
+            pares = [(fila, None) for fila in filas]
+        else:
+            distancia = _haversine(*origen)
+            consulta = select(PrestadorFila, distancia).where(caja).order_by(distancia, PrestadorFila.nombre).limit(limite)
+            pares = [(fila, float(km)) for fila, km in (await self._s.execute(consulta)).all()]
+        ramos = await self._ramos([fila.id for fila, _ in pares])
+        return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), km) for fila, km in pares]
+
+    async def listar(self, ramo, pais, ciudad, estados):
         filas = list(
             await self._s.scalars(
                 select(PrestadorFila)
-                .where(self._filtro(ramo, estados, ciudad))
+                .where(self._filtro(ramo, estados, ciudad, pais))
                 .order_by(PrestadorFila.ciudad, PrestadorFila.nombre)
             )
         )
         ramos = await self._ramos([fila.id for fila in filas])
         return [self._dominio(fila, ramos.get(fila.id, frozenset())) for fila in filas]
 
-    async def conteos_por_ciudad(self):
-        conteos = {"Bogotá": 0, "Medellín": 0, "Chía": 0}
-        filas = await self._s.execute(select(PrestadorFila.ciudad, func.count()).group_by(PrestadorFila.ciudad))
-        for ciudad, total in filas:
-            conteos[ciudad] = int(total)
-        return conteos
+    async def conteos_por_ciudad(self, pais):
+        return {ciudad.nombre: total for ciudad, total in await self.ciudades(pais, solo_activos=False)}
+
+    async def ciudades(self, pais, solo_activos):
+        enlace = and_(PrestadorFila.pais == CiudadPrestadorFila.pais, PrestadorFila.ciudad == CiudadPrestadorFila.nombre)
+        if solo_activos:
+            enlace = and_(enlace, PrestadorFila.estado == "activo")
+        consulta = (
+            select(CiudadPrestadorFila, func.count(PrestadorFila.id))
+            .outerjoin(PrestadorFila, enlace)
+            .where(CiudadPrestadorFila.pais == pais)
+            .group_by(CiudadPrestadorFila.pais, CiudadPrestadorFila.nombre)
+            .order_by(CiudadPrestadorFila.orden)
+        )
+        return [(self._ciudad(fila), int(total)) for fila, total in (await self._s.execute(consulta)).all()]
+
+    async def ciudad(self, pais, nombre):
+        fila = await self._s.get(CiudadPrestadorFila, (pais, nombre))
+        return None if fila is None else self._ciudad(fila)
+
+    @staticmethod
+    def _ciudad(fila: CiudadPrestadorFila) -> CiudadPrestador:
+        return CiudadPrestador(fila.pais, fila.nombre, fila.lat, fila.lng, fila.zoom, fila.orden)
 
     async def obtener(self, prestador_id: str):
         fila = await self._s.get(PrestadorFila, prestador_id)
@@ -900,6 +953,7 @@ class RepositorioPrestadoresSQL:
                 tipo=prestador.tipo,
                 direccion=prestador.direccion,
                 ciudad=prestador.ciudad,
+                pais=prestador.pais,
                 barrio=prestador.barrio,
                 lat=prestador.lat,
                 lng=prestador.lng,
@@ -917,6 +971,7 @@ class RepositorioPrestadoresSQL:
             fila.tipo = prestador.tipo
             fila.direccion = prestador.direccion
             fila.ciudad = prestador.ciudad
+            fila.pais = prestador.pais
             fila.barrio = prestador.barrio
             fila.lat = prestador.lat
             fila.lng = prestador.lng

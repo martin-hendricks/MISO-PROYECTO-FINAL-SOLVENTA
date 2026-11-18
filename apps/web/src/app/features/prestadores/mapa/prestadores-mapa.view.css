@@ -9,6 +9,23 @@
   margin-bottom: 24px;
 }
 
+.chips button,
+.acciones button {
+  min-height: 44px;
+}
+
+.aviso {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--sv-on-secondary-container);
+  background: var(--sv-secondary-container);
+}
+
+.mapa-col .chips {
+  margin-bottom: 0;
+}
+
 .chips button {
   padding: 8px 14px;
   border: 1px solid var(--sv-outline);

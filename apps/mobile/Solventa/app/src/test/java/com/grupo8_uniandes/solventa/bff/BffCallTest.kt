@@ -26,6 +26,7 @@ import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
@@ -498,6 +499,31 @@ class BffCallTest {
         assertTrue(asked.path.orEmpty().contains("lat=4.64"))
         assertTrue(asked.path.orEmpty().contains("ramo=soat-motocicleta"))
         assertTrue(asked.path.orEmpty().contains("radioKm=10"))
+
+        enqueue("""{"pais":"MX","ciudades":[{"nombre":"Ciudad de México","lat":19.4326,"lng":-99.1332,"zoom":11,"prestadores":5}]}""")
+        val cities = assistance.cities("MX") as StandInAnswer.Ready
+        assertEquals("Ciudad de México", cities.value.single().nombre)
+        assertEquals(11, cities.value.single().zoom)
+        assertTrue(server.takeRequest().path.orEmpty().endsWith("cliente/prestadores/ciudades?pais=MX"))
+
+        enqueue(PublishedSamples.PROVIDERS_AREA.replace("\"truncado\":false", "\"truncado\":true"))
+        val area = ProviderArea(norte = 4.66, sur = 4.62, este = -74.05, oeste = -74.08)
+        val areaPage = assistance.providers(ProviderQuery(lat = 4.6432, lng = -74.0631, area = area)) as StandInAnswer.Ready
+        assertTrue(areaPage.value.truncado)
+        assertNull(areaPage.value.radioKm)
+        val areaAsked = server.takeRequest().path.orEmpty()
+        assertTrue(areaAsked.contains("norte=4.66"))
+        assertTrue(areaAsked.contains("sur=4.62"))
+        assertTrue(areaAsked.contains("este=-74.05"))
+        assertTrue(areaAsked.contains("oeste=-74.08"))
+        assertFalse(areaAsked.contains("radioKm"))
+
+        enqueue(PublishedSamples.CLAIM_PROVIDERS)
+        assertTrue(assistance.providersNearClaim("SIN-1", area) is StandInAnswer.Ready)
+        val claimAsked = server.takeRequest().path.orEmpty()
+        assertTrue(claimAsked.contains("cliente/siniestros/SIN-1/prestadores"))
+        assertTrue(claimAsked.contains("norte=4.66"))
+        assertTrue(claimAsked.contains("oeste=-74.08"))
         enqueue(PublishedSamples.ASSISTANCE_OUT)
         val requested = assistance.request(AssistanceRequest("PR-1", 4.65, -74.08, "POL-88219-CO"))
         assertTrue(requested is StandInAnswer.Ready)

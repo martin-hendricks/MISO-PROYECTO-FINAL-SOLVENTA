@@ -6,21 +6,35 @@ from fastapi import APIRouter, Depends, Query
 
 from app.application import prestadores as casos
 from app.dependencies import obtener_uow
+from app.domain.prestador import AREA_LIMITE, AreaVisible
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.seguridad import LlamanteDep
 
 from .schemas_prestadores import (
     BusquedaSalida,
+    CiudadesSalida,
     EstadoEntrada,
     PrestadorEdicion,
     PrestadorEntrada,
     PrestadorSalida,
     SiniestroPrestadoresSalida,
     consulta_desde,
+    limite_para,
 )
 
 router = APIRouter(prefix="/v1", tags=["prestadores"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
+Borde = Annotated[Decimal | None, Query()]
+
+
+@router.get("/prestadores/ciudades", response_model=CiudadesSalida)
+async def listar_ciudades(
+    uow: Uow,
+    llamante: LlamanteDep,
+    pais: Annotated[str, Query(min_length=1)],
+    con_prestadores: bool = True,
+):
+    return CiudadesSalida.desde(pais, await casos.ciudades(uow, llamante, pais, con_prestadores))
 
 
 @router.get("/prestadores", response_model=BusquedaSalida)
@@ -30,12 +44,20 @@ async def listar_prestadores(
     lat: Annotated[Decimal | None, Query()] = None,
     lng: Annotated[Decimal | None, Query()] = None,
     ciudad: Annotated[str | None, Query()] = None,
+    pais: Annotated[str | None, Query()] = None,
     ramo: Annotated[str | None, Query()] = None,
     radio_km: Annotated[Decimal | None, Query(gt=0, le=50)] = None,
     estado: Annotated[str | None, Query(pattern="^(activo|inactivo)$")] = None,
-    limite: Annotated[int, Query(ge=1, le=100)] = 50,
+    limite: Annotated[int | None, Query(ge=1, le=AREA_LIMITE)] = None,
+    norte: Borde = None,
+    sur: Borde = None,
+    este: Borde = None,
+    oeste: Borde = None,
 ):
-    consulta = consulta_desde(lat, lng, ciudad, ramo, radio_km or Decimal("10"), estado, limite)
+    area = AreaVisible.desde(norte, sur, este, oeste)
+    consulta = consulta_desde(
+        lat, lng, ciudad, ramo, radio_km or Decimal("10"), estado, limite_para(area, limite), pais, area
+    )
     return BusquedaSalida.desde(await casos.buscar(uow, llamante, consulta))
 
 
@@ -50,9 +72,16 @@ async def prestadores_del_siniestro(
     uow: Uow,
     llamante: LlamanteDep,
     radio_km: Annotated[Decimal, Query(gt=0, le=50)] = Decimal("10"),
-    limite: Annotated[int, Query(ge=1, le=100)] = 50,
+    limite: Annotated[int | None, Query(ge=1, le=AREA_LIMITE)] = None,
+    norte: Borde = None,
+    sur: Borde = None,
+    este: Borde = None,
+    oeste: Borde = None,
 ):
-    resultado = await casos.buscar_por_siniestro(uow, llamante, siniestro_id, radio_km, limite)
+    area = AreaVisible.desde(norte, sur, este, oeste)
+    resultado = await casos.buscar_por_siniestro(
+        uow, llamante, siniestro_id, radio_km, limite_para(area, limite), area
+    )
     siniestro = resultado["siniestro"]
     centro = resultado["centro"]
     return SiniestroPrestadoresSalida(
@@ -68,6 +97,7 @@ async def prestadores_del_siniestro(
         sin_geoetiqueta=resultado["sin_geoetiqueta"],
         centro=None if centro is None else {"lat": centro.lat, "lng": centro.lng, "origen": centro.origen},
         radio_km=resultado["radio_km"],
+        truncado=resultado["truncado"],
         prestadores=[PrestadorSalida.desde_cercano(fila) for fila in resultado["prestadores"]],
     )
 

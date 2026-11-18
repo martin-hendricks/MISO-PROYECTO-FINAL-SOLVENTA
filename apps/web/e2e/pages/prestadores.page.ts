@@ -40,10 +40,33 @@ export class PrestadoresPage {
 
   async expectBlockedCities(): Promise<void> {
     await this.page.getByTestId('prestadores-bloqueado').waitFor({ state: 'visible' });
-    await this.page.getByTestId('chip-ciudad-bogota').waitFor({ state: 'visible' });
-    await this.page.getByTestId('chip-ciudad-medellin').waitFor({ state: 'visible' });
-    await this.page.getByTestId('chip-ciudad-chia').waitFor({ state: 'visible' });
+    await this.expectCities(['bogota', 'medellin', 'chia'], 'bogota');
     assert.equal(await this.page.getByTestId('prestadores').getAttribute('data-mode'), 'chooseCity');
+  }
+
+  /** Chips in catalog order, only the `marcada` one pressed. */
+  async expectCities(slugs: string[], marcada: string): Promise<void> {
+    const chips = this.page.getByTestId(/^chip-ciudad-/);
+    await this.page
+      .locator(`[data-testid="chip-ciudad-${marcada}"][aria-pressed="true"]`)
+      .waitFor({ state: 'visible' });
+    const vistos = await chips.evaluateAll((nodos) => nodos.map((nodo) => nodo.getAttribute('data-testid')));
+    assert.deepEqual(vistos, slugs.map((slug) => `chip-ciudad-${slug}`));
+    for (const slug of slugs) {
+      const presionado = await this.page.getByTestId(`chip-ciudad-${slug}`).getAttribute('aria-pressed');
+      assert.equal(presionado, String(slug === marcada), slug);
+    }
+  }
+
+  async pickCity(nombre: string): Promise<void> {
+    await this.page.getByRole('button', { name: nombre, exact: true }).click();
+  }
+
+  async expectRows(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      await this.expectRow(id);
+    }
+    assert.equal(await this.page.getByTestId(/^fila-prestador-/).count(), ids.length);
   }
 
   async expectListWithoutMap(id: string): Promise<void> {
