@@ -104,11 +104,42 @@ class ProfilingConsentProfileTest {
         rule.onNodeWithTag("profile_profiling_consent").assertIsDisplayed()
         rule.onNodeWithText("Sin autorizar").assertIsDisplayed()
         rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+        rule.onNodeWithTag("sheet_grant_profiling_consent").assertIsDisplayed()
+        assertEquals(0, repository.grants)
+        rule.onNodeWithTag("action_confirm_grant_profiling_consent").performClick()
         rule.waitForIdle()
 
         assertEquals(1, repository.grants)
+        rule.onAllNodesWithTag("sheet_grant_profiling_consent").assertCountEquals(0)
         rule.onNodeWithText("Otorgado el 01/10/2026").assertIsDisplayed()
         rule.onAllNodesWithTag("action_grant_profiling_consent").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenNoConsent_whenAuthorizeIsTapped_thenTheSheetExplainsWhatIsAuthorized() {
+        render(FakeProfilingConsent(current = StandInAnswer.Ready(ProfilingConsent.None)))
+
+        rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+
+        rule.onNodeWithText("Autorizar el perfilamiento").assertIsDisplayed()
+        rule.onNodeWithText(
+            "Solventa consultará tu nivel de ingresos estimado, tu comportamiento de pago, la zona de riesgo de tu vivienda y la antigüedad de tu documento para calcular tus ofertas. La autorización aplica a todos los canales, incluidos los aliados de Solventa, y puedes revocarla desde Perfil.",
+        ).assertIsDisplayed()
+        rule.onNodeWithText("Fuentes: Open Finance y Open Data.").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenTheGrantSheet_whenDeclined_thenNothingIsGranted() {
+        val repository = FakeProfilingConsent(current = StandInAnswer.Ready(ProfilingConsent.None))
+        render(repository)
+
+        rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+        rule.onNodeWithTag("action_decline_grant_profiling_consent").performClick()
+        rule.waitForIdle()
+
+        assertEquals(0, repository.grants)
+        rule.onAllNodesWithTag("sheet_grant_profiling_consent").assertCountEquals(0)
+        rule.onNodeWithText("Sin autorizar").assertIsDisplayed()
     }
 
     @Test
@@ -137,6 +168,7 @@ class ProfilingConsentProfileTest {
         )
 
         rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+        rule.onNodeWithTag("action_confirm_grant_profiling_consent").performClick()
         rule.waitForIdle()
 
         rule.onNodeWithText("No pudimos registrar la autorización. Intenta de nuevo en unos minutos.").assertIsDisplayed()

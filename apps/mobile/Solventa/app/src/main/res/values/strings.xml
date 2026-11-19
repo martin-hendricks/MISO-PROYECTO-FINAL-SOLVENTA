@@ -68,6 +68,8 @@
     <string name="profiling_consent_error">No pudimos revocar la autorización. Intenta de nuevo en unos minutos.</string>
     <string name="profiling_consent_none">Sin autorizar</string>
     <string name="profiling_consent_grant">Autorizar</string>
+    <string name="profiling_consent_grant_sheet_title">Autorizar el perfilamiento</string>
+    <string name="profiling_consent_grant_body">Solventa consultará tu nivel de ingresos estimado, tu comportamiento de pago, la zona de riesgo de tu vivienda y la antigüedad de tu documento para calcular tus ofertas. La autorización aplica a todos los canales, incluidos los aliados de Solventa, y puedes revocarla desde Perfil.</string>
     <string name="profiling_consent_grant_error">No pudimos registrar la autorización. Intenta de nuevo en unos minutos.</string>
     <string name="action_sign_out">Cerrar sesión</string>
     <string name="sign_out_body">Tendrás que volver a ingresar para ver tus pólizas.</string>
