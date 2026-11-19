@@ -9,7 +9,12 @@ from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.config import Settings
-from app.dependencies import obtener_cliente_cotizacion, obtener_cliente_identidad, obtener_cliente_perfilamiento
+from app.dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_cotizaciones,
+    obtener_cliente_identidad,
+    obtener_cliente_perfilamiento,
+)
 from app.main import crear_app
 
 PRODUCTO = {
@@ -83,7 +88,7 @@ REGISTRO_SOCIOS = [
     {
         "socio_id": SOCIO_ID,
         "nombre": "Socio test",
-        "alcances": ["catalogo:leer", "originaciones:escribir"],
+        "alcances": ["catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"],
         "api_keys_sha256": [hashlib.sha256(API_KEY_SOCIO.encode()).hexdigest()],
     },
     {
@@ -104,6 +109,9 @@ def app(nucleo, identidad, perfilamiento):
         transport=httpx.MockTransport(perfilamiento), base_url="http://ms-perfilamiento"
     )
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http, "corr-test")
+    app.dependency_overrides[obtener_cliente_cotizaciones] = lambda: ClienteMsCotizacion(
+        http, "corr-test", "token-de-socio"
+    )
     app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(
         http_identidad, "corr-test", "token-de-socio"
     )

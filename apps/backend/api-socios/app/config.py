@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Alcance = Literal["catalogo:leer", "originaciones:escribir"]
+Alcance = Literal["catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"]
 HuellaSha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
 

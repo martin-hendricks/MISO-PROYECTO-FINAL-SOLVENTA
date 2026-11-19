@@ -1,16 +1,30 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, Response, status
 from fastapi.responses import JSONResponse
 
 from app.clients.base import RecursoNoEncontrado
 from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
-from app.dependencies import obtener_cliente_cotizacion, obtener_cliente_identidad, obtener_cliente_perfilamiento
+from app.dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_cotizaciones,
+    obtener_cliente_identidad,
+    obtener_cliente_perfilamiento,
+)
 from app.seguridad import Socio, exigir_alcance
 
-from .schemas import CatalogoVista, ErrorVista, OriginacionEntrada, OriginacionVista, ProductoVista
+from .schemas import (
+    CatalogoVista,
+    CotizacionEntrada,
+    CotizacionVista,
+    ErrorVista,
+    OriginacionEntrada,
+    OriginacionVista,
+    ProductoVista,
+)
 
 router = APIRouter(prefix="/v1")
 Cotizacion = Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)]
@@ -18,6 +32,11 @@ Identidad = Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)]
 Perfilamiento = Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)]
 LeerCatalogo = Annotated[Socio, Depends(exigir_alcance("catalogo:leer"))]
 EscribirOriginaciones = Annotated[Socio, Depends(exigir_alcance("originaciones:escribir"))]
+EscribirCotizaciones = Annotated[Socio, Depends(exigir_alcance("cotizaciones:escribir"))]
+LeerCotizaciones = Annotated[Socio, Depends(exigir_alcance("cotizaciones:leer"))]
+CotizacionesDelSocio = Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizaciones)]
+CANAL_SOCIO = "socio"
+CLIENTE_NO_REGISTRADO = {"codigo": "cliente_no_registrado", "mensaje": "El documento no corresponde a un cliente de Solventa"}
 ERRORES = {401: {"model": ErrorVista}, 403: {"model": ErrorVista}, 404: {"model": ErrorVista}, 503: {"model": ErrorVista}}
 
 
@@ -58,12 +77,54 @@ async def originar_hipoteca(
     try:
         cliente_id = await identidad.usuario_por_documento(entrada.tipo_documento, entrada.numero_documento)
     except RecursoNoEncontrado:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "codigo": "cliente_no_registrado",
-                "mensaje": "El documento no corresponde a un cliente de Solventa",
-            },
-        )
+        return JSONResponse(status_code=404, content=CLIENTE_NO_REGISTRADO)
     await perfilamiento.registrar_originacion(cliente_id, entrada.valor, entrada.plazo_meses)
     return OriginacionVista(valor=entrada.valor, plazo_meses=entrada.plazo_meses)
+
+
+@router.post(
+    "/cotizaciones",
+    response_model=CotizacionVista,
+    response_model_by_alias=True,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+    responses={**ERRORES, 422: {"model": ErrorVista}},
+)
+async def cotizar(
+    entrada: CotizacionEntrada,
+    response: Response,
+    socio: EscribirCotizaciones,
+    identidad: Identidad,
+    perfilamiento: Perfilamiento,
+    cotizaciones: CotizacionesDelSocio,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=91)],
+):
+    try:
+        cliente_id = await identidad.usuario_por_documento(entrada.tipo_documento, entrada.numero_documento)
+    except RecursoNoEncontrado:
+        return JSONResponse(status_code=404, content=CLIENTE_NO_REGISTRADO)
+    consentimiento_id = await perfilamiento.consentimiento_vigente(cliente_id)
+    estado, datos = await cotizaciones.cotizar(
+        {
+            "usuario_id": cliente_id,
+            "socio_id": str(socio.socio_id),
+            "consentimiento_id": consentimiento_id,
+            "producto": entrada.producto,
+            "canal": CANAL_SOCIO,
+            "datos_riesgo": entrada.datos_riesgo,
+        },
+        f"{socio.socio_id}:{idempotency_key}",
+    )
+    response.status_code = estado
+    return CotizacionVista.desde_nucleo(datos, consentimiento_pendiente=consentimiento_id is None)
+
+
+@router.get(
+    "/cotizaciones/{cotizacion_id}",
+    response_model=CotizacionVista,
+    response_model_by_alias=True,
+    response_model_exclude_none=True,
+    responses=ERRORES,
+)
+async def reconsultar(cotizacion_id: UUID, socio: LeerCotizaciones, cotizaciones: CotizacionesDelSocio):
+    return CotizacionVista.desde_nucleo(await cotizaciones.obtener_cotizacion(str(cotizacion_id)))
