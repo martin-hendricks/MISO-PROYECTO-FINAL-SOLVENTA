@@ -1,4 +1,18 @@
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+Alcance = Literal["catalogo:leer", "originaciones:escribir"]
+HuellaSha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+
+class RegistroSocio(BaseModel):
+    socio_id: UUID
+    nombre: str = Field(min_length=1)
+    alcances: frozenset[Alcance]
+    api_keys_sha256: list[HuellaSha256] = Field(min_length=1)
 
 
 class Settings(BaseSettings):
@@ -13,23 +27,17 @@ class Settings(BaseSettings):
     solventa_token_secret: str = ""
     socio_servicio_uid: str = "00000000-0000-0000-0000-00000000500c"
 
-    socios_api_keys: str = ""
-    """Credenciales de socios externos que llaman a este servicio: `socio_id:api_key` separados
-    por coma. Ej. `aliado-banco:clave-secreta,aliado-retail:otra-clave`. Formato de prueba/local;
-    en un ambiente real cada socio tendría su propia fila en un almacen de credenciales."""
+    socios: list[RegistroSocio] = []
 
     timeout_nucleo_s: float = 1.0
     timeout_opcional_s: float = 0.3
 
-    def mapa_socios_api_keys(self) -> dict[str, str]:
-        """api_key -> socio_id, a partir de `socios_api_keys`."""
-        mapa: dict[str, str] = {}
-        for par in self.socios_api_keys.split(","):
-            par = par.strip()
-            if not par or ":" not in par:
-                continue
-            socio_id, _, api_key = par.partition(":")
-            socio_id, api_key = socio_id.strip(), api_key.strip()
-            if socio_id and api_key:
-                mapa[api_key] = socio_id
-        return mapa
+    @model_validator(mode="after")
+    def _socios_sin_duplicados(self) -> "Settings":
+        ids = [s.socio_id for s in self.socios]
+        if len(ids) != len(set(ids)):
+            raise ValueError("socio_id duplicado en SOCIOS")
+        huellas = [h for s in self.socios for h in s.api_keys_sha256]
+        if len(huellas) != len(set(huellas)):
+            raise ValueError("api_keys_sha256 repetida en SOCIOS")
+        return self

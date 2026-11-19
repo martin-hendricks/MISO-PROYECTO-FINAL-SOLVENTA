@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Callable
 
 import httpx
@@ -73,13 +74,30 @@ def perfilamiento() -> ServicioSimulado:
 
 
 API_KEY_SOCIO = "clave-test-socio"
-SOCIO_ID = "socio-test"
+API_KEY_SOLO_CATALOGO = "clave-test-solo-catalogo"
+SOCIO_ID = "6f1c2a4e-0000-4000-8000-000000000001"
 CABECERA_API_KEY_SOCIO = {"X-Socio-Api-Key": API_KEY_SOCIO}
+CABECERA_SOLO_CATALOGO = {"X-Socio-Api-Key": API_KEY_SOLO_CATALOGO}
+
+REGISTRO_SOCIOS = [
+    {
+        "socio_id": SOCIO_ID,
+        "nombre": "Socio test",
+        "alcances": ["catalogo:leer", "originaciones:escribir"],
+        "api_keys_sha256": [hashlib.sha256(API_KEY_SOCIO.encode()).hexdigest()],
+    },
+    {
+        "socio_id": "6f1c2a4e-0000-4000-8000-000000000002",
+        "nombre": "Socio solo catalogo",
+        "alcances": ["catalogo:leer"],
+        "api_keys_sha256": [hashlib.sha256(API_KEY_SOLO_CATALOGO.encode()).hexdigest()],
+    },
+]
 
 
 @pytest.fixture
 def app(nucleo, identidad, perfilamiento):
-    app = crear_app(Settings(socios_api_keys=f"{SOCIO_ID}:{API_KEY_SOCIO}"))
+    app = crear_app(Settings(socios=REGISTRO_SOCIOS))
     http = httpx.AsyncClient(transport=httpx.MockTransport(nucleo), base_url="http://ms-cotizacion")
     http_identidad = httpx.AsyncClient(transport=httpx.MockTransport(identidad), base_url="http://ms-identidad")
     http_perfilamiento = httpx.AsyncClient(
