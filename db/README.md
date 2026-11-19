@@ -36,7 +36,7 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 - **FK marcadas `(ref)` en el diagrama (cruzan microservicios):** FK **lógica**: columna `UUID` + índice + `COMMENT` que indica el destino, **sin constraint**. Respeta "un almacén por servicio" (§1.1.4.4); la integridad se garantiza por eventos/validación en el servicio dueño.
 - **Referencias opcionales** (`pago.prima_id`, `pago.reclamacion_id`, `evento_parametrico.reclamacion_id`) son nullable, con índice parcial. En `pago` exactamente una de las dos debe venir informada.
 - **Unicidad** donde el dominio lo exige: documento y email de usuario (email sin distinguir mayúsculas), número de póliza, `idempotency_key` de transacción y `evento_externo_id` paramétrico (procesamiento exactamente una vez, EC-ESC-03).
-- **Consentimiento:** `solicitud_cotizacion` y `fuente_dato_consultada` guardan el `consentimiento_id` que autorizó la consulta (`ConsentimientoToken` de `solicitudDTO`, VC-007).
+- **Consentimiento:** `solicitud_cotizacion` y `fuente_dato_consultada` guardan el `consentimiento_id` que autorizó la consulta (`ConsentimientoToken` de `solicitudDTO`, VC-007). En `solicitud_cotizacion` puede ser nulo: una cotización embebida del socio puede crearse antes de que el cliente otorgue el consentimiento, que se exige al aceptar.
 
 ## Eventos e idempotencia
 
