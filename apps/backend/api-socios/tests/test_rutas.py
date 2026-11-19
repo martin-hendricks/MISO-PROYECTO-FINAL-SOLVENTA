@@ -1,7 +1,7 @@
 import httpx
 from fastapi.testclient import TestClient
 
-from .conftest import PRODUCTO
+from .conftest import CABECERA_SOLO_CATALOGO, PRODUCTO
 
 PRODUCTO_PUBLICADO = {
     "codigo": "soat-motocicleta",
@@ -136,3 +136,10 @@ def test_api_key_de_socio_invalida_es_401(app):
 
 def test_api_key_de_socio_valida_permite_el_acceso(client):
     assert client.get("/v1/catalogo").status_code == 200
+
+
+def test_socio_con_solo_catalogo_lee_el_catalogo_y_un_producto(app):
+    solo_catalogo = TestClient(app, headers=CABECERA_SOLO_CATALOGO)
+
+    assert solo_catalogo.get("/v1/catalogo").status_code == 200
+    assert solo_catalogo.get("/v1/catalogo/soat-motocicleta").status_code == 200

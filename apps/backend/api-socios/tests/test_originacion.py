@@ -5,10 +5,13 @@ from types import SimpleNamespace
 import httpx
 import jwt
 import pytest
+from fastapi.testclient import TestClient
 
 from app.clients.token_servicio import token_de_socio
 from app.config import Settings
 from app.dependencies import obtener_cliente_identidad, obtener_cliente_perfilamiento
+
+from .conftest import CABECERA_SOLO_CATALOGO
 
 USUARIO_ID = "11111111-1111-1111-1111-111111111111"
 CUERPO = {"tipoDocumento": "CC", "numeroDocumento": "1012345678", "valor": 180000000, "plazoMeses": 240}
@@ -44,6 +47,16 @@ def test_el_socio_origina_el_credito_de_un_cliente_registrado(client, identidad,
         "plazo_meses": 240,
         "origen": "socio",
     }
+
+
+def test_socio_sin_alcance_de_originacion_es_403_y_no_llama_al_nucleo(app, identidad, perfilamiento):
+    solo_catalogo = TestClient(app, headers=CABECERA_SOLO_CATALOGO)
+
+    respuesta = solo_catalogo.post("/v1/originaciones-hipotecarias", json=CUERPO)
+
+    assert respuesta.status_code == 403
+    assert identidad.peticiones == []
+    assert perfilamiento.peticiones == []
 
 
 def test_documento_sin_cliente_es_404_y_no_registra_nada(client, identidad, perfilamiento):
