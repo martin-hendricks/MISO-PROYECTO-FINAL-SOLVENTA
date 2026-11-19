@@ -14,7 +14,7 @@ from app.dependencies import (
 from app.domain.errores import NoEncontrado
 from app.ports.adaptadores import AdaptadorOpenData, AdaptadorOpenFinance
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import LlamanteDep
+from app.seguridad import LlamanteDep, LlamanteOSocioDep
 
 from .schemas import (
     ConsentimientoSalida,
@@ -50,7 +50,7 @@ async def otorgar_consentimiento(entrada: OtorgarConsentimientoEntrada, response
 
 
 @router.get("/consentimientos/{cliente_id}", response_model=ConsentimientoSalida, responses=ERRORES)
-async def consultar_consentimiento(cliente_id: str, uow: Uow, _: LlamanteDep):
+async def consultar_consentimiento(cliente_id: str, uow: Uow, _: LlamanteOSocioDep):
     """Llamada desde bff-web (roles cliente/asesor/operador) y desde
     ms-cotizacion (rol servicio, ver ConsentimientoPerfilamientoHTTP.vigente)."""
     vigente = await casos_uso.consultar_consentimiento_vigente(uow, cliente_id)
@@ -112,7 +112,7 @@ async def consultar_ultima_oferta(cliente_id: str, uow: Uow, _: LlamanteDep):
     status_code=status.HTTP_201_CREATED,
     responses=ERRORES,
 )
-async def registrar_originacion(entrada: RegistrarOriginacionEntrada, uow: Uow, _: LlamanteDep):
+async def registrar_originacion(entrada: RegistrarOriginacionEntrada, uow: Uow, _: LlamanteOSocioDep):
     originacion = await casos_uso.registrar_originacion(
         uow, entrada.cliente_id, entrada.valor, entrada.plazo_meses, entrada.origen
     )

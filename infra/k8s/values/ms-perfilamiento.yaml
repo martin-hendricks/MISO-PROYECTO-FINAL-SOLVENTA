@@ -98,6 +98,8 @@ externalSecrets:
       nombreLocal: ms-perfilamiento-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-perfilamiento-token
 
 serviceAccount:
   crear: true

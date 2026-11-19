@@ -8,9 +8,14 @@ from .base import ClienteServicio
 class ClienteMsPerfilamiento(ClienteServicio):
     nombre = "ms-perfilamiento"
 
+    def __init__(self, http, correlacion: str | None = None, token: str = "") -> None:
+        super().__init__(http, correlacion)
+        self._token = token
+
     async def registrar_originacion(self, cliente_id: str, valor: int, plazo_meses: int) -> dict[str, Any]:
         return await self._pedir(
             "POST",
             "/v1/originaciones",
             json={"cliente_id": cliente_id, "valor": str(valor), "plazo_meses": plazo_meses, "origen": "socio"},
+            cabeceras={"Authorization": f"Bearer {self._token}"},
         )

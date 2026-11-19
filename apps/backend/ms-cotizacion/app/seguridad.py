@@ -53,4 +53,13 @@ def alcance(llamante: Llamante, usuario_id: UUID | None) -> UUID | None:
     return usuario_id
 
 
+def rechazar_socio(llamante: Llamante) -> None:
+    if llamante.rol == "socio":
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+
+
+def socio_que_llama(llamante: Llamante) -> UUID | None:
+    return llamante.uid if llamante.rol == "socio" else None
+
+
 LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]
