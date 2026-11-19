@@ -39,7 +39,7 @@ class SolicitudFila(Base):
     idempotency_key: Mapped[str] = mapped_column(String, unique=True)
     usuario_id: Mapped[UUID]
     socio_id: Mapped[UUID]
-    consentimiento_id: Mapped[UUID]
+    consentimiento_id: Mapped[UUID | None]
     producto: Mapped[str]
     canal: Mapped[str]
     datos_riesgo: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))

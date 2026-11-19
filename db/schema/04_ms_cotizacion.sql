@@ -7,7 +7,7 @@ CREATE TABLE ms_cotizacion.solicitud_cotizacion (
     solicitud_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id         UUID        NOT NULL,
     socio_id           UUID        NOT NULL,
-    consentimiento_id  UUID        NOT NULL,
+    consentimiento_id  UUID,
     producto           TEXT        NOT NULL,
     canal              TEXT        NOT NULL,
     estado             TEXT        NOT NULL,
