@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, 
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
-from app.domain.errores import ReglaDeNegocioViolada
+from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoSolicitud
 from app.dependencies import (
     obtener_adaptador_perfil_riesgo,
@@ -71,6 +71,8 @@ async def solicitar_cotizacion(
         asesor_id=entrada.asesor_id,
         cliente_ref=entrada.cliente_ref,
     )
+    if llamante.rol == "socio" and resultado.solicitud.socio_id != llamante.uid:
+        raise NoEncontrado("Cotización no existe")
     if not resultado.creada:
         response.status_code = status.HTTP_200_OK
     return CotizacionSalida.desde(resultado.solicitud, resultado.oferta)

@@ -101,3 +101,22 @@ def test_socio_no_acepta_ofertas(client):
     )
 
     assert respuesta.status_code == 403
+
+
+def test_socio_reintenta_su_propia_clave_y_recibe_su_cotizacion(client):
+    primera = _cotizar(client, SOCIO, clave="clave-compartida-01")
+
+    segunda = _cotizar(client, SOCIO, clave="clave-compartida-01")
+
+    assert segunda.status_code == 200
+    assert segunda.json()["cotizacion_id"] == primera.json()["cotizacion_id"]
+
+
+def test_socio_que_reusa_la_clave_de_otro_socio_no_recibe_su_cotizacion(client):
+    primera = _cotizar(client, SOCIO, clave="clave-compartida-02")
+
+    ajena = _cotizar(client, OTRO_SOCIO, clave="clave-compartida-02")
+
+    assert ajena.status_code == 404
+    assert primera.json()["cotizacion_id"] not in ajena.text
+    assert primera.json()["usuario_id"] not in ajena.text
