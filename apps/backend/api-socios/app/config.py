@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     ms_perfilamiento_url: str = "http://localhost:8004"
 
     solventa_token_secret: str = ""
-    socio_servicio_uid: str = "00000000-0000-0000-0000-00000000500c"
 
     socios: list[RegistroSocio] = []
 
