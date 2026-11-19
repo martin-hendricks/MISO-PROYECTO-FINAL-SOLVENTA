@@ -822,6 +822,14 @@ def consentimiento_perfil(request: Request, usuario: dict = Depends(require_cust
     return {"estado": "vigente", "otorgadoEn": _exigir(vigente, "otorgado_en")["otorgado_en"]}
 
 
+@router.post("/consentimiento-perfil")
+def otorgar_consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    otorgado = request.app.state.nucleo.otorgar_consentimiento(_contexto(usuario)["usuario_id"])
+    return {"estado": "vigente", "otorgadoEn": _exigir(otorgado, "otorgado_en")["otorgado_en"]}
+
+
 @router.delete("/consentimiento-perfil")
 def revocar_consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):

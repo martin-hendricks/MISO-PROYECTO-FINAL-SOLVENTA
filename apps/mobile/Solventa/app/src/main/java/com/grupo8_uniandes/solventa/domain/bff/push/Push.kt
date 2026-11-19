@@ -8,11 +8,13 @@ enum class PushType {
     POLIZA_MODIFICADA,
     POLIZA_CANCELADA,
     MENSAJE_OPERADOR,
+    CONSENTIMIENTO_PENDIENTE,
     DESCONOCIDO,
 }
 
 enum class PushDestination {
     POLIZA_DETALLE,
+    CONSENTIMIENTO,
     INICIO,
 }
 
@@ -33,10 +35,12 @@ fun pushTypeFrom(tipo: String?): PushType = when (tipo) {
     "poliza_modificada" -> PushType.POLIZA_MODIFICADA
     "poliza_cancelada" -> PushType.POLIZA_CANCELADA
     "mensaje_operador" -> PushType.MENSAJE_OPERADOR
+    "consentimiento_pendiente" -> PushType.CONSENTIMIENTO_PENDIENTE
     else -> PushType.DESCONOCIDO
 }
 
 fun pushDestinationFrom(destino: String?): PushDestination = when (destino) {
     "poliza-detalle" -> PushDestination.POLIZA_DETALLE
+    "consentimiento" -> PushDestination.CONSENTIMIENTO
     else -> PushDestination.INICIO
 }

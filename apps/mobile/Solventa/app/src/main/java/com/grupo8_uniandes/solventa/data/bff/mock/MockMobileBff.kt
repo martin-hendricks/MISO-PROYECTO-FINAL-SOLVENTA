@@ -246,6 +246,12 @@ class MockProfilingConsentRepository(
         return answer
     }
 
+    override suspend fun grant(): StandInAnswer<ProfilingConsent> {
+        val answer = read(PublishedSamples.PROFILING_CONSENT)
+        if (answer is StandInAnswer.Ready) sample = PublishedSamples.PROFILING_CONSENT
+        return answer
+    }
+
     private fun read(raw: String) =
         control.ready { decode<ProfilingConsentDto>(raw).let(::required).toProfilingConsent() }
 }
