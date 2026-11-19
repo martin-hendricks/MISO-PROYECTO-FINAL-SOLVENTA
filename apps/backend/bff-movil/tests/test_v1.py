@@ -1959,3 +1959,30 @@ def test_cliente_http_lee_la_originacion_pendiente_en_perfilamiento(monkeypatch)
 
     assert cliente.originacion_pendiente("c-1") == ORIGINACION
     assert pedidas == [("http://ms-perfilamiento:8000", "GET", "/v1/originaciones/clientes/c-1/pendiente")]
+
+
+def test_otorgar_consentimiento_perfil(client, doble):
+    headers = _auth(client)
+    doble.respuestas["otorgar_consentimiento"] = CONSENTIMIENTO_VIGENTE
+
+    respuesta = client.post("/v1/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    assert doble.llamadas == [{"metodo": "otorgar_consentimiento", "cliente_id": _dueno()["usuario_id"]}]
+
+
+def test_otorgar_consentimiento_perfil_con_perfilamiento_caido_es_503(client, doble):
+    headers = _auth(client)
+    doble.respuestas["otorgar_consentimiento"] = HTTPException(status_code=503, detail="ms-perfilamiento no disponible")
+
+    assert client.post("/v1/cliente/consentimiento-perfil", headers=headers).status_code == 503
+
+
+def test_otorgar_consentimiento_perfil_v0_es_la_muestra_fija_sin_llamar_al_nucleo(client, doble):
+    headers = _auth(client)
+
+    respuesta = client.post("/cliente/consentimiento-perfil", headers=headers)
+
+    assert respuesta.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    assert doble.llamadas == []
