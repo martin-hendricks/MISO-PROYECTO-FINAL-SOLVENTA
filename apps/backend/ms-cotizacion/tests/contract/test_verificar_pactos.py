@@ -30,6 +30,11 @@ PACTO_API_SOCIOS = BACKEND / "api-socios" / "pacts" / "api-socios-ms-cotizacion.
 PACTO_BFF_WEB = BACKEND / "bff-web" / "pacts" / "bff-web-ms-cotizacion.json"
 PACTO_BFF_MOVIL = BACKEND / "bff-movil" / "pacts" / "bff-movil-ms-cotizacion.json"
 DATOS_RIESGO = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
+OPERADOR = Llamante(uid=UUID("00000000-0000-4000-8000-000000000001"), rol="operador", sub="pacto@solventa.com")
+
+
+def _socio(parameters) -> Llamante:
+    return Llamante(uid=UUID(parameters["socio_id"]), rol="socio", sub="api-socios")
 
 
 class _MotorFalso:
@@ -49,11 +54,14 @@ class EstadoProveedor:
         regla = regla_rating_soat_motocicleta()
         self.almacen.reglas_rating[regla.id] = regla
         self.suscripciones = SuscripcionesFalsas(decision)
+        self.llamante = OPERADOR
 
     def uow(self):
         return lambda: UnidadDeTrabajoEnMemoria(self.almacen)
 
-    def sembrar_cotizacion(self, cotizacion_id: UUID | None = None, oferta_id: UUID | None = None) -> None:
+    def sembrar_cotizacion(
+        self, cotizacion_id: UUID | None = None, oferta_id: UUID | None = None, socio_id: UUID | None = None
+    ) -> None:
         """Cotiza por el caso de uso real y fija los ids que declara el pacto."""
         registro = asyncio.run(
             casos_uso.cotizar(
@@ -63,7 +71,7 @@ class EstadoProveedor:
                 Settings(),
                 f"estado-pacto-{uuid4()}",
                 uuid4(),
-                uuid4(),
+                socio_id or uuid4(),
                 uuid4(),
                 "soat-motocicleta",
                 "web",
@@ -91,7 +99,22 @@ class EstadoProveedor:
             self.reiniciar()
             self.sembrar_cotizacion(oferta_id=UUID(parameters["oferta_id"]))
 
+        def socio_autenticado(parameters):
+            self.reiniciar()
+            self.llamante = _socio(parameters)
+
+        def cotizacion_del_socio(parameters):
+            socio_autenticado(parameters)
+            self.sembrar_cotizacion(UUID(parameters["cotizacion_id"]), socio_id=self.llamante.uid)
+
+        def cotizacion_de_otro_socio(parameters):
+            socio_autenticado(parameters)
+            self.sembrar_cotizacion(UUID(parameters["cotizacion_id"]))
+
         return {
+            "un socio autenticado": socio_autenticado,
+            "existe una cotización vigente del socio": cotizacion_del_socio,
+            "existe una cotización de otro socio": cotizacion_de_otro_socio,
             "existe una cotización vigente": cotizacion_vigente,
             "existe una cotización vigente que la suscripción acepta": cotizacion_vigente,
             "existe una cotización vigente que la suscripción rechaza": cotizacion_que_la_suscripcion_rechaza,
@@ -125,11 +148,7 @@ def proveedor_url(monkeypatch, estado):
     app.dependency_overrides[obtener_suscripciones] = lambda: estado.suscripciones
     # Los pactos describen el cuerpo de la cotización. La verificación entra como
     # operador para que el filtro de titular no reescriba el usuario_id del pacto.
-    app.dependency_overrides[exigir_llamante] = lambda: Llamante(
-        uid=UUID("00000000-0000-4000-8000-000000000001"),
-        rol="operador",
-        sub="pacto@solventa.com",
-    )
+    app.dependency_overrides[exigir_llamante] = lambda: estado.llamante
 
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
     hilo = threading.Thread(target=servidor.run, daemon=True)
@@ -143,10 +162,16 @@ def proveedor_url(monkeypatch, estado):
     hilo.join(timeout=5)
 
 
-def test_ms_cotizacion_cumple_el_pacto_de_api_socios(proveedor_url):
+def test_ms_cotizacion_cumple_el_pacto_de_api_socios(proveedor_url, estado):
     assert PACTO_API_SOCIOS.is_file(), "Falta el pacto: correr primero `pytest -m contract` en api-socios"
 
-    pact_v3.Verifier("ms-cotizacion").add_transport(url=proveedor_url).add_source(PACTO_API_SOCIOS).verify()
+    (
+        pact_v3.Verifier("ms-cotizacion")
+        .add_transport(url=proveedor_url)
+        .add_source(PACTO_API_SOCIOS)
+        .state_handler(estado.preparar, teardown=False)
+        .verify()
+    )
 
 
 @pytest.mark.parametrize(

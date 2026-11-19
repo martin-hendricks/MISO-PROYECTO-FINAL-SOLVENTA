@@ -35,6 +35,23 @@ El banco aliado envía el crédito de un cliente que ya tiene cuenta en Solventa
 | `valor`/plazo que rechaza `ms-perfilamiento` | El `422` del núcleo con su `codigo` |
 | `ms-identidad` o `ms-perfilamiento` caídos, o el token rechazado | `503 {"codigo": "servicio_no_disponible"}` |
 
+### Cotización embebida (recorrido 1)
+
+| Método | Ruta | Cuerpo | Respuesta |
+| --- | --- | --- | --- |
+| `POST` | `/v1/cotizaciones` (cabecera `Idempotency-Key`, 8 a 91 caracteres) | `{"tipoDocumento", "numeroDocumento", "producto", "datosRiesgo"}` | `201 {"cotizacionId", "estado", "producto", "prima", "primaNeta", "gastosExpedicion", "moneda", "venceEn", "vencida", "consentimientoPendiente"}`; `200` al reintentar con la misma clave |
+| `GET` | `/v1/cotizaciones/{cotizacionId}` | — | `200` con la misma vista, sin `consentimientoPendiente` |
+
+El socio cotiza cualquier producto del catálogo para un cliente que ya tiene cuenta en Solventa. `api-socios` resuelve el documento en `ms-identidad`, consulta el consentimiento de perfil vigente en `ms-perfilamiento` y cotiza en `ms-cotizacion` con `canal = socio` y el `socio_id` de la API key; el socio no puede enviarlo. Si el cliente no tiene consentimiento vigente, la cotización se crea igual con `consentimientoPendiente: true`: el cliente recibe un aviso en mobile para autorizarlo, y el consentimiento se exige al aceptar. La `Idempotency-Key` se antepone con el `socio_id`, así que la clave de un socio nunca choca con la de otro.
+
+| Caso | Respuesta |
+| --- | --- |
+| Documento sin cuenta en Solventa | `404 {"codigo": "cliente_no_registrado"}` |
+| Falta `Idempotency-Key`, datos inválidos o campos de más (p. ej. `socioId`) | `422` sin llamar al núcleo |
+| Datos de riesgo que rechaza `ms-cotizacion` | El `422` del núcleo con su `codigo` |
+| Cotización de otro socio o inexistente | `404` |
+| Un servicio del núcleo caído | `503 {"codigo": "servicio_no_disponible"}` |
+
 ### Autenticación de socios externos
 
 Cada socio (empresa aliada que integra cotización embebida, no una persona con cuenta en
@@ -51,6 +68,8 @@ de cada clave y lo compara en tiempo constante (`app/seguridad.py`).
 | --- | --- |
 | `catalogo:leer` | `GET /v1/catalogo`, `GET /v1/catalogo/{codigo}` |
 | `originaciones:escribir` | `POST /v1/originaciones-hipotecarias` |
+| `cotizaciones:escribir` | `POST /v1/cotizaciones` |
+| `cotizaciones:leer` | `GET /v1/cotizaciones/{cotizacionId}` |
 
 #### Registro de socios (`SOCIOS`)
 

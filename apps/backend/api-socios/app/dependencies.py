@@ -19,6 +19,10 @@ def obtener_cliente_cotizacion(request: Request) -> ClienteMsCotizacion:
     return ClienteMsCotizacion(request.app.state.http_ms_cotizacion, _correlacion(request))
 
 
+def obtener_cliente_cotizaciones(request: Request, socio: SocioDep) -> ClienteMsCotizacion:
+    return ClienteMsCotizacion(request.app.state.http_ms_cotizacion, _correlacion(request), _token(request, socio))
+
+
 def obtener_cliente_identidad(request: Request, socio: SocioDep) -> ClienteMsIdentidad:
     return ClienteMsIdentidad(request.app.state.http_ms_identidad, _correlacion(request), _token(request, socio))
 
