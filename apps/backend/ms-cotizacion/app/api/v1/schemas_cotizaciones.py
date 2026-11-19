@@ -13,7 +13,7 @@ from app.domain.oferta import ConsultaOferta, Oferta
 class SolicitarCotizacionEntrada(BaseModel):
     usuario_id: UUID
     socio_id: UUID
-    consentimiento_id: UUID
+    consentimiento_id: UUID | None = None
     producto: str = Field(min_length=1, max_length=80)
     canal: str = Field(min_length=1, max_length=40)
     datos_riesgo: dict[str, Any] = Field(default_factory=dict)

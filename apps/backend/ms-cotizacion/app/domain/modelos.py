@@ -27,7 +27,7 @@ class SolicitudCotizacion:
     idempotency_key: str
     usuario_id: UUID
     socio_id: UUID
-    consentimiento_id: UUID
+    consentimiento_id: UUID | None
     producto: str
     canal: str
     datos_riesgo: dict[str, Any]
@@ -45,7 +45,7 @@ class SolicitudCotizacion:
         idempotency_key: str,
         usuario_id: UUID,
         socio_id: UUID,
-        consentimiento_id: UUID,
+        consentimiento_id: UUID | None,
         producto: str,
         canal: str,
         datos_riesgo: dict[str, Any],
@@ -120,5 +120,7 @@ def solicitud_recibida(solicitud: SolicitudCotizacion) -> EventoDominio:
             "solicitud_id": str(solicitud.id),
             "producto": solicitud.producto,
             "usuario_id": str(solicitud.usuario_id),
+            "canal": solicitud.canal,
+            "consentimiento_pendiente": solicitud.consentimiento_id is None,
         },
     )
