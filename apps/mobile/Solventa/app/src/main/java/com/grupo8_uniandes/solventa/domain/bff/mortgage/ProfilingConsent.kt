@@ -14,4 +14,6 @@ interface ProfilingConsentRepository {
     suspend fun read(): StandInAnswer<ProfilingConsent>
 
     suspend fun revoke(): StandInAnswer<ProfilingConsent>
+
+    suspend fun grant(): StandInAnswer<ProfilingConsent>
 }

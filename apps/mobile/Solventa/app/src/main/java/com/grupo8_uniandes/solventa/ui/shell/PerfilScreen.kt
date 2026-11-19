@@ -237,6 +237,7 @@ fun PerfilScreen(
                 state = profiling,
                 region = hub.region,
                 onOpen = profilingViewModel::open,
+                onGrant = profilingViewModel::grant,
             )
         }
         SolventaButton(
@@ -433,13 +434,15 @@ private fun ProfilingConsentRow(
     state: ProfilingConsentUi,
     region: Region,
     onOpen: () -> Unit,
+    onGrant: () -> Unit,
 ) {
     val supporting = when (val consent = state.consent) {
         is ProfilingConsent.Granted ->
             stringResource(R.string.profiling_consent_granted, regionDay(consent.grantedAt, region))
         is ProfilingConsent.Revoked ->
             stringResource(R.string.profiling_consent_revoked, regionDay(consent.revokedAt, region))
-        else -> null
+        ProfilingConsent.None -> stringResource(R.string.profiling_consent_none)
+        null -> null
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         SolventaListRow(
@@ -448,9 +451,23 @@ private fun ProfilingConsentRow(
             testTag = "profile_profiling_consent",
             onClick = onOpen,
         )
+        if (state.grantable) {
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_grant),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onGrant,
+                enabled = !state.granting,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SolventaSpacing.gutter),
+                testTag = "action_grant_profiling_consent",
+            )
+        }
         if (state.failed) {
             Text(
-                text = stringResource(R.string.profiling_consent_error),
+                text = stringResource(
+                    if (state.grantable) R.string.profiling_consent_grant_error else R.string.profiling_consent_error,
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier

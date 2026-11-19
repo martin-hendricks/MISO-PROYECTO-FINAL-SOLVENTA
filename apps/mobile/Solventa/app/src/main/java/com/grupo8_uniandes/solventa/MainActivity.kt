@@ -102,6 +102,7 @@ class MainActivity : FragmentActivity() {
                 outState.putString(STATE_PUSH_DESTINO, "poliza-detalle")
                 outState.putString(STATE_PUSH_POLIZA, target.numero)
             }
+            PushTarget.Consentimiento -> outState.putString(STATE_PUSH_DESTINO, "consentimiento")
             PushTarget.Inicio -> outState.putString(STATE_PUSH_DESTINO, "inicio")
             null -> Unit
         }

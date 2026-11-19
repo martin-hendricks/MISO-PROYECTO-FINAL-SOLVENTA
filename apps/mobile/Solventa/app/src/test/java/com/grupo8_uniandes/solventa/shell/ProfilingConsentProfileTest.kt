@@ -47,8 +47,10 @@ class ProfilingConsentProfileTest {
         var current: StandInAnswer<ProfilingConsent> = StandInAnswer.Ready(GRANTED),
         var revocation: StandInAnswer<ProfilingConsent> = StandInAnswer.Ready(REVOKED),
         val gate: CompletableDeferred<Unit>? = null,
+        var grant: StandInAnswer<ProfilingConsent> = StandInAnswer.Ready(GRANTED),
     ) : ProfilingConsentRepository {
         var revocations = 0
+        var grants = 0
 
         override suspend fun read(): StandInAnswer<ProfilingConsent> = current
 
@@ -56,6 +58,11 @@ class ProfilingConsentProfileTest {
             revocations += 1
             gate?.await()
             return revocation
+        }
+
+        override suspend fun grant(): StandInAnswer<ProfilingConsent> {
+            grants += 1
+            return grant
         }
     }
 
@@ -90,10 +97,62 @@ class ProfilingConsentProfileTest {
     }
 
     @Test
-    fun givenNoConsentOrAFailedRead_whenTheHubOpens_thenThereIsNoRow() {
-        render(FakeProfilingConsent(current = StandInAnswer.Ready(ProfilingConsent.None)))
-        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
-        rule.onAllNodesWithTag("profile_profiling_consent").assertCountEquals(0)
+    fun givenNoConsent_whenAuthorized_thenTheRowShowsWhenItWasGranted() {
+        val repository = FakeProfilingConsent(current = StandInAnswer.Ready(ProfilingConsent.None))
+        render(repository)
+
+        rule.onNodeWithTag("profile_profiling_consent").assertIsDisplayed()
+        rule.onNodeWithText("Sin autorizar").assertIsDisplayed()
+        rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+        rule.waitForIdle()
+
+        assertEquals(1, repository.grants)
+        rule.onNodeWithText("Otorgado el 01/10/2026").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_grant_profiling_consent").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenARevokedConsent_whenTheHubOpens_thenItCanBeAuthorizedAgain() {
+        render(FakeProfilingConsent(current = StandInAnswer.Ready(REVOKED)))
+
+        rule.onNodeWithText("Revocado el 11/11/2026").assertIsDisplayed()
+        rule.onNodeWithTag("action_grant_profiling_consent").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAConsentInForce_whenTheHubOpens_thenThereIsNoAuthorizeAction() {
+        render(FakeProfilingConsent())
+
+        rule.onNodeWithText("Otorgado el 01/10/2026").assertIsDisplayed()
+        rule.onAllNodesWithTag("action_grant_profiling_consent").assertCountEquals(0)
+    }
+
+    @Test
+    fun givenTheBffFails_whenAuthorized_thenItStaysUnauthorizedAndTheCustomerIsTold() {
+        render(
+            FakeProfilingConsent(
+                current = StandInAnswer.Ready(ProfilingConsent.None),
+                grant = StandInAnswer.Failed,
+            ),
+        )
+
+        rule.onNodeWithTag("action_grant_profiling_consent").performClick()
+        rule.waitForIdle()
+
+        rule.onNodeWithText("No pudimos registrar la autorización. Intenta de nuevo en unos minutos.").assertIsDisplayed()
+        rule.onNodeWithText("Sin autorizar").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenNoConsent_whenTheViewModelGrants_thenItShowsTheGrantedConsent() {
+        val repository = FakeProfilingConsent(current = StandInAnswer.Ready(ProfilingConsent.None))
+        val viewModel = ProfilingConsentViewModel(repository)
+
+        viewModel.grant()
+
+        assertEquals(1, repository.grants)
+        assertEquals(GRANTED, viewModel.state.value.consent)
+        assertEquals(false, viewModel.state.value.failed)
     }
 
     @Test
