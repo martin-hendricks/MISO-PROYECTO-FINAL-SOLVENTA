@@ -8,14 +8,14 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
+from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.clients.token_servicio import token_de_socio
 from app.config import Settings
-from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.dependencies import obtener_cliente_identidad, obtener_cliente_perfilamiento
 from app.main import crear_app
 from app.seguridad import Socio
 
-from .conftest import CABECERA_SOLO_CATALOGO, REGISTRO_SOCIOS, SOCIO_ID
+from .conftest import CABECERA_SOLO_CATALOGO, SOCIO_ID
 
 USUARIO_ID = "11111111-1111-1111-1111-111111111111"
 CUERPO = {"tipoDocumento": "CC", "numeroDocumento": "1012345678", "valor": 180000000, "plazoMeses": 240}
@@ -175,7 +175,7 @@ async def test_perfilamiento_recibe_el_token_de_socio():
 
 
 def test_sin_api_key_es_401_aunque_falte_el_secreto_de_servicio(nucleo, identidad, perfilamiento):
-    app = crear_app(Settings(socios=REGISTRO_SOCIOS))
+    app = crear_app(Settings())
 
     respuesta = TestClient(app).post("/v1/originaciones-hipotecarias", json=CUERPO)
 

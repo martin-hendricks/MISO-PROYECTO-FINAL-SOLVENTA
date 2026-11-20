@@ -18,3 +18,11 @@ class ClienteMsIdentidad(ClienteServicio):
             cabeceras={"Authorization": f"Bearer {self._token}"},
         )
         return str(datos["usuario_id"])
+
+    async def resolver_socio(self, huella_sha256: str) -> dict:
+        return await self._pedir(
+            "POST",
+            "/v1/socios/resolucion",
+            json={"huella_sha256": huella_sha256},
+            cabeceras={"Authorization": f"Bearer {self._token}"},
+        )
