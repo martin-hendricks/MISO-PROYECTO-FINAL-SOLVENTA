@@ -4,6 +4,7 @@ describe('back-office sections', () => {
   it('exposes the destinations in order, including notificaciones', () => {
     expect(SECTIONS).toEqual([
       'clientes',
+      'socios',
       'cotizaciones',
       'polizas',
       'avisos',
@@ -21,6 +22,13 @@ describe('back-office sections', () => {
     expect(allowedRoles('notificaciones')).toEqual(['operador']);
     expect(allowedRoles('cotizaciones')).toEqual(['asesor']);
     expect(allowedRoles('clientes')).toEqual(['asesor', 'operador']);
+  });
+
+  it('opens socios to both the advisor and the operator', () => {
+    expect(allowedRoles('socios')).toEqual(['asesor', 'operador']);
+    expect(admite('socios', 'asesor')).toBeTrue();
+    expect(admite('socios', 'operador')).toBeTrue();
+    expect(admite('socios', 'cliente')).toBeFalse();
   });
 
   it('hides notificaciones from the advisor and keeps clientes for both roles', () => {

@@ -5,6 +5,7 @@ import { Client } from '../support/data/generators';
 
 export type Section =
   | 'clientes'
+  | 'socios'
   | 'cotizaciones'
   | 'polizas'
   | 'avisos'
@@ -51,7 +52,15 @@ export class BackofficePage {
       .locator('nav a')
       .allInnerTexts();
     const role = await this.page.getByTestId('role-selector').getAttribute('data-role');
-    const expected = ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos', 'Reportes', 'Métricas'];
+    const expected = [
+      'Clientes',
+      'Socios',
+      'Cotizaciones',
+      'Pólizas',
+      'Avisos',
+      'Reportes',
+      'Métricas',
+    ];
     if (role === 'operador') {
       expected.push('Notificaciones');
     }
@@ -112,6 +121,33 @@ export class BackofficePage {
   async expectClientsState(state: 'empty' | 'error'): Promise<void> {
     await this.page.getByTestId(`clientes-${state}`).waitFor({ state: 'visible' });
     assert.equal(await this.page.getByTestId('clientes-table').count(), 0);
+  }
+
+  async expectPartner(nombre: string): Promise<void> {
+    await this.page.getByTestId('socios-table').waitFor({ state: 'visible' });
+    const row = this.page.locator('[data-testid="socios-table"] tbody tr', { hasText: nombre });
+    assert.equal(await row.count(), 1);
+  }
+
+  async createPartner(nombre: string, alcance: string): Promise<void> {
+    await this.page.getByTestId('socios-new').click();
+    await this.page.getByTestId('socios-nombre').fill(nombre);
+    await this.page.getByTestId(`socios-alcance-${alcance}`).check();
+    await this.page.getByTestId('socios-save').click();
+  }
+
+  async expectApiKey(apiKey: string): Promise<void> {
+    const panel = this.page.getByTestId('socios-clave');
+    await panel.waitFor({ state: 'visible' });
+    assert.equal((await this.page.getByTestId('socios-clave-valor').innerText()).trim(), apiKey);
+  }
+
+  async dismissApiKey(): Promise<void> {
+    await this.page.getByTestId('socios-clave-cerrar').click();
+  }
+
+  async expectApiKeyHidden(): Promise<void> {
+    await this.page.getByTestId('socios-clave').waitFor({ state: 'detached' });
   }
 
   async expectNoPermission(current: Role, required: Role): Promise<void> {
