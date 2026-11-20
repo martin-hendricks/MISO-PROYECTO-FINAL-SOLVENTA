@@ -46,3 +46,20 @@ DOBLE_KYC_DOCUMENTOS_RECHAZADOS=0000000000 docker compose up -d ms-identidad   #
 | `POST` | `/v1/usuarios/{id}/estado` | operador | `{estado: ACTIVO\|INACTIVO}`. El mismo estado no escribe evento. Un cambio escribe `UsuarioInactivado` o `UsuarioReactivado` (`{usuario_id, ocurrido_en}`) en `ms_identidad.outbox_evento`, en la misma transacción |
 
 Una cuenta `INACTIVO` no puede autenticarse. Reactivarla no vuelve a encender los dispositivos push.
+
+## Socios de distribución
+
+Registro de los socios que entran por `api-socios` (HA-29: el alta no cambia código ni despliega la plataforma). Solventa guarda solo la huella SHA-256 de cada API key; la clave en claro se entrega una sola vez, en la respuesta que la emite.
+
+| Método | Ruta | Quién | Efecto |
+| --- | --- | --- | --- |
+| `POST` | `/v1/socios` | operador, asesor | `{nombre, alcances}` → `201` con `socio_id`, `credencial_id` y `api_key`. Alcances: `catalogo:leer`, `originaciones:escribir`, `cotizaciones:escribir`, `cotizaciones:leer`; al menos uno. Campos de más → 422 |
+| `GET` | `/v1/socios` | operador, asesor | Socios con su estado y sus credenciales (`credencial_id`, `creada_en`, `revocada_en`), sin claves ni huellas |
+| `POST` | `/v1/socios/{id}/credenciales` | operador, asesor | Rotación: `201` con una `api_key` nueva; las anteriores siguen válidas. 409 si el socio está revocado |
+| `DELETE` | `/v1/socios/{id}/credenciales/{credencial_id}` | operador, asesor | Revoca esa clave. `204`; 404 si la credencial no es de ese socio |
+| `POST` | `/v1/socios/{id}/revocacion` | operador, asesor | Revoca el socio y todas sus claves. Idempotente |
+| `POST` | `/v1/socios/resolucion` | `api-socios` (token de rol `socio` con `sub = api-socios`) | `{huella_sha256}` → `{socio_id, nombre, alcances}`. 404 si la huella no existe, está revocada o el socio está revocado |
+
+Tablas `ms_identidad.socio` y `ms_identidad.credencial_socio` (`db/07_ms_identidad_socios.sql`).
+
+`db/08_ms_identidad_socio_default.sql` siembra el socio por defecto `Aliado local` (`socio_id` `1ebbe2fc-d8b1-4046-af76-b92bacec52ff`) con los cuatro alcances y la API key `solventa123` (solo se guarda su huella). Es una clave conocida: en un ambiente real el operador debe rotarla y revocar la original.
