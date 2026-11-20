@@ -66,19 +66,23 @@
         {{ 'backoffice.notificaciones.titulo' | translate }}
         <input
           data-testid="notificaciones-titulo"
+          aria-required="true"
+          aria-describedby="notificaciones-restante-titulo"
           [value]="vm.titulo()"
           (input)="vm.titulo.set($any($event.target).value)"
         />
-        <span data-testid="notificaciones-restante-titulo">{{ vm.restantesTitulo() }}</span>
+        <span id="notificaciones-restante-titulo" data-testid="notificaciones-restante-titulo">{{ vm.restantesTitulo() }}</span>
       </label>
       <label>
         {{ 'backoffice.notificaciones.cuerpo' | translate }}
         <textarea
           data-testid="notificaciones-cuerpo"
+          aria-required="true"
+          aria-describedby="notificaciones-restante-cuerpo"
           [value]="vm.cuerpo()"
           (input)="vm.cuerpo.set($any($event.target).value)"
         ></textarea>
-        <span data-testid="notificaciones-restante-cuerpo">{{ vm.restantesCuerpo() }}</span>
+        <span id="notificaciones-restante-cuerpo" data-testid="notificaciones-restante-cuerpo">{{ vm.restantesCuerpo() }}</span>
       </label>
 
       <label>
@@ -90,8 +94,8 @@
         />
       </label>
 
-      <aside data-testid="notificaciones-preview">
-        <h2>{{ 'backoffice.notificaciones.preview' | translate }}</h2>
+      <aside data-testid="notificaciones-preview" aria-labelledby="notificaciones-preview-titulo-h">
+        <h2 id="notificaciones-preview-titulo-h">{{ 'backoffice.notificaciones.preview' | translate }}</h2>
         <p data-testid="notificaciones-preview-titulo">{{ vm.vistaPrevia().titulo }}</p>
         <p data-testid="notificaciones-preview-cuerpo">{{ vm.vistaPrevia().cuerpo }}</p>
       </aside>
@@ -113,8 +117,11 @@
 
     @if (vm.resultado(); as resultado) {
       <p role="status" data-testid="notificaciones-resultado">
-        <span data-testid="notificaciones-enviadas">{{ resultado.enviadas }}</span>
-        <span data-testid="notificaciones-fallidas">{{ resultado.fallidas }}</span>
+        {{ 'backoffice.notificaciones.enviadas' | translate }}:
+        <span data-testid="notificaciones-enviadas">{{ resultado.enviadas }}</span> ·
+        {{ 'backoffice.notificaciones.fallidas' | translate }}:
+        <span data-testid="notificaciones-fallidas">{{ resultado.fallidas }}</span> ·
+        {{ 'backoffice.notificaciones.sinDispositivo' | translate }}:
         <span data-testid="notificaciones-sin-dispositivo">{{ resultado.sinDispositivo }}</span>
       </p>
     }

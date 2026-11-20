@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { capturarFocoActivo, restaurarFoco } from '../../../core/a11y/focus-restore';
 import { SessionService } from '../../../core/session/session.service';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { NoPermission } from '../no-permission/no-permission';
@@ -38,6 +39,18 @@ export class ClientesView {
     if (this.allowed) {
       this.vm.cargar();
     }
+  }
+
+  private focoPrevio: HTMLElement | null = null;
+
+  protected pedirDesactivar(usuarioId: string): void {
+    this.focoPrevio = capturarFocoActivo();
+    this.vm.pedirDesactivar(usuarioId);
+  }
+
+  protected cancelarDesactivar(): void {
+    this.vm.cancelarConfirmacion();
+    restaurarFoco(this.focoPrevio);
   }
 
   protected cotizarDe(cliente: Cliente): { cliente: string; nombre: string; documento: string } {
