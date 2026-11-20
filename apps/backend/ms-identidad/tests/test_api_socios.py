@@ -1,7 +1,9 @@
 import hashlib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import jwt
 import pytest
 
 from tests.conftest import token_de
@@ -15,6 +17,21 @@ ALTA = {
 
 def _auth(rol: str) -> dict:
     return {"Authorization": f"Bearer {token_de(str(uuid4()), rol)}"}
+
+
+def _auth_api_socios(sub: str = "api-socios") -> dict:
+    token = jwt.encode(
+        {
+            "sub": sub,
+            "uid": "00000000-0000-0000-0000-000000000000",
+            "rol": "socio",
+            "typ": "access",
+            "exp": datetime.now(UTC) + timedelta(minutes=5),
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _huella(clave: str) -> str:
@@ -31,7 +48,7 @@ def _resolver(client, clave: str):
     return client.post(
         "/v1/socios/resolucion",
         json={"huella_sha256": _huella(clave)},
-        headers=_auth("socio"),
+        headers=_auth_api_socios(),
     )
 
 
@@ -138,9 +155,23 @@ def test_la_resolucion_solo_la_invoca_api_socios(client, rol):
     assert respuesta.status_code == 403
 
 
+def test_un_token_socio_que_no_emitio_api_socios_no_resuelve(client):
+    creado = _alta(client)
+
+    respuesta = client.post(
+        "/v1/socios/resolucion",
+        json={"huella_sha256": _huella(creado["api_key"])},
+        headers=_auth_api_socios(sub="otro-servicio"),
+    )
+
+    assert respuesta.status_code == 403
+
+
 def test_resolucion_con_huella_mal_formada_es_422(client):
     respuesta = client.post(
-        "/v1/socios/resolucion", json={"huella_sha256": "ABC"}, headers=_auth("socio")
+        "/v1/socios/resolucion",
+        json={"huella_sha256": "ABC"},
+        headers=_auth_api_socios(),
     )
 
     assert respuesta.status_code == 422

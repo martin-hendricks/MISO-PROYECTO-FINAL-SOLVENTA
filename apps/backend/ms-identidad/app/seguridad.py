@@ -70,7 +70,7 @@ def exigir_operador(llamante: LlamanteDep) -> Llamante:
 
 
 def exigir_api_socios(llamante: LlamanteDep) -> Llamante:
-    if llamante.rol != "socio":
+    if llamante.rol != "socio" or llamante.sub != "api-socios":
         raise HTTPException(status_code=403, detail="Rol no autorizado")
     return llamante
 

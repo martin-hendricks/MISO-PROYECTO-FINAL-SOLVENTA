@@ -58,6 +58,6 @@ Registro de los socios que entran por `api-socios` (HA-29: el alta no cambia có
 | `POST` | `/v1/socios/{id}/credenciales` | operador | Rotación: `201` con una `api_key` nueva; las anteriores siguen válidas. 409 si el socio está revocado |
 | `DELETE` | `/v1/socios/{id}/credenciales/{credencial_id}` | operador | Revoca esa clave. `204`; 404 si la credencial no es de ese socio |
 | `POST` | `/v1/socios/{id}/revocacion` | operador | Revoca el socio y todas sus claves. Idempotente |
-| `POST` | `/v1/socios/resolucion` | `api-socios` (token de rol `socio`) | `{huella_sha256}` → `{socio_id, nombre, alcances}`. 404 si la huella no existe, está revocada o el socio está revocado |
+| `POST` | `/v1/socios/resolucion` | `api-socios` (token de rol `socio` con `sub = api-socios`) | `{huella_sha256}` → `{socio_id, nombre, alcances}`. 404 si la huella no existe, está revocada o el socio está revocado |
 
 Tablas `ms_identidad.socio` y `ms_identidad.credencial_socio` (`db/07_ms_identidad_socios.sql`).
