@@ -49,7 +49,7 @@ describe('BackofficeLayout', () => {
     expect(operator.element('nav-notificaciones')?.textContent).toContain('Notificaciones');
   });
 
-  it('shows the Back-office tag and exactly six destinations', async () => {
+  it('shows the Back-office tag and exactly seven destinations', async () => {
     const { host, element } = await open('asesor', '/cms/clientes');
 
     const links = Array.from(host.querySelectorAll('nav a')).map((link) =>
@@ -58,6 +58,7 @@ describe('BackofficeLayout', () => {
     expect(element('backoffice-tag')?.textContent).toContain('Back-office');
     expect(links).toEqual([
       'Clientes',
+      'Socios',
       'Cotizaciones',
       'Pólizas',
       'Avisos',

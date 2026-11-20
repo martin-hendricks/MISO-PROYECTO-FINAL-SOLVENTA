@@ -306,6 +306,7 @@
     "nav": {
       "label": "Secciones del back-office",
       "clientes": "Clientes",
+      "socios": "Socios",
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
       "avisos": "Avisos",
@@ -424,6 +425,62 @@
       "invalid": {
         "title": "Falta la oferta o el cliente",
         "body": "Abre la emisión desde la cotización del cliente."
+      }
+    },
+    "socios": {
+      "title": "Socios",
+      "new": "Nuevo socio",
+      "rotate": "Rotar clave",
+      "revoke": "Revocar socio",
+      "revokeCredential": "Revocar",
+      "revokeTitle": "Revocar socio",
+      "revokeWarning": "El socio y todas sus claves dejan de funcionar. No se puede deshacer.",
+      "revokeCredentialTitle": "Revocar clave",
+      "revokeCredentialWarning": "Las integraciones que usen esta clave dejan de funcionar.",
+      "column": {
+        "nombre": "Socio",
+        "alcances": "Alcances",
+        "estado": "Estado",
+        "creadoEn": "Creado",
+        "credenciales": "Claves",
+        "acciones": "Acciones"
+      },
+      "estado": {
+        "activo": "Activo",
+        "revocado": "Revocado"
+      },
+      "credencial": {
+        "vigente": "Vigente",
+        "revocada": "Revocada el"
+      },
+      "alcance": {
+        "catalogo:leer": "Consultar el catálogo",
+        "originaciones:escribir": "Crear originaciones",
+        "cotizaciones:escribir": "Crear cotizaciones",
+        "cotizaciones:leer": "Consultar cotizaciones"
+      },
+      "form": {
+        "create": "Nuevo socio",
+        "nombre": "Nombre",
+        "alcances": "Alcances",
+        "save": "Crear socio",
+        "cancel": "Cancelar"
+      },
+      "clave": {
+        "title": "Clave de API",
+        "warning": "Copia esta clave ahora. No se volverá a mostrar.",
+        "copy": "Copiar",
+        "copied": "Copiada",
+        "close": "Ya la guardé"
+      },
+      "loading": "Cargando socios…",
+      "empty": {
+        "title": "Aún no hay socios",
+        "body": "Los socios que registres aparecerán aquí."
+      },
+      "error": {
+        "body": "No pudimos cargar los socios.",
+        "retry": "Reintentar"
       }
     },
     "clientes": {

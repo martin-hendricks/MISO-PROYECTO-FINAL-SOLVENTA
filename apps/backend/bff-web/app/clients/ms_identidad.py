@@ -121,3 +121,18 @@ class ClienteMsIdentidad(ClienteServicio):
             f"/v1/clientes/{usuario_id}/estado",
             json={"estado": estado},
         )
+
+    async def listar_socios(self) -> dict[str, Any]:
+        return await self._pedir("GET", "/v1/socios")
+
+    async def crear_socio(self, *, nombre: str, alcances: list[str]) -> dict[str, Any]:
+        return await self._pedir("POST", "/v1/socios", json={"nombre": nombre, "alcances": alcances})
+
+    async def rotar_credencial_socio(self, socio_id: str) -> dict[str, Any]:
+        return await self._pedir("POST", f"/v1/socios/{socio_id}/credenciales")
+
+    async def revocar_credencial_socio(self, socio_id: str, credencial_id: str) -> None:
+        await self._enviar("DELETE", f"/v1/socios/{socio_id}/credenciales/{credencial_id}")
+
+    async def revocar_socio(self, socio_id: str) -> dict[str, Any]:
+        return await self._pedir("POST", f"/v1/socios/{socio_id}/revocacion")
