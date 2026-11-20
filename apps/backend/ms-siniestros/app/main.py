@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import rutas, rutas_avisos, rutas_pagos
+from app.api.v1 import rutas, rutas_avisos, rutas_pagos, rutas_prestadores
 from app.application.worker import ciclo_de_evaluacion
 from app.config import Settings
 from app.domain.errores import ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
@@ -75,6 +75,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     app.include_router(rutas.router)
     app.include_router(rutas_avisos.router)
     app.include_router(rutas_pagos.router)
+    app.include_router(rutas_prestadores.router)
 
     @app.exception_handler(ErrorDominio)
     async def error_dominio(_: Request, exc: ErrorDominio):

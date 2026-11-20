@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { redirectSignedIn, requireLocaleChosen, requireRole } from './core/session/session.guard';
 import { Role, SessionService } from './core/session/session.service';
 import { homeSection } from './features/backoffice/sections';
+import { soloOperadorPrestadores } from './features/backoffice/prestadores/bo-prestadores.guard';
 import type { Destino } from './features/destino/destino.view';
 import { BACKOFFICE_LOGIN, CUSTOMER_LOGIN } from './features/login/login.variant';
 import { requireDraft } from './features/registro/registro.draft';
@@ -123,6 +124,29 @@ export const routes: Routes = [
             (m) => m.NotificacionesView,
           ),
       },
+      {
+        path: 'prestadores',
+        loadComponent: () =>
+          import('./features/backoffice/prestadores/lista/bo-prestadores-lista.view').then(
+            (m) => m.BoPrestadoresListaView,
+          ),
+      },
+      {
+        path: 'prestadores/nuevo',
+        canActivate: [soloOperadorPrestadores],
+        loadComponent: () =>
+          import('./features/backoffice/prestadores/form/bo-prestador-form.view').then(
+            (m) => m.BoPrestadorFormView,
+          ),
+      },
+      {
+        path: 'prestadores/:id',
+        canActivate: [soloOperadorPrestadores],
+        loadComponent: () =>
+          import('./features/backoffice/prestadores/form/bo-prestador-form.view').then(
+            (m) => m.BoPrestadorFormView,
+          ),
+      },
     ],
   },
   {
@@ -205,6 +229,21 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/siniestros/parametrico/parametrico.view').then(
             (m) => m.ParametricoView,
+          ),
+      },
+      {
+        // Literal antes de siniestros/:id: "prestadores" no es un id.
+        path: 'siniestros/prestadores',
+        loadComponent: () =>
+          import('./features/prestadores/mapa/prestadores-mapa.view').then(
+            (m) => m.PrestadoresMapaView,
+          ),
+      },
+      {
+        path: 'siniestros/:id/prestadores',
+        loadComponent: () =>
+          import('./features/prestadores/mapa/prestadores-mapa.view').then(
+            (m) => m.PrestadoresMapaView,
           ),
       },
       {

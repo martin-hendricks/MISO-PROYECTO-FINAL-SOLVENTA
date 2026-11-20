@@ -1,0 +1,47 @@
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.filtros select {
+  min-width: 180px;
+  padding: 10px 12px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--sv-surface-container-lowest);
+}
+
+.badge[data-estado='activo'] {
+  color: var(--sv-on-primary);
+  background: var(--sv-primary);
+}
+
+.badge[data-estado='inactivo'] {
+  color: var(--sv-on-surface-variant);
+  background: var(--sv-surface-container);
+}
+
+button.text {
+  border: 0;
+  padding: 0;
+  color: var(--sv-primary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+sv-mapa-prestadores,
+[data-testid='prestadores-mapa-lista'] {
+  display: block;
+  margin-top: 24px;
+}

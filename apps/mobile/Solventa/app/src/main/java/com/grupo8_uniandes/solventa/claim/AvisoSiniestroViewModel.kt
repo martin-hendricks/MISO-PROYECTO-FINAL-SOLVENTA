@@ -10,6 +10,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.NoticeProblems
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.PoliciesInForce
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +65,17 @@ class AvisoSiniestroViewModel(
         notice.continueToEvidence()
         publish()
         return notice.phase == NoticePhase.Evidence
+    }
+
+    fun openFromAssistance(policy: String, date: String, description: String, place: String) {
+        notice.revise(
+            poliza = policy.substringBefore(" · ").trim(),
+            fechaHecho = assistanceIsoDate(date),
+            descripcion = description,
+            lugar = place,
+        )
+        notice.showEvidence()
+        publish()
     }
 
     fun revise(poliza: String, fechaHecho: String, descripcion: String, lugar: String) {
@@ -125,6 +137,11 @@ class AvisoSiniestroViewModel(
     fun cancel() {
         notice.cancel()
         publish()
+    }
+
+    private fun assistanceIsoDate(value: String): String {
+        if (value == "12 mar 2026") return "2026-03-12"
+        return runCatching { LocalDate.parse(value).toString() }.getOrDefault(LocalDate.now().toString())
     }
 
     private fun publish() {

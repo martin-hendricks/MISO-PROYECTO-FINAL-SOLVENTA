@@ -1,0 +1,103 @@
+@if (disponible()) {
+  <div class="lienzo">
+    <div class="marco" #lienzoMapa>
+      <google-map
+        height="100%"
+        width="100%"
+        [options]="opciones()"
+        [center]="$any(objetivo() ? null : centro())"
+        [zoom]="$any(objetivo() ? null : zoom())"
+        (idle)="alDetenerse()"
+        (mapDragstart)="arrastrar.emit()"
+        (mapClick)="tocarMapa.emit()"
+        (authFailure)="fallo.emit()"
+      >
+        @if (posicion(); as tu) {
+          <map-marker [position]="tu" [options]="{ zIndex: zPropio }" />
+        }
+        @if (siniestro(); as evento) {
+          <map-marker
+            [position]="evento"
+            [label]="etiquetaSiniestro()"
+            [title]="etiquetaSiniestro()"
+            [options]="{ zIndex: zPropio }"
+          />
+        }
+        @if (arrastrable()) {
+          @if (pin(); as punto) {
+            <map-marker
+              [position]="punto"
+              [options]="{ draggable: true }"
+              (mapDragend)="soltar($event)"
+            />
+          }
+        } @else {
+          <map-marker-clusterer [algorithm]="algoritmo" [renderer]="renderizador">
+            @for (grupo of grupos(); track grupo.prestadores[0].id) {
+              @if (grupo.prestadores.length === 1) {
+                @let prestador = grupo.prestadores[0];
+                @let marcado = elegido([prestador.id]);
+                <map-marker
+                  [position]="{ lat: prestador.lat, lng: prestador.lng }"
+                  [title]="
+                    'prestadores.marcador'
+                      | translate
+                        : {
+                            nombre: prestador.nombre,
+                            tipo: ('prestadores.tipo.' + prestador.tipo | translate),
+                          }
+                  "
+                  [icon]="icono(prestador.tipo, marcado)"
+                  [options]="opcionesPin(marcado)"
+                  (mapClick)="elegir.emit([prestador.id])"
+                />
+              }
+            }
+          </map-marker-clusterer>
+          @for (grupo of grupos(); track grupo.prestadores[0].id) {
+            @if (grupo.prestadores.length > 1) {
+              @let ids = idsDe(grupo.prestadores);
+              @let marcado = elegido(ids);
+              <map-marker
+                [position]="{ lat: grupo.lat, lng: grupo.lng }"
+                [title]="'prestadores.tarjeta.varios' | translate: { n: ids.length }"
+                [label]="{ text: '' + ids.length, color: '#ffffff', fontWeight: '600' }"
+                [icon]="icono(grupo.prestadores[0].tipo, true)"
+                [options]="opcionesPin(marcado)"
+                (mapClick)="elegir.emit(ids)"
+              />
+            }
+          }
+        }
+      </google-map>
+      <div class="capa-tarjeta" #capaTarjeta>
+        <ng-content />
+      </div>
+    </div>
+    <div class="pines">
+      @if (siniestro()) {
+        <span class="pin-claim" [style.background]="colorSiniestro" data-testid="pin-siniestro">
+          {{ etiquetaSiniestro() }}
+        </span>
+      }
+      @for (prestador of prestadores(); track prestador.id) {
+        <button
+          type="button"
+          [attr.data-testid]="'pin-' + prestador.id"
+          (click)="elegir.emit([prestador.id])"
+        >
+          <span class="swatch" [style.background]="color(prestador.tipo)"></span>
+          {{ prestador.nombre }}
+        </button>
+      }
+    </div>
+    <ul class="leyenda" data-testid="prestadores-leyenda">
+      @for (tipo of tipos; track tipo) {
+        <li>
+          <span class="swatch" [style.background]="color(tipo)"></span>
+          {{ 'prestadores.tipo.' + tipo | translate }}
+        </li>
+      }
+    </ul>
+  </div>
+}

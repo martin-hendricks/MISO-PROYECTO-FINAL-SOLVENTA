@@ -24,6 +24,8 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 | `13_ms_siniestros_parametrico.sql` | `ms_siniestros` (extensión) | `siniestro`, `siniestro_transicion`, `evento_parametrico`, `evaluacion_umbral`, `pago_parametrico`, `outbox_evento`* |
 | `14_ms_siniestros_aviso_asistido.sql` | `ms_siniestros` (extensión) | columnas del aviso asistido en `siniestro`, `parametro_ramo`, `siniestro_adjunto`, `siniestro_decision`, `pago_siniestro`, `pago_siniestro_intento` |
 | `15_ms_siniestros_billetera.sql` | `ms_siniestros` (extensión) | `pago_parametrico.comprobante` |
+| `16_ms_siniestros_prestadores.sql` | `ms_siniestros` (extensión) | `prestador`, `prestador_ramo` |
+| `17_ms_siniestros_prestadores_paises.sql` | `ms_siniestros` (extensión) | `ciudad_prestador`, `prestador.pais` y semilla de México, Chile y Perú |
 
 \* Tabla técnica (patrón *transactional outbox*), no es entidad del dominio de VC-004.
 

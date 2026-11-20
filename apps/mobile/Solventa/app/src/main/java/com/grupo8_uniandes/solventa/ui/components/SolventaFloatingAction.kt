@@ -24,11 +24,12 @@ fun SolventaFloatingAction(
     modifier: Modifier = Modifier,
     containerColor: Color = FloatingActionButtonDefaults.containerColor,
     contentColor: Color = contentColorFor(containerColor),
+    testTag: String = "solventa_floating_action",
 ) {
     ExtendedFloatingActionButton(
         onClick = onClick,
         modifier = modifier
-            .testTag("solventa_floating_action")
+            .testTag(testTag)
             .semantics { contentDescription = label },
         containerColor = containerColor,
         contentColor = contentColor,
