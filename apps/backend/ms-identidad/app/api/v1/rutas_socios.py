@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from app.application import casos_uso_socios
 from app.dependencies import obtener_uow
 from app.ports.persistencia import FabricaUnidadDeTrabajo
-from app.seguridad import Llamante, exigir_api_socios, exigir_operador
+from app.seguridad import Llamante, exigir_api_socios, exigir_backoffice
 
 from .schemas import ErrorSalida
 from .schemas_socios import (
@@ -21,7 +21,7 @@ from .schemas_socios import (
 
 router = APIRouter(prefix="/v1/socios", tags=["socios"])
 Uow = Annotated[FabricaUnidadDeTrabajo, Depends(obtener_uow)]
-Operador = Annotated[Llamante, Depends(exigir_operador)]
+Backoffice = Annotated[Llamante, Depends(exigir_backoffice)]
 ApiSocios = Annotated[Llamante, Depends(exigir_api_socios)]
 ERRORES = {
     401: {"model": ErrorSalida},
@@ -37,7 +37,7 @@ ERRORES = {
     status_code=status.HTTP_201_CREATED,
     responses=ERRORES,
 )
-async def crear(entrada: CrearSocioEntrada, uow: Uow, _operador: Operador):
+async def crear(entrada: CrearSocioEntrada, uow: Uow, _backoffice: Backoffice):
     socio, credencial, api_key = await casos_uso_socios.crear_socio(
         uow, entrada.nombre, frozenset(entrada.alcances)
     )
@@ -53,7 +53,7 @@ async def crear(entrada: CrearSocioEntrada, uow: Uow, _operador: Operador):
 
 
 @router.get("", response_model=ListaSociosSalida, responses=ERRORES)
-async def listar(uow: Uow, _operador: Operador):
+async def listar(uow: Uow, _backoffice: Backoffice):
     return ListaSociosSalida(
         socios=[SocioSalida.desde(s) for s in await casos_uso_socios.listar_socios(uow)]
     )
@@ -73,7 +73,7 @@ async def resolver(entrada: ResolverSocioEntrada, uow: Uow, _api_socios: ApiSoci
     status_code=status.HTTP_201_CREATED,
     responses=ERRORES,
 )
-async def emitir_credencial(socio_id: UUID, uow: Uow, _operador: Operador):
+async def emitir_credencial(socio_id: UUID, uow: Uow, _backoffice: Backoffice):
     credencial, api_key = await casos_uso_socios.emitir_credencial(uow, socio_id)
     return ClaveEmitidaSalida(credencial_id=credencial.credencial_id, api_key=api_key)
 
@@ -84,12 +84,12 @@ async def emitir_credencial(socio_id: UUID, uow: Uow, _operador: Operador):
     responses=ERRORES,
 )
 async def revocar_credencial(
-    socio_id: UUID, credencial_id: UUID, uow: Uow, _operador: Operador
+    socio_id: UUID, credencial_id: UUID, uow: Uow, _backoffice: Backoffice
 ):
     await casos_uso_socios.revocar_credencial(uow, socio_id, credencial_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{socio_id}/revocacion", response_model=SocioSalida, responses=ERRORES)
-async def revocar(socio_id: UUID, uow: Uow, _operador: Operador):
+async def revocar(socio_id: UUID, uow: Uow, _backoffice: Backoffice):
     return SocioSalida.desde(await casos_uso_socios.revocar_socio(uow, socio_id))

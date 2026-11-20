@@ -85,8 +85,8 @@ def test_el_listado_no_expone_claves_ni_huellas(client):
     ]
 
 
-@pytest.mark.parametrize("rol", ["asesor", "cliente", "socio"])
-def test_solo_el_operador_administra_socios(client, almacen, rol):
+@pytest.mark.parametrize("rol", ["cliente", "socio"])
+def test_solo_asesor_y_operador_administran_socios(client, almacen, rol):
     socio_id = str(uuid4())
     llamadas = [
         client.post("/v1/socios", json=ALTA, headers=_auth(rol)),
@@ -100,6 +100,33 @@ def test_solo_el_operador_administra_socios(client, almacen, rol):
 
     assert [r.status_code for r in llamadas] == [403] * 5
     assert almacen.socios == {}
+
+
+def test_el_asesor_administra_socios_igual_que_el_operador(client):
+    auth = _auth("asesor")
+
+    creado = client.post("/v1/socios", json=ALTA, headers=auth)
+    assert creado.status_code == 201
+    socio_id = creado.json()["socio_id"]
+    assert [
+        s["socio_id"] for s in client.get("/v1/socios", headers=auth).json()["socios"]
+    ] == [socio_id]
+
+    rotada = client.post(f"/v1/socios/{socio_id}/credenciales", headers=auth)
+    assert rotada.status_code == 201
+    revocada = client.delete(
+        f"/v1/socios/{socio_id}/credenciales/{creado.json()['credencial_id']}",
+        headers=auth,
+    )
+    assert revocada.status_code == 204
+    assert _resolver(client, creado.json()["api_key"]).status_code == 404
+    assert _resolver(client, rotada.json()["api_key"]).status_code == 200
+
+    assert (
+        client.post(f"/v1/socios/{socio_id}/revocacion", headers=auth).status_code
+        == 200
+    )
+    assert _resolver(client, rotada.json()["api_key"]).status_code == 404
 
 
 def test_sin_token_es_401(client):
