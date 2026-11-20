@@ -69,6 +69,12 @@ def exigir_operador(llamante: LlamanteDep) -> Llamante:
     return llamante
 
 
+def exigir_api_socios(llamante: LlamanteDep) -> Llamante:
+    if llamante.rol != "socio":
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
+    return llamante
+
+
 def exigir_busqueda_por_documento(llamante: Llamante) -> None:
     """Saber a quién pertenece una cédula es un dato personal: no lo resuelve un cliente."""
     if llamante.rol not in ROLES_BUSQUEDA_POR_DOCUMENTO:
