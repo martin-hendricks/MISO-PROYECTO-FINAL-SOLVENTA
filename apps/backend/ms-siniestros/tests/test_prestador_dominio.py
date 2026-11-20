@@ -3,7 +3,14 @@ from decimal import Decimal
 
 import pytest
 
-from app.domain.errores import AreaInvalida, CoordenadaFueraDeRango, PaisDesconocido, PrestadorSinRamo, RamoDesconocido
+from app.domain.errores import (
+    AreaInvalida,
+    CoordenadaFueraDeRango,
+    PaisDesconocido,
+    PrestadorSinRamo,
+    RamoDesconocido,
+    ReglaDeNegocioViolada,
+)
 from app.domain.prestador import AreaVisible, Prestador
 
 AHORA = datetime(2026, 11, 17, tzinfo=timezone.utc)
@@ -59,6 +66,18 @@ def test_editar_reemplaza_ramos_y_mismo_estado_no_cambia():
     assert igual is editado
     inactivo = editado.cambiar_estado("inactivo", "operador@solventa.co", ahora=AHORA)
     assert inactivo.estado == "inactivo"
+
+
+def test_tipo_campo_y_estado_invalidos():
+    with pytest.raises(ReglaDeNegocioViolada):
+        Prestador.crear(**_datos(tipo="no-existe"))
+    with pytest.raises(ReglaDeNegocioViolada):
+        Prestador.crear(**_datos(nombre="   "))
+    with pytest.raises(ReglaDeNegocioViolada):
+        Prestador.crear(**_datos(nombre="x" * 121))
+    prestador = Prestador.crear(**_datos())
+    with pytest.raises(ReglaDeNegocioViolada):
+        prestador.cambiar_estado("suspendido", "op")
 
 
 def test_pais_por_defecto_y_desconocido():

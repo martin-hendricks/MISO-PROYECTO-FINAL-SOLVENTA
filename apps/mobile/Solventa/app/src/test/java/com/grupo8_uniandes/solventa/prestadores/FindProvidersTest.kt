@@ -16,6 +16,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FindProvidersTest {
@@ -88,6 +89,14 @@ class FindProvidersTest {
 
         assertEquals("PE", repo.lastPais)
         assertEquals("Lima", cities.single().nombre)
+    }
+
+    @Test
+    fun givenTheCatalogFails_whenSearching_thenTheFailureIsReturned() = runBlocking {
+        val find = FindProviders(RecordingAssistance())
+
+        assertTrue(find.search(ProviderQuery()) is StandInAnswer.Failed)
+        assertTrue(find.nearClaim("SIN-1") is StandInAnswer.Failed)
     }
 }
 

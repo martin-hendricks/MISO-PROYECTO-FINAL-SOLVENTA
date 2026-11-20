@@ -83,6 +83,8 @@ async def test_conteos_para_backoffice():
     resultado = await casos.buscar(fabrica(almacen), ASESOR, casos.ConsultaPrestadores())
     assert resultado.conteos["Bogotá"] == 1
     assert resultado.conteos["Chía"] == 0
+    solo_activos = await casos.buscar(fabrica(almacen), ASESOR, casos.ConsultaPrestadores(estado="activo"))
+    assert [fila.prestador.nombre for fila in solo_activos.prestadores] == ["Taller Chapinero"]
 
 
 @pytest.mark.asyncio
@@ -105,6 +107,10 @@ async def test_alta_edicion_estado_y_siniestro():
         ),
     )
     assert creado.estado == "activo"
+    with pytest.raises(NoEncontrado):
+        await casos.editar(fabrica(almacen), OPERADOR, "PRE-NO", {"nombre": "Otro"})
+    with pytest.raises(NoEncontrado):
+        await casos.cambiar_estado(fabrica(almacen), OPERADOR, "PRE-NO", "inactivo")
     editado = await casos.editar(fabrica(almacen), OPERADOR, creado.id, {"ramos": frozenset({"viaje"})})
     assert editado.ramos == frozenset({"viaje"})
     inactivo = await casos.cambiar_estado(fabrica(almacen), OPERADOR, creado.id, "inactivo")

@@ -152,6 +152,45 @@ def test_area_invalida_pasa_tal_cual(client, nucleo_siniestros):
     assert respuesta.json()["codigo"] == "area_invalida"
 
 
+def test_operador_lee_edita_y_cambia_estado(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/prestadores/PRE-BOG-06")] = _ok(FILA)
+    nucleo_siniestros.respuestas[("PATCH", "/v1/prestadores/PRE-BOG-06")] = _ok({**FILA, "nombre": "Nuevo"})
+    nucleo_siniestros.respuestas[("POST", "/v1/prestadores/PRE-BOG-06/estado")] = _ok({**FILA, "estado": "inactivo"})
+    acceso = {"Authorization": f"Bearer {token(client, 'operador')}"}
+    ficha = client.get("/v1/operador/prestadores/PRE-BOG-06", headers=acceso)
+    assert ficha.status_code == 200
+    assert ficha.json()["estado"] == "activo"
+    editado = client.patch("/v1/operador/prestadores/PRE-BOG-06", json={"nombre": "Nuevo"}, headers=acceso)
+    assert editado.json()["nombre"] == "Nuevo"
+    estado = client.post(
+        "/v1/operador/prestadores/PRE-BOG-06/estado",
+        json={"estado": "inactivo"},
+        headers=acceso,
+    )
+    assert estado.json()["estado"] == "inactivo"
+
+
+def test_siniestro_del_cliente_adapta_el_aviso(client, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros/abc/prestadores")] = _ok(
+        {
+            "siniestro": {"id": "abc", "numero": "SIN-1"},
+            "ramo_fijo": "soat-motocicleta",
+            "sin_geoetiqueta": False,
+            "centro": {"lat": 4.6, "lng": -74.0, "origen": "siniestro"},
+            "radio_km": 10,
+            "truncado": False,
+            "prestadores": [FILA],
+        }
+    )
+    respuesta = client.get(
+        "/v1/cliente/siniestros/abc/prestadores",
+        headers={"Authorization": f"Bearer {token(client, 'cliente')}"},
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["siniestro"] == {"id": "abc", "numero": "SIN-1", "ramo": "soat-motocicleta"}
+    assert respuesta.json()["prestadores"][0]["id"] == "PRE-BOG-06"
+
+
 def test_operador_filtra_por_pais(client, nucleo_siniestros):
     nucleo_siniestros.respuestas[("GET", "/v1/prestadores")] = _ok(
         {"centro": None, "radio_km": None, "truncado": False, "prestadores": [], "conteos": {"Santiago": 0}}

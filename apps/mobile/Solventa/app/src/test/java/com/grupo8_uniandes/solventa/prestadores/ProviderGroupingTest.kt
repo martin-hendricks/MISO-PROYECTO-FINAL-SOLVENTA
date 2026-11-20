@@ -68,6 +68,10 @@ class ProviderGroupingTest {
         assertEquals("1 prestador, toca para acercar", clusterLabel(resources, 1))
         val pin = ProviderStack(listOf(sample("PRE-BOG-06", 0.9)))
         assertEquals("Taller Moto Chapinero, Taller de motos", markerLabel(resources, pin))
+        assertEquals("Taller Moto Chapinero", pin.title)
+        assertEquals(null, pin.snippet)
+        assertEquals(0f, pin.zIndex)
+        assertEquals(1f, pin.copy(selected = true).zIndex)
     }
 }
 
