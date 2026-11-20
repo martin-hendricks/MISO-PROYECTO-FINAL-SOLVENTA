@@ -12,6 +12,7 @@ from .observabilidad import instrumentar
 from .routers import (
     asesor,
     avisos_poliza,
+    backoffice_socios,
     cliente,
     metricas,
     operador,
@@ -117,6 +118,7 @@ app.include_router(cliente.router, prefix="/v1")
 app.include_router(asesor.router, prefix="/v1")
 app.include_router(operador.router, prefix="/v1")
 app.include_router(operador_clientes.router, prefix="/v1")
+app.include_router(backoffice_socios.router, prefix="/v1")
 app.include_router(perfil_backoffice.router, prefix="/v1")
 app.include_router(operador_notificaciones.router, prefix="/v1")
 app.include_router(billetera.router_cliente, prefix="/v1")
