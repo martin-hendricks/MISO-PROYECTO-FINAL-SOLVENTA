@@ -61,3 +61,5 @@ Registro de los socios que entran por `api-socios` (HA-29: el alta no cambia có
 | `POST` | `/v1/socios/resolucion` | `api-socios` (token de rol `socio` con `sub = api-socios`) | `{huella_sha256}` → `{socio_id, nombre, alcances}`. 404 si la huella no existe, está revocada o el socio está revocado |
 
 Tablas `ms_identidad.socio` y `ms_identidad.credencial_socio` (`db/07_ms_identidad_socios.sql`).
+
+`db/08_ms_identidad_socio_default.sql` siembra el socio por defecto `Aliado local` (`socio_id` `1ebbe2fc-d8b1-4046-af76-b92bacec52ff`) con los cuatro alcances y la API key `solventa123` (solo se guarda su huella). Es una clave conocida: en un ambiente real el operador debe rotarla y revocar la original.

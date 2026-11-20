@@ -1,5 +1,6 @@
 import os
-from uuid import uuid4
+from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
@@ -129,3 +130,23 @@ async def test_socio_rota_y_revoca_contra_postgres_real(uow):
     await casos_uso_socios.revocar_socio(uow, socio.socio_id)
     with pytest.raises(NoEncontrado):
         await casos_uso_socios.resolver_por_huella(uow, huella_de(clave_nueva))
+
+
+async def test_el_socio_por_defecto_resuelve_con_su_clave_y_la_siembra_es_repetible(uow):
+    siembra = (Path(__file__).resolve().parents[1] / "db" / "08_ms_identidad_socio_default.sql").read_text(
+        encoding="utf-8"
+    )
+    motor = crear_motor(Settings())
+    try:
+        for _ in range(2):
+            async with motor.begin() as conn:
+                for sentencia in filter(str.strip, siembra.split(";")):
+                    await conn.exec_driver_sql(sentencia)
+    finally:
+        await motor.dispose()
+
+    resuelto = await casos_uso_socios.resolver_por_huella(uow, huella_de("solventa123"))
+    assert resuelto.socio_id == UUID("1ebbe2fc-d8b1-4046-af76-b92bacec52ff")
+    assert resuelto.alcances == frozenset(
+        {"catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"}
+    )

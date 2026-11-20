@@ -9,6 +9,9 @@ import pytest
 from tests.conftest import token_de
 
 MIGRACION = Path(__file__).resolve().parents[1] / "db" / "07_ms_identidad_socios.sql"
+SOCIO_POR_DEFECTO = (
+    Path(__file__).resolve().parents[1] / "db" / "08_ms_identidad_socio_default.sql"
+)
 ALTA = {
     "nombre": "Banco Aliado",
     "alcances": ["catalogo:leer", "cotizaciones:escribir"],
@@ -257,3 +260,23 @@ def test_la_migracion_crea_las_tablas_sin_tocar_datos_existentes():
     assert "huella_sha256" in texto
     for prohibido in ("UPDATE", "DELETE", "DROP", "ALTER TABLE ms_identidad.usuario"):
         assert prohibido.upper() not in texto.upper()
+
+
+def test_el_socio_por_defecto_se_siembra_con_la_huella_de_su_clave_y_los_cuatro_alcances():
+    texto = SOCIO_POR_DEFECTO.read_text(encoding="utf-8")
+
+    assert "INSERT INTO ms_identidad.socio " in texto
+    assert "INSERT INTO ms_identidad.credencial_socio " in texto
+    assert "1ebbe2fc-d8b1-4046-af76-b92bacec52ff" in texto
+    assert _huella("solventa123") in texto
+    assert "solventa123" not in texto.replace(_huella("solventa123"), "")
+    for alcance in (
+        "catalogo:leer",
+        "originaciones:escribir",
+        "cotizaciones:escribir",
+        "cotizaciones:leer",
+    ):
+        assert alcance in texto
+    assert texto.upper().count("ON CONFLICT DO NOTHING") == 2
+    for prohibido in ("UPDATE", "DELETE", "DROP", "ALTER"):
+        assert prohibido not in texto.upper()
