@@ -131,8 +131,25 @@ describe('NotificacionesView', () => {
     fixture.detectChanges();
 
     expect(element('notificaciones-enviadas')?.textContent).toBe(String(RESULTADO.enviadas));
+    expect(element('notificaciones-resultado')?.textContent).toContain('Enviadas:');
+    expect(element('notificaciones-resultado')?.textContent).toContain('Fallidas:');
+    expect(element('notificaciones-resultado')?.textContent).toContain('Sin dispositivo:');
     expect(element('notificaciones-item-' + HISTORIAL[0].difusionId)?.textContent).toContain(
       HISTORIAL[0].titulo,
     );
+  });
+
+  it('links each counter to its field and marks the required ones', () => {
+    const { element } = listo();
+
+    for (const campo of ['titulo', 'cuerpo']) {
+      const entrada = element(`notificaciones-${campo}`)!;
+      expect(entrada.getAttribute('aria-required')).toBe('true');
+      expect(entrada.getAttribute('aria-describedby')).toBe(`notificaciones-restante-${campo}`);
+      expect(element(`notificaciones-restante-${campo}`)?.id).toBe(`notificaciones-restante-${campo}`);
+    }
+    const vista = element('notificaciones-preview')!;
+    expect(vista.getAttribute('aria-labelledby')).toBe('notificaciones-preview-titulo-h');
+    expect(vista.querySelector('h2')?.id).toBe('notificaciones-preview-titulo-h');
   });
 });

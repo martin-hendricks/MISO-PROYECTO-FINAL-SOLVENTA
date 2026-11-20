@@ -6,6 +6,7 @@ Feature: Operator customer directory
     And an operador signed in to the back-office
     When the user opens the clientes destination
     Then Ana can receive push and Luis cannot
+    And the current page has no accessibility violations
     And the operator can create a customer
 
   Scenario: The advisor keeps a read-only Clientes
