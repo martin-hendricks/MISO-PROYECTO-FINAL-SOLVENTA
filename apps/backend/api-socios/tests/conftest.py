@@ -1,5 +1,6 @@
 import hashlib
 from collections.abc import Callable
+from uuid import UUID
 
 import httpx
 import pytest
@@ -16,6 +17,7 @@ from app.dependencies import (
     obtener_cliente_perfilamiento,
 )
 from app.main import crear_app
+from app.seguridad import Socio
 
 PRODUCTO = {
     "producto": "soat-motocicleta",
@@ -84,25 +86,34 @@ SOCIO_ID = "6f1c2a4e-0000-4000-8000-000000000001"
 CABECERA_API_KEY_SOCIO = {"X-Socio-Api-Key": API_KEY_SOCIO}
 CABECERA_SOLO_CATALOGO = {"X-Socio-Api-Key": API_KEY_SOLO_CATALOGO}
 
-REGISTRO_SOCIOS = [
-    {
-        "socio_id": SOCIO_ID,
-        "nombre": "Socio test",
-        "alcances": ["catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"],
-        "api_keys_sha256": [hashlib.sha256(API_KEY_SOCIO.encode()).hexdigest()],
-    },
-    {
-        "socio_id": "6f1c2a4e-0000-4000-8000-000000000002",
-        "nombre": "Socio solo catalogo",
-        "alcances": ["catalogo:leer"],
-        "api_keys_sha256": [hashlib.sha256(API_KEY_SOLO_CATALOGO.encode()).hexdigest()],
-    },
-]
+REGISTRO_SOCIOS = {
+    hashlib.sha256(API_KEY_SOCIO.encode()).hexdigest(): Socio(
+        socio_id=UUID(SOCIO_ID),
+        nombre="Socio test",
+        alcances=frozenset({"catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"}),
+    ),
+    hashlib.sha256(API_KEY_SOLO_CATALOGO.encode()).hexdigest(): Socio(
+        socio_id=UUID("6f1c2a4e-0000-4000-8000-000000000002"),
+        nombre="Socio solo catalogo",
+        alcances=frozenset({"catalogo:leer"}),
+    ),
+}
+
+
+class RegistroSociosEnMemoria:
+    def __init__(self, socios: dict[str, Socio]) -> None:
+        self.socios = socios
+        self.consultas: list[str] = []
+
+    async def resolver(self, huella_sha256: str) -> Socio | None:
+        self.consultas.append(huella_sha256)
+        return self.socios.get(huella_sha256)
 
 
 @pytest.fixture
 def app(nucleo, identidad, perfilamiento):
-    app = crear_app(Settings(socios=REGISTRO_SOCIOS))
+    app = crear_app(Settings())
+    app.state.registro_socios = RegistroSociosEnMemoria(REGISTRO_SOCIOS)
     http = httpx.AsyncClient(transport=httpx.MockTransport(nucleo), base_url="http://ms-cotizacion")
     http_identidad = httpx.AsyncClient(transport=httpx.MockTransport(identidad), base_url="http://ms-identidad")
     http_perfilamiento = httpx.AsyncClient(
