@@ -214,3 +214,19 @@ def test_ms_identidad_caido_responde_503_y_no_401(app):
 
     assert respuesta.status_code == 503
     assert respuesta.json()["codigo"] == "servicio_no_disponible"
+
+
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {"nombre": "Socio 1", "alcances": []},
+        {"socio_id": "no-es-uuid", "nombre": "x", "alcances": []},
+        None,
+        [],
+    ],
+)
+async def test_respuesta_malformada_de_ms_identidad_es_servicio_no_disponible(cuerpo):
+    identidad = _Identidad(lambda _: httpx.Response(200, json=cuerpo))
+
+    with pytest.raises(ServicioNoDisponible):
+        await _registro(identidad).resolver(_huella(API_KEY))

@@ -7,7 +7,7 @@ from uuid import UUID
 
 import httpx
 
-from app.clients.base import RecursoNoEncontrado
+from app.clients.base import RecursoNoEncontrado, ServicioNoDisponible
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.token_servicio import token_de_socio
 from app.seguridad import Socio
@@ -46,10 +46,15 @@ class RegistroSociosIdentidad:
         except RecursoNoEncontrado:
             self._cache.pop(huella_sha256, None)
             return None
-        socio = Socio(
-            socio_id=UUID(str(datos["socio_id"])),
-            nombre=str(datos["nombre"]),
-            alcances=frozenset(datos["alcances"]),
-        )
+        except ValueError as exc:
+            raise ServicioNoDisponible(ClienteMsIdentidad.nombre) from exc
+        try:
+            socio = Socio(
+                socio_id=UUID(str(datos["socio_id"])),
+                nombre=str(datos["nombre"]),
+                alcances=frozenset(datos["alcances"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ServicioNoDisponible(ClienteMsIdentidad.nombre) from exc
         self._cache[huella_sha256] = (ahora + self._ttl_s, socio)
         return socio
