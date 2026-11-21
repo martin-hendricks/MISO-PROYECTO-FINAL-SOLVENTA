@@ -406,15 +406,12 @@ internal fun SignedInShell(
         scope.launch { optIn.onPermissionResult(granted) }
     }
     LaunchedEffect(askPush) {
+        optIn.publishInstallation()
         val host = activity ?: return@LaunchedEffect
         val granted = Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(host, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            optIn.onPermissionResult(true)
-            return@LaunchedEffect
-        }
-        if (!askPush) return@LaunchedEffect
+        if (granted || !askPush) return@LaunchedEffect
         if (optIn.onSessionStarted() == PushPrompt.Ask) {
             permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -617,6 +614,7 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
     }
     LaunchedEffect(state.effect) {
         if (state.effect == LivenessEffect.OpenHome) {
+            activity?.intent?.putExtra(MainActivity.EXTRA_ASK_PUSH, true)
             activity?.openHomeAfterOnboarding()
         }
         if (state.effect == LivenessEffect.RequestCamera) {

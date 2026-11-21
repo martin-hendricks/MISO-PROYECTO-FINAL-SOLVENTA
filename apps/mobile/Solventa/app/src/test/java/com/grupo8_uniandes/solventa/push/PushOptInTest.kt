@@ -30,6 +30,17 @@ class PushOptInTest {
     }
 
     @Test
+    fun givenApi33_whenTheSessionExistsBeforePermission_thenTheInstallationIsPublished() = runBlocking {
+        val push = RecordingPush()
+        val optIn = optIn(push, sdk = 33, token = "fid-1")
+
+        optIn.publishInstallation()
+
+        assertEquals(listOf(PushRegistration("fid-1", "android")), push.registrations)
+        assertEquals(PushOptInState.NoPreguntado, optIn.state)
+    }
+
+    @Test
     fun givenApi33_whenPermissionIsGranted_thenTheTokenIsRegisteredForAndroid() = runBlocking {
         val push = RecordingPush()
         val optIn = optIn(push, sdk = 33, token = "fcm-1")
