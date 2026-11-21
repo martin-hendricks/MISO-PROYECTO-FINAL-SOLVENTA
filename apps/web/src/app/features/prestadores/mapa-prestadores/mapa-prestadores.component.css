@@ -18,9 +18,13 @@
   border-radius: 12px;
 }
 
+/* El mapa ocupa todo el marco con posicion absoluta. Con `height: 100%` el alto se resolvia contra un
+   marco que solo tiene `min-height` (no un alto definido) y el mapa quedaba en 0 px: sin superficie,
+   getBounds() devolvia norte == sur y la busqueda por area volvia vacia. */
 google-map {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: 100%;
 }
 
 .capa-tarjeta {

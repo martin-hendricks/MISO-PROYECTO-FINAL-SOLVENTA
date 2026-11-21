@@ -2,7 +2,7 @@ import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import type { Locale } from '../../../core/i18n/locale.service';
 import { GeolocationPort, Posicion } from '../geolocation-port';
-import { dentroDelArea, ObjetivoCamara, ZOOM_CERCA } from '../mapa-prestadores/camara';
+import { areaConSuperficie, dentroDelArea, ObjetivoCamara, ZOOM_CERCA } from '../mapa-prestadores/camara';
 import {
   AreaVisible,
   BusquedaPrestadores,
@@ -149,6 +149,9 @@ export class PrestadoresMapaViewModel {
   }
 
   alMoverCamara(area: AreaVisible): void {
+    if (!areaConSuperficie(area)) {
+      return;
+    }
     this.area.set(area);
     clearTimeout(this.espera);
     this.espera = setTimeout(() => this.refrescar(), ESPERA_CAMARA_MS);

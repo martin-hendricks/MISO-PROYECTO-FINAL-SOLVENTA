@@ -133,6 +133,26 @@ describe('PrestadoresMapaViewModel', () => {
       expect(vm.status()).toBe('ready');
     });
 
+    it('ignores an area without surface, which a map with no height reports, instead of searching it', async () => {
+      const { vm, consultas } = crear(concedida(), { mapa: true });
+      vm.cargar();
+      await asentar();
+      consultas.length = 0;
+      const sinAlto = { ...AREA_CHAPINERO, sur: AREA_CHAPINERO.norte };
+
+      vm.alMoverCamara(sinAlto);
+      tick(300);
+
+      expect(consultas).toEqual([]);
+      expect(vm.area()).not.toEqual(sinAlto);
+
+      vm.alMoverCamara(AREA_CHAPINERO);
+      tick(300);
+
+      expect(consultas.length).toBe(1);
+      expect(vm.area()).toEqual(AREA_CHAPINERO);
+    });
+
     it('keeps the markers until the answer arrives and ignores a late answer for an older area', async () => {
       const respuestas: Subject<BusquedaPrestadores>[] = [];
       const { vm } = crear(concedida(), {

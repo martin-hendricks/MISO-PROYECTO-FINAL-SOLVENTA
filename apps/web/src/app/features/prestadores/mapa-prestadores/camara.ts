@@ -24,6 +24,13 @@ export function areaDeLimites(limites: {
   return { norte: ne.lat(), sur: so.lat(), este: ne.lng(), oeste: so.lng() };
 }
 
+/** Un area con superficie: el mapa ya tiene tamano. Mientras su contenedor mide 0 px (o aun no se
+ * maqueto), getBounds() devuelve norte == sur o este == oeste y cualquier busqueda por esa area
+ * volveria vacia. */
+export function areaConSuperficie(area: AreaVisible): boolean {
+  return area.norte > area.sur && area.este > area.oeste;
+}
+
 export function dentroDelArea(area: AreaVisible, punto: { lat: number; lng: number }): boolean {
   return (
     punto.lat <= area.norte &&

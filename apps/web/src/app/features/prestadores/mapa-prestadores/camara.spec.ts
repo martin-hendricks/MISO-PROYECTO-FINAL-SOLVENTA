@@ -1,5 +1,5 @@
 import { AREA_CHAPINERO } from '../prestadores.testing';
-import { areaDeLimites, dentroDelArea, desplazamientoTarjeta } from './camara';
+import { areaConSuperficie, areaDeLimites, dentroDelArea, desplazamientoTarjeta } from './camara';
 
 describe('camara', () => {
   it('reads the visible area from the map bounds', () => {
@@ -10,6 +10,13 @@ describe('camara', () => {
         getSouthWest: () => esquina(4.62, -74.08),
       }),
     ).toEqual(AREA_CHAPINERO);
+  });
+
+  it('tells an area with surface from one whose map has no size', () => {
+    expect(areaConSuperficie(AREA_CHAPINERO)).toBeTrue();
+    expect(areaConSuperficie({ ...AREA_CHAPINERO, sur: AREA_CHAPINERO.norte })).toBeFalse();
+    expect(areaConSuperficie({ ...AREA_CHAPINERO, oeste: AREA_CHAPINERO.este })).toBeFalse();
+    expect(areaConSuperficie({ norte: 4.6, sur: 4.7, este: -74.05, oeste: -74.08 })).toBeFalse();
   });
 
   it('tells whether a provider is inside the area', () => {
