@@ -165,6 +165,21 @@ def test_dependencias_leen_el_estado_de_la_app():
     assert obtener_config(request) is estado.config
 
 
+class PoolFalso:
+    """Lo minimo del pool de redis.asyncio que usa calentar_conexiones."""
+
+    def __init__(self) -> None:
+        self.tomadas = 0
+        self.devueltas = 0
+
+    async def get_connection(self):
+        self.tomadas += 1
+        return object()
+
+    async def release(self, conexion):
+        self.devueltas += 1
+
+
 def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_el_adaptador_resiliente_y_la_cierra(monkeypatch):
     from app.infrastructure.resiliencia import AdaptadorResiliente
 
@@ -172,18 +187,21 @@ def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_el_adaptador_resilien
     creados = []
 
     class RedisFalso:
-        def __init__(self, host, port, password=None, ssl=False):
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
             self.host, self.port, self.password, self.ssl, self.cerrado = host, port, password, ssl, False
+            self.opciones, self.pings = opciones, 0
+            self.connection_pool = PoolFalso()
             creados.append(self)
 
         async def ping(self):
+            self.pings += 1
             return True
 
-        async def aclose(self):
-            self.cerrado = True
+        async def aclose(self, close_connection_pool=False):
+            self.cerrado = close_connection_pool
 
     monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
-    monkeypatch.setattr(main, "Redis", RedisFalso)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisFalso)
     monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
     monkeypatch.setenv("REDIS_CACHE_OD_PORT", "6380")
 
@@ -193,6 +211,10 @@ def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_el_adaptador_resilien
         assert isinstance(app.state.adaptador_open_data, AdaptadorResiliente)
         assert (creados[0].host, creados[0].port) == ("cache-od", 6380)
         assert (creados[0].password, creados[0].ssl) == (None, False)
+        # El pool queda acotado, con conexiones vivas, y se calienta con las 8 conexiones de la configuracion.
+        assert creados[0].opciones == {"max_connections": 32, "health_check_interval": 30}
+        assert creados[0].pings == 1
+        assert (creados[0].connection_pool.tomadas, creados[0].connection_pool.devueltas) == (8, 8)
         from app.infrastructure.cache_fuentes import CacheFuentesConPurga
 
         assert isinstance(app.state.cache_fuentes, CacheFuentesConPurga)
@@ -204,18 +226,19 @@ def test_al_arrancar_con_redis_pasa_el_token_y_el_tls_al_cliente(monkeypatch, ca
     creados = []
 
     class RedisFalso:
-        def __init__(self, host, port, password=None, ssl=False):
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
             self.password, self.ssl = password, ssl
+            self.connection_pool = PoolFalso()
             creados.append(self)
 
         async def ping(self):
             return True
 
-        async def aclose(self):
+        async def aclose(self, close_connection_pool=False):
             return None
 
     monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
-    monkeypatch.setattr(main, "Redis", RedisFalso)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisFalso)
     monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
     monkeypatch.setenv("REDIS_CACHE_OD_PASSWORD", "token-de-prueba")
     monkeypatch.setenv("REDIS_CACHE_OD_SSL", "true")
@@ -232,18 +255,21 @@ def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(mon
 
     motor = SimpleNamespace(dispose=lambda: _nada())
 
+    intentos = []
+
     class RedisCaido:
-        def __init__(self, host, port, password=None, ssl=False):
-            pass
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
+            self.connection_pool = PoolFalso()
 
         async def ping(self):
+            intentos.append(1)
             raise ConnectionError("rechazada")
 
-        async def aclose(self):
+        async def aclose(self, close_connection_pool=False):
             return None
 
     monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
-    monkeypatch.setattr(main, "Redis", RedisCaido)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisCaido)
     monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
 
     app = main.crear_app()
@@ -251,6 +277,7 @@ def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(mon
         assert isinstance(app.state.adaptador_open_finance, AdaptadorResiliente)
 
     assert "cache redis no responde al arrancar" in caplog.text
+    assert intentos == [1]  # sin conexion no se intenta calentar el pool
 
 
 async def test_repositorio_sql_de_originaciones_agrega_lee_y_cierra():

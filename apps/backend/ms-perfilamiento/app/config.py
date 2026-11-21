@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # El PING de arranque paga la conexion TCP y el handshake TLS, mas que una lectura
     # con el pool ya abierto; por eso no reutiliza timeout_cache_ms.
     timeout_cache_arranque_ms: int = 2000
+    # Abrir una conexion a ElastiCache (TCP + TLS + token) tarda decenas de milisegundos, mas
+    # que timeout_cache_ms: una operacion que tenga que abrirla expira y se salta la cache.
+    # Por eso el pool se calienta al arrancar y se mantiene vivo; el tope acota las conexiones
+    # por replica (pasado el tope la operacion falla y tambien se salta la cache).
+    redis_cache_od_pool_calentamiento: int = 8
+    redis_cache_od_pool_max: int = 32
+    redis_cache_od_health_check_s: int = 30
 
     # Resiliencia frente al proveedor (solo con cache Redis configurada). El presupuesto es lo
     # que una peticion espera al proveedor antes de responder con el valor vencido; la
