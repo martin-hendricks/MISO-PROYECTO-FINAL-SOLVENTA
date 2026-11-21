@@ -80,6 +80,15 @@ externalSecrets:
       nombreLocal: ms-suscripcion-db
       claves:
         - database_url
+    # Sin esto, app/seguridad.py::_secret() lanza HTTPException(500,
+    # "SOLVENTA_TOKEN_SECRET no configurado") en TODA llamada autenticada
+    # (ms-cotizacion POST /v1/suscripciones al aceptar una oferta) -- 500 sin
+    # traceback porque es una excepción manejada por FastAPI, no un error no
+    # controlado. Confirmado en el cluster real. Mismo secreto compartido que
+    # ms-polizas/ms-identidad/bff-web (ver sus values.yaml); sin `claves`
+    # porque su única clave ya se llama SOLVENTA_TOKEN_SECRET.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-suscripcion-token
 
 serviceAccount:
   crear: true
