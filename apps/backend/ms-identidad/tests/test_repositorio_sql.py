@@ -1,12 +1,14 @@
 import os
-from uuid import uuid4
+from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
 
-from app.application import casos_uso
+from app.application import casos_uso, casos_uso_socios
 from app.config import Settings
-from app.domain.errores import CredencialesInvalidas, CuentaDuplicada
+from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, NoEncontrado
+from app.domain.socios import huella_de
 from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 
@@ -112,3 +114,39 @@ async def test_listar_clientes_filtra_por_ilike_ordena_y_respeta_ids(uow):
     assert {usuario.id for usuario in por_ids} == {zulu.id, ana.id}
     assert hay_mas is False
     assert operador.id not in {usuario.id for usuario in por_apellido}
+
+
+async def test_socio_rota_y_revoca_contra_postgres_real(uow):
+    socio, credencial, clave = await casos_uso_socios.crear_socio(uow, "Aliado SQL", frozenset({"catalogo:leer"}))
+    _, clave_nueva = await casos_uso_socios.emitir_credencial(uow, socio.socio_id)
+    await casos_uso_socios.revocar_credencial(uow, socio.socio_id, credencial.credencial_id)
+
+    resuelto = await casos_uso_socios.resolver_por_huella(uow, huella_de(clave_nueva))
+    assert resuelto.socio_id == socio.socio_id
+    assert resuelto.alcances == frozenset({"catalogo:leer"})
+    with pytest.raises(NoEncontrado):
+        await casos_uso_socios.resolver_por_huella(uow, huella_de(clave))
+
+    await casos_uso_socios.revocar_socio(uow, socio.socio_id)
+    with pytest.raises(NoEncontrado):
+        await casos_uso_socios.resolver_por_huella(uow, huella_de(clave_nueva))
+
+
+async def test_el_socio_por_defecto_resuelve_con_su_clave_y_la_siembra_es_repetible(uow):
+    siembra = (Path(__file__).resolve().parents[1] / "db" / "08_ms_identidad_socio_default.sql").read_text(
+        encoding="utf-8"
+    )
+    motor = crear_motor(Settings())
+    try:
+        for _ in range(2):
+            async with motor.begin() as conn:
+                for sentencia in filter(str.strip, siembra.split(";")):
+                    await conn.exec_driver_sql(sentencia)
+    finally:
+        await motor.dispose()
+
+    resuelto = await casos_uso_socios.resolver_por_huella(uow, huella_de("solventa123"))
+    assert resuelto.socio_id == UUID("1ebbe2fc-d8b1-4046-af76-b92bacec52ff")
+    assert resuelto.alcances == frozenset(
+        {"catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"}
+    )
