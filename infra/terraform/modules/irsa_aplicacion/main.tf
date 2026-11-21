@@ -226,9 +226,16 @@ data "aws_iam_policy_document" "msk" {
   for_each = local.msk_consumers
 
   statement {
-    sid       = "ClusterConnect"
-    effect    = "Allow"
-    actions   = ["kafka-cluster:Connect", "kafka-cluster:DescribeCluster"]
+    sid    = "ClusterConnect"
+    effect = "Allow"
+    # WriteDataIdempotently es a nivel de CLUSTER (no de tópico) y lo exige el
+    # InitProducerIdRequest de cualquier AIOKafkaProducer con
+    # enable_idempotence=True (ms-parametrico, outbox-relay): sin este permiso
+    # el productor recibe ClusterAuthorizationFailedError (Kafka error 31) al
+    # arrancar -- confirmado en el cluster real (kubectl logs ms-parametrico,
+    # CrashLoopBackOff). Se otorga a todos los consumers/producers de este
+    # for_each: es inofensivo para los que solo consumen.
+    actions   = ["kafka-cluster:Connect", "kafka-cluster:DescribeCluster", "kafka-cluster:WriteDataIdempotently"]
     resources = [var.msk_cluster_arn]
   }
 

@@ -61,7 +61,24 @@ hpa:
           periodSeconds: 60
 
 externalSecrets:
-  habilitado: false
+  # ms-consentimiento tiene su propio esquema (db/01_ms_consentimiento.sql,
+  # CREATE SCHEMA ms_consentimiento) pero, igual que analitica/notificaciones,
+  # sin instancia RDS propia -- vive en DBCompartida (ver
+  # infra/terraform/modules/secrets/main.tf, compartida_db_credentials:
+  # "...identidad, consentimiento, pagos...", y outputs.tf). El workflow de
+  # CD detecta el paso de migraciones por la carpeta db/ existente y espera
+  # un ExternalSecret llamado exactamente "<servicio>-db"
+  # (.github/workflows/deploy.yml); sin esta entrada el Job de migraciones
+  # fallaba en kubectl wait (ExternalSecret inexistente) y el pod tampoco
+  # tenía DATABASE_URL para arrancar -- mismo gap ya corregido en
+  # analitica.yaml/notificaciones.yaml.
+  habilitado: true
+  secretStoreRef: solventa-secretstore
+  remoteSecrets:
+    - nombreRemoto: solventa-minimo-compartida-db-credentials
+      nombreLocal: ms-consentimiento-db
+      claves:
+        - database_url
 
 serviceAccount:
   crear: true
@@ -81,3 +98,8 @@ variablesEntorno:
   # cliente HTTP apunta al 80 y nunca conecta.
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
+
+variablesEntornoSecreto:
+  - nombre: DATABASE_URL
+    nombreSecreto: ms-consentimiento-db
+    claveSecreto: database_url
