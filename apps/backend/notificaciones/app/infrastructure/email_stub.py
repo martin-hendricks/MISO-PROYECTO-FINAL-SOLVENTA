@@ -11,7 +11,9 @@ class EmailStub:
     def __init__(self, fallar: bool = False) -> None:
         self._fallar = fallar
 
-    async def enviar(self, destinatario: str, asunto: str, cuerpo: str) -> str:
+    async def enviar(
+        self, destinatario: str, asunto: str, cuerpo: str, cuerpo_html: str | None = None
+    ) -> str:
         if self._fallar:
             raise ServicioExternoNoDisponible("Proveedor de correo no disponible (stub)")
         return f"stub-email-{uuid4()}"

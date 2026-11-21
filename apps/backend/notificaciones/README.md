@@ -19,7 +19,7 @@ app/
 ├── observabilidad.py        /health, /metrics (Prometheus), X-Correlation-Id
 ├── api/v1/                  rutas + DTO de /v1/notificaciones
 ├── domain/                  Notificacion, DispositivoPush y sus transiciones (sin SQL)
-├── application/             casos de uso: registro, consulta, lectura y despacho
+├── application/             casos de uso: registro, consulta, lectura, despacho y plantillas de correo
 ├── ports/                   persistencia.py y push.py (interfaces, DIP)
 └── infrastructure/          SQLAlchemy 2 async y PushStub
 db/01_ms_notificaciones.sql  DDL idempotente del schema notificaciones
@@ -171,3 +171,8 @@ defecto** (`EMAIL_PROVEEDOR` vacío) y no cambia el comportamiento del push.
 - Las filas de canal `email` se guardan en la misma tabla pero **no** aparecen en la bandeja de la app
   (`GET /v1/notificaciones` solo lista push).
 - Con SES en sandbox solo se entrega a destinatarios verificados.
+- Cada correo es multipart: `app/application/plantillas_email.py` renderiza un `Body.Html` (un layout
+  de marca con un acento de color por `tipo`) además del `Body.Text` plano; sin dependencias nuevas,
+  con `string.Template` de la librería estándar y escapando título/cuerpo contra inyección HTML. No
+  incluye botón de acción porque `destino` es una clave de enrutamiento interno de la app móvil, no
+  una URL pública.

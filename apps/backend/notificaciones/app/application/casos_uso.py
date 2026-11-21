@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from app.application.plantillas_email import renderizar as renderizar_email_html
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada, ServicioExternoNoDisponible
 from app.domain.modelos import Difusion, DispositivoPush, Notificacion, resolver_audiencia
 from app.ports.persistencia import (
@@ -249,6 +250,7 @@ async def despachar_email(
                 destinatario,
                 notificacion.titulo,
                 f"{notificacion.cuerpo}\n\n-- Equipo Solventa",
+                renderizar_email_html(notificacion.tipo, notificacion.titulo, notificacion.cuerpo),
             )
         except ServicioExternoNoDisponible:
             notificacion.marcar_fallida()
