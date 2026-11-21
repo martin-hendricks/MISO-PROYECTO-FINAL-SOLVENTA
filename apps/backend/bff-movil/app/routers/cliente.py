@@ -25,12 +25,14 @@ OFFER = {
     "moneda": "COP",
     "venceEn": "2026-10-01",
 }
+
 POLICY = {
     "numero": "POL-88219-CO",
     "ramo": "Protección de dispositivo",
     "estado": "vigente",
     "venceEn": "2027-03-12",
 }
+
 PAYMENT = {
     "siniestroId": "SIN-220",
     "poliza": "POL-11002-CO",
@@ -39,6 +41,7 @@ PAYMENT = {
     "moneda": "COP",
     "estado": "pagado",
 }
+
 QUE_HACER = "Toma la foto del daño y anota fecha y lugar."
 CANAL = "movil"
 SCORE = "0.5000"
