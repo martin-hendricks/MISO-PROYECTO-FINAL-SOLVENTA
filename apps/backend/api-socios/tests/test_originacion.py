@@ -1,6 +1,7 @@
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import httpx
 import jwt
@@ -9,9 +10,12 @@ from fastapi.testclient import TestClient
 
 from app.clients.token_servicio import token_de_socio
 from app.config import Settings
+from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.dependencies import obtener_cliente_identidad, obtener_cliente_perfilamiento
+from app.main import crear_app
+from app.seguridad import Socio
 
-from .conftest import CABECERA_SOLO_CATALOGO
+from .conftest import CABECERA_SOLO_CATALOGO, REGISTRO_SOCIOS, SOCIO_ID
 
 USUARIO_ID = "11111111-1111-1111-1111-111111111111"
 CUERPO = {"tipoDocumento": "CC", "numeroDocumento": "1012345678", "valor": 180000000, "plazoMeses": 240}
@@ -133,18 +137,46 @@ def test_sin_secreto_no_se_firma_el_token():
         token_de_socio("", "uid")
 
 
-def test_las_dependencias_arman_los_clientes_con_el_token_de_socio():
-    config = Settings(solventa_token_secret="secreto", socio_servicio_uid="uid-socio")
+def _request_con_secreto(secreto: str = "secreto") -> SimpleNamespace:
     estado = SimpleNamespace(
-        config=config,
+        config=Settings(solventa_token_secret=secreto),
         http_ms_identidad=httpx.AsyncClient(base_url="http://ms-identidad"),
         http_ms_perfilamiento=httpx.AsyncClient(base_url="http://ms-perfilamiento"),
     )
-    request = SimpleNamespace(app=SimpleNamespace(state=estado), state=SimpleNamespace())
+    return SimpleNamespace(app=SimpleNamespace(state=estado), state=SimpleNamespace())
 
-    identidad = obtener_cliente_identidad(request)
-    perfilamiento = obtener_cliente_perfilamiento(request)
 
-    datos = jwt.decode(identidad._token, "secreto", algorithms=["HS256"])
-    assert (datos["rol"], datos["uid"]) == ("socio", "uid-socio")
-    assert perfilamiento._http is estado.http_ms_perfilamiento
+def test_las_dependencias_firman_el_token_con_el_socio_que_llama():
+    request = _request_con_secreto()
+    socio = Socio(socio_id=UUID(SOCIO_ID), nombre="Socio test", alcances=frozenset())
+
+    identidad = obtener_cliente_identidad(request, socio)
+    perfilamiento = obtener_cliente_perfilamiento(request, socio)
+
+    for cliente in (identidad, perfilamiento):
+        datos = jwt.decode(cliente._token, "secreto", algorithms=["HS256"])
+        assert (datos["rol"], datos["uid"]) == ("socio", SOCIO_ID)
+    assert perfilamiento._http is request.app.state.http_ms_perfilamiento
+
+
+async def test_perfilamiento_recibe_el_token_de_socio():
+    peticiones: list[httpx.Request] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        peticiones.append(request)
+        return httpx.Response(201, json={"id": "o-1"})
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(responder), base_url="http://ms-perfilamiento")
+    cliente = ClienteMsPerfilamiento(http, "corr", "token-de-socio")
+
+    await cliente.registrar_originacion(USUARIO_ID, 180000000, 240)
+
+    assert peticiones[0].headers["Authorization"] == "Bearer token-de-socio"
+
+
+def test_sin_api_key_es_401_aunque_falte_el_secreto_de_servicio(nucleo, identidad, perfilamiento):
+    app = crear_app(Settings(socios=REGISTRO_SOCIOS))
+
+    respuesta = TestClient(app).post("/v1/originaciones-hipotecarias", json=CUERPO)
+
+    assert respuesta.status_code == 401

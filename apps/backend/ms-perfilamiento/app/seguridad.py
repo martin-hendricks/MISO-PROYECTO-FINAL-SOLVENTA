@@ -28,18 +28,29 @@ def _secret() -> str:
     return value
 
 
-def exigir_llamante(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-) -> Llamante:
+def _decodificar(credentials: HTTPAuthorizationCredentials | None, roles: frozenset[str]) -> Llamante:
     if credentials is None:
         raise HTTPException(status_code=401, detail="Token requerido")
     try:
         payload = jwt.decode(credentials.credentials, _secret(), algorithms=[ALGORITHM])
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="Token invalido") from exc
-    if payload.get("typ") != "access" or payload.get("rol") not in ROLES:
+    if payload.get("typ") != "access" or payload.get("rol") not in roles:
         raise HTTPException(status_code=401, detail="Token invalido")
     return Llamante(rol=str(payload["rol"]), sub=str(payload.get("sub", "")))
 
 
+def exigir_llamante(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Llamante:
+    return _decodificar(credentials, ROLES)
+
+
+def exigir_llamante_o_socio(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Llamante:
+    return _decodificar(credentials, ROLES | {"socio"})
+
+
 LlamanteDep = Annotated[Llamante, Depends(exigir_llamante)]
+LlamanteOSocioDep = Annotated[Llamante, Depends(exigir_llamante_o_socio)]
