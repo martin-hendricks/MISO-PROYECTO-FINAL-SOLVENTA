@@ -79,6 +79,10 @@ externalSecrets:
       nombreLocal: ms-consentimiento-db
       claves:
         - database_url
+    # SOLVENTA_TOKEN_SECRET: sin esta variable seguridad.py rechaza todo token con 500
+    # "SOLVENTA_TOKEN_SECRET no configurado".
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-consentimiento-token
 
 serviceAccount:
   crear: true
