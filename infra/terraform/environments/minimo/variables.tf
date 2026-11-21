@@ -446,6 +446,12 @@ variable "alb_routes" {
   }
 }
 
+variable "apigw_restringir_a_rutas_mapeadas" {
+  type        = bool
+  description = "Quita la ruta comodin del API Gateway para que solo pasen los paths de alb_routes; el resto responde 404 en el borde. false mantiene el comportamiento actual (comodin + rutas mapeadas)."
+  default     = false
+}
+
 variable "cloudfront_price_class" {
   type        = string
   description = "Clase de precio de CloudFront. PriceClass_100 cubre Norteamérica y Europa al menor costo."
