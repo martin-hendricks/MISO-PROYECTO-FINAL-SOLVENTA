@@ -19,6 +19,11 @@ services:
     image: redis:7.4.2-bookworm
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
 
   app:
     build:
@@ -27,8 +32,11 @@ services:
     environment:
       SERVICE_NAME: ms-perfilamiento
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/solventa
+      REDIS_CACHE_OD_HOST: cache
     ports:
       - "8080:8080"
     depends_on:
       db:
+        condition: service_healthy
+      cache:
         condition: service_healthy

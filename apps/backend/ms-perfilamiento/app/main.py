@@ -9,7 +9,7 @@ from app.api.v1 import rutas
 from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
-from app.infrastructure.cache import AdaptadorConCache, CacheRedis
+from app.infrastructure.cache import AdaptadorConCache, CacheRedis, verificar_conexion
 from app.infrastructure.cache_fuentes import CacheEnMemoria
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
@@ -35,7 +35,13 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         open_data = AdaptadorOpenDataStub(config.doble_open_data_latencia_ms, config.doble_open_data_fallar)
         redis = None
         if config.redis_cache_od_host:
-            redis = Redis(host=config.redis_cache_od_host, port=config.redis_cache_od_port)
+            redis = Redis(
+                host=config.redis_cache_od_host,
+                port=config.redis_cache_od_port,
+                password=config.redis_cache_od_password or None,
+                ssl=config.redis_cache_od_ssl,
+            )
+            await verificar_conexion(redis, config.timeout_cache_arranque_ms)
             cache = CacheRedis(redis)
             open_finance = AdaptadorConCache(
                 open_finance, cache, "of", config.redis_cache_od_ttl_seconds, config.timeout_cache_ms

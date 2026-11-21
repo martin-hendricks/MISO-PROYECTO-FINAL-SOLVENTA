@@ -116,6 +116,9 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `REDIS_CACHE_OD_HOST` | vacío | Host de `:CacheOD`/`:CacheOF` (HA-03/HA-04). Vacío desactiva la caché |
 | `REDIS_CACHE_OD_PORT` | `6379` | Puerto de la caché |
 | `REDIS_CACHE_OD_TTL_SECONDS` | `600` | Vigencia de los atributos OF/OD en caché |
+| `REDIS_CACHE_OD_PASSWORD` | vacío | Token de autenticación. ElastiCache lo exige; el Redis del compose local no |
+| `REDIS_CACHE_OD_SSL` | `false` | TLS hacia la caché. ElastiCache lo exige (`transit_encryption_enabled`); el compose local no |
+| `TIMEOUT_CACHE_ARRANQUE_MS` | `2000` | Tiempo máximo del PING de arranque. Si falla solo se registra una advertencia y la caché sigue activa |
 | `TIMEOUT_CACHE_MS` | `50` | Tiempo máximo de lectura/escritura en caché; si se excede o falla, se consulta al proveedor |
 
 ## Pruebas
@@ -130,6 +133,18 @@ Integración contra un PostgreSQL 16 con el DDL de `db/` aplicado:
 docker compose up -d db                                      # PostgreSQL local con el DDL de db/
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa pytest -m integration
 ```
+
+Integración contra un Redis real (ida y vuelta con TTL, la caché evitando la segunda llamada al proveedor y el PING de arranque). Se saltan solas si no hay Redis:
+
+```bash
+docker run -d --name redis-test -p 6390:6379 redis:7.4.2-bookworm
+docker run -d --name redis-test-auth -p 6391:6379 redis:7.4.2-bookworm redis-server --requirepass secreto-local
+REDIS_TEST_HOST=localhost REDIS_TEST_PORT=6390 \
+REDIS_TEST_AUTH_HOST=localhost REDIS_TEST_AUTH_PORT=6391 REDIS_TEST_AUTH_PASSWORD=secreto-local \
+  pytest -m integration tests/test_cache_redis_real.py
+```
+
+TLS no se prueba en local: lo exige ElastiCache y se valida al desplegar, con el PING de arranque (`cache redis conectada` en el log; si no responde, el servicio sigue arriba y registra una advertencia).
 
 `tests/dobles.py` incluye `AdaptadorConfigurable`, una variante de los adaptadores stub que se puede configurar con `latencia_ms` o `fallar=True` para ejercer en tests el camino de `asyncio.wait_for` expirando (HU-56), sin depender de red real.
 

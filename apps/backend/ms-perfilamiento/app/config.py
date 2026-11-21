@@ -29,7 +29,14 @@ class Settings(BaseSettings):
     redis_cache_od_host: str = ""
     redis_cache_od_port: int = 6379
     redis_cache_od_ttl_seconds: int = 600
+    # ElastiCache exige TLS y token de autenticacion (transit_encryption_enabled + auth_token
+    # en infra/terraform/modules/elasticache). En local el Redis del compose no usa ninguno.
+    redis_cache_od_password: str = ""
+    redis_cache_od_ssl: bool = False
     timeout_cache_ms: int = 50
+    # El PING de arranque paga la conexion TCP y el handshake TLS, mas que una lectura
+    # con el pool ya abierto; por eso no reutiliza timeout_cache_ms.
+    timeout_cache_arranque_ms: int = 2000
 
     # Valores de respaldo (HU-56): constantes razonables e inventadas para fines
     # académicos, una por atributo stub. Se usan cuando el adaptador excede su timeout
