@@ -37,6 +37,7 @@ scrape_configs:
           - ms-polizas:8080
           - ms-perfilamiento:8080
           - ms-siniestros:8080
+          - ms-parametrico:8080
           - ms-identidad:8080
           - api-socios:8080
         labels:
