@@ -22,7 +22,13 @@ from app.domain.modelos import (
     oferta_emitida,
 )
 from app.domain.precio import ANTIGUEDAD_DOCUMENTO, NIVEL_INGRESOS_ESTIMADO, SCORE_COMPORTAMIENTO, ZONA_RIESGO, calcular_oferta
-from app.ports.adaptadores import AdaptadorOpenData, AdaptadorOpenFinance
+from app.ports.adaptadores import (
+    AdaptadorConOrigen,
+    AdaptadorOpenData,
+    AdaptadorOpenFinance,
+    PerfilResuelto,
+    consentimiento_en_curso,
+)
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 
 _log = logging.getLogger(__name__)
@@ -73,6 +79,14 @@ async def consultar_consentimiento_vigente(uow: FabricaUnidadDeTrabajo, cliente_
         return await tx.consentimientos.obtener_vigente(cliente_id)
 
 
+async def _resolver(adaptador: AdaptadorOpenFinance | AdaptadorOpenData, sujeto: str) -> PerfilResuelto:
+    """Un adaptador con cache dice de donde salieron los atributos; uno directo no, y se toma
+    como respuesta fresca del proveedor."""
+    if isinstance(adaptador, AdaptadorConOrigen):
+        return await adaptador.obtener_resuelto(sujeto)
+    return PerfilResuelto(await adaptador.obtener_atributos(sujeto), "proveedor")
+
+
 async def _atributos_con_respaldo(
     adaptador_open_finance: AdaptadorOpenFinance,
     adaptador_open_data: AdaptadorOpenData,
@@ -89,6 +103,7 @@ async def _atributos_con_respaldo(
     como parte del resultado del perfilamiento."""
 
     sujeto_cache = sujeto or cliente_id
+    consentimiento_en_curso.set(consentimiento_id)
 
     async def _invocar(
         adaptador: AdaptadorOpenFinance | AdaptadorOpenData,
@@ -98,7 +113,8 @@ async def _atributos_con_respaldo(
         respaldos: dict[str, Decimal],
     ) -> list[AtributoPerfil]:
         try:
-            datos = await asyncio.wait_for(adaptador.obtener_atributos(sujeto_cache), timeout=timeout_ms / 1000)
+            resuelto = await asyncio.wait_for(_resolver(adaptador, sujeto_cache), timeout=timeout_ms / 1000)
+            datos = resuelto.atributos
             atributos = [
                 AtributoPerfil(
                     nombre=nombre,
@@ -106,10 +122,12 @@ async def _atributos_con_respaldo(
                     origen=origen,
                     estado=EstadoAdaptador.EXITO,
                     degradado=False,
+                    modo="LIVE" if resuelto.origen == "proveedor" else "CACHE",
+                    causa=resuelto.causa,
                 )
                 for nombre in respaldos
             ]
-            if cache is not None:
+            if cache is not None and resuelto.origen == "proveedor":
                 await cache.guardar(fuente, sujeto_cache, datos, consentimiento_id)
             return atributos
         except Exception as exc:

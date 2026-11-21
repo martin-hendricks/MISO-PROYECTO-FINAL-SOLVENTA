@@ -165,8 +165,8 @@ def test_dependencias_leen_el_estado_de_la_app():
     assert obtener_config(request) is estado.config
 
 
-def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_la_cache_y_la_cierra(monkeypatch):
-    from app.infrastructure.cache import AdaptadorConCache
+def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_el_adaptador_resiliente_y_la_cierra(monkeypatch):
+    from app.infrastructure.resiliencia import AdaptadorResiliente
 
     motor = SimpleNamespace(dispose=lambda: _nada())
     creados = []
@@ -189,10 +189,13 @@ def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_la_cache_y_la_cierra(
 
     app = main.crear_app()
     with TestClient(app):
-        assert isinstance(app.state.adaptador_open_finance, AdaptadorConCache)
-        assert isinstance(app.state.adaptador_open_data, AdaptadorConCache)
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorResiliente)
+        assert isinstance(app.state.adaptador_open_data, AdaptadorResiliente)
         assert (creados[0].host, creados[0].port) == ("cache-od", 6380)
         assert (creados[0].password, creados[0].ssl) == (None, False)
+        from app.infrastructure.cache_fuentes import CacheFuentesConPurga
+
+        assert isinstance(app.state.cache_fuentes, CacheFuentesConPurga)
     assert creados[0].cerrado is True
 
 
@@ -225,7 +228,7 @@ def test_al_arrancar_con_redis_pasa_el_token_y_el_tls_al_cliente(monkeypatch, ca
 
 
 def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(monkeypatch, caplog):
-    from app.infrastructure.cache import AdaptadorConCache
+    from app.infrastructure.resiliencia import AdaptadorResiliente
 
     motor = SimpleNamespace(dispose=lambda: _nada())
 
@@ -245,7 +248,7 @@ def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(mon
 
     app = main.crear_app()
     with caplog.at_level("WARNING"), TestClient(app):
-        assert isinstance(app.state.adaptador_open_finance, AdaptadorConCache)
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorResiliente)
 
     assert "cache redis no responde al arrancar" in caplog.text
 

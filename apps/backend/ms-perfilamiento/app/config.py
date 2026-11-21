@@ -28,7 +28,10 @@ class Settings(BaseSettings):
 
     redis_cache_od_host: str = ""
     redis_cache_od_port: int = 6379
+    # Vigencia fresca: pasado este tiempo el perfil guardado se considera vencido y toca
+    # refrescarlo, pero sigue sirviendo de respaldo hasta la vigencia maxima.
     redis_cache_od_ttl_seconds: int = 600
+    redis_cache_od_ttl_duro_seconds: int = 86400
     # ElastiCache exige TLS y token de autenticacion (transit_encryption_enabled + auth_token
     # en infra/terraform/modules/elasticache). En local el Redis del compose no usa ninguno.
     redis_cache_od_password: str = ""
@@ -37,6 +40,17 @@ class Settings(BaseSettings):
     # El PING de arranque paga la conexion TCP y el handshake TLS, mas que una lectura
     # con el pool ya abierto; por eso no reutiliza timeout_cache_ms.
     timeout_cache_arranque_ms: int = 2000
+
+    # Resiliencia frente al proveedor (solo con cache Redis configurada). El presupuesto es lo
+    # que una peticion espera al proveedor antes de responder con el valor vencido; la
+    # invocacion sigue en segundo plano hasta el timeout del proveedor.
+    presupuesto_respuesta_ms: int = 120
+    timeout_proveedor_ms: int = 700
+    # Circuit breaker por tasa de fallo sobre una ventana deslizante.
+    interruptor_ventana_s: float = 10.0
+    interruptor_umbral_tasa: float = 0.5
+    interruptor_min_muestras: int = 10
+    interruptor_apertura_s: float = 5.0
 
     # Valores de respaldo (HU-56): constantes razonables e inventadas para fines
     # académicos, una por atributo stub. Se usan cuando el adaptador excede su timeout

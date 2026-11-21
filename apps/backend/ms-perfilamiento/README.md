@@ -115,11 +115,29 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `TARIFA_BASE`, `PESO_*` | ver `.env.example` | Fórmula de oferta (HU-55) |
 | `REDIS_CACHE_OD_HOST` | vacío | Host de `:CacheOD`/`:CacheOF` (HA-03/HA-04). Vacío desactiva la caché |
 | `REDIS_CACHE_OD_PORT` | `6379` | Puerto de la caché |
-| `REDIS_CACHE_OD_TTL_SECONDS` | `600` | Vigencia de los atributos OF/OD en caché |
+| `REDIS_CACHE_OD_TTL_SECONDS` | `600` | Vigencia fresca de los atributos OF/OD en caché. Pasada, el perfil se considera vencido y toca refrescarlo, pero sigue sirviendo de respaldo |
+| `REDIS_CACHE_OD_TTL_DURO_SECONDS` | `86400` | Vigencia máxima: pasada, el perfil desaparece de Redis |
+| `PRESUPUESTO_RESPUESTA_MS` | `120` | Lo que una petición espera al proveedor antes de responder con el valor vencido; la invocación sigue en segundo plano |
+| `TIMEOUT_PROVEEDOR_MS` | `700` | Timeout de la invocación al proveedor, también la que corre en segundo plano |
+| `INTERRUPTOR_VENTANA_S` / `_UMBRAL_TASA` / `_MIN_MUESTRAS` / `_APERTURA_S` | `10` / `0.5` / `10` / `5` | Circuit breaker por tasa de fallo sobre una ventana deslizante |
 | `REDIS_CACHE_OD_PASSWORD` | vacío | Token de autenticación. ElastiCache lo exige; el Redis del compose local no |
 | `REDIS_CACHE_OD_SSL` | `false` | TLS hacia la caché. ElastiCache lo exige (`transit_encryption_enabled`); el compose local no |
 | `TIMEOUT_CACHE_ARRANQUE_MS` | `2000` | Tiempo máximo del PING de arranque. Si falla solo se registra una advertencia y la caché sigue activa |
 | `TIMEOUT_CACHE_MS` | `50` | Tiempo máximo de lectura/escritura en caché; si se excede o falla, se consulta al proveedor |
+
+## Estrategia de caché y resiliencia
+
+Con `REDIS_CACHE_OD_HOST` definido, cada fuente (Open Finance y Open Data) se envuelve en `AdaptadorResiliente` (`app/infrastructure/resiliencia.py`):
+
+1. **Perfil fresco** (menos de `REDIS_CACHE_OD_TTL_SECONDS`): sale de Redis, sin llamar al proveedor.
+2. **Perfil vencido o ausente:** se invoca al proveedor con un presupuesto de `PRESUPUESTO_RESPUESTA_MS`. Si responde a tiempo se usa y se guarda. Si no, se responde con el perfil vencido (si lo hay) y la invocación sigue en segundo plano hasta `TIMEOUT_PROVEEDOR_MS` para repoblar la caché. Sin ningún valor guardado el adaptador lanza la excepción y el caso de uso degrada al valor de respaldo, como antes.
+3. **Circuit breaker** por tasa de fallo sobre una ventana deslizante: abierto, ni se invoca al proveedor. Pasado `INTERRUPTOR_APERTURA_S` deja pasar una sola sonda.
+4. **Coalescencia:** las peticiones concurrentes por la misma cédula comparten una sola invocación.
+5. **Revocación de consentimiento:** además de la memoria local, borra de Redis lo guardado bajo ese consentimiento (un conjunto por consentimiento indexa las claves). Como lo vencido se conserva hasta 24 h, esto es obligatorio.
+
+Cada atributo del snapshot queda trazado: `modo=LIVE` si vino del proveedor, `modo=CACHE` si salió de Redis, y `causa` (`timeout` o `fallo`) cuando se sirvió un valor vencido. Sin Redis configurado el comportamiento no cambia: ni caché ni circuit breaker.
+
+Métricas en `/metrics`: `perfilamiento_cache_lecturas_total`, `perfilamiento_cache_errores_total`, `perfilamiento_proveedor_llamadas_total`, `perfilamiento_respaldos_total`, `perfilamiento_circuito_transiciones_total` y `perfilamiento_coalescidas_total`, todas con la etiqueta `fuente` (`of` u `od`).
 
 ## Pruebas
 
@@ -134,7 +152,7 @@ docker compose up -d db                                      # PostgreSQL local 
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/solventa pytest -m integration
 ```
 
-Integración contra un Redis real (ida y vuelta con TTL, la caché evitando la segunda llamada al proveedor y el PING de arranque). Se saltan solas si no hay Redis:
+Integración contra un Redis real (ida y vuelta con TTL, la caché evitando la segunda llamada al proveedor, el perfil vencido cuando el proveedor cae, la purga por consentimiento y el PING de arranque). Se saltan solas si no hay Redis:
 
 ```bash
 docker run -d --name redis-test -p 6390:6379 redis:7.4.2-bookworm
