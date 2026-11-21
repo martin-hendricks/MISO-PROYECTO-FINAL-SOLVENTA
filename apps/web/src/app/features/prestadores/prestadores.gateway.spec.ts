@@ -34,7 +34,7 @@ describe('PrestadoresGateway', () => {
     expect(req.request.params.get('radioKm')).toBe('10');
     expect(req.request.params.has('norte')).toBeFalse();
     req.flush({
-      centro: { lat: 4.6432, lng: -74.0631, origen: 'posicion' },
+      centro: { lat: '4.6432', lng: '-74.0631', origen: 'posicion' },
       radioKm: 10,
       truncado: false,
       prestadores: [
@@ -215,7 +215,7 @@ describe('PrestadoresGateway', () => {
       siniestro: { id: 'sin-1988', numero: 'SIN-1988', ramo: 'soat-motocicleta' },
       ramoFijo: 'soat-motocicleta',
       sinGeoetiqueta: false,
-      centro: { lat: 4.626, lng: -74.15, origen: 'siniestro' },
+      centro: { lat: '4.626000', lng: '-74.150000', origen: 'siniestro' },
       radioKm: 10,
       prestadores: [],
     });
@@ -223,6 +223,7 @@ describe('PrestadoresGateway', () => {
       jasmine.objectContaining({
         ramoFijo: 'soat-motocicleta',
         sinGeoetiqueta: false,
+        centro: { lat: 4.626, lng: -74.15, origen: 'siniestro' },
         truncado: false,
         prestadores: [],
       }),
