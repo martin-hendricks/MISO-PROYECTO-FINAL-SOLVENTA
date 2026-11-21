@@ -112,7 +112,7 @@
         </select>
       </label>
 
-      <fieldset>
+      <fieldset [attr.aria-describedby]="vm.errorRamo() ? 'prestador-error-ramo' : null">
         <legend>{{ 'backoffice.prestadores.form.ramos' | translate }}</legend>
         <p class="subtitle">{{ 'backoffice.prestadores.form.ramosAyuda' | translate }}</p>
         <div class="chips">
@@ -121,6 +121,7 @@
               type="button"
               [attr.data-testid]="'chip-ramo-' + ramo"
               [class.selected]="vm.ramos().includes(ramo)"
+              [attr.aria-pressed]="vm.ramos().includes(ramo)"
               (click)="vm.alternarRamo(ramo)"
             >
               {{ 'prestadores.ramo.' + ramo | translate }}
@@ -128,7 +129,7 @@
           }
         </div>
         @if (vm.errorRamo()) {
-          <p class="error-text" role="alert" data-testid="prestador-error-ramo">
+          <p class="error-text" role="alert" id="prestador-error-ramo" data-testid="prestador-error-ramo">
             {{ 'backoffice.prestadores.error.ramo' | translate }}
           </p>
         }
@@ -147,30 +148,29 @@
           [prestadores]="[]"
           (mover)="vm.fijarPin($event.lat, $event.lng)"
         />
-      } @else {
-        <label>
-          {{ 'backoffice.prestadores.form.lat' | translate }}
-          <input
-            type="number"
-            step="0.000001"
-            data-testid="prestador-lat"
-            [value]="vm.lat() ?? ''"
-            (input)="vm.fijarLat($any($event.target).value)"
-            required
-          />
-        </label>
-        <label>
-          {{ 'backoffice.prestadores.form.lng' | translate }}
-          <input
-            type="number"
-            step="0.000001"
-            data-testid="prestador-lng"
-            [value]="vm.lng() ?? ''"
-            (input)="vm.fijarLng($any($event.target).value)"
-            required
-          />
-        </label>
       }
+      <label>
+        {{ 'backoffice.prestadores.form.lat' | translate }}
+        <input
+          type="number"
+          step="0.000001"
+          data-testid="prestador-lat"
+          [value]="vm.lat() ?? ''"
+          (input)="vm.fijarLat($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.lng' | translate }}
+        <input
+          type="number"
+          step="0.000001"
+          data-testid="prestador-lng"
+          [value]="vm.lng() ?? ''"
+          (input)="vm.fijarLng($any($event.target).value)"
+          required
+        />
+      </label>
 
       @if (vm.errorCodigo(); as codigo) {
         <p class="error-text" role="alert" data-testid="prestador-error">

@@ -5,6 +5,7 @@ Feature: Providers near a claim
     Given a geotagged claim with providers
     When the customer opens providers for "sin-1988"
     Then the claim providers are fixed to the event
+    And the current page has no accessibility violations
 
   Scenario: A claim without a geotag offers near me
     Given a claim without a geotag

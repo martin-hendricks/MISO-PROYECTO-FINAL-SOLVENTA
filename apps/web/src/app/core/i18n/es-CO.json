@@ -1220,6 +1220,7 @@
       "cerrar": "Cerrar ficha",
       "llamar": "Llamar",
       "varios": "{{n}} prestadores en este punto"
-    }
+    },
+    "nuevaPestana": "se abre en una pestaña nueva"
   }
 }

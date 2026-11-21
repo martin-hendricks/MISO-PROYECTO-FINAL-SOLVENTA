@@ -101,7 +101,7 @@
           }
         </div>
         @if (vm.modo() === 'chooseCity') {
-          <p data-testid="prestadores-bloqueado">{{ 'prestadores.bloqueado' | translate }}</p>
+          <p role="status" data-testid="prestadores-bloqueado">{{ 'prestadores.bloqueado' | translate }}</p>
         }
         @if (vm.muestraChips()) {
           <div class="chips" role="group" [attr.aria-label]="'prestadores.ciudades' | translate">
@@ -119,7 +119,7 @@
           </div>
         }
         @if (vm.paisVacio()) {
-          <p data-testid="prestadores-pais-vacio">
+          <p role="status" data-testid="prestadores-pais-vacio">
             {{
               'prestadores.vacioPais'
                 | translate: { pais: ('prestadores.pais.' + vm.pais() | translate) }
@@ -127,7 +127,7 @@
           </p>
         }
         @if (vm.status() === 'sin-geo') {
-          <p data-testid="prestadores-sin-geo">{{ 'prestadores.claim.sinGeo' | translate }}</p>
+          <p role="status" data-testid="prestadores-sin-geo">{{ 'prestadores.claim.sinGeo' | translate }}</p>
         }
         @if (vm.status() === 'loading') {
           <p class="subtitle" role="status" data-testid="prestadores-loading">
@@ -180,7 +180,7 @@
       <aside>
         <h2>{{ 'prestadores.masCercanos' | translate }}</h2>
         @if (vm.status() === 'empty') {
-          <p data-testid="prestadores-vacio">{{ 'prestadores.vacio' | translate }}</p>
+          <p role="status" data-testid="prestadores-vacio">{{ 'prestadores.vacio' | translate }}</p>
         }
         <ul class="lista" data-testid="prestadores-lista">
           @for (prestador of vm.prestadores(); track prestador.id) {
@@ -188,6 +188,8 @@
               <button
                 type="button"
                 [attr.data-testid]="'fila-prestador-' + prestador.id"
+                [attr.aria-expanded]="vm.abiertoId() === prestador.id"
+                [attr.aria-controls]="'detalle-' + prestador.id"
                 (click)="vm.seleccionarDesdeLista(prestador)"
               >
                 <strong>{{ prestador.nombre }}</strong>
@@ -205,7 +207,7 @@
                 }
               </button>
               @if (vm.abiertoId() === prestador.id) {
-                <div [attr.data-testid]="'detalle-' + prestador.id">
+                <div [attr.id]="'detalle-' + prestador.id" [attr.data-testid]="'detalle-' + prestador.id">
                   <p>{{ prestador.direccion }}</p>
                   <p>
                     <a [href]="vm.llamar(prestador)">{{ prestador.telefono }}</a>
@@ -218,6 +220,7 @@
                     [attr.data-testid]="'como-llegar-' + prestador.id"
                   >
                     {{ 'prestadores.comoLlegar' | translate }}
+                    <span class="visually-hidden"> ({{ 'prestadores.nuevaPestana' | translate }})</span>
                   </a>
                 </div>
               }

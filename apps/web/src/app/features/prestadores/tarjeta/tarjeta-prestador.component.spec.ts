@@ -93,4 +93,14 @@ describe('TarjetaPrestadorComponent', () => {
     expect(document.activeElement).toBe(fila);
     fila.remove();
   });
+
+  it('warns that the directions link opens a new tab', () => {
+    const { porId } = render([IPS]);
+    const enlace = porId(`tarjeta-como-llegar-${IPS.id}`)!;
+
+    expect(enlace.getAttribute('target')).toBe('_blank');
+    expect(enlace.querySelector('.visually-hidden')?.textContent).toContain(
+      'se abre en una pestaña nueva',
+    );
+  });
 });

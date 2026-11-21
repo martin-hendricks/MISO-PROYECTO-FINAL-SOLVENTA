@@ -8,6 +8,7 @@ Feature: Partner registry in the back-office
     Then the partner "Aliado local" is listed
     When the user creates the partner "Nuevo aliado" with the scope catalogo:leer
     Then the new API key is shown
+    And the current page has no accessibility violations
     And the partner "Nuevo aliado" is listed
     When the user dismisses the API key
     Then the API key is no longer shown
