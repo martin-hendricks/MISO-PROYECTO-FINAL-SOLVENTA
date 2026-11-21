@@ -12,6 +12,7 @@ from app.ports.persistencia import (
     FabricaUnidadDeTrabajo,
     NotificacionDuplicada,
 )
+from app.ports.email import EnviadorEmail, ResolutorDestinatario
 from app.ports.push import EnviadorPush, EstadoEnvio
 
 
@@ -216,6 +217,46 @@ async def despachar_notificacion(
             return False
 
         notificacion.marcar_enviada(enviados[0].proveedor_id)
+        await tx.notificaciones.actualizar(notificacion)
+        await tx.confirmar()
+        return True
+
+
+async def despachar_email(
+    uow: FabricaUnidadDeTrabajo,
+    email: EnviadorEmail,
+    resolutor: ResolutorDestinatario,
+    notificacion_id: UUID,
+) -> bool:
+    """Envía por correo una notificación `pendiente`. Devuelve si quedó enviada.
+
+    Sin correo del usuario o con el proveedor caído queda `fallida` y no se
+    reintenta, igual que el push: repetir el evento no duplica el correo.
+    """
+    async with uow() as tx:
+        notificacion = await tx.notificaciones.obtener(notificacion_id)
+        if notificacion is None or notificacion.estado != "pendiente":
+            return False
+
+        try:
+            destinatario = await resolutor.correo_de(notificacion.usuario_id)
+            if destinatario is None:
+                notificacion.marcar_fallida()
+                await tx.notificaciones.actualizar(notificacion)
+                await tx.confirmar()
+                return False
+            proveedor_id = await email.enviar(
+                destinatario,
+                notificacion.titulo,
+                f"{notificacion.cuerpo}\n\n-- Equipo Solventa",
+            )
+        except ServicioExternoNoDisponible:
+            notificacion.marcar_fallida()
+            await tx.notificaciones.actualizar(notificacion)
+            await tx.confirmar()
+            return False
+
+        notificacion.marcar_enviada(proveedor_id)
         await tx.notificaciones.actualizar(notificacion)
         await tx.confirmar()
         return True

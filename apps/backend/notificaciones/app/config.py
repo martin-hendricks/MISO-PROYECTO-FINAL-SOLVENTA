@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     push_stub_fallar: bool = False
     fcm_credenciales_json: str = ""
 
+    # Canal de correo: "" lo deja apagado; "stub" no envía; "ses" usa Amazon SES.
+    email_proveedor: str = ""
+    email_stub_fallar: bool = False
+    email_remitente: str = ""
+    ses_configuration_set: str = ""
+    ms_identidad_url: str = ""
+    solventa_token_secret: str = ""
+
     # Debe coincidir con el `consumer_groups` del rol IRSA (infra/terraform).
     msk_bootstrap_brokers: str = ""
     msk_topic: str = "BusEventos"

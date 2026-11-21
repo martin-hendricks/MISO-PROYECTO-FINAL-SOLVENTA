@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 
 from app.application import casos_uso
+from app.domain.modelos import EstadoUsuario
 from app.dependencies import obtener_uow, obtener_verificador_kyc
 from app.ports.kyc import VerificadorKYC
 from app.ports.persistencia import FabricaUnidadDeTrabajo
@@ -13,11 +14,13 @@ from app.seguridad import (
     alcance,
     exigir_backoffice,
     exigir_busqueda_por_documento,
+    exigir_notificaciones,
     exigir_operador,
 )
 
 from .schemas import (
     AutenticarEntrada,
+    ContactoSalida,
     CrearUsuarioEntrada,
     EditarClienteEntrada,
     ErrorSalida,
@@ -103,6 +106,19 @@ async def buscar_por_documento(
     exigir_busqueda_por_documento(llamante)
     usuario = await casos_uso.buscar_por_documento(uow, tipo_documento, numero_documento)
     return UsuarioPorDocumentoSalida(usuario_id=usuario.id)
+
+
+@router.get("/{usuario_id}/contacto", response_model=ContactoSalida, responses=ERRORES)
+async def contacto(usuario_id: UUID, uow: Uow, llamante: LlamanteDep):
+    """Correo de un usuario activo para el servicio de notificaciones. Un usuario
+    inactivado responde 404: no se le escribe."""
+    exigir_notificaciones(llamante)
+    usuario = await casos_uso.consultar_usuario(uow, usuario_id)
+    if usuario.estado != EstadoUsuario.ACTIVO:
+        from app.domain.errores import NoEncontrado
+
+        raise NoEncontrado()
+    return ContactoSalida(email=usuario.email)
 
 
 @router.get("/{usuario_id}", response_model=UsuarioSalida, responses=ERRORES)

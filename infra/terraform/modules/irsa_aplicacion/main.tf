@@ -82,10 +82,18 @@ locals {
     }
   }
 
-  # Unión de ambos conjuntos: todo componente que necesita un rol.
+  # Componentes que envían correo con Amazon SES.
+  ses_senders = {
+    "notificaciones" = {
+      service_account = "notificaciones"
+    }
+  }
+
+  # Unión de los conjuntos: todo componente que necesita un rol.
   all_components = merge(
     { for k, v in local.s3_consumers : k => v.service_account },
     { for k, v in local.msk_consumers : k => v.service_account },
+    { for k, v in local.ses_senders : k => v.service_account },
   )
 }
 
@@ -317,4 +325,49 @@ resource "aws_iam_role_policy_attachment" "msk" {
 
   role       = aws_iam_role.this[each.key].name
   policy_arn = aws_iam_policy.msk[each.key].arn
+}
+
+# ---------------------------------------------------------------------------
+# SES — envío de correo (canal de correo de notificaciones)
+# ---------------------------------------------------------------------------
+# Solo SendEmail, y solo desde identidades verificadas de esta cuenta y región:
+# el rol no puede crear identidades ni leer la configuración de la cuenta. El
+# remitente concreto lo fija la aplicación (EMAIL_REMITENTE).
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
+data "aws_iam_policy_document" "ses" {
+  for_each = local.ses_senders
+
+  statement {
+    sid    = "SendEmail"
+    effect = "Allow"
+
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+
+    resources = length(var.ses_identity_arns) > 0 ? var.ses_identity_arns : [
+      "arn:aws:ses:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:identity/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "ses" {
+  for_each = local.ses_senders
+
+  name        = "${var.project_name}-${var.environment}-${each.key}-ses"
+  description = "Send email through Amazon SES for ${each.key}."
+  policy      = data.aws_iam_policy_document.ses[each.key].json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ses" {
+  for_each = local.ses_senders
+
+  role       = aws_iam_role.this[each.key].name
+  policy_arn = aws_iam_policy.ses[each.key].arn
 }

@@ -149,3 +149,25 @@ constraints y corre con uid 1000 en el puerto 8080 (chart `infra/k8s/charts/micr
 Imagen `runtime` hacia EKS. El DDL de referencia compartido es `db/schema/12_notificaciones.sql`;
 este servicio lo extiende con `titulo`, `cuerpo`, `destino`, `leida_en`, `proveedor_id` y la
 tabla `dispositivo_push` (ver `db/01_ms_notificaciones.sql`).
+
+## Canal de correo
+
+Además del push, cada evento de negocio soportado puede enviarse por correo. Está **apagado por
+defecto** (`EMAIL_PROVEEDOR` vacío) y no cambia el comportamiento del push.
+
+| Variable | Valor | Descripción |
+|---|---|---|
+| `EMAIL_PROVEEDOR` | vacío | `ses` envía con Amazon SES; `stub` no envía (solo sin MSK) |
+| `EMAIL_REMITENTE` | vacío | Identidad verificada en SES. Obligatoria con `ses` |
+| `MS_IDENTIDAD_URL` | vacío | Base de ms-identidad, de donde sale el correo del usuario. Obligatoria con `ses` |
+| `SES_CONFIGURATION_SET` | vacío | Opcional |
+
+- El evento solo trae `usuario_id`: el correo se pide a ms-identidad en
+  `GET /v1/usuarios/{id}/contacto` con un token de servicio (`rol=servicio`, `sub=notificaciones`,
+  firmado con `SOLVENTA_TOKEN_SECRET`). Un usuario inexistente o inactivo responde 404 y el correo
+  queda `fallida`.
+- Idempotente por `(evento_id, "email")`, independiente del push: un fallo de uno no afecta al otro.
+  Un correo `fallida` no se reintenta.
+- Las filas de canal `email` se guardan en la misma tabla pero **no** aparecen en la bandeja de la app
+  (`GET /v1/notificaciones` solo lista push).
+- Con SES en sandbox solo se entrega a destinatarios verificados.

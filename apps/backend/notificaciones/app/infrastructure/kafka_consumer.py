@@ -7,7 +7,7 @@ import ssl
 
 from aiokafka.abc import AbstractTokenProvider
 
-from app.application.manejadores import manejar_evento
+from app.application.manejadores import CanalEmail, manejar_evento
 from app.config import Settings
 from app.domain.eventos import EventoBus
 from app.domain.modelos import Notificacion
@@ -48,10 +48,17 @@ class MSKTokenProvider(AbstractTokenProvider):
 class ConsumidorMSK:
     """Consumidor de `BusEventos` que convierte eventos de dominio en notificaciones."""
 
-    def __init__(self, config: Settings, uow: FabricaUnidadDeTrabajo, push: EnviadorPush) -> None:
+    def __init__(
+        self,
+        config: Settings,
+        uow: FabricaUnidadDeTrabajo,
+        push: EnviadorPush,
+        email: CanalEmail | None = None,
+    ) -> None:
         self._config = config
         self._uow = uow
         self._push = push
+        self._email = email
         self._consumer = None
         self._tarea: asyncio.Task | None = None
 
@@ -123,7 +130,7 @@ class ConsumidorMSK:
                         extra={"topico": mensaje.topic, "offset": mensaje.offset},
                     )
                     continue
-                await manejar_evento(self._uow, self._push, evento)
+                await manejar_evento(self._uow, self._push, evento, self._email)
             except Exception:
                 logger.exception(
                     "error_procesando_mensaje_msk",
@@ -144,4 +151,4 @@ class ConsumidorMSK:
         if evento is None:
             logger.warning("mensaje_msk_ignorado")
             return None
-        return await manejar_evento(self._uow, self._push, evento)
+        return await manejar_evento(self._uow, self._push, evento, self._email)
