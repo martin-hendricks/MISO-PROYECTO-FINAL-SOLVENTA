@@ -82,6 +82,14 @@ externalSecrets:
       nombreLocal: ms-pagos-db
       claves:
         - database_url
+    # Sin esto, app/seguridad.py::_secret() lanza HTTPException(500,
+    # "SOLVENTA_TOKEN_SECRET no configurado") en toda llamada autenticada
+    # (ms-cotizacion POST /v1/pagos/primas al cobrar la prima) -- mismo bug
+    # ya encontrado y corregido en ms-suscripcion. Mismo secreto compartido
+    # que ms-polizas/ms-identidad/bff-web; sin `claves` porque su única
+    # clave ya se llama SOLVENTA_TOKEN_SECRET.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-pagos-token
 
 serviceAccount:
   crear: true

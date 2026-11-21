@@ -79,6 +79,13 @@ externalSecrets:
       nombreLocal: ms-consentimiento-db
       claves:
         - database_url
+    # Sin esto, app/seguridad.py::_secret() lanza HTTPException(500,
+    # "SOLVENTA_TOKEN_SECRET no configurado") en toda llamada autenticada --
+    # mismo bug ya encontrado y corregido en ms-suscripcion/ms-pagos. Mismo
+    # secreto compartido que ms-polizas/ms-identidad/bff-web; sin `claves`
+    # porque su única clave ya se llama SOLVENTA_TOKEN_SECRET.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-consentimiento-token
 
 serviceAccount:
   crear: true
