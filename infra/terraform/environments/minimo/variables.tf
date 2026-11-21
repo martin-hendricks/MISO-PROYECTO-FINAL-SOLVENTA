@@ -424,6 +424,12 @@ variable "alb_routes" {
         # alcanzables vía el API Gateway sin esta entrada.
         "/bff-movil/v1/docs",
         "/bff-movil/v1/openapi.json",
+        # Prueba de vida de la app Android (POST identidad/prueba-de-vida, MobileBffApi.kt).
+        # Sin esta regla la peticion caia al target group por defecto, que esta vacio, y el
+        # ALB respondia 503. Va al FINAL de la lista a proposito: la prioridad de cada regla
+        # es route.priority + la posicion del path (modules/alb/main.tf), asi que agregarla
+        # al final le da la 45 y no corre las prioridades de las reglas que ya existen.
+        "/bff-movil/v1/identidad",
       ]
       priority = 40
     }
@@ -444,6 +450,12 @@ variable "alb_routes" {
       priority          = 50
     }
   }
+}
+
+variable "apigw_restringir_a_rutas_mapeadas" {
+  type        = bool
+  description = "Quita la ruta comodin del API Gateway para que solo pasen los paths de alb_routes; el resto responde 404 en el borde. false mantiene el comportamiento actual (comodin + rutas mapeadas)."
+  default     = false
 }
 
 variable "cloudfront_price_class" {
