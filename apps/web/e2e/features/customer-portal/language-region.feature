@@ -1,4 +1,4 @@
-@customer-portal @pendiente @HU-108 @SOLV-232
+@customer-portal @HU-108 @SOLV-232
 Feature: Language and region
 
   Scenario: First launch

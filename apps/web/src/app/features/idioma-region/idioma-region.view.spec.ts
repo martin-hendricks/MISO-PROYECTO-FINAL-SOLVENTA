@@ -21,6 +21,26 @@ describe('IdiomaRegionView', () => {
     }
   });
 
+  it('previews the sample premium and date in the selected locale (HU-108 México)', async () => {
+    await TestBed.configureTestingModule({
+      imports: [IdiomaRegionView],
+      providers: [provideRouter([]), ...provideSolventaI18n()],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(IdiomaRegionView);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const text = (id: string) =>
+      host.querySelector(`[data-testid="${id}"]`)!.textContent!.replace(/[  ]/g, ' ').trim();
+
+    expect(text('idioma-region-sample-premium')).toBe('$ 1.235 COP');
+
+    host.querySelector<HTMLButtonElement>('[data-testid="idioma-region-es-MX"]')!.click();
+    fixture.detectChanges();
+
+    expect(text('idioma-region-sample-premium')).toBe('$1,234.56 MXN');
+    expect(text('idioma-region-sample-date')).toBe('09/07/2026');
+  });
+
   it('as a top-level route, Continuar goes to /registro after choosing a locale', async () => {
     await TestBed.configureTestingModule({
       imports: [IdiomaRegionView],
