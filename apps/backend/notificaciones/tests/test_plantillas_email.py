@@ -20,18 +20,23 @@ def _evento(tipo="PolizaEmitida", usuario=None, **extras):
     )
 
 
-def test_cada_tipo_soportado_tiene_un_acento_de_color_propio():
-    tipos = [
-        "poliza_emitida",
-        "poliza_renovada",
-        "poliza_modificada",
-        "poliza_cancelada",
-        "consentimiento_pendiente",
-    ]
-    html_por_tipo = {tipo: renderizar(tipo, "Título", "Cuerpo") for tipo in tipos}
+def _color(tipo: str) -> str:
+    html = renderizar(tipo, "Título", "Cuerpo")
+    return html.split("border-top:4px solid ")[1].split(";")[0]
 
-    colores = {html.split("border-top:4px solid ")[1].split(";")[0] for html in html_por_tipo.values()}
-    assert len(colores) == len(tipos), "cada tipo debe distinguirse por color"
+
+def test_buenas_noticias_comparten_el_mismo_acento_de_color():
+    # poliza_emitida y poliza_renovada son ambas "buena noticia": comparten
+    # el verde a propósito, a diferencia de modificada/cancelada/consentimiento.
+    assert _color("poliza_emitida") == _color("poliza_renovada")
+
+
+def test_cancelacion_modificacion_y_consentimiento_se_distinguen_de_la_buena_noticia():
+    base = _color("poliza_emitida")
+    assert _color("poliza_cancelada") not in (base,)
+    assert _color("poliza_modificada") not in (base,)
+    assert _color("consentimiento_pendiente") not in (base,)
+    assert len({_color("poliza_cancelada"), _color("poliza_modificada"), _color("consentimiento_pendiente")}) == 3
 
 
 def test_tipo_desconocido_usa_un_color_por_defecto_en_vez_de_fallar():
