@@ -115,6 +115,10 @@ def test_evento_poliza_renovada_lleva_la_nueva_vigencia():
     assert evento.tipo == "PolizaRenovada"
     assert evento.agregado_id == poliza.id
     assert evento.payload["fin_vigencia"] == "2028-10-22"
+    # notificaciones.manejar_evento descarta cualquier evento sin usuario_id
+    # en el payload (ver construir_contenido): sin esta clave, renovar una
+    # póliza nunca generaba push ni correo.
+    assert evento.payload["usuario_id"] == str(poliza.usuario_id)
 
 
 def test_renovar_dentro_de_la_ventana_de_gracia_tras_vencer_es_valido():
@@ -195,6 +199,7 @@ def test_evento_poliza_modificada_lleva_las_nuevas_coberturas():
 
     assert evento.tipo == "PolizaModificada"
     assert [c["nombre"] for c in evento.payload["coberturas"]] == ["Robo"]
+    assert evento.payload["usuario_id"] == str(poliza.usuario_id)
 
 
 # --- Ciclo de vida: cancelar (HU-61) ---------------------------------------
@@ -252,6 +257,7 @@ def test_evento_poliza_cancelada_lleva_motivo_fecha_operador_y_devolucion():
     assert evento.tipo == "PolizaCancelada"
     assert evento.payload["motivo_cancelacion"] == "El cliente lo pidió"
     assert evento.payload["cancelada_en"] == "2026-11-01"
+    assert evento.payload["usuario_id"] == str(poliza.usuario_id)
     assert evento.payload["cancelada_por"] == "op-1"
     assert evento.payload["devolucion_estimada"] == str(poliza.devolucion_estimada)
 
