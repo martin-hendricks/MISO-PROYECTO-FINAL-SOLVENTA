@@ -34,7 +34,7 @@ async def recibir_solicitud(
     idempotency_key: str,
     usuario_id: UUID,
     socio_id: UUID,
-    consentimiento_id: UUID,
+    consentimiento_id: UUID | None,
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
@@ -120,7 +120,7 @@ async def cotizar(
     idempotency_key: str,
     usuario_id: UUID,
     socio_id: UUID,
-    consentimiento_id: UUID,
+    consentimiento_id: UUID | None,
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
@@ -190,13 +190,15 @@ class ReconsultaOferta:
     consulta: ConsultaOferta
 
 
-def _exigir_dueno(solicitud: SolicitudCotizacion, usuario_id: UUID | None) -> None:
+def _exigir_dueno(solicitud: SolicitudCotizacion, usuario_id: UUID | None, socio_id: UUID | None = None) -> None:
     if usuario_id is not None and solicitud.usuario_id != usuario_id:
+        raise NoEncontrado(f"Cotización {solicitud.id} no existe")
+    if socio_id is not None and solicitud.socio_id != socio_id:
         raise NoEncontrado(f"Cotización {solicitud.id} no existe")
 
 
 async def reconsultar_oferta(
-    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, usuario_id: UUID | None = None
+    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, usuario_id: UUID | None = None, socio_id: UUID | None = None
 ) -> ReconsultaOferta:
     """Lectura pura: no invoca calcular_prima_solicitud ni combinar_factor_riesgo ni el
     adaptador de perfil. 404 genérico sin distinguir el motivo (solicitud inexistente vs.
@@ -206,7 +208,7 @@ async def reconsultar_oferta(
         oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
     if solicitud is None or oferta is None:
         raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
-    _exigir_dueno(solicitud, usuario_id)
+    _exigir_dueno(solicitud, usuario_id, socio_id)
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
 
 

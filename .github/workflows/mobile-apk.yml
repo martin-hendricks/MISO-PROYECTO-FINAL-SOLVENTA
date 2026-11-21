@@ -42,7 +42,7 @@ jobs:
           jq empty apps/mobile/Solventa/app/google-services.json
       - name: Build remote APK
         working-directory: apps/mobile/Solventa
-        run: ./gradlew :app:assembleRemote -PversionCode=${{ github.run_number }} -PbffBaseUrl=${{ vars.BFF_MOVIL_URL }}
+        run: ./gradlew :app:assembleRemote -PversionCode=${{ github.run_number }} -PbffBaseUrl=${{ vars.BFF_MOVIL_URL }} -PmapsApiKey=${{ secrets.GOOGLE_MAPS_API_KEY }}
       - name: Upload remote APK
         uses: actions/upload-artifact@v4
         with:

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from .clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible, token_saliente
 from .config import Settings
 from .observabilidad import instrumentar
+from .routers import prestadores as prestadores_router
 from .routers import (
     asesor,
     avisos_poliza,
@@ -23,7 +24,6 @@ from .routers import (
     reportes,
     billetera,
     sesion,
-    billetera,
     siniestros,
 )
 
@@ -122,6 +122,8 @@ app.include_router(backoffice_socios.router, prefix="/v1")
 app.include_router(perfil_backoffice.router, prefix="/v1")
 app.include_router(operador_notificaciones.router, prefix="/v1")
 app.include_router(billetera.router_cliente, prefix="/v1")
+app.include_router(prestadores_router.router_cliente, prefix="/v1")
+app.include_router(prestadores_router.router_operador, prefix="/v1")
 app.include_router(siniestros.router_cliente, prefix="/v1")
 app.include_router(siniestros.router_operador, prefix="/v1")
 

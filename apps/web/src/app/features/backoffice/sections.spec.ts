@@ -11,6 +11,7 @@ describe('back-office sections', () => {
       'reportes',
       'metricas',
       'notificaciones',
+      'prestadores',
     ]);
   });
 
@@ -36,6 +37,9 @@ describe('back-office sections', () => {
     expect(admite('notificaciones', 'operador')).toBeTrue();
     expect(admite('clientes', 'asesor')).toBeTrue();
     expect(admite('clientes', 'operador')).toBeTrue();
+    expect(admite('prestadores', 'operador')).toBeTrue();
+    expect(admite('prestadores', 'asesor')).toBeTrue();
+    expect(allowedRoles('prestadores')).toEqual(['operador', 'asesor']);
   });
 
   it('lands each role on a section it can open', () => {

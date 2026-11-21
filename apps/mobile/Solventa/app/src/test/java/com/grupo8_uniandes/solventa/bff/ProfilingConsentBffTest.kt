@@ -77,6 +77,34 @@ class ProfilingConsentBffTest {
     }
 
     @Test
+    fun givenNoConsent_whenGranted_thenTheBffGetsAPostAndReturnsTheGrantDate() = runBlocking {
+        enqueue(200, """{"estado":"vigente","otorgadoEn":"2026-11-18T09:00:00Z"}""")
+
+        val answer = repository.grant()
+
+        assertEquals(StandInAnswer.Ready(ProfilingConsent.Granted("2026-11-18T09:00:00Z")), answer)
+        val recorded = server.takeRequest()
+        assertEquals("POST", recorded.method)
+        assertEquals("/cliente/consentimiento-perfil", recorded.path)
+    }
+
+    @Test
+    fun givenTheBffIsDown_whenGranted_thenItFails() = runBlocking {
+        enqueue(503, """{"detail":"ms-perfilamiento no disponible"}""")
+
+        assertEquals(StandInAnswer.Failed, repository.grant())
+    }
+
+    @Test
+    fun givenTheStandIn_whenGrantedAfterARevocation_thenLaterReadsSeeTheGrant() = runBlocking {
+        val standIn = MockProfilingConsentRepository()
+        standIn.revoke()
+
+        assertEquals(StandInAnswer.Ready(ProfilingConsent.Granted("2026-10-01T10:00:00Z")), standIn.grant())
+        assertEquals(StandInAnswer.Ready(ProfilingConsent.Granted("2026-10-01T10:00:00Z")), standIn.read())
+    }
+
+    @Test
     fun givenTheBffIsDown_whenReadOrRevoked_thenBothFail() = runBlocking {
         enqueue(503, """{"detail":"ms-perfilamiento no disponible"}""")
         enqueue(503, """{"detail":"ms-perfilamiento no disponible"}""")
@@ -109,6 +137,7 @@ class ProfilingConsentBffTest {
 
         assertEquals(StandInAnswer.Failed, standIn.read())
         assertEquals(StandInAnswer.Failed, standIn.revoke())
+        assertEquals(StandInAnswer.Failed, standIn.grant())
     }
 
     private fun enqueue(code: Int, body: String) {

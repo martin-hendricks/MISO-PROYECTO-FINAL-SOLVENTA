@@ -4,6 +4,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+import math
+
 from sqlalchemy import (
     JSON,
     BigInteger,
@@ -15,6 +17,7 @@ from sqlalchemy import (
     Numeric,
     String,
     and_,
+    delete,
     exists,
     func,
     select,
@@ -55,6 +58,7 @@ from app.domain.modelos import (
     TipoSiniestro,
     TransicionEstado,
 )
+from app.domain.prestador import CiudadPrestador, Prestador, PrestadorCercano
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FiltroSiniestros
 
 ESQUEMA = "ms_siniestros"
@@ -747,6 +751,240 @@ class RepositorioParametrosSQL:
         return [self._a_dominio(f) for f in await self._s.scalars(select(ParametroRamoFila).order_by(ParametroRamoFila.ramo))]
 
 
+class PrestadorFila(Base):
+    __tablename__ = "prestador"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    nombre: Mapped[str]
+    tipo: Mapped[str]
+    direccion: Mapped[str]
+    ciudad: Mapped[str]
+    pais: Mapped[str]
+    barrio: Mapped[str]
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    telefono: Mapped[str]
+    horario: Mapped[str]
+    estado: Mapped[str]
+    creado_por: Mapped[str]
+    creado_en: Mapped[datetime]
+    actualizado_por: Mapped[str]
+    actualizado_en: Mapped[datetime]
+
+
+class CiudadPrestadorFila(Base):
+    __tablename__ = "ciudad_prestador"
+
+    pais: Mapped[str] = mapped_column(String, primary_key=True)
+    nombre: Mapped[str] = mapped_column(String, primary_key=True)
+    lat: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    lng: Mapped[Decimal] = mapped_column(Numeric(9, 6))
+    zoom: Mapped[int]
+    orden: Mapped[int]
+
+
+class PrestadorRamoFila(Base):
+    __tablename__ = "prestador_ramo"
+
+    prestador_id: Mapped[str] = mapped_column(ForeignKey(f"{ESQUEMA}.prestador.id"), primary_key=True)
+    ramo: Mapped[str] = mapped_column(String, primary_key=True)
+
+
+def _haversine(lat: Decimal, lng: Decimal):
+    lat_r = func.radians(PrestadorFila.lat)
+    dlat = func.radians(PrestadorFila.lat - lat)
+    dlng = func.radians(PrestadorFila.lng - lng)
+    a = func.power(func.sin(dlat / 2), 2) + func.cos(func.radians(lat)) * func.cos(lat_r) * func.power(
+        func.sin(dlng / 2), 2
+    )
+    return (2 * 6371 * func.asin(func.sqrt(a))).label("distancia_km")
+
+
+class RepositorioPrestadoresSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def _ramos(self, ids: list[str]) -> dict[str, frozenset[str]]:
+        if not ids:
+            return {}
+        filas = await self._s.scalars(select(PrestadorRamoFila).where(PrestadorRamoFila.prestador_id.in_(ids)))
+        grupos: dict[str, set[str]] = {}
+        for fila in filas:
+            grupos.setdefault(fila.prestador_id, set()).add(fila.ramo)
+        return {clave: frozenset(valor) for clave, valor in grupos.items()}
+
+    def _dominio(self, fila: PrestadorFila, ramos: frozenset[str]) -> Prestador:
+        return Prestador(
+            id=fila.id,
+            nombre=fila.nombre,
+            tipo=fila.tipo,
+            direccion=fila.direccion,
+            ciudad=fila.ciudad,
+            pais=fila.pais,
+            barrio=fila.barrio,
+            lat=fila.lat,
+            lng=fila.lng,
+            telefono=fila.telefono,
+            horario=fila.horario,
+            estado=fila.estado,
+            ramos=ramos,
+            creado_por=fila.creado_por,
+            creado_en=fila.creado_en,
+            actualizado_por=fila.actualizado_por,
+            actualizado_en=fila.actualizado_en,
+        )
+
+    def _filtro(self, ramo: str | None, estados: tuple[str, ...], ciudad: str | None = None, pais: str | None = None):
+        clausulas = [PrestadorFila.estado.in_(estados)]
+        if pais is not None:
+            clausulas.append(PrestadorFila.pais == pais)
+        if ciudad is not None:
+            clausulas.append(PrestadorFila.ciudad == ciudad)
+        if ramo is not None:
+            clausulas.append(
+                exists(
+                    select(PrestadorRamoFila.ramo).where(
+                        PrestadorRamoFila.prestador_id == PrestadorFila.id, PrestadorRamoFila.ramo == ramo
+                    )
+                )
+            )
+        return and_(*clausulas)
+
+    async def cercanos(self, lat, lng, radio_km, ramo, estados, limite, ciudad=None, pais=None):
+        margen_lat = float(radio_km) / 111
+        coseno = max(math.cos(math.radians(float(lat))), 0.01)
+        margen_lng = float(radio_km) / (111 * coseno)
+        distancia = _haversine(lat, lng)
+        consulta = (
+            select(PrestadorFila, distancia)
+            .where(
+                self._filtro(ramo, estados, ciudad, pais),
+                PrestadorFila.lat.between(float(lat) - margen_lat, float(lat) + margen_lat),
+                PrestadorFila.lng.between(float(lng) - margen_lng, float(lng) + margen_lng),
+            )
+            .order_by(distancia, PrestadorFila.nombre)
+            .limit(limite * 4)
+        )
+        pares = (await self._s.execute(consulta)).all()
+        dentro = [(fila, float(km)) for fila, km in pares if float(km) <= float(radio_km)]
+        dentro.sort(key=lambda par: (par[1], par[0].nombre))
+        dentro = dentro[:limite]
+        ramos = await self._ramos([fila.id for fila, _ in dentro])
+        return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), km) for fila, km in dentro]
+
+    async def por_ciudad(self, pais, ciudad, ramo, estados, limite):
+        filas = list(
+            await self._s.scalars(
+                select(PrestadorFila)
+                .where(self._filtro(ramo, estados, ciudad, pais))
+                .order_by(PrestadorFila.nombre)
+                .limit(limite)
+            )
+        )
+        ramos = await self._ramos([fila.id for fila in filas])
+        return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), None) for fila in filas]
+
+    async def en_area(self, area, ramo, estados, limite, origen):
+        caja = and_(
+            self._filtro(ramo, estados),
+            PrestadorFila.lat.between(area.sur, area.norte),
+            PrestadorFila.lng.between(area.oeste, area.este),
+        )
+        if origen is None:
+            filas = list(
+                await self._s.scalars(select(PrestadorFila).where(caja).order_by(PrestadorFila.nombre).limit(limite))
+            )
+            pares = [(fila, None) for fila in filas]
+        else:
+            distancia = _haversine(*origen)
+            consulta = select(PrestadorFila, distancia).where(caja).order_by(distancia, PrestadorFila.nombre).limit(limite)
+            pares = [(fila, float(km)) for fila, km in (await self._s.execute(consulta)).all()]
+        ramos = await self._ramos([fila.id for fila, _ in pares])
+        return [PrestadorCercano(self._dominio(fila, ramos.get(fila.id, frozenset())), km) for fila, km in pares]
+
+    async def listar(self, ramo, pais, ciudad, estados):
+        filas = list(
+            await self._s.scalars(
+                select(PrestadorFila)
+                .where(self._filtro(ramo, estados, ciudad, pais))
+                .order_by(PrestadorFila.ciudad, PrestadorFila.nombre)
+            )
+        )
+        ramos = await self._ramos([fila.id for fila in filas])
+        return [self._dominio(fila, ramos.get(fila.id, frozenset())) for fila in filas]
+
+    async def conteos_por_ciudad(self, pais):
+        return {ciudad.nombre: total for ciudad, total in await self.ciudades(pais, solo_activos=False)}
+
+    async def ciudades(self, pais, solo_activos):
+        enlace = and_(PrestadorFila.pais == CiudadPrestadorFila.pais, PrestadorFila.ciudad == CiudadPrestadorFila.nombre)
+        if solo_activos:
+            enlace = and_(enlace, PrestadorFila.estado == "activo")
+        consulta = (
+            select(CiudadPrestadorFila, func.count(PrestadorFila.id))
+            .outerjoin(PrestadorFila, enlace)
+            .where(CiudadPrestadorFila.pais == pais)
+            .group_by(CiudadPrestadorFila.pais, CiudadPrestadorFila.nombre)
+            .order_by(CiudadPrestadorFila.orden)
+        )
+        return [(self._ciudad(fila), int(total)) for fila, total in (await self._s.execute(consulta)).all()]
+
+    async def ciudad(self, pais, nombre):
+        fila = await self._s.get(CiudadPrestadorFila, (pais, nombre))
+        return None if fila is None else self._ciudad(fila)
+
+    @staticmethod
+    def _ciudad(fila: CiudadPrestadorFila) -> CiudadPrestador:
+        return CiudadPrestador(fila.pais, fila.nombre, fila.lat, fila.lng, fila.zoom, fila.orden)
+
+    async def obtener(self, prestador_id: str):
+        fila = await self._s.get(PrestadorFila, prestador_id)
+        if fila is None:
+            return None
+        ramos = await self._ramos([fila.id])
+        return self._dominio(fila, ramos.get(fila.id, frozenset()))
+
+    async def guardar(self, prestador: Prestador) -> None:
+        fila = await self._s.get(PrestadorFila, prestador.id)
+        if fila is None:
+            fila = PrestadorFila(
+                id=prestador.id,
+                nombre=prestador.nombre,
+                tipo=prestador.tipo,
+                direccion=prestador.direccion,
+                ciudad=prestador.ciudad,
+                pais=prestador.pais,
+                barrio=prestador.barrio,
+                lat=prestador.lat,
+                lng=prestador.lng,
+                telefono=prestador.telefono,
+                horario=prestador.horario,
+                estado=prestador.estado,
+                creado_por=prestador.creado_por,
+                creado_en=prestador.creado_en,
+                actualizado_por=prestador.actualizado_por,
+                actualizado_en=prestador.actualizado_en,
+            )
+            self._s.add(fila)
+        else:
+            fila.nombre = prestador.nombre
+            fila.tipo = prestador.tipo
+            fila.direccion = prestador.direccion
+            fila.ciudad = prestador.ciudad
+            fila.pais = prestador.pais
+            fila.barrio = prestador.barrio
+            fila.lat = prestador.lat
+            fila.lng = prestador.lng
+            fila.telefono = prestador.telefono
+            fila.horario = prestador.horario
+            fila.estado = prestador.estado
+            fila.actualizado_por = prestador.actualizado_por
+            fila.actualizado_en = prestador.actualizado_en
+        await self._s.execute(delete(PrestadorRamoFila).where(PrestadorRamoFila.prestador_id == prestador.id))
+        for ramo in prestador.ramos:
+            self._s.add(PrestadorRamoFila(prestador_id=prestador.id, ramo=ramo))
+
+
 class OutboxSQL:
     def __init__(self, sesion: AsyncSession) -> None:
         self._s = sesion
@@ -771,6 +1009,7 @@ class UnidadDeTrabajoSQL:
         self.decisiones = RepositorioDecisionesSQL(self._sesion)
         self.pagos_siniestro = RepositorioPagosSiniestroSQL(self._sesion)
         self.parametros = RepositorioParametrosSQL(self._sesion)
+        self.prestadores = RepositorioPrestadoresSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

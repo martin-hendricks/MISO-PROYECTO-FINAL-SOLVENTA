@@ -8,7 +8,8 @@ export type Section =
   | 'avisos'
   | 'reportes'
   | 'metricas'
-  | 'notificaciones';
+  | 'notificaciones'
+  | 'prestadores';
 
 export const SECTIONS: readonly Section[] = [
   'clientes',
@@ -19,6 +20,7 @@ export const SECTIONS: readonly Section[] = [
   'reportes',
   'metricas',
   'notificaciones',
+  'prestadores',
 ];
 
 const ALLOWED_ROLES: Record<Section, readonly Role[]> = {
@@ -37,6 +39,7 @@ const ALLOWED_ROLES: Record<Section, readonly Role[]> = {
   // mismo único rol de back-office real que reportes.
   metricas: ['operador'],
   notificaciones: ['operador'],
+  prestadores: ['operador', 'asesor'],
 };
 
 export function allowedRoles(section: Section): readonly Role[] {

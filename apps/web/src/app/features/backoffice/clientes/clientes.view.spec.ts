@@ -186,4 +186,34 @@ describe('ClientesView', () => {
     expect(element('clientes-error')).toBeNull();
     expect(element('clientes-table')).not.toBeNull();
   });
+
+  it('gives the focus back to the deactivate button when the dialog is cancelled', () => {
+    const { fixture, host, element } = listado();
+    document.body.appendChild(host);
+    const desactivar = host.querySelector<HTMLButtonElement>('[data-testid^="desactivar-"]')!;
+    desactivar.focus();
+
+    desactivar.click();
+    fixture.detectChanges();
+    element('confirm-dialog-cancelar')!.click();
+    fixture.detectChanges();
+
+    expect(document.activeElement).toBe(desactivar);
+    host.remove();
+  });
+
+  it('names the pagination and flags the create form fields', () => {
+    const { fixture, host, element } = listado();
+    expect(host.querySelector('nav.paginacion')?.getAttribute('aria-label')).toBe('Paginación');
+
+    element('clientes-new')!.click();
+    fixture.detectChanges();
+
+    expect(element('clientes-email')?.getAttribute('type')).toBe('email');
+    expect(element('clientes-email')?.getAttribute('autocomplete')).toBe('email');
+    expect(element('clientes-password')?.getAttribute('autocomplete')).toBe('new-password');
+    for (const campo of ['nombre', 'apellidos', 'email', 'tipo-documento', 'documento', 'password']) {
+      expect(element(`clientes-${campo}`)?.getAttribute('aria-required')).toBe('true');
+    }
+  });
 });

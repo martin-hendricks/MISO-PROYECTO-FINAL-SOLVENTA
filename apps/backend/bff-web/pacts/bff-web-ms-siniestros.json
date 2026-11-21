@@ -1,0 +1,458 @@
+{
+  "consumer": {
+    "name": "bff-web"
+  },
+  "interactions": [
+    {
+      "description": "las ciudades de Colombia con prestadores activos para el cliente web",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "hay prestadores sembrados en cuatro países"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/prestadores/ciudades",
+        "query": {
+          "con_prestadores": [
+            "true"
+          ],
+          "pais": [
+            "CO"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "ciudades": [
+              {
+                "lat": "4.609700",
+                "lng": "-74.081700",
+                "nombre": "Bogotá",
+                "prestadores": 30,
+                "zoom": 12
+              }
+            ],
+            "pais": "CO"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.ciudades": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.ciudades[*].lat": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.ciudades[*].lng": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.ciudades[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.ciudades[*].prestadores": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.ciudades[*].zoom": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "los prestadores del área visible de Chapinero para el cliente web",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "hay prestadores sembrados en cuatro países"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/prestadores",
+        "query": {
+          "este": [
+            "-74.05"
+          ],
+          "limite": [
+            "500"
+          ],
+          "norte": [
+            "4.66"
+          ],
+          "oeste": [
+            "-74.08"
+          ],
+          "sur": [
+            "4.62"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "centro": null,
+            "prestadores": [
+              {
+                "barrio": "Chapinero",
+                "ciudad": "Bogotá",
+                "direccion": "Cra 13 # 54-20",
+                "horario": "Lun–Sáb 7:00–19:00",
+                "id": "PRE-BOG-06",
+                "lat": "4.635500",
+                "lng": "-74.065500",
+                "nombre": "Taller Moto Chapinero",
+                "pais": "CO",
+                "ramos": [
+                  "soat-motocicleta"
+                ],
+                "telefono": "601 555 0112",
+                "tipo": "taller-motos"
+              }
+            ],
+            "radio_km": null,
+            "truncado": false
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.prestadores": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].barrio": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].ciudad": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].direccion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].horario": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].lat": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prestadores[*].lng": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prestadores[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].pais": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{2}$"
+                }
+              ]
+            },
+            "$.prestadores[*].ramos": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].telefono": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.prestadores[*].tipo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.truncado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "todas las ciudades de México para el operador",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "hay prestadores sembrados en cuatro países"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/prestadores/ciudades",
+        "query": {
+          "con_prestadores": [
+            "false"
+          ],
+          "pais": [
+            "MX"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "ciudades": [
+              {
+                "lat": "4.609700",
+                "lng": "-74.081700",
+                "nombre": "Ciudad de México",
+                "prestadores": 30,
+                "zoom": 12
+              }
+            ],
+            "pais": "MX"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.ciudades": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.ciudades[*].lat": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.ciudades[*].lng": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.ciudades[*].nombre": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.ciudades[*].prestadores": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.ciudades[*].zoom": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "un área visible web con el sur por encima del norte",
+      "pending": false,
+      "request": {
+        "method": "GET",
+        "path": "/v1/prestadores",
+        "query": {
+          "este": [
+            "-74.05"
+          ],
+          "limite": [
+            "500"
+          ],
+          "norte": [
+            "4.6"
+          ],
+          "oeste": [
+            "-74.08"
+          ],
+          "sur": [
+            "4.7"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "codigo": "area_invalida",
+            "mensaje": "El área visible no es válida."
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.mensaje": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "ms-siniestros"
+  }
+}

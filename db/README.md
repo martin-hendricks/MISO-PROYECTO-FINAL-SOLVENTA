@@ -21,9 +21,13 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 | `11_analitica.sql` | `analitica` | `evento_analitico` |
 | `12_notificaciones.sql` | `notificaciones` | `notificacion`, `difusion`, `evento_consumido` (las dos últimas viven en `apps/backend/notificaciones/db/02_push_fcm.sql`) |
 | `05_estado_outbox.sql` (en `apps/backend/ms-identidad/db/`) | `ms_identidad` | `outbox_evento` |
+| `07_ms_identidad_socios.sql` (en `apps/backend/ms-identidad/db/`) | `ms_identidad` | `socio`, `credencial_socio` |
+| `08_ms_identidad_socio_default.sql` (en `apps/backend/ms-identidad/db/`) | `ms_identidad` | datos: socio por defecto `Aliado local` y su credencial |
 | `13_ms_siniestros_parametrico.sql` | `ms_siniestros` (extensión) | `siniestro`, `siniestro_transicion`, `evento_parametrico`, `evaluacion_umbral`, `pago_parametrico`, `outbox_evento`* |
 | `14_ms_siniestros_aviso_asistido.sql` | `ms_siniestros` (extensión) | columnas del aviso asistido en `siniestro`, `parametro_ramo`, `siniestro_adjunto`, `siniestro_decision`, `pago_siniestro`, `pago_siniestro_intento` |
 | `15_ms_siniestros_billetera.sql` | `ms_siniestros` (extensión) | `pago_parametrico.comprobante` |
+| `16_ms_siniestros_prestadores.sql` | `ms_siniestros` (extensión) | `prestador`, `prestador_ramo` |
+| `17_ms_siniestros_prestadores_paises.sql` | `ms_siniestros` (extensión) | `ciudad_prestador`, `prestador.pais` y semilla de México, Chile y Perú |
 
 \* Tabla técnica (patrón *transactional outbox*), no es entidad del dominio de VC-004.
 
@@ -36,7 +40,7 @@ Un archivo por schema; cada schema es el almacén propio de un microservicio y c
 - **FK marcadas `(ref)` en el diagrama (cruzan microservicios):** FK **lógica**: columna `UUID` + índice + `COMMENT` que indica el destino, **sin constraint**. Respeta "un almacén por servicio" (§1.1.4.4); la integridad se garantiza por eventos/validación en el servicio dueño.
 - **Referencias opcionales** (`pago.prima_id`, `pago.reclamacion_id`, `evento_parametrico.reclamacion_id`) son nullable, con índice parcial. En `pago` exactamente una de las dos debe venir informada.
 - **Unicidad** donde el dominio lo exige: documento y email de usuario (email sin distinguir mayúsculas), número de póliza, `idempotency_key` de transacción y `evento_externo_id` paramétrico (procesamiento exactamente una vez, EC-ESC-03).
-- **Consentimiento:** `solicitud_cotizacion` y `fuente_dato_consultada` guardan el `consentimiento_id` que autorizó la consulta (`ConsentimientoToken` de `solicitudDTO`, VC-007).
+- **Consentimiento:** `solicitud_cotizacion` y `fuente_dato_consultada` guardan el `consentimiento_id` que autorizó la consulta (`ConsentimientoToken` de `solicitudDTO`, VC-007). En `solicitud_cotizacion` puede ser nulo: una cotización embebida del socio puede crearse antes de que el cliente otorgue el consentimiento, que se exige al aceptar.
 
 ## Eventos e idempotencia
 

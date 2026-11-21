@@ -5,11 +5,13 @@ Feature: Customer wallet
     Given the customer has two deposits
     When the customer opens the wallet
     Then the wallet shows both deposits and the total
+    And the current page has no accessibility violations
 
   Scenario: Empty wallet
     Given the customer has no deposits
     When the customer opens the wallet
     Then the wallet explains that a deposit appears when Solventa pays
+    And the current page has no accessibility violations
 
   Scenario: Wallet error and retry
     Given the wallet read fails

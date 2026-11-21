@@ -91,4 +91,17 @@ describe('ConsentimientoPerfilView', () => {
     expect(q('perfil-consentimiento-error')?.getAttribute('role')).toBe('alert');
     expect(q('perfil-consentimiento-auditoria')?.textContent).toContain('Otorgado');
   });
+
+  it('gives the focus back to the open button when the dialog is cancelled', () => {
+    const { fixture, q, click } = render();
+    document.body.appendChild(fixture.nativeElement);
+    const abrir = q('perfil-consentimiento-open') as HTMLButtonElement;
+    abrir.focus();
+
+    click('perfil-consentimiento-open');
+    click('confirm-dialog-cancelar');
+
+    expect(document.activeElement).toBe(abrir);
+    (fixture.nativeElement as HTMLElement).remove();
+  });
 });

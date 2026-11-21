@@ -1,4 +1,6 @@
+import hashlib
 from collections.abc import Callable
+from uuid import UUID
 
 import httpx
 import pytest
@@ -8,8 +10,14 @@ from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.config import Settings
-from app.dependencies import obtener_cliente_cotizacion, obtener_cliente_identidad, obtener_cliente_perfilamiento
+from app.dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_cotizaciones,
+    obtener_cliente_identidad,
+    obtener_cliente_perfilamiento,
+)
 from app.main import crear_app
+from app.seguridad import Socio
 
 PRODUCTO = {
     "producto": "soat-motocicleta",
@@ -73,19 +81,48 @@ def perfilamiento() -> ServicioSimulado:
 
 
 API_KEY_SOCIO = "clave-test-socio"
-SOCIO_ID = "socio-test"
+API_KEY_SOLO_CATALOGO = "clave-test-solo-catalogo"
+SOCIO_ID = "6f1c2a4e-0000-4000-8000-000000000001"
 CABECERA_API_KEY_SOCIO = {"X-Socio-Api-Key": API_KEY_SOCIO}
+CABECERA_SOLO_CATALOGO = {"X-Socio-Api-Key": API_KEY_SOLO_CATALOGO}
+
+REGISTRO_SOCIOS = {
+    hashlib.sha256(API_KEY_SOCIO.encode()).hexdigest(): Socio(
+        socio_id=UUID(SOCIO_ID),
+        nombre="Socio test",
+        alcances=frozenset({"catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"}),
+    ),
+    hashlib.sha256(API_KEY_SOLO_CATALOGO.encode()).hexdigest(): Socio(
+        socio_id=UUID("6f1c2a4e-0000-4000-8000-000000000002"),
+        nombre="Socio solo catalogo",
+        alcances=frozenset({"catalogo:leer"}),
+    ),
+}
+
+
+class RegistroSociosEnMemoria:
+    def __init__(self, socios: dict[str, Socio]) -> None:
+        self.socios = socios
+        self.consultas: list[str] = []
+
+    async def resolver(self, huella_sha256: str) -> Socio | None:
+        self.consultas.append(huella_sha256)
+        return self.socios.get(huella_sha256)
 
 
 @pytest.fixture
 def app(nucleo, identidad, perfilamiento):
-    app = crear_app(Settings(socios_api_keys=f"{SOCIO_ID}:{API_KEY_SOCIO}"))
+    app = crear_app(Settings())
+    app.state.registro_socios = RegistroSociosEnMemoria(REGISTRO_SOCIOS)
     http = httpx.AsyncClient(transport=httpx.MockTransport(nucleo), base_url="http://ms-cotizacion")
     http_identidad = httpx.AsyncClient(transport=httpx.MockTransport(identidad), base_url="http://ms-identidad")
     http_perfilamiento = httpx.AsyncClient(
         transport=httpx.MockTransport(perfilamiento), base_url="http://ms-perfilamiento"
     )
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http, "corr-test")
+    app.dependency_overrides[obtener_cliente_cotizaciones] = lambda: ClienteMsCotizacion(
+        http, "corr-test", "token-de-socio"
+    )
     app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(
         http_identidad, "corr-test", "token-de-socio"
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -95,3 +95,40 @@ class OriginacionVista(ModeloVista):
     estado: Literal["pendiente"] = "pendiente"
     valor: int
     plazo_meses: int
+
+
+class CotizacionEntrada(ModeloVista):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+    tipo_documento: str = Field(min_length=1, max_length=10)
+    numero_documento: str = Field(min_length=1, max_length=50)
+    producto: str = Field(min_length=1, max_length=80)
+    datos_riesgo: dict[str, Any]
+
+
+class CotizacionVista(ModeloVista):
+    cotizacion_id: str
+    estado: str
+    producto: str
+    prima: str
+    prima_neta: str
+    gastos_expedicion: str
+    moneda: str
+    vence_en: str
+    vencida: bool = False
+    consentimiento_pendiente: bool | None = None
+
+    @classmethod
+    def desde_nucleo(cls, datos: dict[str, Any], consentimiento_pendiente: bool | None = None) -> "CotizacionVista":
+        return cls(
+            cotizacion_id=str(datos["cotizacion_id"]),
+            estado=str(datos["estado"]),
+            producto=str(datos["producto"]),
+            prima=str(datos["prima"]),
+            prima_neta=str(datos["prima_neta"]),
+            gastos_expedicion=str(datos["gastos_expedicion"]),
+            moneda=str(datos["moneda"]),
+            vence_en=str(datos["vence_en"]),
+            vencida=bool(datos.get("vencida", False)),
+            consentimiento_pendiente=consentimiento_pendiente,
+        )

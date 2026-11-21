@@ -1,3 +1,6 @@
+<a class="skip-link" href="#contenido-principal" data-testid="skip-link" (click)="saltarAlContenido($event)">{{
+  'shell.skip' | translate
+}}</a>
 <header class="top-nav">
   <button
     type="button"
@@ -5,6 +8,7 @@
     data-testid="nav-menu-toggle"
     [attr.aria-label]="(menuOpen() ? 'shell.nav.close' : 'shell.nav.open') | translate"
     [attr.aria-expanded]="menuOpen()"
+    aria-controls="nav-overlay"
     (click)="toggleMenu()"
   >
     <span aria-hidden="true">☰</span>
@@ -54,12 +58,24 @@
     <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
       {{ 'shell.signOut' | translate }}
     </button>
-    <span class="avatar" data-testid="avatar" [attr.title]="nombreCompleto()">{{ iniciales() }}</span>
+    <span
+      class="avatar"
+      data-testid="avatar"
+      [attr.title]="nombreCompleto()"
+      [attr.role]="nombreCompleto() ? 'img' : null"
+      [attr.aria-label]="nombreCompleto() || null"
+      >{{ iniciales() }}</span>
   </div>
 </header>
 
 @if (menuOpen()) {
-  <div class="nav-overlay" data-testid="nav-menu-overlay">
+  <div
+    id="nav-overlay"
+    class="nav-overlay"
+    data-testid="nav-menu-overlay"
+    cdkTrapFocus
+    cdkTrapFocusAutoCapture
+  >
     <div class="nav-overlay-head">
       <p class="brand">{{ 'shell.portal' | translate }}</p>
       <button
@@ -112,6 +128,6 @@
   </div>
 }
 
-<main>
+<main id="contenido-principal" tabindex="-1" data-testid="contenido-principal">
   <router-outlet />
 </main>

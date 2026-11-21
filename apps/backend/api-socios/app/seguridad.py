@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader
+
+from app.config import Alcance
 
 NOMBRE_CABECERA = "X-Socio-Api-Key"
 _api_key_header = APIKeyHeader(name=NOMBRE_CABECERA, auto_error=False)
@@ -12,28 +17,30 @@ _api_key_header = APIKeyHeader(name=NOMBRE_CABECERA, auto_error=False)
 
 @dataclass(frozen=True)
 class Socio:
-    socio_id: str
+    socio_id: UUID
+    nombre: str
+    alcances: frozenset[str]
 
 
-def _mapa_api_keys(request: Request) -> dict[str, str]:
-    """api_key -> socio_id, construido desde `Settings.socios_api_keys`."""
-    return request.app.state.config.mapa_socios_api_keys()
-
-
-def exigir_api_key_socio(
+async def exigir_api_key_socio(
     request: Request,
     api_key: Annotated[str | None, Depends(_api_key_header)],
 ) -> Socio:
-    """Cada socio externo (empresa aliada que integra cotización embebida) se
-    identifica con una API key estática propia, enviada en `X-Socio-Api-Key`.
-    No es un JWT de sesión: no hay un flujo de login para un socio externo,
-    es autenticación servicio-a-servicio con una credencial fija por socio."""
     if not api_key:
         raise HTTPException(status_code=401, detail="API key de socio requerida")
-    socio_id = _mapa_api_keys(request).get(api_key)
-    if socio_id is None:
+    socio = await request.app.state.registro_socios.resolver(hashlib.sha256(api_key.encode()).hexdigest())
+    if socio is None:
         raise HTTPException(status_code=401, detail="API key de socio invalida")
-    return Socio(socio_id=socio_id)
+    return socio
 
 
 SocioDep = Annotated[Socio, Depends(exigir_api_key_socio)]
+
+
+def exigir_alcance(alcance: Alcance) -> Callable[[Socio], Socio]:
+    def verificar(socio: SocioDep) -> Socio:
+        if alcance not in socio.alcances:
+            raise HTTPException(status_code=403, detail="El socio no tiene el alcance requerido")
+        return socio
+
+    return verificar

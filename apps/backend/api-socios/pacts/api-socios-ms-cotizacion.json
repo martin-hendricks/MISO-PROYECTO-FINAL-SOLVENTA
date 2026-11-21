@@ -4,6 +4,186 @@
   },
   "interactions": [
     {
+      "description": "la reconsulta de una cotización de otro socio",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una cotización de otro socio",
+          "params": {
+            "cotizacion_id": "7a2d3c0f-9e5b-4a8c-8d4f-2b3c4d5e6f70",
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        }
+      ],
+      "request": {
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhcGktc29jaW9zIiwidWlkIjoiNGZhODVmNjQtNTcxNy00NTYyLWIzZmMtMmM5NjNmNjZhZmE2Iiwicm9sIjoic29jaW8iLCJ0eXAiOiJhY2Nlc3MiLCJleHAiOjE3NjcyMjU5MDB9.77UAVjv3QzxQ5Ym1cdmx535Mn09lTMDqoCXTlXZHvg4"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/v1/cotizaciones/7a2d3c0f-9e5b-4a8c-8d4f-2b3c4d5e6f70"
+      },
+      "response": {
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "la reconsulta de una cotización del socio",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "existe una cotización vigente del socio",
+          "params": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        }
+      ],
+      "request": {
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhcGktc29jaW9zIiwidWlkIjoiNGZhODVmNjQtNTcxNy00NTYyLWIzZmMtMmM5NjNmNjZhZmE2Iiwicm9sIjoic29jaW8iLCJ0eXAiOiJhY2Nlc3MiLCJleHAiOjE3NjcyMjU5MDB9.77UAVjv3QzxQ5Ym1cdmx535Mn09lTMDqoCXTlXZHvg4"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/v1/cotizaciones/6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "estado": "cotizada",
+            "gastos_expedicion": "8000.00",
+            "moneda": "COP",
+            "prima": "140500.00",
+            "prima_neta": "132500.00",
+            "producto": "soat-motocicleta",
+            "vence_en": "2026-10-30T13:00:00Z",
+            "vencida": false
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.gastos_expedicion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prima_neta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.vence_en": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+                }
+              ]
+            },
+            "$.vencida": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "boolean"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
       "description": "una consulta de soat-motocicleta",
       "pending": false,
       "request": {
@@ -411,6 +591,375 @@
           }
         },
         "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una cotización del socio con consentimiento vigente",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "un socio autenticado",
+          "params": {
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "canal": "socio",
+            "consentimiento_id": "2d8b5e3a-4f6c-4d9e-8f1a-2b3c4d5e6f7a",
+            "datos_riesgo": {
+              "cilindraje_cc": 150,
+              "ciudad_circulacion": "bogota",
+              "modelo_anio": 2022
+            },
+            "producto": "soat-motocicleta",
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "usuario_id": "0b6f3c1e-2d4a-4b7c-8d9e-0f1a2b3c4d5e"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhcGktc29jaW9zIiwidWlkIjoiNGZhODVmNjQtNTcxNy00NTYyLWIzZmMtMmM5NjNmNjZhZmE2Iiwicm9sIjoic29jaW8iLCJ0eXAiOiJhY2Nlc3MiLCJleHAiOjE3NjcyMjU5MDB9.77UAVjv3QzxQ5Ym1cdmx535Mn09lTMDqoCXTlXZHvg4"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "4fa85f64-5717-4562-b3fc-2c963f66afa6:clave-socio-0001"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.consentimiento_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usuario_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "estado": "cotizada",
+            "gastos_expedicion": "8000.00",
+            "moneda": "COP",
+            "prima": "140500.00",
+            "prima_neta": "132500.00",
+            "producto": "soat-motocicleta",
+            "vence_en": "2026-10-30T13:00:00Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.gastos_expedicion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prima_neta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.vence_en": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "una cotización del socio sin consentimiento",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "un socio autenticado",
+          "params": {
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "canal": "socio",
+            "consentimiento_id": null,
+            "datos_riesgo": {
+              "cilindraje_cc": 150,
+              "ciudad_circulacion": "bogota",
+              "modelo_anio": 2022
+            },
+            "producto": "soat-motocicleta",
+            "socio_id": "4fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "usuario_id": "0b6f3c1e-2d4a-4b7c-8d9e-0f1a2b3c4d5e"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhcGktc29jaW9zIiwidWlkIjoiNGZhODVmNjQtNTcxNy00NTYyLWIzZmMtMmM5NjNmNjZhZmE2Iiwicm9sIjoic29jaW8iLCJ0eXAiOiJhY2Nlc3MiLCJleHAiOjE3NjcyMjU5MDB9.77UAVjv3QzxQ5Ym1cdmx535Mn09lTMDqoCXTlXZHvg4"
+          ],
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "4fa85f64-5717-4562-b3fc-2c963f66afa6:clave-socio-0002"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.datos_riesgo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.usuario_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/cotizaciones"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "cotizacion_id": "6f1c2b9e-8d4a-4f7b-9c3e-1a2b3c4d5e6f",
+            "estado": "cotizada",
+            "gastos_expedicion": "8000.00",
+            "moneda": "COP",
+            "prima": "140500.00",
+            "prima_neta": "132500.00",
+            "producto": "soat-motocicleta",
+            "vence_en": "2026-10-30T13:00:00Z"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.cotizacion_id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.gastos_expedicion": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.moneda": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^[A-Z]{3}$"
+                }
+              ]
+            },
+            "$.prima": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.prima_neta": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^-?\\d+(\\.\\d+)?$"
+                }
+              ]
+            },
+            "$.producto": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.vence_en": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
       },
       "type": "Synchronous/HTTP"
     }

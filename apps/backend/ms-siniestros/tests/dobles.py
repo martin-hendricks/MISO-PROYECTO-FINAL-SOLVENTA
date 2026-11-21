@@ -1,7 +1,28 @@
+import math
 from copy import deepcopy
 from decimal import Decimal
 from itertools import count
 from uuid import UUID
+
+from app.domain.prestador import CiudadPrestador, Prestador, PrestadorCercano
+
+CIUDADES_SEMILLA = tuple(
+    CiudadPrestador(pais, nombre, Decimal(lat), Decimal(lng), zoom, orden)
+    for pais, orden, nombre, lat, lng, zoom in (
+        ("CO", 1, "Bogotá", "4.6097", "-74.0817", 12),
+        ("CO", 2, "Medellín", "6.2442", "-75.5812", 13),
+        ("CO", 3, "Chía", "4.8619", "-74.0597", 13),
+        ("MX", 1, "Ciudad de México", "19.4326", "-99.1332", 11),
+        ("MX", 2, "Guadalajara", "20.6597", "-103.3496", 13),
+        ("MX", 3, "Monterrey", "25.6866", "-100.3161", 13),
+        ("CL", 1, "Santiago", "-33.4489", "-70.6693", 11),
+        ("CL", 2, "Valparaíso", "-33.0472", "-71.6127", 13),
+        ("CL", 3, "Concepción", "-36.8270", "-73.0503", 13),
+        ("PE", 1, "Lima", "-12.0464", "-77.0428", 11),
+        ("PE", 2, "Arequipa", "-16.4090", "-71.5375", 13),
+        ("PE", 3, "Trujillo", "-8.1116", "-79.0288", 13),
+    )
+)
 
 from app.domain.aviso import Adjunto, Decision, IntentoPago, PagoSiniestro, ParametroRamo
 from app.domain.modelos import (
@@ -37,6 +58,8 @@ class AlmacenEnMemoria:
             )
         }
         self.secuencia_numero = count(1001)
+        self.prestadores: dict[str, Prestador] = {}
+        self.ciudades: list[CiudadPrestador] = list(CIUDADES_SEMILLA)
         self.chocar_evento_en_proximo_commit: str | None = None
         self.chocar_pago_en_proximo_commit: str | None = None
 
@@ -268,6 +291,98 @@ class _Outbox:
         self._uow.eventos_dominio_pendientes.append(evento)
 
 
+def _km(lat1, lng1, lat2, lng2) -> float:
+    radio = 6371.0
+    p1, p2 = math.radians(float(lat1)), math.radians(float(lat2))
+    dphi = math.radians(float(lat2) - float(lat1))
+    dlmb = math.radians(float(lng2) - float(lng1))
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * radio * math.asin(math.sqrt(a))
+
+
+class _RepoPrestadores:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    def _vista(self) -> dict[str, Prestador]:
+        return {**self._uow.almacen.prestadores, **self._uow.prestadores_pendientes}
+
+    def _filtra(self, prestador: Prestador, ramo, estados) -> bool:
+        return prestador.estado in estados and (ramo is None or ramo in prestador.ramos)
+
+    async def cercanos(self, lat, lng, radio_km, ramo, estados, limite, ciudad=None, pais=None):
+        filas = []
+        for prestador in self._vista().values():
+            if not self._filtra(prestador, ramo, estados):
+                continue
+            if ciudad is not None and prestador.ciudad != ciudad:
+                continue
+            if pais is not None and prestador.pais != pais:
+                continue
+            distancia = _km(lat, lng, prestador.lat, prestador.lng)
+            if distancia <= float(radio_km):
+                filas.append(PrestadorCercano(deepcopy(prestador), distancia))
+        filas.sort(key=lambda fila: (fila.distancia_km, fila.prestador.nombre))
+        return filas[:limite]
+
+    async def por_ciudad(self, pais, ciudad, ramo, estados, limite):
+        filas = [
+            PrestadorCercano(deepcopy(p), None)
+            for p in self._vista().values()
+            if p.pais == pais and p.ciudad == ciudad and self._filtra(p, ramo, estados)
+        ]
+        filas.sort(key=lambda fila: fila.prestador.nombre)
+        return filas[:limite]
+
+    async def en_area(self, area, ramo, estados, limite, origen):
+        filas = [
+            PrestadorCercano(deepcopy(p), None if origen is None else _km(origen[0], origen[1], p.lat, p.lng))
+            for p in self._vista().values()
+            if self._filtra(p, ramo, estados) and area.sur <= p.lat <= area.norte and area.oeste <= p.lng <= area.este
+        ]
+        if origen is None:
+            filas.sort(key=lambda fila: fila.prestador.nombre)
+        else:
+            filas.sort(key=lambda fila: (fila.distancia_km, fila.prestador.nombre))
+        return filas[:limite]
+
+    async def listar(self, ramo, pais, ciudad, estados):
+        filas = [
+            deepcopy(p)
+            for p in self._vista().values()
+            if self._filtra(p, ramo, estados) and p.pais == pais and (ciudad is None or p.ciudad == ciudad)
+        ]
+        return sorted(filas, key=lambda p: (p.ciudad, p.nombre))
+
+    async def conteos_por_ciudad(self, pais):
+        return {ciudad.nombre: total for ciudad, total in await self.ciudades(pais, solo_activos=False)}
+
+    async def ciudades(self, pais, solo_activos):
+        catalogo = sorted((c for c in self._uow.almacen.ciudades if c.pais == pais), key=lambda c: c.orden)
+        estados = ("activo",) if solo_activos else ("activo", "inactivo")
+        return [
+            (
+                ciudad,
+                sum(
+                    1
+                    for p in self._vista().values()
+                    if p.pais == pais and p.ciudad == ciudad.nombre and p.estado in estados
+                ),
+            )
+            for ciudad in catalogo
+        ]
+
+    async def ciudad(self, pais, nombre):
+        return next((c for c in self._uow.almacen.ciudades if c.pais == pais and c.nombre == nombre), None)
+
+    async def obtener(self, prestador_id):
+        prestador = self._vista().get(prestador_id)
+        return deepcopy(prestador) if prestador else None
+
+    async def guardar(self, prestador: Prestador) -> None:
+        self._uow.prestadores_pendientes[prestador.id] = deepcopy(prestador)
+
+
 class UnidadDeTrabajoEnMemoria:
     """Doble en memoria del Protocol UnidadDeTrabajo, igual patrón que ms-arquetipo:
     permite probar el núcleo (dominio + casos de uso) sin PostgreSQL ni red, incluyendo
@@ -284,7 +399,9 @@ class UnidadDeTrabajoEnMemoria:
         self.decisiones_pendientes: list[Decision] = []
         self.pagos_siniestro_pendientes: dict[UUID, PagoSiniestro] = {}
         self.intentos_pendientes: list[IntentoPago] = []
+        self.prestadores_pendientes: dict[str, Prestador] = {}
         self.siniestros = _RepoSiniestros(self)
+        self.prestadores = _RepoPrestadores(self)
         self.adjuntos = _RepoAdjuntos(self)
         self.decisiones = _RepoDecisiones(self)
         self.pagos_siniestro = _RepoPagosSiniestro(self)
@@ -343,6 +460,7 @@ class UnidadDeTrabajoEnMemoria:
         self.almacen.decisiones.extend(self.decisiones_pendientes)
         self.almacen.pagos_siniestro.update(self.pagos_siniestro_pendientes)
         self.almacen.intentos_pago.extend(self.intentos_pendientes)
+        self.almacen.prestadores.update(self.prestadores_pendientes)
         self._limpiar_aviso()
 
         self.siniestros_pendientes.clear()
@@ -356,3 +474,4 @@ class UnidadDeTrabajoEnMemoria:
         self.decisiones_pendientes.clear()
         self.pagos_siniestro_pendientes.clear()
         self.intentos_pendientes.clear()
+        self.prestadores_pendientes.clear()

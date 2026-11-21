@@ -23,6 +23,9 @@ osmdroid = "6.1.20"
 firebaseBom = "35.1.0"
 googleServices = "4.5.0"
 camerax = "1.4.2"
+playServicesMaps = "19.0.0"
+mapsCompose = "6.4.1"
+mapsComposeUtils = "6.4.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +67,9 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+maps-compose-utils = { group = "com.google.maps.android", name = "maps-compose-utils", version.ref = "mapsComposeUtils" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

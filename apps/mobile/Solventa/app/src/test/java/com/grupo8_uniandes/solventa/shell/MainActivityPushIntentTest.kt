@@ -54,4 +54,23 @@ class MainActivityPushIntentTest {
         assertFalse(again.intent.hasExtra(MainActivity.EXTRA_PUSH_DESTINO))
         assertFalse(again.intent.hasExtra(MainActivity.EXTRA_PUSH_POLIZA))
     }
+
+    @Test
+    fun givenAConsentPushWhileSignedOut_whenRecreated_thenTheConsentTargetSurvives() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_SIGNED_OUT, true)
+            putExtra(MainActivity.EXTRA_PUSH_DESTINO, "consentimiento")
+        }
+        val controller = Robolectric.buildActivity(MainActivity::class.java, intent).setup()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(PushTarget.Consentimiento, controller.get().deliveredPush)
+        assertEquals(PushTarget.Consentimiento, controller.get().pendingPush)
+        assertFalse(controller.get().intent.hasExtra(MainActivity.EXTRA_PUSH_DESTINO))
+
+        val rotated = controller.recreate()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(PushTarget.Consentimiento, rotated.get().pendingPush)
+    }
 }

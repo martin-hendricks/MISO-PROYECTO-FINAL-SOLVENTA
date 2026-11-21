@@ -116,7 +116,7 @@
                         type="button"
                         class="text"
                         [attr.data-testid]="'desactivar-' + cliente.usuarioId"
-                        (click)="vm.pedirDesactivar(cliente.usuarioId)"
+                        (click)="pedirDesactivar(cliente.usuarioId)"
                       >
                         {{ 'backoffice.clientes.deactivate' | translate }}
                       </button>
@@ -137,7 +137,7 @@
           </tbody>
         </table>
 
-        <div class="paginacion">
+        <nav class="paginacion" [attr.aria-label]="'backoffice.clientes.page.label' | translate">
           <button
             type="button"
             class="outlined"
@@ -157,7 +157,7 @@
           >
             {{ 'backoffice.clientes.page.next' | translate }}
           </button>
-        </div>
+        </nav>
       }
     }
 
@@ -173,6 +173,7 @@
           {{ 'backoffice.clientes.form.nombre' | translate }}
           <input
             data-testid="clientes-nombre"
+            aria-required="true"
             [value]="vm.borrador().nombre"
             (input)="vm.editarCampo('nombre', $any($event.target).value)"
           />
@@ -181,6 +182,7 @@
           {{ 'backoffice.clientes.form.apellidos' | translate }}
           <input
             data-testid="clientes-apellidos"
+            aria-required="true"
             [value]="vm.borrador().apellidos"
             (input)="vm.editarCampo('apellidos', $any($event.target).value)"
           />
@@ -189,6 +191,9 @@
           {{ 'backoffice.clientes.form.email' | translate }}
           <input
             data-testid="clientes-email"
+            type="email"
+            autocomplete="email"
+            aria-required="true"
             [value]="vm.borrador().email"
             (input)="vm.editarCampo('email', $any($event.target).value)"
           />
@@ -198,6 +203,7 @@
             {{ 'backoffice.clientes.form.tipoDocumento' | translate }}
             <input
               data-testid="clientes-tipo-documento"
+              aria-required="true"
               [value]="vm.borrador().tipoDocumento"
               (input)="vm.editarCampo('tipoDocumento', $any($event.target).value)"
             />
@@ -206,6 +212,7 @@
             {{ 'backoffice.clientes.form.documento' | translate }}
             <input
               data-testid="clientes-documento"
+              aria-required="true"
               [value]="vm.borrador().documento"
               (input)="vm.editarCampo('documento', $any($event.target).value)"
             />
@@ -214,7 +221,9 @@
             {{ 'backoffice.clientes.form.password' | translate }}
             <input
               type="password"
+              autocomplete="new-password"
               data-testid="clientes-password"
+              aria-required="true"
               [value]="vm.borrador().password"
               (input)="vm.editarCampo('password', $any($event.target).value)"
             />
@@ -241,7 +250,7 @@
       <sv-confirm-dialog
         [titulo]="'backoffice.clientes.deactivateTitle' | translate"
         [advertencia]="'backoffice.clientes.deactivateWarning' | translate"
-        (cancelar)="vm.cancelarConfirmacion()"
+        (cancelar)="cancelarDesactivar()"
         (confirmar)="vm.confirmarDesactivacion()"
       />
     }

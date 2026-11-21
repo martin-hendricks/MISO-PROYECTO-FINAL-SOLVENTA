@@ -350,7 +350,6 @@ services:
       MS_IDENTIDAD_URL: http://ms-identidad:8080
       MS_PERFILAMIENTO_URL: http://ms-perfilamiento:8080
       SOLVENTA_TOKEN_SECRET: clave-local-de-pruebas-no-usar-en-produccion
-      SOCIOS_API_KEYS: aliado-local:clave-local-de-pruebas-no-usar-en-produccion
     ports:
       - "8006:8080"
     depends_on:

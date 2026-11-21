@@ -29,3 +29,11 @@ pytest -m contract
 
 Después, `pytest -m contract` en `ms-cotizacion` verifica el pacto contra la app real. En CI ambos corren en el workflow `backend-contract-tests.yml`.
 
+`tests/contract/test_contrato_ms_siniestros_prestadores.py` declara las ciudades del país (cliente y operador), el área visible del mapa y el 422 `area_invalida`, y genera `pacts/bff-web-ms-siniestros.json`.
+
+## Mapa de prestadores
+
+- `GET /v1/cliente/prestadores/ciudades?pais=` y `GET /v1/operador/prestadores/ciudades?pais=` reenvían `con_prestadores=true` y `false`. El cliente solo ve ciudades con prestadores activos.
+- `GET /v1/cliente/prestadores` y `GET /v1/cliente/siniestros/{id}/prestadores` aceptan `norte, sur, este, oeste`. Con área se pide `limite=500` al núcleo y no se manda `radioKm`; `lat`/`lng` solo fijan el origen de la distancia. La respuesta trae `truncado` y cada fila su `pais`.
+- `GET /v1/operador/prestadores` acepta `pais`. Los 422 del núcleo (`pais_desconocido`, `ciudad_desconocida`, `area_invalida`, `limite_invalido`) pasan como `{codigo, mensaje}`.
+
