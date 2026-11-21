@@ -81,6 +81,7 @@ describe('SociosView', () => {
     fixture.detectChanges();
     expect((element('socios-save') as HTMLButtonElement).disabled).toBeTrue();
     const nombre = element('socios-nombre') as HTMLInputElement;
+    expect(nombre.getAttribute('aria-required')).toBe('true');
     nombre.value = 'Nuevo aliado';
     nombre.dispatchEvent(new Event('input'));
     (element('socios-alcance-catalogo:leer') as HTMLInputElement).click();
@@ -205,6 +206,8 @@ describe('SociosView', () => {
 
     expect(writeText).toHaveBeenCalledWith('sk_rotada_456');
     expect(element('socios-copiar')?.textContent).toContain('Copiada');
+    expect(element('socios-copiado')?.getAttribute('role')).toBe('status');
+    expect(element('socios-copiado')?.textContent?.trim()).toBe('Copiada');
   });
 
   it('keeps the copy label when the clipboard refuses', async () => {
@@ -219,6 +222,7 @@ describe('SociosView', () => {
     fixture.detectChanges();
 
     expect(element('socios-copiar')?.textContent).toContain('Copiar');
+    expect(element('socios-copiado')?.textContent?.trim()).toBe('');
   });
 
   it('does nothing when there is no clipboard', async () => {

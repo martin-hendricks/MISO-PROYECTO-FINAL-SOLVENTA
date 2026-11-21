@@ -20,6 +20,9 @@
         <p class="advertencia">{{ 'backoffice.socios.clave.warning' | translate }}</p>
         <code class="mono" data-testid="socios-clave-valor">{{ clave.apiKey }}</code>
         <div class="acciones">
+          <span class="visually-hidden" role="status" data-testid="socios-copiado">{{
+            copiado() ? ('backoffice.socios.clave.copied' | translate) : ''
+          }}</span>
           <button
             type="button"
             class="outlined"
@@ -54,6 +57,7 @@
           {{ 'backoffice.socios.form.nombre' | translate }}
           <input
             data-testid="socios-nombre"
+            aria-required="true"
             [attr.maxlength]="nombreMaximo"
             [value]="vm.nombre()"
             (input)="vm.editarNombre($any($event.target).value)"
