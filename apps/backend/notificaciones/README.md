@@ -47,6 +47,11 @@ Cualquier rol autenticado (`cliente`, `asesor`, `operador`) opera solo sobre lo 
 Las notificaciones de póliza las crea el consumidor de MSK a través de `crear_notificacion`
 (idempotente por `(evento_origen_id, canal)`). Las difusiones las crea el operador por HTTP.
 
+`SolicitudCotizacionRecibida` genera un aviso solo cuando `canal` es `socio` y
+`consentimiento_pendiente` es verdadero: tipo `consentimiento_pendiente`, destino
+`consentimiento`, para que el cliente otorgue el consentimiento de perfil desde mobile. Las
+demás cotizaciones se ignoran.
+
 `PUSH_PROVEEDOR=stub` arranca solo si `MSK_BOOTSTRAP_BROKERS` está vacío. Con brokers, el
 proceso exige `PUSH_PROVEEDOR=fcm` y un `FCM_CREDENCIALES_JSON` válido (JSON con
 `project_id`). Sin eso, o con JSON inválido, el arranque falla.

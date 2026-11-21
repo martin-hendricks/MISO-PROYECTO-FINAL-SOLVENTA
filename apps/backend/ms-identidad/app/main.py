@@ -6,7 +6,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import rutas, rutas_clientes
+from app.api.v1 import rutas, rutas_clientes, rutas_socios
 from app.config import Settings
 from app.domain.errores import (
     Conflicto,
@@ -80,6 +80,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     instrumentar(app)
     app.include_router(rutas.router)
     app.include_router(rutas_clientes.router)
+    app.include_router(rutas_socios.router)
 
     @app.exception_handler(ErrorDominio)
     async def error_dominio(_: Request, exc: ErrorDominio):

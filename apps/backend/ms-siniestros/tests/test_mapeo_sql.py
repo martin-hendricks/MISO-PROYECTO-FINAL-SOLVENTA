@@ -33,6 +33,9 @@ def test_tablas_esperadas_estan_registradas():
         "siniestro_decision",
         "pago_siniestro",
         "pago_siniestro_intento",
+        "prestador",
+        "prestador_ramo",
+        "ciudad_prestador",
     }
 
 

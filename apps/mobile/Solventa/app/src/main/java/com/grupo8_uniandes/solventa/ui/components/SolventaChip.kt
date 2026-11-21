@@ -31,6 +31,7 @@ fun SolventaChip(
     testTag: String = "solventa_chip",
     labelStyle: TextStyle? = null,
     showSelectionIcon: Boolean = true,
+    enabled: Boolean = true,
 ) {
     if (!showSelectionIcon) {
         ChoiceChip(
@@ -40,12 +41,14 @@ fun SolventaChip(
             modifier = modifier,
             testTag = testTag,
             labelStyle = labelStyle,
+            enabled = enabled,
         )
         return
     }
     FilterChip(
         selected = selected,
         onClick = onClick,
+        enabled = enabled,
         label = {
             if (labelStyle == null) {
                 Text(label)
@@ -71,6 +74,7 @@ private fun ChoiceChip(
     modifier: Modifier,
     testTag: String,
     labelStyle: TextStyle?,
+    enabled: Boolean,
 ) {
     val shape = RoundedCornerShape(9999.dp)
     val container = if (selected) {
@@ -99,6 +103,7 @@ private fun ChoiceChip(
                 role = Role.Checkbox
                 this.selected = selected
             },
+        enabled = enabled,
         shape = shape,
         contentPadding = PaddingValues(horizontal = SolventaSpacing.s16, vertical = SolventaSpacing.s8),
         colors = ButtonDefaults.textButtonColors(

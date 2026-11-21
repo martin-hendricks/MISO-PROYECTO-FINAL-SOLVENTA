@@ -24,6 +24,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Solventa">
         <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
+        <meta-data
             android:name="firebase_messaging_installation_id_enabled"
             android:value="true" />
         <meta-data

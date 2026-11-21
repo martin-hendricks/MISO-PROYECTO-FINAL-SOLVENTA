@@ -13,3 +13,8 @@
 .page-head .filled {
   white-space: nowrap;
 }
+
+.page-head .acciones {
+  display: flex;
+  gap: 12px;
+}

@@ -14,11 +14,16 @@ import kotlinx.coroutines.launch
 data class ProfilingConsentUi(
     val consent: ProfilingConsent? = null,
     val sheetOpen: Boolean = false,
+    val grantSheetOpen: Boolean = false,
     val revoking: Boolean = false,
+    val granting: Boolean = false,
     val failed: Boolean = false,
 ) {
     val visible: Boolean
-        get() = consent is ProfilingConsent.Granted || consent is ProfilingConsent.Revoked
+        get() = consent != null
+
+    val grantable: Boolean
+        get() = consent is ProfilingConsent.None || consent is ProfilingConsent.Revoked
 }
 
 class ProfilingConsentViewModel(
@@ -53,6 +58,30 @@ class ProfilingConsentViewModel(
                     it.copy(consent = answer.value, sheetOpen = false, revoking = false)
                 } else {
                     it.copy(sheetOpen = false, revoking = false, failed = true)
+                }
+            }
+        }
+    }
+
+    fun openGrant() {
+        if (!_state.value.grantable) return
+        _state.update { it.copy(grantSheetOpen = true, failed = false) }
+    }
+
+    fun closeGrant() {
+        _state.update { it.copy(grantSheetOpen = false) }
+    }
+
+    fun grant() {
+        if (_state.value.granting || !_state.value.grantable) return
+        _state.update { it.copy(granting = true, failed = false) }
+        viewModelScope.launch {
+            val answer = repository.grant()
+            _state.update {
+                if (answer is StandInAnswer.Ready) {
+                    it.copy(consent = answer.value, granting = false, grantSheetOpen = false)
+                } else {
+                    it.copy(granting = false, grantSheetOpen = false, failed = true)
                 }
             }
         }

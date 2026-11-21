@@ -25,12 +25,14 @@ OFFER = {
     "moneda": "COP",
     "venceEn": "2026-10-01",
 }
+
 POLICY = {
     "numero": "POL-88219-CO",
     "ramo": "Protección de dispositivo",
     "estado": "vigente",
     "venceEn": "2027-03-12",
 }
+
 PAYMENT = {
     "siniestroId": "SIN-220",
     "poliza": "POL-11002-CO",
@@ -39,6 +41,7 @@ PAYMENT = {
     "moneda": "COP",
     "estado": "pagado",
 }
+
 QUE_HACER = "Toma la foto del daño y anota fecha y lugar."
 CANAL = "movil"
 SCORE = "0.5000"
@@ -822,6 +825,14 @@ def consentimiento_perfil(request: Request, usuario: dict = Depends(require_cust
     return {"estado": "vigente", "otorgadoEn": _exigir(vigente, "otorgado_en")["otorgado_en"]}
 
 
+@router.post("/consentimiento-perfil")
+def otorgar_consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
+    if not es_v1(request):
+        return {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    otorgado = request.app.state.nucleo.otorgar_consentimiento(_contexto(usuario)["usuario_id"])
+    return {"estado": "vigente", "otorgadoEn": _exigir(otorgado, "otorgado_en")["otorgado_en"]}
+
+
 @router.delete("/consentimiento-perfil")
 def revocar_consentimiento_perfil(request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
@@ -1078,13 +1089,151 @@ def retirar_token(body: PushTokenRetiro, request: Request) -> Response:
     return Response(status_code=204)
 
 
-@router.get("/prestadores")
-def prestadores() -> dict:
+def _radio(valor: float | None) -> float:
+    if valor is None:
+        return 10
+    return min(valor, 50)
+
+
+LIMITE_AREA = 500
+
+
+def _bordes(norte, sur, este, oeste) -> dict:
+    """Con área se pide el tope del núcleo y no se manda radio; un área incompleta la rechaza el núcleo."""
+    bordes = {"norte": norte, "sur": sur, "este": este, "oeste": oeste}
+    if all(valor is None for valor in bordes.values()):
+        return {}
+    return bordes | {"limite": LIMITE_AREA}
+
+
+def _numero(valor):
+    if valor is None:
+        return None
+    return float(valor)
+
+
+def _fila_prestador(fila: dict) -> dict:
     return {
-        "prestadores": [
-            {"id": "PR-1", "nombre": "Taller Norte", "distanciaKm": 1.2, "zona": "Chapinero"},
-            {"id": "PR-2", "nombre": "Taller Sur", "distanciaKm": 3.4, "zona": "Kennedy"},
-        ]
+        "id": fila["id"],
+        "nombre": fila["nombre"],
+        "tipo": fila["tipo"],
+        "ramos": fila["ramos"],
+        "direccion": fila["direccion"],
+        "ciudad": fila["ciudad"],
+        "pais": fila.get("pais", "CO"),
+        "barrio": fila["barrio"],
+        "lat": _numero(fila["lat"]),
+        "lng": _numero(fila["lng"]),
+        "telefono": fila["telefono"],
+        "horario": fila["horario"],
+        "distanciaKm": _numero(fila.get("distancia_km")),
+    }
+
+
+def _respuesta_prestadores(cuerpo: dict) -> dict:
+    centro = cuerpo.get("centro")
+    return {
+        "centro": None
+        if centro is None
+        else {"lat": _numero(centro["lat"]), "lng": _numero(centro["lng"]), "origen": centro["origen"]},
+        "radioKm": _numero(cuerpo.get("radio_km")),
+        "truncado": cuerpo.get("truncado", False),
+        "prestadores": [_fila_prestador(fila) for fila in cuerpo["prestadores"]],
+    }
+
+
+_MUESTRA_PRESTADORES = {
+    "centro": {"lat": 4.6432, "lng": -74.0631, "origen": "posicion"},
+    "radio_km": 10,
+    "truncado": False,
+    "prestadores": [
+        {
+            "id": "PRE-BOG-06",
+            "nombre": "Taller Moto Chapinero",
+            "tipo": "taller-motos",
+            "ramos": ["soat-motocicleta"],
+            "direccion": "Cra 13 #45-18",
+            "ciudad": "Bogotá",
+            "pais": "CO",
+            "barrio": "Chapinero",
+            "lat": 4.6355,
+            "lng": -74.0655,
+            "telefono": "601 555 0112",
+            "horario": "Lun–Sáb 7:00–19:00",
+            "distancia_km": 0.9,
+        }
+    ],
+}
+
+_MUESTRA_CIUDADES = {
+    "pais": "CO",
+    "ciudades": [{"nombre": "Bogotá", "lat": 4.6097, "lng": -74.0817, "zoom": 12, "prestadores": 30}],
+}
+
+
+@router.get("/prestadores/ciudades")
+def ciudades_prestadores(request: Request, pais: str) -> dict:
+    if not es_v1(request):
+        return _MUESTRA_CIUDADES
+    cuerpo = request.app.state.nucleo.ciudades_prestadores(pais)
+    return {
+        "pais": cuerpo["pais"],
+        "ciudades": [
+            {
+                "nombre": c["nombre"],
+                "lat": _numero(c["lat"]),
+                "lng": _numero(c["lng"]),
+                "zoom": c["zoom"],
+                "prestadores": c["prestadores"],
+            }
+            for c in cuerpo["ciudades"]
+        ],
+    }
+
+
+@router.get("/prestadores")
+def prestadores(
+    request: Request,
+    lat: float | None = None,
+    lng: float | None = None,
+    ramo: str | None = None,
+    ciudad: str | None = None,
+    pais: str | None = None,
+    radioKm: float | None = None,
+    norte: float | None = None,
+    sur: float | None = None,
+    este: float | None = None,
+    oeste: float | None = None,
+) -> dict:
+    if not es_v1(request):
+        return _respuesta_prestadores(_MUESTRA_PRESTADORES)
+    alcance = _bordes(norte, sur, este, oeste) or {"radio_km": _radio(radioKm), "limite": 50}
+    cuerpo = request.app.state.nucleo.prestadores(lat=lat, lng=lng, ramo=ramo, ciudad=ciudad, pais=pais, **alcance)
+    return _respuesta_prestadores(cuerpo)
+
+
+@router.get("/siniestros/{siniestro_id}/prestadores")
+def prestadores_siniestro(
+    siniestro_id: str,
+    request: Request,
+    radioKm: float | None = None,
+    norte: float | None = None,
+    sur: float | None = None,
+    este: float | None = None,
+    oeste: float | None = None,
+) -> dict:
+    alcance = _bordes(norte, sur, este, oeste) or {"radio_km": _radio(radioKm)}
+    cuerpo = request.app.state.nucleo.prestadores_siniestro(siniestro_id, **alcance)
+    aviso = cuerpo["siniestro"]
+    centro = cuerpo.get("centro")
+    return {
+        "siniestro": {"id": aviso["id"], "numero": aviso.get("numero"), "ramo": cuerpo.get("ramo_fijo")},
+        "ramoFijo": cuerpo.get("ramo_fijo"),
+        "sinGeoetiqueta": cuerpo["sin_geoetiqueta"],
+        "centro": None if centro is None else {"lat": _numero(centro["lat"]), "lng": _numero(centro["lng"]), "origen": centro["origen"]},
+        "radioKm": _numero(cuerpo.get("radio_km")),
+        "truncado": cuerpo.get("truncado", False),
+        "prestadores": [_fila_prestador(fila) for fila in cuerpo["prestadores"]],
     }
 
 

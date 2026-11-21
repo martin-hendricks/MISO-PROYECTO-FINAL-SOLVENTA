@@ -3,6 +3,8 @@
     'billetera.atras' | translate
   }}</a>
 
+  <h1>{{ 'billetera.detalle.title' | translate }}</h1>
+
   @switch (vm.status()) {
     @case ('loading') {
       <p class="subtitle" role="status">{{ 'billetera.loading' | translate }}</p>
@@ -22,7 +24,6 @@
     }
     @default {
       @let m = vm.movimiento()!;
-      <h1>{{ 'billetera.detalle.title' | translate }}</h1>
       <p class="subtitle">{{ 'billetera.detalle.lead' | translate }}</p>
       <dl class="datos">
         <dt>{{ 'billetera.detalle.ramo' | translate }}</dt>

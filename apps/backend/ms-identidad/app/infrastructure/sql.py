@@ -4,7 +4,17 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, MetaData, Numeric, String, func, or_, select
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    MetaData,
+    Numeric,
+    String,
+    func,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
@@ -17,6 +27,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import Settings
 from app.domain.modelos import EstadoUsuario, EventoDominio, Usuario
+from app.domain.socios import CredencialSocio, EstadoSocio, Socio
 from app.ports.persistencia import TAMANO_PAGINA_CLIENTES, CuentaYaExiste
 
 ESQUEMA = "ms_identidad"
@@ -54,6 +65,26 @@ class OutboxFila(Base):
     payload: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
     publicado_en: Mapped[datetime | None]
+
+
+class SocioFila(Base):
+    __tablename__ = "socio"
+
+    socio_id: Mapped[UUID] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String)
+    alcances: Mapped[list] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    estado: Mapped[str] = mapped_column(String)
+    creado_en: Mapped[datetime]
+
+
+class CredencialSocioFila(Base):
+    __tablename__ = "credencial_socio"
+
+    credencial_id: Mapped[UUID] = mapped_column(primary_key=True)
+    socio_id: Mapped[UUID] = mapped_column(ForeignKey(f"{ESQUEMA}.socio.socio_id"))
+    huella_sha256: Mapped[str] = mapped_column(String)
+    creada_en: Mapped[datetime]
+    revocada_en: Mapped[datetime | None]
 
 
 def _fila(usuario: Usuario) -> UsuarioFila:
@@ -173,6 +204,96 @@ def _patron_ilike(q: str) -> str:
     return f"%{escapado}%"
 
 
+def _socio_a_dominio(fila: SocioFila, credenciales: list[CredencialSocioFila]) -> Socio:
+    return Socio(
+        socio_id=fila.socio_id,
+        nombre=fila.nombre,
+        alcances=frozenset(fila.alcances),
+        estado=EstadoSocio(fila.estado),
+        creado_en=fila.creado_en,
+        credenciales=[
+            CredencialSocio(
+                credencial_id=c.credencial_id,
+                huella_sha256=c.huella_sha256,
+                creada_en=c.creada_en,
+                revocada_en=c.revocada_en,
+            )
+            for c in sorted(credenciales, key=lambda c: (c.creada_en, c.credencial_id))
+        ],
+    )
+
+
+class RepositorioSociosSQL:
+    def __init__(self, sesion: AsyncSession) -> None:
+        self._s = sesion
+
+    async def _credenciales(self, socio_ids: list[UUID]) -> dict[UUID, list[CredencialSocioFila]]:
+        por_socio: dict[UUID, list[CredencialSocioFila]] = {i: [] for i in socio_ids}
+        if not socio_ids:
+            return por_socio
+        filas = await self._s.scalars(select(CredencialSocioFila).where(CredencialSocioFila.socio_id.in_(socio_ids)))
+        for fila in filas:
+            por_socio[fila.socio_id].append(fila)
+        return por_socio
+
+    async def agregar(self, socio: Socio) -> None:
+        self._s.add(
+            SocioFila(
+                socio_id=socio.socio_id,
+                nombre=socio.nombre,
+                alcances=sorted(socio.alcances),
+                estado=socio.estado.value,
+                creado_en=socio.creado_en,
+            )
+        )
+        await self._s.flush()
+        await self._guardar_credenciales(socio)
+
+    async def actualizar(self, socio: Socio) -> None:
+        fila = await self._s.get(SocioFila, socio.socio_id)
+        if fila is None:
+            return
+        fila.nombre = socio.nombre
+        fila.alcances = sorted(socio.alcances)
+        fila.estado = socio.estado.value
+        await self._guardar_credenciales(socio)
+
+    async def _guardar_credenciales(self, socio: Socio) -> None:
+        existentes = (await self._credenciales([socio.socio_id]))[socio.socio_id]
+        por_id = {fila.credencial_id: fila for fila in existentes}
+        for credencial in socio.credenciales:
+            fila = por_id.get(credencial.credencial_id)
+            if fila is None:
+                self._s.add(
+                    CredencialSocioFila(
+                        credencial_id=credencial.credencial_id,
+                        socio_id=socio.socio_id,
+                        huella_sha256=credencial.huella_sha256,
+                        creada_en=credencial.creada_en,
+                        revocada_en=credencial.revocada_en,
+                    )
+                )
+            else:
+                fila.revocada_en = credencial.revocada_en
+
+    async def obtener(self, socio_id: UUID) -> Socio | None:
+        fila = await self._s.get(SocioFila, socio_id)
+        if fila is None:
+            return None
+        return _socio_a_dominio(fila, (await self._credenciales([socio_id]))[socio_id])
+
+    async def obtener_por_huella(self, huella_sha256: str) -> Socio | None:
+        socio_id = await self._s.scalar(
+            select(CredencialSocioFila.socio_id).where(CredencialSocioFila.huella_sha256 == huella_sha256)
+        )
+        return await self.obtener(socio_id) if socio_id else None
+
+    async def listar(self) -> list[Socio]:
+        filas = list(await self._s.scalars(select(SocioFila).order_by(SocioFila.creado_en, SocioFila.socio_id)))
+        credenciales = await self._credenciales([f.socio_id for f in filas])
+        return [_socio_a_dominio(f, credenciales[f.socio_id]) for f in filas]
+
+
 class OutboxSQL:
     def __init__(self, sesion: AsyncSession) -> None:
         self._s = sesion
@@ -190,6 +311,7 @@ class UnidadDeTrabajoSQL:
     async def __aenter__(self) -> UnidadDeTrabajoSQL:
         self._sesion = self._fabrica()
         self.usuarios = RepositorioUsuariosSQL(self._sesion)
+        self.socios = RepositorioSociosSQL(self._sesion)
         self.outbox = OutboxSQL(self._sesion)
         return self
 

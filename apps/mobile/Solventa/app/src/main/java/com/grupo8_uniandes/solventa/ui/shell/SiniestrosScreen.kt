@@ -38,6 +38,7 @@ fun SiniestrosScreen(
     claims: List<ClaimSummary>,
     onOpenClaim: (String) -> Unit,
     onReport: () -> Unit = {},
+    onOpenProviders: () -> Unit = {},
     failed: Boolean = false,
     chip: ClaimStatus? = null,
     onChip: (ClaimStatus?) -> Unit = {},
@@ -84,16 +85,27 @@ fun SiniestrosScreen(
                 ClaimCard(claim = claim, onOpenClaim = onOpenClaim)
             }
         }
-        SolventaFloatingAction(
-            label = stringResource(R.string.action_report_claim),
-            icon = painterResource(R.drawable.add),
-            onClick = onReport,
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(SolventaSpacing.gutter),
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError,
-        )
+            verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+            horizontalAlignment = Alignment.End,
+        ) {
+            SolventaFloatingAction(
+                label = stringResource(R.string.action_providers),
+                icon = painterResource(R.drawable.emergency_home),
+                onClick = onOpenProviders,
+                testTag = "action_open_providers",
+            )
+            SolventaFloatingAction(
+                label = stringResource(R.string.action_report_claim),
+                icon = painterResource(R.drawable.add),
+                onClick = onReport,
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            )
+        }
     }
 }
 

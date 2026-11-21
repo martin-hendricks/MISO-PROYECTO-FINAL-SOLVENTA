@@ -6,7 +6,7 @@
       data-testid="perfil-consentimiento-open"
       aria-haspopup="dialog"
       [disabled]="vm.revocadoEn() !== null"
-      (click)="vm.abrir()"
+      (click)="abrir()"
     >
       {{ 'consentimientoPerfil.title' | translate }}
     </button>
@@ -30,7 +30,7 @@
     [titulo]="'consentimientoPerfil.dialog.title' | translate"
     [advertencia]="'consentimientoPerfil.dialog.advertencia' | translate"
     confirmarTexto="consentimientoPerfil.dialog.revocar"
-    (cancelar)="vm.cerrar()"
+    (cancelar)="cancelar()"
     (confirmar)="vm.revocar()"
   />
 }
