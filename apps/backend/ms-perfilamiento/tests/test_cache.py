@@ -143,3 +143,28 @@ async def test_perfilar_con_cache_degrada_igual_si_el_proveedor_falla(uow, confi
 
     degradados = {a.origen.value for a in resultado.oferta.snapshot_atributos if a.degradado}
     assert degradados == {"open_data"}
+
+
+async def test_verificar_conexion_responde_true_si_el_ping_funciona():
+    from app.infrastructure.cache import verificar_conexion
+
+    class Vivo:
+        async def ping(self):
+            return True
+
+    assert await verificar_conexion(Vivo(), 100) is True
+
+
+async def test_verificar_conexion_responde_false_si_el_ping_falla_o_se_agota():
+    from app.infrastructure.cache import verificar_conexion
+
+    class Caido:
+        async def ping(self):
+            raise ConnectionError("rechazada")
+
+    class Lento:
+        async def ping(self):
+            await asyncio.Event().wait()
+
+    assert await verificar_conexion(Caido(), 100) is False
+    assert await verificar_conexion(Lento(), 1) is False

@@ -98,6 +98,11 @@ externalSecrets:
       nombreLocal: ms-perfilamiento-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-redis-cache
+      nombreLocal: ms-perfilamiento-redis
+      claves:
+        - host
+        - auth_token
     - nombreRemoto: solventa-minimo-bff-web-token
       nombreLocal: ms-perfilamiento-token
 
@@ -120,8 +125,10 @@ topologySpread:
   maxSkew: 1
 
 variablesEntorno:
-  - nombre: REDIS_CACHE_OD_HOST
-    valor: "cache-od.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
+  # El host y el token vienen del secreto solventa-minimo-redis-cache (variablesEntornoSecreto
+  # abajo); ElastiCache exige TLS y token, y el servicio lo activa con REDIS_CACHE_OD_SSL.
+  - nombre: REDIS_CACHE_OD_SSL
+    valor: "true"
   - nombre: REDIS_CACHE_OD_TTL_SECONDS
     valor: "600"
   - nombre: NODE_GROUP
@@ -130,6 +137,12 @@ variablesEntorno:
     valor: "300"
 
 variablesEntornoSecreto:
+  - nombre: REDIS_CACHE_OD_HOST
+    nombreSecreto: ms-perfilamiento-redis
+    claveSecreto: host
+  - nombre: REDIS_CACHE_OD_PASSWORD
+    nombreSecreto: ms-perfilamiento-redis
+    claveSecreto: auth_token
   - nombre: DATABASE_URL
     nombreSecreto: ms-perfilamiento-db
     claveSecreto: database_url

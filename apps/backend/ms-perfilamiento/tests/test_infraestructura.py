@@ -172,9 +172,12 @@ def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_la_cache_y_la_cierra(
     creados = []
 
     class RedisFalso:
-        def __init__(self, host, port):
-            self.host, self.port, self.cerrado = host, port, False
+        def __init__(self, host, port, password=None, ssl=False):
+            self.host, self.port, self.password, self.ssl, self.cerrado = host, port, password, ssl, False
             creados.append(self)
+
+        async def ping(self):
+            return True
 
         async def aclose(self):
             self.cerrado = True
@@ -189,7 +192,62 @@ def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_la_cache_y_la_cierra(
         assert isinstance(app.state.adaptador_open_finance, AdaptadorConCache)
         assert isinstance(app.state.adaptador_open_data, AdaptadorConCache)
         assert (creados[0].host, creados[0].port) == ("cache-od", 6380)
+        assert (creados[0].password, creados[0].ssl) == (None, False)
     assert creados[0].cerrado is True
+
+
+def test_al_arrancar_con_redis_pasa_el_token_y_el_tls_al_cliente(monkeypatch, caplog):
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    creados = []
+
+    class RedisFalso:
+        def __init__(self, host, port, password=None, ssl=False):
+            self.password, self.ssl = password, ssl
+            creados.append(self)
+
+        async def ping(self):
+            return True
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "Redis", RedisFalso)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+    monkeypatch.setenv("REDIS_CACHE_OD_PASSWORD", "token-de-prueba")
+    monkeypatch.setenv("REDIS_CACHE_OD_SSL", "true")
+
+    with caplog.at_level("INFO"), TestClient(main.crear_app()):
+        pass
+
+    assert (creados[0].password, creados[0].ssl) == ("token-de-prueba", True)
+    assert "cache redis conectada" in caplog.text
+
+
+def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(monkeypatch, caplog):
+    from app.infrastructure.cache import AdaptadorConCache
+
+    motor = SimpleNamespace(dispose=lambda: _nada())
+
+    class RedisCaido:
+        def __init__(self, host, port, password=None, ssl=False):
+            pass
+
+        async def ping(self):
+            raise ConnectionError("rechazada")
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "Redis", RedisCaido)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+
+    app = main.crear_app()
+    with caplog.at_level("WARNING"), TestClient(app):
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorConCache)
+
+    assert "cache redis no responde al arrancar" in caplog.text
 
 
 async def test_repositorio_sql_de_originaciones_agrega_lee_y_cierra():

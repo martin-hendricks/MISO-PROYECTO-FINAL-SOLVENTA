@@ -11,6 +11,19 @@ from app.ports.cache import CacheAtributos
 logger = logging.getLogger(__name__)
 
 
+async def verificar_conexion(cliente: Any, timeout_ms: int) -> bool:
+    """PING al arrancar. Nunca tumba el servicio (la cache es opcional), pero deja a la
+    vista si quedo habilitada: sin esto, un host, un token o un TLS mal puestos solo se
+    notan porque el AdaptadorConCache traga el error en cada peticion."""
+    try:
+        await asyncio.wait_for(cliente.ping(), timeout=timeout_ms / 1000)
+    except Exception:
+        logger.warning("cache redis no responde al arrancar; cada peticion consultara al proveedor", exc_info=True)
+        return False
+    logger.info("cache redis conectada")
+    return True
+
+
 class _AdaptadorAtributos(Protocol):
     async def obtener_atributos(self, cliente_id: str) -> dict[str, Decimal]: ...
 

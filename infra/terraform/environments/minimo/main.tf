@@ -108,9 +108,17 @@ module "secrets" {
     dbname   = module.rds_compartida.db_name
   }
 
+  # ms-perfilamiento lo recibe como REDIS_CACHE_OD_HOST / REDIS_CACHE_OD_PASSWORD vía
+  # External Secrets (ElastiCache exige token y TLS; el host no se escribe a mano).
+  redis_cache_config = {
+    host       = module.elasticache.primary_endpoint_address
+    port       = module.elasticache.port
+    auth_token = module.elasticache.auth_token
+  }
+
   # ms-siniestros lo recibe como S3_EVIDENCIAS_BUCKET vía External Secrets.
-  evidencias_bucket_name          = module.s3_evidencias.bucket_id
-  msk_bootstrap_brokers_sasl_iam  = module.msk.bootstrap_brokers_sasl_iam
+  evidencias_bucket_name         = module.s3_evidencias.bucket_id
+  msk_bootstrap_brokers_sasl_iam = module.msk.bootstrap_brokers_sasl_iam
 
   tags = var.extra_tags
 }
