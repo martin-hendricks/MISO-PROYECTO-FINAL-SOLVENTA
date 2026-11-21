@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -39,3 +41,22 @@ class CacheEnMemoria:
         cédula, que quien revoca no conoce; el consentimiento sí viaja en cada una."""
         for clave in [c for c, entrada in self._datos.items() if entrada.consentimiento_id == consentimiento_id]:
             del self._datos[clave]
+
+
+class CacheFuentesConPurga(CacheEnMemoria):
+    """Ademas de descartar lo de la memoria local, avisa a otros almacenes (la cache Redis
+    compartida) para que borren lo capturado bajo un consentimiento revocado. Si una purga
+    falla no se revierte la revocacion, que ya quedo persistida: se registra, y lo guardado
+    vence solo al cumplirse su vigencia maxima."""
+
+    def __init__(self, purgas: Sequence[Callable[[str], Awaitable[object]]]) -> None:
+        super().__init__()
+        self._purgas = list(purgas)
+
+    async def invalidar_consentimiento(self, consentimiento_id: str) -> None:
+        await super().invalidar_consentimiento(consentimiento_id)
+        for purga in self._purgas:
+            try:
+                await purga(consentimiento_id)
+            except Exception:
+                logging.getLogger(__name__).warning("no se pudo purgar la cache compartida", exc_info=True)

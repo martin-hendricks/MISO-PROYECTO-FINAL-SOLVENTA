@@ -2,10 +2,11 @@
 
 ## Objetivo
 
-Que la caché Redis de `ms-perfilamiento` (HA-01) funcione extremo a extremo: en local contra un
+Que la caché Redis de `ms-perfilamiento` funcione extremo a extremo: en local contra un
 Redis del compose y en la nube contra ElastiCache, y que un fallo de conexión no pase
-desapercibido. Es el paso 1 de acercarse al brazo C del experimento HA-01; el patrón completo
-(actualización oportunista, circuit breaker, coalescencia) queda fuera de esta tarea.
+desapercibido. Es el primer paso de la estrategia de caché del servicio; el resto (perfil vencido
+como respaldo, presupuesto de respuesta, circuit breaker y coalescencia) va en la tarea
+`cache-estrategia-resiliente-perfilamiento`.
 
 ## Problema (auditado el 2026-11-21 contra `develop` en `4c832500`)
 
@@ -25,8 +26,9 @@ Dentro: `apps/backend/ms-perfilamiento/`, `apps/backend/docker-compose.yml`,
 `infra/terraform/modules/secrets/`, `infra/terraform/environments/minimo/main.tf` y
 `infra/k8s/` (values de `ms-perfilamiento` y `ms-cotizacion`, README).
 
-Fuera (siguiente tarea): circuit breaker, coalescencia, último valor conocido en Redis
-compartido, métricas y alarmas de la caché, y la decisión sobre cachear en `ms-cotizacion`.
+Fuera (tarea `cache-estrategia-resiliente-perfilamiento`): circuit breaker, coalescencia, perfil
+vencido en Redis compartido y métricas. Fuera sin tarea todavía: alarmas de la caché y la decisión
+sobre cachear en `ms-cotizacion`.
 
 ## Diseño
 
