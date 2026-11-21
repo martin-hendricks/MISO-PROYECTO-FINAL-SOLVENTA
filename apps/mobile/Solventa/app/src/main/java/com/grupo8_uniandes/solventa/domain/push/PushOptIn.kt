@@ -34,6 +34,15 @@ class PushOptIn(
         return PushPrompt.Continue
     }
 
+    /**
+     * The installation id is how the backend addresses this app. It is posted as soon as a
+     * customer session exists. Notification permission only decides whether the system shows the
+     * tray message, so a denied or not-yet-asked permission must not drop the id.
+     */
+    suspend fun publishInstallation() {
+        registerCurrent()
+    }
+
     suspend fun onPermissionResult(granted: Boolean) {
         if (granted) registerCurrent()
     }
