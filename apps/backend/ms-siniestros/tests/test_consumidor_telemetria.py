@@ -126,7 +126,7 @@ class ConsumidorFalso:
         if self._lotes:
             return self._lotes.pop(0)
         self.vacio.set()
-        await asyncio.sleep(3600)
+        await asyncio.Event().wait()  # sin mensajes nuevos: espera hasta que lo cancelen
         return {}
 
     async def commit(self, offsets):

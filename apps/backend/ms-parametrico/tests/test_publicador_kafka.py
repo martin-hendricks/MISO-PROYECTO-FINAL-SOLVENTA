@@ -26,13 +26,20 @@ def _evento(evento_id="vuelos:R-1") -> EventoTelemetria:
 
 
 class ProductorFalso:
-    def __init__(self, demora=0.0, error=None):
+    """Con bloquear=True el envío espera a que la prueba lo libere: así se simula un
+    broker lento sin depender de tiempos (el CI prohíbe esperas reales en las pruebas)."""
+
+    def __init__(self, bloquear=False, error=None):
         self.enviados = []
-        self._demora = demora
         self._error = error
+        self.entro = asyncio.Event()
+        self.liberar = asyncio.Event()
+        if not bloquear:
+            self.liberar.set()
 
     async def send_and_wait(self, topico, key, value):
-        await asyncio.sleep(self._demora)
+        self.entro.set()
+        await self.liberar.wait()
         if self._error:
             raise self._error
         self.enviados.append((topico, key, value))
@@ -62,13 +69,14 @@ async def test_publica_en_el_topico_con_key_igual_al_evento_id():
 
 
 async def test_con_el_cupo_lleno_rechaza_en_vez_de_encolar():
-    productor = ProductorFalso(demora=0.2)
+    productor = ProductorFalso(bloquear=True)
     publicador = PublicadorKafka(config_prueba(max_publicaciones_en_vuelo=1), producer=productor)
 
     en_vuelo = asyncio.create_task(publicador.publicar(_evento("vuelos:A")))
-    await asyncio.sleep(0.01)
+    await productor.entro.wait()  # A ocupa el único cupo
     with pytest.raises(PublicadorSaturado):
         await publicador.publicar(_evento("vuelos:B"))
+    productor.liberar.set()
     await en_vuelo
 
     assert [k for _, k, _ in productor.enviados] == [b"vuelos:A"]
@@ -86,8 +94,8 @@ async def test_libera_el_cupo_al_terminar():
 
 async def test_si_el_broker_no_confirma_a_tiempo_el_evento_no_se_acepta():
     publicador = PublicadorKafka(
-        config_prueba(timeout_publicacion_segundos=0.05), producer=ProductorFalso(demora=1.0)
-    )
+        config_prueba(timeout_publicacion_segundos=0.05), producer=ProductorFalso(bloquear=True)
+    )  # el broker nunca confirma
 
     with pytest.raises(PublicadorNoDisponible):
         await publicador.publicar(_evento())
