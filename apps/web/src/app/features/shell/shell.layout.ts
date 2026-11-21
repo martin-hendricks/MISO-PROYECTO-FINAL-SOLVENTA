@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, signal } from '@angular/core';
 import { NavigationStart, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { iniciales } from '../../core/session/iniciales';
@@ -10,7 +11,7 @@ import { PerfilCliente, PerfilGateway } from '../perfil/perfil.gateway';
 @Component({
   selector: 'sv-shell-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, CdkTrapFocus],
   templateUrl: './shell.layout.html',
   styleUrl: './shell.layout.css',
 })
@@ -57,8 +58,16 @@ export class ShellLayout {
     this.menuOpen.update((open) => !open);
   }
 
+  @HostListener('document:keydown.escape')
   protected closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  /** Skip link: moves focus to <main> without touching the URL (a plain
+   * `#fragment` href would trigger a router navigation). */
+  protected saltarAlContenido(event: Event): void {
+    event.preventDefault();
+    document.getElementById('contenido-principal')?.focus();
   }
 
   protected signOut(): void {

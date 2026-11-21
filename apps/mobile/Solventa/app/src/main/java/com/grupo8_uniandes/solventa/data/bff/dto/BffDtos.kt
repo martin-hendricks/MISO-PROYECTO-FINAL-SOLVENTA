@@ -402,15 +402,69 @@ data class PushNoticeDto(
 )
 
 @Serializable
-data class ProviderDto(
-    val id: String,
-    val nombre: String,
-    val distanciaKm: Double,
-    val zona: String,
+data class ProviderCenterDto(
+    val lat: Double,
+    val lng: Double,
+    val origen: String,
 )
 
 @Serializable
-data class ProvidersDto(val prestadores: List<ProviderDto>)
+data class ProviderDto(
+    val id: String,
+    val nombre: String,
+    val tipo: String,
+    val ramos: List<String> = emptyList(),
+    val direccion: String,
+    val ciudad: String,
+    val barrio: String,
+    val lat: Double,
+    val lng: Double,
+    val telefono: String,
+    val horario: String,
+    val distanciaKm: Double? = null,
+    val pais: String = "CO",
+)
+
+@Serializable
+data class ProvidersDto(
+    val centro: ProviderCenterDto? = null,
+    val radioKm: Double? = null,
+    val prestadores: List<ProviderDto>,
+    val truncado: Boolean = false,
+)
+
+@Serializable
+data class ProviderCityDto(
+    val nombre: String,
+    val lat: Double,
+    val lng: Double,
+    val zoom: Int,
+    val prestadores: Int = 0,
+)
+
+@Serializable
+data class ProviderCitiesDto(
+    val pais: String,
+    val ciudades: List<ProviderCityDto> = emptyList(),
+)
+
+@Serializable
+data class ClaimRefDto(
+    val id: String,
+    val numero: String = "",
+    val ramo: String = "",
+)
+
+@Serializable
+data class ClaimProvidersDto(
+    val siniestro: ClaimRefDto,
+    val ramoFijo: String,
+    val sinGeoetiqueta: Boolean,
+    val centro: ProviderCenterDto? = null,
+    val radioKm: Double? = null,
+    val prestadores: List<ProviderDto> = emptyList(),
+    val truncado: Boolean = false,
+)
 
 @Serializable
 data class AssistanceGeoDto(val lat: Double, val lng: Double)

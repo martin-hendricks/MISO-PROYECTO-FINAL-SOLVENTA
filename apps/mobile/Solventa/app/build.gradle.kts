@@ -22,7 +22,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BFF_BASE_URL", "\"\"")
+        buildConfigField("String", "MAPS_API_KEY", mapsApiKey().asBuildConfigString())
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey()
     }
 
     buildTypes {
@@ -96,6 +98,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.androidx.security.crypto)
     implementation(libs.osmdroid.android)
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
+    implementation(libs.maps.compose.utils)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
@@ -146,6 +151,16 @@ tasks.matching { it.name == "createDebugUnitTestCoverageReport" }.configureEach 
 }
 
 // Same order as BffAddress.resolve. Debug never reads this file: its address field stays empty.
+private fun Project.mapsApiKey(): String {
+    val fromGradle = (findProperty("mapsApiKey") as String?).orEmpty().trim()
+    if (fromGradle.isNotBlank()) return fromGradle
+    val file = rootProject.file("local.properties")
+    if (!file.exists()) return ""
+    val properties = Properties()
+    file.inputStream().use(properties::load)
+    return properties.getProperty("maps.apiKey").orEmpty().trim()
+}
+
 private fun Project.remoteBffAddress(): String {
     val fromGradle = (findProperty("bffBaseUrl") as String?).orEmpty().trim()
     if (fromGradle.isNotBlank()) return fromGradle

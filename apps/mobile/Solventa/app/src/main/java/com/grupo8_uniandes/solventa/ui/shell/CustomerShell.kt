@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import com.grupo8_uniandes.solventa.BuildConfig
 import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import org.koin.androidx.compose.koinViewModel
@@ -78,6 +79,8 @@ import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
 import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
 import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
+import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.PrestadorFichaRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.AvisoSiniestroRoute
 import com.grupo8_uniandes.solventa.navigation.AvisoRenovacionRoute
@@ -241,9 +244,15 @@ private fun RestoredSessionHost(
     LaunchedEffect(restore) {
         restored = restore()
     }
+    val remoteWithoutSession = restored == RestoredSession.Local && BuildConfig.BFF_BASE_URL.isNotBlank()
     when (restored) {
         null -> SplashScreen(modifier = modifier)
         RestoredSession.Login -> LoginHost(
+            modifier = modifier,
+            onLeaveToAccount = null,
+            showBack = false,
+        )
+        RestoredSession.Local if remoteWithoutSession -> LoginHost(
             modifier = modifier,
             onLeaveToAccount = null,
             showBack = false,
@@ -502,13 +511,14 @@ private fun routeTitle(route: Any): String = when (route) {
     is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
     SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
-    SiniestrosRoute, MapaPrestadoresRoute -> stringResource(R.string.destination_siniestros)
+    SiniestrosRoute, MapaPrestadoresRoute, is MapaPrestadoresSiniestroRoute -> stringResource(R.string.destination_siniestros)
+    is PrestadorFichaRoute -> stringResource(R.string.providers_ficha_title)
     AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
     ParametricoRoute -> stringResource(R.string.parametric_title)
     AvisoVencimientoRoute, AvisoRenovacionRoute -> stringResource(R.string.validity_title)
     EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
     is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
-    AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
+    is AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
     BilleteraRoute -> stringResource(R.string.destination_billetera)
     is DepositoRoute -> stringResource(R.string.billetera_shell_deposito)
     PerfilRoute -> stringResource(R.string.destination_perfil)

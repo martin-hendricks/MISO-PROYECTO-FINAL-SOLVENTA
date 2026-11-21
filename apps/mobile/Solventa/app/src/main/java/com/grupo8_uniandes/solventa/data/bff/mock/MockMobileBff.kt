@@ -17,6 +17,8 @@ import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
@@ -41,7 +43,9 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProfile
-import com.grupo8_uniandes.solventa.data.bff.mapping.toProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
+import com.grupo8_uniandes.solventa.data.bff.mapping.toClaimProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRecord
@@ -60,7 +64,11 @@ import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
-import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
@@ -246,6 +254,12 @@ class MockProfilingConsentRepository(
         return answer
     }
 
+    override suspend fun grant(): StandInAnswer<ProfilingConsent> {
+        val answer = read(PublishedSamples.PROFILING_CONSENT)
+        if (answer is StandInAnswer.Ready) sample = PublishedSamples.PROFILING_CONSENT
+        return answer
+    }
+
     private fun read(raw: String) =
         control.ready { decode<ProfilingConsentDto>(raw).let(::required).toProfilingConsent() }
 }
@@ -296,8 +310,22 @@ class MockPushRepository(
 class MockAssistanceRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : AssistanceRepository {
-    override suspend fun providers(): StandInAnswer<List<Provider>> =
-        control.ready { decode<ProvidersDto>(PublishedSamples.PROVIDERS).let(::required).toProviders() }
+    override suspend fun providers(query: ProviderQuery): StandInAnswer<ProviderPage> =
+        control.ready {
+            val sample = if (query.area == null) PublishedSamples.PROVIDERS else PublishedSamples.PROVIDERS_AREA
+            decode<ProvidersDto>(sample).let(::required).toProviderPage()
+        }
+
+    override suspend fun cities(pais: String): StandInAnswer<List<ProviderCity>> =
+        control.ready {
+            decode<List<ProviderCitiesDto>>(PublishedSamples.PROVIDER_CITIES).let(::required)
+                .firstOrNull { it.pais == pais }
+                ?.toCities()
+                .orEmpty()
+        }
+
+    override suspend fun providersNearClaim(id: String, area: ProviderArea?): StandInAnswer<ClaimProviders> =
+        control.ready { decode<ClaimProvidersDto>(PublishedSamples.CLAIM_PROVIDERS).let(::required).toClaimProviders() }
 
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         control.ready { decode<AssistanceOutDto>(PublishedSamples.ASSISTANCE_OUT).let(::required).toResult() }

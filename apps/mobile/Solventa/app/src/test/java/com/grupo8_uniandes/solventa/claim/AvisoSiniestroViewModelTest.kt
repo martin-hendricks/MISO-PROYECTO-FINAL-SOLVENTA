@@ -105,6 +105,12 @@ class AvisoSiniestroViewModelTest {
         viewModel.useCurrentLocation()
         assertTrue(viewModel.state.value.draft.locationDenied)
         assertEquals("POL-1", viewModel.state.value.draft.poliza)
+        viewModel.openFromAssistance("POL-9 · Vida", "2024-05-01", "Rotura", "Chapinero")
+        assertEquals(NoticePhase.Evidence, viewModel.state.value.phase)
+        assertEquals("POL-9", viewModel.state.value.draft.poliza)
+        assertEquals("2024-05-01", viewModel.state.value.draft.fechaHecho)
+        viewModel.openFromAssistance("POL-9", "ayer", "Rotura", "Chapinero")
+        assertEquals(java.time.LocalDate.now().toString(), viewModel.state.value.draft.fechaHecho)
         viewModel.revise("POL-1", "2026-11-01", "Choque", "Calle 72")
         assertEquals("Calle 72", viewModel.state.value.draft.lugar)
         assertFalse(

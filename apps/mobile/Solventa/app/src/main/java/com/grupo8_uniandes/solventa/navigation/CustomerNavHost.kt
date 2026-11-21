@@ -60,16 +60,17 @@ import com.grupo8_uniandes.solventa.ui.shell.PolizaEmitidaScreen
 import com.grupo8_uniandes.solventa.ui.shell.ConsentimientoRevocadoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SuscripcionRechazadaScreen
 import com.grupo8_uniandes.solventa.ui.shell.PolizasScreen
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
-import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
+import com.grupo8_uniandes.solventa.prestadores.AsistenciaSitioViewModel
+import com.grupo8_uniandes.solventa.prestadores.MapaPrestadoresViewModel
+import com.grupo8_uniandes.solventa.prestadores.PrestadorFichaViewModel
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
 import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
+import com.grupo8_uniandes.solventa.ui.shell.PrestadorFichaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
 import com.grupo8_uniandes.solventa.domain.bff.claim.NoticePhase
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
 import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
 import com.grupo8_uniandes.solventa.domain.push.PushTarget
@@ -113,6 +114,13 @@ fun CustomerNavHost(
         val target = pushTarget ?: return@LaunchedEffect
         when (target) {
             is PushTarget.PolizaDetalle -> navController.navigate(PolizaDetalleRoute(target.numero))
+            PushTarget.Consentimiento -> navController.navigate(PerfilRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
             PushTarget.Inicio -> navController.navigate(InicioRoute) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true
@@ -294,29 +302,72 @@ fun CustomerNavHost(
                 onRetry = viewModel::refresh,
                 onOpenClaim = viewModel::openClaim,
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
+                onOpenProviders = { navController.navigate(MapaPrestadoresRoute) },
             )
         }
         composable<MapaPrestadoresRoute> {
-            val catalog = OpenProviderCatalog().open(locationAllowed = true) as ProviderCatalog.Open
-            MapaPrestadoresScreen(
-                rows = catalog.rows,
-                onOpenAssistance = { navController.navigate(AsistenciaSitioRoute) },
+            ProviderMapRoute(
+                claimId = "",
+                onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
+                onRequestAssistance = { id -> navController.navigate(AsistenciaSitioRoute(id)) },
                 onReport = { navController.navigate(AvisoSiniestroRoute) },
             )
         }
-        composable<AsistenciaSitioRoute> {
-            val request = remember { OpenAssistanceRequest() }
-            val form = remember { request.open(locationAllowed = true) }
-            if (form != null) {
-                AsistenciaSitioScreen(
-                    form = form,
-                    onContinue = {},
-                    onCancel = {
-                        request.cancel()
-                        navController.popBackStack()
-                    },
-                )
-            }
+        composable<MapaPrestadoresSiniestroRoute> { entry ->
+            val route = entry.toRoute<MapaPrestadoresSiniestroRoute>()
+            ProviderMapRoute(
+                claimId = route.siniestroId,
+                onOpenProvider = { id -> navController.navigate(PrestadorFichaRoute(id)) },
+                onRequestAssistance = { id -> navController.navigate(AsistenciaSitioRoute(id)) },
+                onReport = { navController.navigate(AvisoSiniestroRoute) },
+            )
+        }
+        composable<PrestadorFichaRoute> { entry ->
+            val route = entry.toRoute<PrestadorFichaRoute>()
+            val viewModel: PrestadorFichaViewModel = koinViewModel { parametersOf(route.prestadorId) }
+            val context = LocalContext.current
+            PrestadorFichaScreen(
+                provider = viewModel.provider,
+                onDirections = {
+                    val uri = viewModel.directionsUri()
+                    if (uri.isNotBlank()) {
+                        val view = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                        runCatching { context.startActivity(view) }
+                    }
+                },
+                onRequestAssistance = { navController.navigate(AsistenciaSitioRoute(route.prestadorId)) },
+            )
+        }
+        composable<AsistenciaSitioRoute> { entry ->
+            val route = entry.toRoute<AsistenciaSitioRoute>()
+            val viewModel: AsistenciaSitioViewModel = koinViewModel { parametersOf(route.prestadorId) }
+            val form by viewModel.form.collectAsState()
+            val policies by viewModel.policies.collectAsState()
+            val policiesLoaded by viewModel.policiesLoaded.collectAsState()
+            val aviso = avisoViewModel()
+            AsistenciaSitioScreen(
+                form = form,
+                policies = policies,
+                policiesLoaded = policiesLoaded,
+                onPolicy = viewModel::onPolicy,
+                onDate = viewModel::onDate,
+                onDescription = viewModel::onDescription,
+                onPlace = viewModel::onPlace,
+                onContinue = {
+                    viewModel.submit()
+                    aviso.openFromAssistance(
+                        policy = form.policyValue,
+                        date = form.dateValue,
+                        description = form.descriptionValue,
+                        place = form.placeValue,
+                    )
+                    navController.navigate(EvidenciaAvisoRoute)
+                },
+                onCancel = {
+                    aviso.cancel()
+                    navController.popBackStack()
+                },
+            )
         }
         composable<AvisoSiniestroRoute> {
             val viewModel = avisoViewModel()
@@ -439,6 +490,7 @@ fun CustomerNavHost(
                 onOpenWallet = {
                     navController.openWalletFor(detail.claim?.summary?.siniestroId ?: route.claimId)
                 },
+                onOpenProviders = { navController.navigate(MapaPrestadoresSiniestroRoute(route.claimId)) },
             )
         }
         composable<BilleteraRoute> { entry ->
@@ -584,6 +636,40 @@ private fun ValidityNoticeRoute(
 }
 
 @Composable
+private fun ProviderMapRoute(
+    claimId: String,
+    onOpenProvider: (String) -> Unit,
+    onRequestAssistance: (String) -> Unit,
+    onReport: () -> Unit,
+) {
+    val viewModel: MapaPrestadoresViewModel = koinViewModel { parametersOf(claimId) }
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    MapaPrestadoresScreen(
+        state = state,
+        onPermission = viewModel::onLocationPermission,
+        onSelectCity = viewModel::selectCity,
+        onSelectRamo = viewModel::selectRamo,
+        onOpenProvider = onOpenProvider,
+        onRetry = viewModel::retry,
+        onReport = onReport,
+        onSelectProviders = viewModel::selectProviders,
+        onCloseCard = viewModel::closeCard,
+        onCameraIdle = viewModel::onCameraIdle,
+        onUserPan = viewModel::onUserPan,
+        onRecenter = viewModel::recenterOnMe,
+        onDirections = { provider ->
+            val uri = PrestadorFichaViewModel.directionsUri(provider.lat, provider.lng)
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) }
+        },
+        onCall = { phone ->
+            runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) }
+        },
+        onRequestAssistance = onRequestAssistance,
+    )
+}
+
+@Composable
 private fun avisoViewModel(): AvisoSiniestroViewModel {
     val activity = LocalContext.current.findActivity() as? ComponentActivity
     return if (activity != null) {
@@ -610,7 +696,9 @@ fun NavBackStackEntry.toSolventaRoute(): Any {
         destination.hasRoute<EvidenciaAvisoRoute>() -> EvidenciaAvisoRoute
         destination.hasRoute<ConfirmacionAvisoRoute>() -> toRoute<ConfirmacionAvisoRoute>()
         destination.hasRoute<MapaPrestadoresRoute>() -> MapaPrestadoresRoute
-        destination.hasRoute<AsistenciaSitioRoute>() -> AsistenciaSitioRoute
+        destination.hasRoute<MapaPrestadoresSiniestroRoute>() -> toRoute<MapaPrestadoresSiniestroRoute>()
+        destination.hasRoute<PrestadorFichaRoute>() -> toRoute<PrestadorFichaRoute>()
+        destination.hasRoute<AsistenciaSitioRoute>() -> toRoute<AsistenciaSitioRoute>()
         destination.hasRoute<SiniestroDetalleRoute>() -> toRoute<SiniestroDetalleRoute>()
         destination.hasRoute<BilleteraRoute>() -> BilleteraRoute
         destination.hasRoute<DepositoRoute>() -> toRoute<DepositoRoute>()

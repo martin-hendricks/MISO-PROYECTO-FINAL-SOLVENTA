@@ -148,7 +148,7 @@ async def ciclo(
 def asistencia(asistencia_id: str) -> dict:
     return {
         "asistenciaId": asistencia_id,
-        "prestadorId": "PR-1",
+        "prestadorId": "PRE-BOG-06",
         "poliza": "POL-88219-CO",
         "estado": "registrada",
     }

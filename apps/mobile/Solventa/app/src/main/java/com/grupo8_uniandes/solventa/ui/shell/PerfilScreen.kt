@@ -237,6 +237,7 @@ fun PerfilScreen(
                 state = profiling,
                 region = hub.region,
                 onOpen = profilingViewModel::open,
+                onGrant = profilingViewModel::openGrant,
             )
         }
         SolventaButton(
@@ -286,6 +287,12 @@ fun PerfilScreen(
         },
         sheetTag = "sheet_permission",
         onClose = { permissionKind = null },
+    )
+    ProfilingConsentGrantSheet(
+        visible = profiling.grantSheetOpen,
+        granting = profiling.granting,
+        onGrant = profilingViewModel::grant,
+        onDecline = profilingViewModel::closeGrant,
     )
     ProfilingConsentSheet(
         visible = profiling.sheetOpen,
@@ -433,13 +440,15 @@ private fun ProfilingConsentRow(
     state: ProfilingConsentUi,
     region: Region,
     onOpen: () -> Unit,
+    onGrant: () -> Unit,
 ) {
     val supporting = when (val consent = state.consent) {
         is ProfilingConsent.Granted ->
             stringResource(R.string.profiling_consent_granted, regionDay(consent.grantedAt, region))
         is ProfilingConsent.Revoked ->
             stringResource(R.string.profiling_consent_revoked, regionDay(consent.revokedAt, region))
-        else -> null
+        ProfilingConsent.None -> stringResource(R.string.profiling_consent_none)
+        null -> null
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         SolventaListRow(
@@ -448,9 +457,23 @@ private fun ProfilingConsentRow(
             testTag = "profile_profiling_consent",
             onClick = onOpen,
         )
+        if (state.grantable) {
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_grant),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onGrant,
+                enabled = !state.granting,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SolventaSpacing.gutter),
+                testTag = "action_grant_profiling_consent",
+            )
+        }
         if (state.failed) {
             Text(
-                text = stringResource(R.string.profiling_consent_error),
+                text = stringResource(
+                    if (state.grantable) R.string.profiling_consent_grant_error else R.string.profiling_consent_error,
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier
@@ -499,6 +522,52 @@ private fun ProfilingConsentSheet(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth(),
                 testTag = "action_profiling_consent_cancel",
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfilingConsentGrantSheet(
+    visible: Boolean,
+    granting: Boolean,
+    onGrant: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    SolventaBottomSheet(visible = visible, onDismiss = onDecline) {
+        BackHandler(onBack = onDecline)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(SolventaSpacing.gutter)
+                .testTag("sheet_grant_profiling_consent"),
+            verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+        ) {
+            Text(
+                text = stringResource(R.string.profiling_consent_grant_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.profiling_consent_grant_body),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(R.string.mortgage_consent_sources),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_grant),
+                style = SolventaButtonStyle.Filled,
+                onClick = { if (!granting) onGrant() },
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_confirm_grant_profiling_consent",
+            )
+            SolventaButton(
+                text = stringResource(R.string.mortgage_consent_decline),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onDecline,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_decline_grant_profiling_consent",
             )
         }
     }

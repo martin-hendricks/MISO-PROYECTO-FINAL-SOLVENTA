@@ -39,6 +39,13 @@
             >
           </p>
         </div>
+        <a
+          class="outlined"
+          [routerLink]="['/siniestros', s.id, 'prestadores']"
+          data-testid="siniestro-prestadores"
+        >
+          {{ 'siniestros.detalle.prestadores' | translate }}
+        </a>
       </div>
 
       @if (s.motivo) {

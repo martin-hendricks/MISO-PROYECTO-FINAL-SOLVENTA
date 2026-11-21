@@ -46,6 +46,7 @@ fun SiniestroDetalleScreen(
     onOpenPolicy: (String) -> Unit = {},
     onOpenEvidence: (String) -> Unit = {},
     onOpenWallet: () -> Unit = {},
+    onOpenProviders: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -68,6 +69,12 @@ fun SiniestroDetalleScreen(
         )
         if (summary != null) {
             Text(text = summary.ramo, style = MaterialTheme.typography.bodyLarge)
+            SolventaButton(
+                text = stringResource(R.string.action_providers),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onOpenProviders,
+                testTag = "action_open_providers",
+            )
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.small,

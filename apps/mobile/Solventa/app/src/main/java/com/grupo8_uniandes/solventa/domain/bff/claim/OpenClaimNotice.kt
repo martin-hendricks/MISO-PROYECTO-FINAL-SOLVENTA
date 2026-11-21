@@ -159,6 +159,11 @@ class OpenClaimNotice(
         phase = NoticePhase.Evidence
     }
 
+    fun showEvidence() {
+        attempted = true
+        phase = NoticePhase.Evidence
+    }
+
     fun setGeotag(on: Boolean) {
         draft = if (on) {
             draft.copy(geotag = true)
