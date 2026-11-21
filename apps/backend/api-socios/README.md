@@ -56,13 +56,15 @@ El socio cotiza cualquier producto del catálogo para un cliente que ya tiene cu
 
 Cada socio (empresa aliada que integra cotización embebida, no una persona con cuenta en
 Solventa) tiene una API key propia enviada en la cabecera `X-Socio-Api-Key`. Es
-autenticación servicio-a-servicio, sin flujo de login. Solventa guarda solo el hash SHA-256
-de cada clave y lo compara en tiempo constante (`app/seguridad.py`).
+autenticación servicio-a-servicio, sin flujo de login. `api-socios` calcula la huella SHA-256 de la clave
+y resuelve el socio en `ms-identidad` (`POST /v1/socios/resolucion`, con un token de servicio de rol
+`socio`); la clave en claro nunca sale de `api-socios` (`app/seguridad.py`, `app/registro_socios.py`).
 
 | Caso | Respuesta |
 | --- | --- |
-| Falta la cabecera o la clave no corresponde a ningún socio | `401` |
+| Falta la cabecera o la clave no corresponde a ningún socio activo | `401` |
 | La clave es válida pero el socio no tiene el alcance de la ruta | `403` |
+| `ms-identidad` no responde | `503 {"codigo": "servicio_no_disponible"}` |
 
 | Alcance | Rutas |
 | --- | --- |
@@ -71,38 +73,15 @@ de cada clave y lo compara en tiempo constante (`app/seguridad.py`).
 | `cotizaciones:escribir` | `POST /v1/cotizaciones` |
 | `cotizaciones:leer` | `GET /v1/cotizaciones/{cotizacionId}` |
 
-#### Registro de socios (`SOCIOS`)
+#### Registro de socios (`ms-identidad`)
 
-Lista JSON; cada entrada es un socio. El servicio no arranca si una entrada es inválida
-(`socio_id` no UUID, hash que no sea SHA-256 hexadecimal en minúsculas, alcance desconocido,
-`socio_id` o hash repetidos).
+El operador administra los socios en `ms-identidad` (ver su README, sección "Socios de distribución"):
+alta con sus alcances (la API key se entrega una sola vez), rotación de clave, revocación de una clave
+y revocación del socio. Ninguno de esos pasos cambia código ni reinicia `api-socios`.
 
-```json
-[
-  {
-    "socio_id": "1ebbe2fc-d8b1-4046-af76-b92bacec52ff",
-    "nombre": "Aliado local",
-    "alcances": ["catalogo:leer", "originaciones:escribir"],
-    "api_keys_sha256": ["48bc804a45c5da3acc09c94bb86c9cc3e5bb8443eeef076dc574f09a2baed13c"]
-  }
-]
-```
-
-#### Alta de un socio (sin cambiar código)
-
-1. Generar la clave: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
-2. Calcular su huella: `python -c "import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest())" <clave>`.
-3. Agregar la entrada a `SOCIOS` con un `socio_id` nuevo (`python -c "import uuid; print(uuid.uuid4())"`), su nombre, sus alcances y la huella.
-4. Reiniciar `api-socios` para que lea el registro.
-5. Entregar la clave al socio por un canal seguro. Solventa no conserva la clave en claro.
-
-#### Rotación de la clave
-
-1. Agregar la huella de la clave nueva a `api_keys_sha256` del socio, sin quitar la anterior, y reiniciar.
-2. El socio cambia a la clave nueva; mientras tanto ambas son válidas.
-3. Quitar la huella anterior y reiniciar.
-
-Para revocar a un socio, se quita su entrada y se reinicia.
+El socio resuelto se guarda en memoria durante `CACHE_SOCIOS_S` segundos (30 por defecto): es el
+tiempo máximo que tarda en hacer efecto una revocación. Una clave desconocida no se guarda, así que
+una clave recién emitida sirve de inmediato.
 
 ## Desarrollo
 
@@ -117,10 +96,10 @@ uvicorn app.main:app --reload --port 8080          # http://localhost:8080/docs
 | Variable | Default | Uso |
 | --- | --- | --- |
 | `MS_COTIZACION_URL` | `http://localhost:8000` | `ms-cotizacion`: fuente del catálogo |
-| `MS_IDENTIDAD_URL` | `http://localhost:8010` | `ms-identidad`: resuelve el documento del cliente |
+| `MS_IDENTIDAD_URL` | `http://localhost:8010` | `ms-identidad`: resuelve el socio por la huella de su API key y el documento del cliente |
 | `MS_PERFILAMIENTO_URL` | `http://localhost:8004` | `ms-perfilamiento`: registra la originación |
 | `SOLVENTA_TOKEN_SECRET` | vacío | Firma el token de servicio `socio`; es el mismo secreto que bff-web y ms-identidad. En k8s llega por `ExternalSecret` desde `solventa-minimo-bff-web-token` |
-| `SOCIOS` | `[]` | Registro JSON de socios con sus alcances y las huellas SHA-256 de sus API keys (ver "Registro de socios"). Vacío: toda llamada a `/v1` responde 401 |
+| `CACHE_SOCIOS_S` | `30` | Segundos que se reutiliza un socio resuelto en `ms-identidad`; tope de demora de una revocación |
 | `TIMEOUT_NUCLEO_S` | `1.0` | Timeout por llamada al núcleo |
 | `TIMEOUT_OPCIONAL_S` | `0.3` | Corte de fuentes opcionales en vistas agregadas |
 
