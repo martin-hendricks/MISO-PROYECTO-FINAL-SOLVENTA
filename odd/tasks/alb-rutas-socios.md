@@ -51,14 +51,25 @@ Se agregan **después** de los paths existentes de cada servicio: la prioridad d
 cambian de prioridad. Se comprobó que ninguna ruta real de otro servicio empieza por los patrones nuevos, de
 modo que no se le quita tráfico a nadie.
 
-Efecto: **tres reglas nuevas en el ALB**, ninguna existente modificada, y seis rutas nuevas en el API Gateway
-(32 en total).
+Efecto: **tres reglas nuevas en el ALB**, ninguna existente modificada, y **seis rutas nuevas en el API Gateway**.
+
+### Estado vivo medido el 2026-11-21 (tras aplicar `apigw-mapeo-rutas`)
+
+| | Hoy | Después de este cambio |
+| --- | --- | --- |
+| Reglas del ALB | 13 (10; 30 a 34; 40 a 45; 50) | 16 (suma 11, 12 y 35) |
+| Rutas del API Gateway | 27 (26 explícitas + la comodín) | 33 (32 explícitas + la comodín) |
+
+Las seis rutas nuevas del API Gateway son `ANY /v1/cotizaciones`, `ANY /v1/originaciones-hipotecarias` y
+`ANY /v1/backoffice`, cada una con su variante `/{proxy+}`. Hoy esos paths ya pasan por el API Gateway gracias a
+la comodín y se quedan en el 503 del ALB; con el cambio quedan explícitos en los dos.
 
 ## Criterios de aceptación
 
 - [x] `terraform validate` y `terraform fmt` en `environments/minimo`.
 - [x] Evaluado con la variable real: prioridades únicas, sin cambio en las reglas existentes (10; 30 a 34 de
       `bff-web`; 40 a 45 de `bff-movil`; 50 de grafana) y 32 rutas en el API Gateway.
+- [x] Las seis rutas nuevas del API Gateway coinciden con la diferencia entre lo que genera la variable y las 26 explícitas vivas.
 - [ ] `terraform plan` y `apply` contra el entorno real.
 - [ ] Tras el `apply`, sin credenciales: `GET /v1/cotizaciones`, `GET /v1/originaciones-hipotecarias` y
       `GET /v1/backoffice/socios` pasan de 503 a 401 (llegan al servicio).
@@ -67,7 +78,7 @@ Efecto: **tres reglas nuevas en el ALB**, ninguna existente modificada, y seis r
 
 - **El `plan` real no se pudo hacer desde este checkout**: su `terraform.tfstate` está vacío y propone crear
   todo. Debe correrse donde esté el state vigente y decir `3 to add` en el ALB y `6 to add` en el API Gateway,
-  sin destruir ni cambiar nada existente. Si propone mover prioridades de reglas existentes, no se aplica.
+  sin destruir ni cambiar nada existente (el `apply` anterior, el de `apigw-mapeo-rutas`, ya está aplicado). Si propone mover prioridades de reglas existentes, no se aplica.
 - No se probó con credenciales: solo se comprueba que la petición llega al servicio y este la rechaza con 401.
   Que un socio con API key válida cotice, o que un operador abra la pantalla de socios, no se ejercitó.
 - Mergear no aplica nada: ningún workflow ejecuta Terraform.
