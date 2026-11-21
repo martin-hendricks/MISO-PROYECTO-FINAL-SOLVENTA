@@ -9,6 +9,7 @@ from app.api.v1 import rutas, rutas_avisos, rutas_pagos, rutas_prestadores
 from app.application.worker import ciclo_de_evaluacion
 from app.config import Settings
 from app.domain.errores import ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
+from app.infrastructure.consumidor_telemetria import ConsumidorTelemetria
 from app.infrastructure.evidencias import AlmacenEvidenciasEnMemoria, AlmacenEvidenciasS3
 from app.infrastructure.pagos import AdaptadorDesembolsoStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
@@ -62,7 +63,13 @@ def crear_app(config: Settings | None = None) -> FastAPI:
                     app.state.fabrica_uow, app.state.adaptador_desembolso, config.worker_intervalo_segundos, detener
                 )
             )
+        consumidor = None
+        if config.msk_bootstrap_brokers:
+            consumidor = ConsumidorTelemetria(config, app.state.fabrica_uow, app.state.adaptador_desembolso)
+            await consumidor.iniciar()
         yield
+        if consumidor is not None:
+            await consumidor.detener()
         detener.set()
         if tarea is not None:
             with suppress(asyncio.CancelledError):

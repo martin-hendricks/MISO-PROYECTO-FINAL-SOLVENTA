@@ -5,8 +5,19 @@
 # tráfico. Escribe evidencia de siniestros a S3, por eso necesita IRSA
 # (serviceAccount.roleArn) para asumir un rol con permisos de escritura sobre
 # el bucket de evidencias.
+#
+# También es el :MotorParametrico (decisión D5, opción B): consume
+# TopicoTelemetria, que publica ms-parametrico, y evalúa y paga cada evento.
+# El mismo rol IRSA lleva permisos de lectura del tópico y de su grupo de
+# consumidores (modules/irsa_aplicacion). Las réplicas consumidoras están
+# acotadas por las particiones del tópico (12, ver crear-topico-telemetria.yaml).
 
 nombre: ms-siniestros
+
+# deploy.yml resuelve el bootstrap broker SASL/IAM y lo inyecta en la entrada
+# MSK_BOOTSTRAP_BROKERS de variablesEntorno.
+kafka:
+  necesitaMsk: true
 
 imagen:
   repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-ms-siniestros"
@@ -109,6 +120,14 @@ variablesEntorno:
   # bucket ya cifra por defecto con la CMK del módulo kms (sin SSE explícito por objeto).
   - nombre: AWS_REGION
     valor: "us-east-1"
+  - nombre: MSK_BOOTSTRAP_BROKERS
+    valor: ""  # lo inyecta deploy.yml (kafka.necesitaMsk)
+  - nombre: MSK_TOPIC_TELEMETRIA
+    valor: "TopicoTelemetria"
+  - nombre: MSK_CONSUMER_GROUP_TELEMETRIA
+    valor: "ms-siniestros-telemetria"
+  - nombre: MSK_AUTH_MECHANISM
+    valor: "AWS_MSK_IAM"
 
 variablesEntornoSecreto:
   - nombre: DATABASE_URL

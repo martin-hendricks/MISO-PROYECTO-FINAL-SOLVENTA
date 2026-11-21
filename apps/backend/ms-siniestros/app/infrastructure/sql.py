@@ -542,7 +542,12 @@ class RepositorioEventosParametricosSQL:
         self._s.add(
             EventoParametricoFila(evento_id=evento.evento_id, valor=evento.valor, recibido_en=evento.recibido_en)
         )
-        await self._s.flush()
+        # El flush es el que choca con una ingesta concurrente del mismo evento_id (PK),
+        # no el commit: se traduce aquí para que el caso de uso lea al ganador.
+        try:
+            await self._s.flush()
+        except IntegrityError as exc:
+            raise ClaveIdempotenciaDuplicada from exc
 
 
 class RepositorioEvaluacionesSQL:

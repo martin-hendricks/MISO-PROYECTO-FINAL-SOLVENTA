@@ -48,7 +48,28 @@ La evaluación es determinista: `EvaluacionUmbral.evaluar(evento, umbral, poliza
 
 ### Pago paramétrico (HU-34)
 
-Si la evaluación decide pagar, `disparar_pago_parametrico` dispara el desembolso **sin intervención humana** a través del puerto `AdaptadorDesembolso` (`app/ports/pagos.py`). La implementación provista, `AdaptadorDesembolsoStub` (`app/infrastructure/pagos.py`), es un stub sustituible: solo registra el desembolso en memoria, sin red de pagos real. Sustituir el stub por una pasarela real (p. ej. `ms-pagos`) no requiere cambiar `application/` ni `domain/`, solo cumplir el `Protocol`. El pago es idempotente por `evento_id` (`UNIQUE` en `pago_parametrico.evento_id`): reprocesar el mismo evento no genera un segundo desembolso, se conserva el original. Al pagar, el siniestro transiciona a `pagado` usando la máquina de estados de HU-30, con monto y marca de tiempo persistidos en `pago_parametrico`.
+Si la evaluación decide pagar, el desembolso sale **sin intervención humana** por el puerto `AdaptadorDesembolso` (`app/ports/pagos.py`). La implementación provista, `AdaptadorDesembolsoStub` (`app/infrastructure/pagos.py`), es un stub sustituible: registra el desembolso en memoria, sin red de pagos real. Sustituir el stub por una pasarela real (p. ej. `ms-pagos`) no cambia `application/` ni `domain/`; basta con cumplir el `Protocol`, que **exige idempotencia por clave**.
+
+La cadena va en dos pasos, con el efecto externo entre ellos (`recibir_evento_parametrico`):
+
+1. **Una transacción** registra el evento y el siniestro, lo evalúa y, si corresponde, deja el pago registrado con el siniestro en `enrutado`. Si algo falla antes del commit no queda nada, y la reingesta procesa desde cero.
+2. **Después del commit** se desembolsa y otra transacción cierra en `pagado`. Solo se desembolsa un pago ya confirmado, y `pagado` significa que el desembolso ocurrió.
+
+Si el proceso cae entre el commit y el desembolso, el siniestro queda en `enrutado` con el pago registrado; la reingesta del mismo `evento_id` completa el desembolso. La llamada al adaptador es al-menos-una-vez, siempre con la clave `evento_id`: una entrega concurrente que llega con el ganador aún en `enrutado` también la intenta, y la idempotencia del adaptador evita el pago doble. El pago es único por `evento_id` (`UNIQUE` en `pago_parametrico.evento_id`); la colisión de una ingesta concurrente salta en el `flush` del evento y se traduce a `ClaveIdempotenciaDuplicada`.
+
+`POST /v1/eventos-parametricos` es solo para `operador`: quien llama fija umbral y monto. Los proveedores entran por `ms-parametrico` y `TopicoTelemetria` (abajo).
+
+### Consumidor de TopicoTelemetria (:MotorParametrico)
+
+`app/infrastructure/consumidor_telemetria.py` consume el evento canónico que publica `ms-parametrico` (`:ApiTelemetria`) y lo lleva al mismo `recibir_evento_parametrico`, con origen `topico-telemetria` en la traza. Arranca solo si `MSK_BOOTSTRAP_BROKERS` está definido.
+
+- **Offset después de procesar** (commit manual). Si el pod cae a mitad, el mensaje se reentrega y la idempotencia por `evento_id` evita el segundo pago: entrega al-menos-una-vez más consumidor idempotente da efecto exactamente una vez (EC-ESC-04).
+- **Falla transitoria** (BD, pasarela): no avanza el offset y reintenta con backoff exponencial. La partición se detiene a propósito para no saltarse eventos.
+- **Mensaje inservible** (JSON corrupto, `version` desconocida, regla de negocio violada): se registra (`mensaje_telemetria_descartado`) y se avanza para no bloquear la partición. Aún no hay DLQ.
+- **No bloquea el arranque:** sin MSK solo se detiene el canal paramétrico; el aviso asistido y las consultas siguen.
+- Métrica `solventa_siniestros_telemetria_mensajes_total{resultado=procesado|duplicado|descartado|reintento}`.
+
+Las réplicas consumidoras están acotadas por las 12 particiones del tópico. Detalle, decisiones y evidencia E2E: `odd/tasks/telemetria-parametrica.md`.
 
 ### Siniestro asistido (HU-157) — aprobación asíncrona
 
@@ -120,6 +141,10 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `S3_ENDPOINT_URL` / `S3_ENDPOINT_PUBLICO` | — | Solo local: endpoint del doble de S3 y el que usa el navegador para las URLs firmadas. |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_CREAR_BUCKET` | — | Solo local (LocalStack). |
 | `WORKER_EVALUACION_HABILITADO` / `WORKER_INTERVALO_SEGUNDOS` | `true` / `2.0` | Worker asíncrono del motor. |
+| `MSK_BOOTSTRAP_BROKERS` | vacío | Brokers de `TopicoTelemetria`. Vacío = sin consumidor. |
+| `MSK_AUTH_MECHANISM` | `AWS_MSK_IAM` | `PLAINTEXT` contra el Kafka local. |
+| `MSK_TOPIC_TELEMETRIA` / `MSK_CONSUMER_GROUP_TELEMETRIA` | `TopicoTelemetria` / `ms-siniestros-telemetria` | Tópico y grupo (el grupo debe coincidir con el rol IRSA). |
+| `CONSUMIDOR_BACKOFF_INICIAL_SEGUNDOS` / `CONSUMIDOR_BACKOFF_MAXIMO_SEGUNDOS` | `0.5` / `30` | Reintento ante fallas transitorias. |
 
 ## Pruebas (HU-85)
 

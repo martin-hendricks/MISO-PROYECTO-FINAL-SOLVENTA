@@ -34,10 +34,22 @@ locals {
   # tópicos que toca, de modo que la política no conceda acceso al clúster MSK
   # entero.
   msk_consumers = {
+    # ms-parametrico (:ApiTelemetria) es productor puro de TopicoTelemetria y su
+    # dueño: lo crea una sola vez (Job crear-topico-telemetria) y no consume, así
+    # que no declara grupo. El consumidor es ms-siniestros (decisión D5, opción B).
     "ms-parametrico" = {
       service_account = "ms-parametrico"
       topics          = ["TopicoTelemetria"]
-      consumer_groups = ["ms-parametrico"]
+      consumer_groups = []
+      crear_topicos   = true
+    }
+    # ms-siniestros (:MotorParametrico) consume TopicoTelemetria. Ya tiene rol por
+    # la evidencia en S3: all_components une ambos mapas por la misma clave, así
+    # que es un único rol con las dos políticas adjuntas.
+    "ms-siniestros" = {
+      service_account = "ms-siniestros"
+      topics          = ["TopicoTelemetria"]
+      consumer_groups = ["ms-siniestros-telemetria"]
     }
     "ms-pagos" = {
       service_account = "ms-pagos"

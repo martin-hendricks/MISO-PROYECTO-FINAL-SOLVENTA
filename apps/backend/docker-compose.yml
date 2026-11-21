@@ -17,6 +17,7 @@
 #   8003 ms-polizas      8004 ms-perfilamiento 8005 ms-siniestros
 #   8006 api-socios      8007 bff-movil        8009 ms-cotizacion
 #   8010 ms-identidad    8011 ms-consentimiento  8012 notificaciones
+#   8013 ms-parametrico (ApiTelemetria)          9094 Kafka (TopicoTelemetria)
 #   4566 S3 local (LocalStack, evidencia de siniestros)
 #   8008 grafana (admin/admin, o anónimo como Viewer) · 9090 prometheus
 #
@@ -268,12 +269,76 @@ services:
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
       S3_CREAR_BUCKET: "true"
+      # :MotorParametrico: consume TopicoTelemetria del Kafka local (sin SASL/IAM).
+      MSK_BOOTSTRAP_BROKERS: kafka:9092
+      MSK_AUTH_MECHANISM: PLAINTEXT
     ports:
       - "8005:8080"
     depends_on:
       db-siniestros:
         condition: service_healthy
       s3-local:
+        condition: service_healthy
+      crear-topico-telemetria:
+        condition: service_completed_successfully
+
+  # :ApiTelemetria. Recibe eventos de proveedores (vuelos, clima) y los publica en
+  # TopicoTelemetria. Credenciales del proveedor: X-Telemetria-Cliente / X-Telemetria-Secreto.
+  ms-parametrico:
+    build:
+      context: ./ms-parametrico
+      target: runtime
+    environment:
+      MSK_BOOTSTRAP_BROKERS: kafka:9092
+      MSK_AUTH_MECHANISM: PLAINTEXT
+      TELEMETRIA_CLIENT_ID: proveedor-demo
+      TELEMETRIA_CLIENT_SECRET: clave-local-de-pruebas-no-usar-en-produccion
+    ports:
+      - "8013:8080"
+    depends_on:
+      crear-topico-telemetria:
+        condition: service_completed_successfully
+
+  # Kafka local en modo KRaft, un solo broker. Reemplaza a MSK: mismo
+  # auto.create.topics.enable=false, así que el tópico se crea explícitamente.
+  # Desde el host: localhost:9094.
+  kafka:
+    image: apache/kafka:3.8.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "9094:9094"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  # Crea TopicoTelemetria (12 particiones, 1 réplica en local) con el mismo
+  # módulo que usa el Job de EKS. Idempotente: termina en 0 si ya existe.
+  crear-topico-telemetria:
+    build:
+      context: ./ms-parametrico
+      target: runtime
+    command: ["python", "-m", "app.crear_topico", "--replicas", "1"]
+    environment:
+      MSK_BOOTSTRAP_BROKERS: kafka:9092
+      MSK_AUTH_MECHANISM: PLAINTEXT
+    restart: "no"
+    depends_on:
+      kafka:
         condition: service_healthy
 
   # Doble de S3 (LocalStack, solo el servicio s3) para la evidencia de siniestros. En AWS

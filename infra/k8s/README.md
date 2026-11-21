@@ -65,7 +65,7 @@ Ningún manifiesto de esta carpeta referencia el state de Terraform directamente
 | `polizas_writer_endpoint` / `polizas_reader_endpoint` | `values/ms-polizas.yaml` → `variablesEntorno[DB_POLIZAS_WRITE_HOST]` / `[DB_POLIZAS_READ_HOST]`. |
 | `siniestros_endpoint` | `values/ms-siniestros.yaml` → `variablesEntorno[DB_SINIESTROS_HOST]`. |
 | `redis_primary_endpoint` | `values/ms-cotizacion.yaml` y `values/ms-perfilamiento.yaml` → `REDIS_CACHE_OF_HOST` / `REDIS_CACHE_OD_HOST`. |
-| `msk_bootstrap_brokers_sasl_iam` | `values/ms-parametrico.yaml`, `values/ms-pagos.yaml`, `values/analitica.yaml`, `values/notificaciones.yaml` → `MSK_BOOTSTRAP_BROKERS`. |
+| `msk_bootstrap_brokers_sasl_iam` | `values/ms-parametrico.yaml`, `values/ms-siniestros.yaml`, `values/ms-pagos.yaml`, `values/analitica.yaml`, `values/notificaciones.yaml` → `MSK_BOOTSTRAP_BROKERS` (deploy.yml lo inyecta en los que declaran `kafka.necesitaMsk: true`). |
 | `evidencias_bucket_name` | Automático: Terraform lo publica como `S3_EVIDENCIAS_BUCKET` en el secreto `solventa-minimo-siniestros-config` (`modules/secrets`) y `values/ms-siniestros.yaml` lo proyecta con `externalSecrets`. No hay nada que copiar. |
 | Rol IRSA de `external-secrets` (módulo `eks_addons`) | `platform/clustersecretstore.yaml` → `spec.provider.aws.auth.jwt.serviceAccountRef` (apunta al ServiceAccount `external-secrets`/`external-secrets`, que Terraform ya anota con ese rol). |
 | Rol IRSA de `aws-load-balancer-controller` (módulo `eks_addons`) | Implícito: es el controlador que interpreta `platform/ingress.yaml`. No hay nada que copiar a mano aquí. |
@@ -93,8 +93,8 @@ python3 -c "import yaml,sys; [list(yaml.safe_load_all(open(f))) for f in sys.arg
 ## TODO pendientes
 
 - **Roles IRSA — el rol ya existe, falta copiar su ARN.** Los crea `modules/irsa_aplicacion`, uno por componente, con política mínima y trust policy atada a su ServiceAccount:
-  - `ms-siniestros`: escritura de evidencia en S3.
-  - `ms-parametrico`: consumo de `TopicoTelemetria` (MSK, auth IAM).
+  - `ms-siniestros`: escritura de evidencia en S3 y consumo de `TopicoTelemetria` (grupo `ms-siniestros-telemetria`).
+  - `ms-parametrico`: producción en `TopicoTelemetria` y su creación (MSK, auth IAM).
   - `ms-pagos`: consumo de `ColaPagos` (MSK, auth IAM).
   - `analitica` y `notificaciones`: consumo de `BusEventos` (MSK, auth IAM).
 

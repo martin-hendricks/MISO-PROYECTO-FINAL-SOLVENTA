@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from uuid import UUID
 
@@ -23,6 +23,8 @@ from app.ports.pagos import AdaptadorDesembolso
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 
 ORIGEN_SISTEMA = "ms-siniestros:evaluacion-paramétrica"
+ORIGEN_INGESTA_HTTP = "stub-evento-parametrico"
+ORIGEN_TOPICO_TELEMETRIA = "topico-telemetria"
 
 
 @dataclass(frozen=True)
@@ -45,9 +47,7 @@ async def cambiar_estado_siniestro(
         siniestro = await tx.siniestros.obtener(siniestro_id)
         if siniestro is None:
             raise NoEncontrado(f"Siniestro {siniestro_id} no existe")
-        siniestro.cambiar_estado(nuevo_estado, origen)
-        await tx.siniestros.actualizar(siniestro)
-        await tx.outbox.agregar(siniestro_cambio_estado(siniestro, siniestro.historial[-1]))
+        await _transicionar(tx, siniestro, nuevo_estado, origen)
         await tx.confirmar()
     return siniestro
 
@@ -111,50 +111,103 @@ async def recibir_evento_parametrico(
     ramo: str | None = None,
     poliza_numero: str | None = None,
     descripcion: str | None = None,
+    origen: str = ORIGEN_INGESTA_HTTP,
 ) -> ResultadoIngesta:
-    """Encadena HU-32 (ingesta idempotente) -> HU-33 (evaluación de umbral) -> HU-34
-    (pago paramétrico stub) en una sola invocación desde la ruta de ingesta, pero cada
-    paso vive en su propia función testeable (evaluar_umbral / disparar_pago_parametrico)
-    para que puedan probarse de forma aislada.
+    """HU-32 -> HU-33 -> HU-34 en dos pasos, con el efecto externo entre ellos.
 
-    Idempotencia por evento_id (HU-32): si el evento ya fue ingerido, NO se vuelve a
-    evaluar ni se genera un segundo pago; se devuelve el resultado ya persistido.
+    1. Una sola transacción registra el evento y el siniestro, lo evalúa y, si
+       corresponde, deja el pago registrado con el siniestro en ENRUTADO. Si algo falla
+       antes del commit no queda nada persistido y la reingesta procesa desde cero.
+    2. Después del commit se desembolsa y otra transacción cierra en PAGADO. Solo se
+       desembolsa un pago ya confirmado en la base, y PAGADO significa que el
+       desembolso ocurrió.
+
+    Si el proceso cae entre el commit y el desembolso, el siniestro queda en ENRUTADO con
+    el pago registrado: la reingesta del mismo evento_id (reintento del proveedor o
+    reentrega del tópico) completa el desembolso. Una entrega concurrente que llega
+    mientras el ganador aún está en ENRUTADO también lo intenta: la llamada al adaptador
+    es "al menos una vez", siempre con la misma clave evento_id, y el adaptador es
+    idempotente por esa clave. Esa idempotencia es la que impide el pago doble.
     """
-    inicio_registro = time.perf_counter()
+    inicio = time.perf_counter()
     evento = EventoParametrico.recibir(evento_id, valor)
 
+    resultado = await _registrar_y_decidir(
+        uow,
+        evento,
+        umbral,
+        poliza_vigente,
+        monto_pago,
+        origen,
+        poliza_id,
+        usuario_id,
+        ramo,
+        poliza_numero,
+        descripcion,
+    )
+    if resultado.procesado:
+        LATENCIA.labels("registro").observe(time.perf_counter() - inicio)
+        if resultado.pago is None:
+            RESULTADO.labels("no_pagado").inc()
+
+    if resultado.pago is not None and resultado.siniestro.estado is EstadoSiniestro.ENRUTADO:
+        siniestro = await _completar_pago(uow, adaptador_desembolso, resultado.siniestro.id, resultado.pago)
+        resultado = replace(resultado, siniestro=siniestro)
+        if resultado.procesado:
+            LATENCIA.labels("hasta_pago").observe(time.perf_counter() - inicio)
+    return resultado
+
+
+async def _registrar_y_decidir(
+    uow: FabricaUnidadDeTrabajo,
+    evento: EventoParametrico,
+    umbral: Decimal,
+    poliza_vigente: bool,
+    monto_pago: Decimal,
+    origen: str,
+    poliza_id: UUID | None,
+    usuario_id: UUID | None,
+    ramo: str | None,
+    poliza_numero: str | None,
+    descripcion: str | None,
+) -> ResultadoIngesta:
+    """Paso 1: todo en una transacción. Idempotente por evento_id (HU-32)."""
     async with uow() as tx:
         existente = await tx.eventos_parametricos.obtener_por_clave(evento.evento_id)
         if existente is not None:
             return await _resultado_existente(tx, existente)
 
-        siniestro = Siniestro.recibir(
-            evento.evento_id,
-            origen="stub-evento-parametrico",
-            poliza_id=poliza_id,
-            usuario_id=usuario_id,
-            ramo=ramo,
-            poliza_numero=poliza_numero,
-            descripcion=descripcion,
-        )
-        await tx.siniestros.agregar(siniestro)
-        await tx.eventos_parametricos.agregar(evento)
-        await tx.outbox.agregar(evento_parametrico_recibido(evento, siniestro))
-
         try:
+            siniestro = Siniestro.recibir(
+                evento.evento_id,
+                origen=origen,
+                poliza_id=poliza_id,
+                usuario_id=usuario_id,
+                ramo=ramo,
+                poliza_numero=poliza_numero,
+                descripcion=descripcion,
+            )
+            # El evento va primero: su PK es la clave de idempotencia, así una colisión
+            # concurrente se detecta antes de escribir el siniestro.
+            await tx.eventos_parametricos.agregar(evento)
+            await tx.siniestros.agregar(siniestro)
+            await tx.outbox.agregar(evento_parametrico_recibido(evento, siniestro))
+
+            await _transicionar(tx, siniestro, EstadoSiniestro.EN_EVALUACION, ORIGEN_SISTEMA)
+            evaluacion = await _evaluar(tx, evento, siniestro, umbral, poliza_vigente)
+            await _transicionar(tx, siniestro, EstadoSiniestro.DECIDIDO, ORIGEN_SISTEMA)
+
+            pago: PagoParametrico | None = None
+            if evaluacion.decision:
+                await _transicionar(tx, siniestro, EstadoSiniestro.ENRUTADO, ORIGEN_SISTEMA)
+                pago = await _registrar_pago(tx, siniestro.id, evaluacion, monto_pago)
+
             await tx.confirmar()
-            ingerido = True
+            return ResultadoIngesta(siniestro, evento, evaluacion, pago, procesado=True)
         except ClaveIdempotenciaDuplicada:
-            ingerido = False
+            pass
 
-    LATENCIA.labels("registro").observe(time.perf_counter() - inicio_registro)
-
-    if ingerido:
-        return await _evaluar_y_pagar(
-            uow, adaptador_desembolso, siniestro, evento, umbral, poliza_vigente, monto_pago, inicio_registro
-        )
-
-    # Perdió la carrera de idempotencia: otra transacción ya ingirió este evento_id.
+    # Perdió la carrera: otra transacción ya registró este evento_id.
     async with uow() as tx:
         ganador = await tx.eventos_parametricos.obtener_por_clave(evento.evento_id)
         if ganador is None:
@@ -162,46 +215,59 @@ async def recibir_evento_parametrico(
         return await _resultado_existente(tx, ganador)
 
 
-async def _evaluar_y_pagar(
+async def _completar_pago(
     uow: FabricaUnidadDeTrabajo,
     adaptador_desembolso: AdaptadorDesembolso,
-    siniestro: Siniestro,
-    evento: EventoParametrico,
-    umbral: Decimal,
-    poliza_vigente: bool,
-    monto_pago: Decimal,
-    inicio_registro: float,
-) -> ResultadoIngesta:
-    await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.EN_EVALUACION, ORIGEN_SISTEMA)
-    evaluacion = await evaluar_umbral(uow, evento, umbral, poliza_vigente)
-    siniestro = await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.DECIDIDO, ORIGEN_SISTEMA)
+    siniestro_id: UUID,
+    pago: PagoParametrico,
+) -> Siniestro:
+    """Paso 2: desembolso fuera de la transacción y cierre en PAGADO."""
+    await adaptador_desembolso.desembolsar(pago.evento_id, pago.monto)
+    async with uow() as tx:
+        siniestro = await tx.siniestros.obtener(siniestro_id)
+        if siniestro is None:
+            raise NoEncontrado(f"Siniestro {siniestro_id} no existe")
+        if siniestro.estado is EstadoSiniestro.PAGADO:
+            return siniestro  # otra entrega del mismo evento ya lo cerró
+        await _transicionar(tx, siniestro, EstadoSiniestro.PAGADO, ORIGEN_SISTEMA)
+        await tx.confirmar()
+    RESULTADO.labels("pagado").inc()
+    return siniestro
 
-    pago: PagoParametrico | None = None
-    if evaluacion.decision:
-        siniestro = await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.ENRUTADO, ORIGEN_SISTEMA)
-        pago = await disparar_pago_parametrico(uow, adaptador_desembolso, siniestro.id, evaluacion, monto_pago)
-        siniestro = await cambiar_estado_siniestro(uow, siniestro.id, EstadoSiniestro.PAGADO, ORIGEN_SISTEMA)
-        RESULTADO.labels("pagado").inc()
-        LATENCIA.labels("hasta_pago").observe(time.perf_counter() - inicio_registro)
-    else:
-        RESULTADO.labels("no_pagado").inc()
 
-    return ResultadoIngesta(siniestro, evento, evaluacion, pago, procesado=True)
+async def _transicionar(tx, siniestro: Siniestro, estado: EstadoSiniestro, origen: str) -> None:
+    siniestro.cambiar_estado(estado, origen)
+    await tx.siniestros.actualizar(siniestro)
+    await tx.outbox.agregar(siniestro_cambio_estado(siniestro, siniestro.historial[-1]))
+
+
+async def _evaluar(
+    tx, evento: EventoParametrico, siniestro: Siniestro, umbral: Decimal, poliza_vigente: bool
+) -> EvaluacionUmbral:
+    evaluacion = EvaluacionUmbral.evaluar(evento, umbral, poliza_vigente)
+    await tx.evaluaciones.agregar(evaluacion)
+    await tx.outbox.agregar(umbral_evaluado(evaluacion, siniestro))
+    return evaluacion
+
+
+async def _registrar_pago(tx, siniestro_id: UUID, evaluacion: EvaluacionUmbral, monto: Decimal) -> PagoParametrico:
+    pago = PagoParametrico.disparar(evaluacion, siniestro_id, monto)
+    await tx.pagos.agregar(pago)
+    await tx.outbox.agregar(pago_parametrico_disparado(pago))
+    return pago
 
 
 async def evaluar_umbral(
     uow: FabricaUnidadDeTrabajo, evento: EventoParametrico, umbral: Decimal, poliza_vigente: bool
 ) -> EvaluacionUmbral:
-    """HU-33: compara el valor del evento contra el umbral que viaja en la solicitud de
-    evaluación (no se llama por red a ms-polizas). El resultado (umbral, valor, decisión
+    """HU-33 aislada: compara el valor del evento contra el umbral que viaja en la
+    solicitud (no se llama por red a ms-polizas). El resultado (umbral, valor, decisión
     y motivo) queda persistido siempre, se pague o no."""
     async with uow() as tx:
         siniestro = await tx.siniestros.obtener_por_evento(evento.evento_id)
         if siniestro is None:
             raise NoEncontrado(f"No existe siniestro para el evento {evento.evento_id}")
-        evaluacion = EvaluacionUmbral.evaluar(evento, umbral, poliza_vigente)
-        await tx.evaluaciones.agregar(evaluacion)
-        await tx.outbox.agregar(umbral_evaluado(evaluacion, siniestro))
+        evaluacion = await _evaluar(tx, evento, siniestro, umbral, poliza_vigente)
         await tx.confirmar()
     return evaluacion
 
@@ -213,31 +279,26 @@ async def disparar_pago_parametrico(
     evaluacion: EvaluacionUmbral,
     monto: Decimal,
 ) -> PagoParametrico:
-    """HU-34: dispara el desembolso simulado sin intervención humana cuando el umbral se
-    cumplió. Idempotente por evento_id: si ya existe un pago para ese evento, se
-    devuelve el pago original sin generar un segundo desembolso."""
+    """HU-34 aislada: registra el pago y desembolsa DESPUÉS del commit. Idempotente por
+    evento_id: si el pago ya existe se reintenta el desembolso (el adaptador lo absorbe)
+    y se devuelve el pago original."""
     async with uow() as tx:
-        existente = await tx.pagos.obtener_por_evento(evaluacion.evento_id)
-        if existente is not None:
-            return existente
+        pago = await tx.pagos.obtener_por_evento(evaluacion.evento_id)
+        if pago is None:
+            pago = await _registrar_pago(tx, siniestro_id, evaluacion, monto)
+            try:
+                await tx.confirmar()
+            except ClaveIdempotenciaDuplicada:
+                pago = None
 
-        pago = PagoParametrico.disparar(evaluacion, siniestro_id, monto)
-        await adaptador_desembolso.desembolsar(pago.evento_id, pago.monto)
-        await tx.pagos.agregar(pago)
-        await tx.outbox.agregar(pago_parametrico_disparado(pago))
+    if pago is None:
+        async with uow() as tx:
+            pago = await tx.pagos.obtener_por_evento(evaluacion.evento_id)
+        if pago is None:
+            raise RuntimeError("Clave de pago duplicada sin registro visible")
 
-        try:
-            await tx.confirmar()
-        except ClaveIdempotenciaDuplicada:
-            pass
-        else:
-            return pago
-
-    async with uow() as tx:
-        ganador = await tx.pagos.obtener_por_evento(evaluacion.evento_id)
-    if ganador is None:
-        raise RuntimeError("Clave de pago duplicada sin registro visible")
-    return ganador
+    await adaptador_desembolso.desembolsar(pago.evento_id, pago.monto)
+    return pago
 
 
 async def _resultado_existente(tx, evento: EventoParametrico) -> ResultadoIngesta:

@@ -28,3 +28,14 @@ class Settings(BaseSettings):
     # Worker de evaluación asíncrona del aviso asistido.
     worker_evaluacion_habilitado: bool = True
     worker_intervalo_segundos: float = 2.0
+
+    # Consumidor de TopicoTelemetria (:MotorParametrico). Sin brokers no arranca: las
+    # pruebas y el desarrollo sin bus siguen usando POST /v1/eventos-parametricos.
+    msk_bootstrap_brokers: str = ""
+    msk_topic_telemetria: str = "TopicoTelemetria"
+    msk_consumer_group_telemetria: str = "ms-siniestros-telemetria"
+    # AWS_MSK_IAM en EKS (IRSA); PLAINTEXT para el Kafka local de docker-compose.
+    msk_auth_mechanism: str = "AWS_MSK_IAM"
+    consumidor_lote_maximo: int = 100
+    consumidor_backoff_inicial_segundos: float = 0.5
+    consumidor_backoff_maximo_segundos: float = 30.0
