@@ -43,6 +43,17 @@ describe('LocaleService', () => {
     expect(locale.hasChosen()).toBeTrue();
   });
 
+  it('keeps <html lang> in step with the active locale', () => {
+    localStorage.setItem(STORAGE_KEY, 'es-CL');
+    const { locale } = setup();
+
+    expect(document.documentElement.lang).toBe('es-CL');
+
+    locale.use('es-MX');
+
+    expect(document.documentElement.lang).toBe('es-MX');
+  });
+
   it('ignores a corrupted/unknown stored value and falls back to the default', () => {
     localStorage.setItem(STORAGE_KEY, 'fr-FR');
     const { locale } = setup();

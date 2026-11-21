@@ -19,6 +19,13 @@
       }
     </div>
 
+    <dl class="preview" data-testid="idioma-region-preview" aria-live="polite">
+      <dt>{{ 'idiomaRegion.preview.premium' | translate }}</dt>
+      <dd data-testid="idioma-region-sample-premium">{{ samplePremium() }}</dd>
+      <dt>{{ 'idiomaRegion.preview.date' | translate }}</dt>
+      <dd data-testid="idioma-region-sample-date">{{ sampleDate() }}</dd>
+    </dl>
+
     <button type="button" class="filled" data-testid="idioma-region-done" (click)="continue()">
       {{ 'idiomaRegion.done' | translate }}
     </button>
@@ -50,6 +57,13 @@
             </button>
           }
         </div>
+
+        <dl class="preview" data-testid="idioma-region-preview" aria-live="polite">
+          <dt>{{ 'idiomaRegion.preview.premium' | translate }}</dt>
+          <dd data-testid="idioma-region-sample-premium">{{ samplePremium() }}</dd>
+          <dt>{{ 'idiomaRegion.preview.date' | translate }}</dt>
+          <dd data-testid="idioma-region-sample-date">{{ sampleDate() }}</dd>
+        </dl>
 
         <button
           type="button"

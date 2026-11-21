@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { inject, Injectable, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { defaultLocale } from './provide-i18n';
@@ -31,9 +32,14 @@ function write(locale: Locale): void {
 @Injectable({ providedIn: 'root' })
 export class LocaleService {
   private readonly translate = inject(TranslateService);
+  private readonly document = inject(DOCUMENT);
   private readonly current = signal<Locale>(read() ?? defaultLocale);
 
   readonly locale = this.current.asReadonly();
+
+  constructor() {
+    this.syncDocumentLang();
+  }
 
   /** Whether the visitor already chose a locale (first-launch gate). */
   hasChosen(): boolean {
@@ -43,6 +49,13 @@ export class LocaleService {
   use(locale: Locale): void {
     this.current.set(locale);
     write(locale);
+    this.syncDocumentLang();
     void this.translate.use(locale);
+  }
+
+  /** Screen readers pick pronunciation from `<html lang>`; index.html only
+   * ships the es-CO default, so keep it in step with the active locale. */
+  private syncDocumentLang(): void {
+    this.document.documentElement.lang = this.current();
   }
 }
