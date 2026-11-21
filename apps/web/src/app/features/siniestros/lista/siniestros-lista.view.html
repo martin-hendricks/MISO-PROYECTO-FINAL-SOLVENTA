@@ -4,9 +4,14 @@
       <h1>{{ 'siniestros.lista.title' | translate }}</h1>
       <p class="subtitle">{{ 'siniestros.lista.subtitle' | translate }}</p>
     </div>
-    <a class="filled" routerLink="/siniestros/nuevo" data-testid="siniestros-reportar">
-      {{ 'siniestros.lista.reportar' | translate }}
-    </a>
+    <div class="acciones">
+      <a class="outlined" routerLink="/siniestros/prestadores" data-testid="siniestros-prestadores">
+        {{ 'siniestros.lista.prestadores' | translate }}
+      </a>
+      <a class="filled" routerLink="/siniestros/nuevo" data-testid="siniestros-reportar">
+        {{ 'siniestros.lista.reportar' | translate }}
+      </a>
+    </div>
   </div>
 
   @switch (vm.status()) {

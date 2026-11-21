@@ -4,7 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.os.CancellationSignal
+import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.grupo8_uniandes.solventa.domain.bff.claim.DeviceLocator
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
@@ -21,14 +23,20 @@ class PlatformLocator(
     @SuppressLint("MissingPermission")
     override suspend fun current(): GeoPoint? = withContext(Dispatchers.IO) {
         val manager = context.getSystemService(LocationManager::class.java) ?: return@withContext null
-        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-        for (provider in providers) {
-            val enabled = runCatching { manager.isProviderEnabled(provider) }.getOrDefault(false)
-            if (!enabled) continue
-            val location = readCurrent(manager, provider) ?: lastKnown(manager, provider)
-            if (location != null) return@withContext location.toPoint()
+        val enabled = providerNames().filter { name ->
+            runCatching { manager.isProviderEnabled(name) }.getOrDefault(false)
         }
-        null
+        for (provider in enabled) {
+            lastKnown(manager, provider)?.let { return@withContext it.toPoint() }
+        }
+        val provider = enabled.firstOrNull() ?: return@withContext null
+        readCurrent(manager, provider)?.toPoint()
+    }
+
+    private fun providerNames(): List<String> = buildList {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(LocationManager.FUSED_PROVIDER)
+        add(LocationManager.GPS_PROVIDER)
+        add(LocationManager.NETWORK_PROVIDER)
     }
 
     @SuppressLint("MissingPermission")
@@ -42,7 +50,7 @@ class PlatformLocator(
                         manager,
                         provider,
                         signal,
-                        Runnable::run,
+                        ContextCompat.getMainExecutor(context),
                     ) { location ->
                         if (cont.isActive) cont.resume(location)
                     }

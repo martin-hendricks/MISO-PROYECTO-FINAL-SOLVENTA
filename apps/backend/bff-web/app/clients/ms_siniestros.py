@@ -74,6 +74,30 @@ class ClienteMsSiniestros(ClienteServicio):
     async def pagar(self, siniestro_id: UUID, actor: str) -> dict[str, Any]:
         return await self._pedir("POST", f"/v1/siniestros/{siniestro_id}/pago", json={"actor": actor})
 
+    async def prestadores(self, **filtros: Any) -> dict[str, Any]:
+        params = {clave: str(valor) for clave, valor in filtros.items() if valor is not None}
+        return await self._pedir("GET", "/v1/prestadores", params=params)
+
+    async def prestador(self, prestador_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/prestadores/{prestador_id}")
+
+    async def ciudades_prestadores(self, pais: str, con_prestadores: bool) -> dict[str, Any]:
+        params = {"pais": pais, "con_prestadores": str(con_prestadores).lower()}
+        return await self._pedir("GET", "/v1/prestadores/ciudades", params=params)
+
+    async def prestadores_siniestro(self, siniestro_id: str, **filtros: Any) -> dict[str, Any]:
+        params = {clave: str(valor) for clave, valor in filtros.items() if valor is not None}
+        return await self._pedir("GET", f"/v1/siniestros/{siniestro_id}/prestadores", params=params or None)
+
+    async def crear_prestador(self, cuerpo: dict[str, Any]) -> dict[str, Any]:
+        return await self._pedir("POST", "/v1/prestadores", json=cuerpo)
+
+    async def editar_prestador(self, prestador_id: str, cuerpo: dict[str, Any]) -> dict[str, Any]:
+        return await self._pedir("PATCH", f"/v1/prestadores/{prestador_id}", json=cuerpo)
+
+    async def cambiar_estado_prestador(self, prestador_id: str, estado: str) -> dict[str, Any]:
+        return await self._pedir("POST", f"/v1/prestadores/{prestador_id}/estado", json={"estado": estado})
+
     async def pagos_recibidos(self) -> dict[str, Any]:
         return await self._pedir("GET", "/v1/pagos-recibidos")
 

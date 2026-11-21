@@ -12,9 +12,12 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import com.grupo8_uniandes.solventa.domain.bff.claim.OpenAssistanceRequest
-import com.grupo8_uniandes.solventa.domain.bff.claim.OpenProviderCatalog
-import com.grupo8_uniandes.solventa.domain.bff.claim.ProviderCatalog
+import com.grupo8_uniandes.solventa.prestadores.MapaPrestadoresUi
+import com.grupo8_uniandes.solventa.prestadores.ProviderMapPhase
+import com.grupo8_uniandes.solventa.prestadores.ProviderPlacement
 import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
 import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
@@ -39,8 +42,33 @@ class AsistenciaSitioTest {
         rule.setContent {
             SolventaTheme {
                 if (onCatalog) {
-                    val rows = (OpenProviderCatalog().open(true) as ProviderCatalog.Open).rows
-                    MapaPrestadoresScreen(rows = rows, onOpenAssistance = { onCatalog = false })
+                    MapaPrestadoresScreen(
+                        state = MapaPrestadoresUi(
+                            phase = ProviderMapPhase.NearMe,
+                            placement = ProviderPlacement.Near,
+                            mapsKey = "",
+                            providers = listOf(
+                                Provider(
+                                    id = "PRE-BOG-06",
+                                    nombre = "Taller Moto Chapinero",
+                                    tipo = ProviderType.TALLER_MOTOS,
+                                    ramos = listOf("soat-motocicleta"),
+                                    direccion = "Cra 13 #45-18",
+                                    ciudad = "Bogotá",
+                                    barrio = "Chapinero",
+                                    lat = 4.6355,
+                                    lng = -74.0655,
+                                    telefono = "601 555 0112",
+                                    horario = "Lun–Sáb 7:00–19:00",
+                                    distanciaKm = 0.9,
+                                ),
+                            ),
+                        ),
+                        onPermission = {},
+                        onSelectCity = {},
+                        onSelectRamo = {},
+                        onOpenProvider = { onCatalog = false },
+                    )
                 } else {
                     AsistenciaSitioScreen(
                         form = form,

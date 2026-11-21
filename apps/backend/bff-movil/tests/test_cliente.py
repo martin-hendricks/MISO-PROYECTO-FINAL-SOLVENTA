@@ -70,7 +70,12 @@ def test_hipoteca_avisos_inicio_push_y_asistencia(client):
     assert token.status_code == 200
     assert client.get("/cliente/avisos/push", headers=headers).status_code == 404
     providers = client.get("/cliente/prestadores", headers=headers).json()
-    assert providers["prestadores"][0]["id"] == "PR-1"
+    assert providers["prestadores"][0]["id"] == "PRE-BOG-06"
+    assert providers["prestadores"][0]["barrio"] == "Chapinero"
+    assert providers["prestadores"][0]["pais"] == "CO"
+    assert providers["truncado"] is False
+    ciudades = client.get("/cliente/prestadores/ciudades", params={"pais": "CO"}, headers=headers).json()
+    assert ciudades["ciudades"][0]["nombre"] == "Bogotá"
     assistance = client.post(
         "/cliente/asistencias",
         headers=headers,

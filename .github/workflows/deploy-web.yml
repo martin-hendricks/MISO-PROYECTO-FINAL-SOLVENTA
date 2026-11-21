@@ -126,6 +126,12 @@ jobs:
           # Falla si el patrón dejó de coincidir: sin esto el build saldría con '/web'.
           grep -q "factory: () => '${{ steps.resolve.outputs.api_url }}/v1'" src/app/core/api/api-base-url.ts
 
+      - name: Inyectar la clave de Google Maps
+        run: |
+          sed -i "s#factory: () => ''#factory: () => '${{ secrets.GOOGLE_MAPS_API_KEY }}'#" \
+            src/app/core/maps/google-maps-key.ts
+          grep -q "factory: () => '${{ secrets.GOOGLE_MAPS_API_KEY }}'" src/app/core/maps/google-maps-key.ts
+
       - name: Build de producción
         run: pnpm build
 

@@ -563,6 +563,44 @@
           "name": "Operador",
           "item": [
             {
+              "name": "Prestadores 006 — ciudades de Perú",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenAsesor}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/prestadores/ciudades?pais=PE",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "prestadores", "ciudades"],
+                  "query": [{"key": "pais", "value": "PE"}]
+                },
+                "description": "Asesor u operador. Las tres ciudades del catálogo con el total de prestadores, aunque sea cero."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('tres ciudades', () => pm.expect(pm.response.json().ciudades.length).to.eql(3));"
+              ]}}]
+            },
+            {
+              "name": "Prestadores 006 — alta con país desconocido",
+              "request": {
+                "method": "POST",
+                "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessTokenOperador}}"}],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Taller de prueba\",\n  \"tipo\": \"taller-motos\",\n  \"ramos\": [\"soat-motocicleta\"],\n  \"direccion\": \"Av. Corrientes 1234\",\n  \"ciudad\": \"Buenos Aires\",\n  \"pais\": \"AR\",\n  \"barrio\": \"Centro\",\n  \"lat\": -34.6037,\n  \"lng\": -58.3816,\n  \"telefono\": \"11 5555 0000\",\n  \"horario\": \"Lun–Vie 8:00–18:00\"\n}",
+                  "options": {"raw": {"language": "json"}}
+                },
+                "url": {
+                  "raw": "{{baseUrlBffWeb}}/v1/operador/prestadores",
+                  "host": ["{{baseUrlBffWeb}}"],
+                  "path": ["v1", "operador", "prestadores"]
+                }
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('422 pais_desconocido', () => { pm.response.to.have.status(422); pm.expect(pm.response.json().codigo).to.eql('pais_desconocido'); });"
+              ]}}]
+            },
+            {
               "name": "Audiencia de push",
               "request": {
                 "method": "GET",
@@ -1195,6 +1233,92 @@
           "event": [{"listen": "test", "script": {"exec": [
             "pm.test('200 OK', () => pm.response.to.have.status(200));"
           ]}}]
+        },
+        {
+          "name": "Prestadores 006",
+          "description": "Mapa de prestadores: ciudades por país y área visible (specs/006-prestadores-map-views/quickstart.md §3).",
+          "item": [
+            {
+              "name": "Ciudades de México",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/prestadores/ciudades?pais=MX",
+                  "host": ["{{baseUrlBffMovil}}"],
+                  "path": ["bff-movil", "v1", "cliente", "prestadores", "ciudades"],
+                  "query": [{"key": "pais", "value": "MX"}]
+                },
+                "description": "Tres ciudades, Ciudad de México primero con zoom 11 y 5 prestadores."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('Ciudad de México primero', () => pm.expect(pm.response.json().ciudades[0].nombre).to.eql('Ciudad de México'));"
+              ]}}]
+            },
+            {
+              "name": "Área visible de Chapinero con origen",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/prestadores?norte=4.66&sur=4.62&este=-74.05&oeste=-74.08&lat=4.6432&lng=-74.0631",
+                  "host": ["{{baseUrlBffMovil}}"],
+                  "path": ["bff-movil", "v1", "cliente", "prestadores"],
+                  "query": [
+                    {"key": "norte", "value": "4.66"},
+                    {"key": "sur", "value": "4.62"},
+                    {"key": "este", "value": "-74.05"},
+                    {"key": "oeste", "value": "-74.08"},
+                    {"key": "lat", "value": "4.6432"},
+                    {"key": "lng", "value": "-74.0631"}
+                  ]
+                },
+                "description": "Prestadores de Chapinero ordenados por distanciaKm. Sin lat/lng salen por nombre con distanciaKm null."
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                "pm.test('no truncado', () => pm.expect(pm.response.json().truncado).to.eql(false));"
+              ]}}]
+            },
+            {
+              "name": "Área invertida",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/prestadores?norte=4.6&sur=4.7&este=-74&oeste=-74.1",
+                  "host": ["{{baseUrlBffMovil}}"],
+                  "path": ["bff-movil", "v1", "cliente", "prestadores"],
+                  "query": [
+                    {"key": "norte", "value": "4.6"},
+                    {"key": "sur", "value": "4.7"},
+                    {"key": "este", "value": "-74"},
+                    {"key": "oeste", "value": "-74.1"}
+                  ]
+                }
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('422 area_invalida', () => { pm.response.to.have.status(422); pm.expect(pm.response.json().codigo).to.eql('area_invalida'); });"
+              ]}}]
+            },
+            {
+              "name": "Ciudad de otro país",
+              "request": {
+                "method": "GET",
+                "header": [{"key": "Authorization", "value": "Bearer {{accessTokenBffMovil}}"}],
+                "url": {
+                  "raw": "{{baseUrlBffMovil}}/bff-movil/v1/cliente/prestadores?ciudad=Lima&pais=CO",
+                  "host": ["{{baseUrlBffMovil}}"],
+                  "path": ["bff-movil", "v1", "cliente", "prestadores"],
+                  "query": [{"key": "ciudad", "value": "Lima"}, {"key": "pais", "value": "CO"}]
+                }
+              },
+              "event": [{"listen": "test", "script": {"exec": [
+                "pm.test('422 ciudad_desconocida', () => { pm.response.to.have.status(422); pm.expect(pm.response.json().codigo).to.eql('ciudad_desconocida'); });"
+              ]}}]
+            }
+          ]
         },
         {
           "name": "Solicitar asistencia",

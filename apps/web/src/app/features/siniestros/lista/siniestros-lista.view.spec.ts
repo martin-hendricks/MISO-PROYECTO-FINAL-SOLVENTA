@@ -38,6 +38,10 @@ describe('SiniestrosListaView', () => {
     expect(element('siniestro-SIN-1988')?.textContent).toContain('Pagado');
     expect(element('siniestro-SIN-1988')?.textContent).toContain('420.000');
     expect(element('siniestros-reportar')?.getAttribute('href')).toBe('/siniestros/nuevo');
+    const acciones = (fixture.nativeElement as HTMLElement).querySelectorAll('.acciones a');
+    expect(acciones[0]?.getAttribute('data-testid')).toBe('siniestros-prestadores');
+    expect(acciones[0]?.getAttribute('href')).toBe('/siniestros/prestadores');
+    expect(acciones[1]?.getAttribute('data-testid')).toBe('siniestros-reportar');
     expect(element('siniestros-lista')?.textContent).not.toContain('Aprobar');
   });
 

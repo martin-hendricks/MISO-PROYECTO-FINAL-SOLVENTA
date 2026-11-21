@@ -1,0 +1,56 @@
+form {
+  display: grid;
+  gap: 16px;
+  max-width: 720px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input,
+select {
+  padding: 10px 12px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--sv-surface-container-lowest);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips button {
+  padding: 8px 14px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chips button.selected {
+  border-color: transparent;
+  color: var(--sv-on-secondary-container);
+  background: var(--sv-secondary-container);
+}
+
+.error-text {
+  margin: 0;
+  color: var(--sv-error);
+}
+
+.mono {
+  font-family: var(--sv-font-mono);
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

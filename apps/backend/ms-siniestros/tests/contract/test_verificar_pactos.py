@@ -1,4 +1,5 @@
-"""Verifica los pactos de bff-web y bff-movil contra GET /v1/pagos-recibidos.
+"""Verifica los pactos de bff-web y bff-movil contra GET /v1/pagos-recibidos y los
+prestadores del mapa (ciudades y área visible).
 
 Los consumidores escriben el pacto en su carpeta `pacts/`. Si todavía no existe,
 el test se omite: no hay nada que verificar.
