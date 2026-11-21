@@ -2080,3 +2080,27 @@ def test_otorgar_consentimiento_perfil_v0_es_la_muestra_fija_sin_llamar_al_nucle
 
     assert respuesta.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
     assert doble.llamadas == []
+
+
+def test_aceptar_poliza_usa_una_clave_de_idempotencia_estable_por_cotizacion(client, doble):
+    """Si el cobro falla tras aceptar la oferta, el reintento debe llegar con la misma clave: con una
+    clave nueva por peticion, la cotizacion ya aceptada responde oferta_ya_usada y nunca se emite."""
+    headers = _auth(client)
+    doble.respuestas["aceptar_oferta"] = ACEPTADA
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = COTIZACION
+
+    def clave_de(cotizacion_id: str) -> str:
+        doble.llamadas.clear()
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": cotizacion_id})
+        return doble.llamadas[0]["idempotency_key"]
+
+    primera, reintento, otra = clave_de("COT-9"), clave_de("COT-9"), clave_de("COT-10")
+
+    assert primera == reintento
+    assert otra != primera
+    from app.routers.cliente import _uuid_desde
+
+    assert primera == _uuid_desde("aceptacion-cliente", "COT-9")
+
