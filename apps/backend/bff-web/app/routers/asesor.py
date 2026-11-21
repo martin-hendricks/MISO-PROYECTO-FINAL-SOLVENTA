@@ -411,7 +411,7 @@ async def firmar_y_emitir(
         oferta_id=oferta_id,
         usuario_id=contexto.usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
-        moneda=body.monedaInicio or "",
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 

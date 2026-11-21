@@ -2116,6 +2116,7 @@ def test_aceptar_poliza_usa_una_clave_de_idempotencia_estable_por_cotizacion(cli
     def clave_de(cotizacion_id: str) -> str:
         doble.llamadas.clear()
         client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": cotizacion_id})
+        assert doble.llamadas[1]["moneda"] == "COP"
         return doble.llamadas[0]["idempotency_key"]
 
     primera, reintento, otra = clave_de("COT-9"), clave_de("COT-9"), clave_de("COT-10")

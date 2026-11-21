@@ -143,6 +143,9 @@ MONEDAS_INICIO = {"COP", "MXN", "CLP", "PEN"}
 
 
 def rechazar_moneda(moneda: str | None) -> JSONResponse | None:
+    """Una moneda omitida sigue en COP. Solo un código fuera de la tabla se rechaza."""
+    if moneda is None or not moneda.strip():
+        return None
     if moneda not in MONEDAS_INICIO:
         return JSONResponse(
             status_code=422,
@@ -376,7 +379,7 @@ async def emitir(
         oferta_id=oferta_id,
         usuario_id=contexto.usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
-        moneda=body.monedaInicio,
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 

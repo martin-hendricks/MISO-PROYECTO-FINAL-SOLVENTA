@@ -89,6 +89,12 @@ describe('VidaCrediticiaViewModel', () => {
     expect(vm.valor('valor')).toBe('180000000');
   });
 
+  it('uses COP before the catalog arrives when no region was chosen', () => {
+    const vm = new VidaCrediticiaViewModel(() => of(CATALOGO), () => of(OFERTA));
+
+    expect(vm.moneda()).toBe('COP');
+  });
+
   it('shows each step for 700 ms by default', () => {
     const vm = new VidaCrediticiaViewModel(() => of(CATALOGO), () => of(OFERTA));
     vm.loadCatalog();

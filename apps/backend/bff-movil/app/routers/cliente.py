@@ -68,6 +68,9 @@ def _moneda_de_cotizacion(cotizacion: dict) -> str:
 
 
 def rechazar_moneda(moneda: str | None) -> JSONResponse | None:
+    """Una moneda omitida sigue en COP. Solo un código fuera de la tabla se rechaza."""
+    if moneda is None or not moneda.strip():
+        return None
     if moneda not in MONEDAS_INICIO:
         return JSONResponse(
             status_code=422,
@@ -369,7 +372,7 @@ def aceptar_cotizacion(
         raise HTTPException(status_code=404, detail="No existe")
     if (rechazo := rechazar_moneda(None if _confirmacion is None else _confirmacion.monedaInicio)) is not None:
         return rechazo
-    moneda_inicio = _confirmacion.monedaInicio or ""
+    moneda_inicio = _confirmacion.monedaInicio or "COP"
     nucleo = request.app.state.nucleo
     contexto = _contexto(usuario)
     aceptacion = _exigir(
@@ -467,7 +470,7 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
             oferta_id=str(aceptacion["oferta_id"]),
             usuario_id=contexto["usuario_id"],
             monto=str(Decimal(str(aceptacion["prima"]))),
-            moneda=body.monedaInicio or "",
+            moneda=body.monedaInicio or "COP",
             token_medio_pago=TOKEN_MEDIO_PAGO,
         ),
         "id",
