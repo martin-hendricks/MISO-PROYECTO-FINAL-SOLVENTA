@@ -19,6 +19,10 @@
     "hint": "Elige tu región para ver moneda y fecha en el formato correcto.",
     "continue": "Continuar",
     "done": "Listo",
+    "preview": {
+      "premium": "Prima de ejemplo",
+      "date": "Fecha de ejemplo"
+    },
     "locale": {
       "es-CO": "Español · Colombia (COP)",
       "es-MX": "Español · México (MXN)",

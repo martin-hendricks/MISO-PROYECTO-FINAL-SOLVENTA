@@ -1,7 +1,21 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { formatDate, formatMoney } from '../../core/i18n/format';
 import { Locale, LocaleService, LOCALES } from '../../core/i18n/locale.service';
+
+/** Preview shown under the options (HU-108 "Locale México formatea en el
+ * canal"): the same sample premium and date, formatted with the selected
+ * locale so the visitor sees what changes before confirming. Only the
+ * presentation changes -- the amount is identical for every locale. */
+const SAMPLE_PREMIUM = 1234.56;
+const SAMPLE_DATE = '2026-07-09';
+const CURRENCY: Record<Locale, string> = {
+  'es-CO': 'COP',
+  'es-MX': 'MXN',
+  'es-CL': 'CLP',
+  'es-PE': 'PEN',
+};
 
 /** HU-108: Español · Colombia/México/Chile/Perú. Two hosts share this
  * component instead of duplicating the picker:
@@ -27,6 +41,10 @@ export class IdiomaRegionView {
 
   protected readonly locales = LOCALES;
   protected readonly selected = this.localeService.locale;
+  protected readonly samplePremium = computed(() =>
+    formatMoney(SAMPLE_PREMIUM, CURRENCY[this.selected()], this.selected()),
+  );
+  protected readonly sampleDate = computed(() => formatDate(SAMPLE_DATE, this.selected()));
 
   protected select(locale: Locale): void {
     this.localeService.use(locale);

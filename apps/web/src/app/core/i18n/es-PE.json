@@ -19,6 +19,10 @@
     "hint": "Elige tu región para ver moneda y fecha en el formato correcto.",
     "continue": "Continuar",
     "done": "Listo",
+    "preview": {
+      "premium": "Prima de ejemplo",
+      "date": "Fecha de ejemplo"
+    },
     "locale": {
       "es-CO": "Español · Colombia (COP)",
       "es-MX": "Español · México (MXN)",
@@ -783,6 +787,15 @@
       "plazoMeses": "Plazo (meses)",
       "cuota": "Cuota",
       "destino": "Destino",
+      "descripcion": {
+        "dispositivo": "Cubre robo, daño accidental y reposición del equipo asegurado.",
+        "soat": "Cubre la atención de víctimas de un accidente de tránsito en motocicleta.",
+        "vida": "Cubre a la persona asegurada según la suma y la edad declaradas.",
+        "clima": "Cubre un evento climático o de vuelo cuando se supera el umbral.",
+        "hipotecario": "Cubre el saldo del crédito hipotecario durante el plazo pactado.",
+        "pagos": "Cubre las cuotas del plan de pagos durante el plazo declarado.",
+        "viaje": "Cubre el viaje según el destino y la duración declarados."
+      },
       "duracion": "Duración (días)"
     },
     "error": {

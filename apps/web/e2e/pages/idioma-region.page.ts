@@ -19,6 +19,16 @@ export class IdiomaRegionPage {
     await this.page.getByTestId(`idioma-region-${locale}`).click();
   }
 
+  /** Sample premium/date preview, with Intl's (narrow) NBSPs normalized. */
+  async samplePreview(): Promise<{ premium: string; date: string }> {
+    const read = async (id: string) =>
+      (await this.page.getByTestId(id).innerText()).replace(/[  ]/g, ' ').trim();
+    return {
+      premium: await read('idioma-region-sample-premium'),
+      date: await read('idioma-region-sample-date'),
+    };
+  }
+
   async continueToSignUp(): Promise<void> {
     await this.page.getByTestId('idioma-region-continue').click();
   }
