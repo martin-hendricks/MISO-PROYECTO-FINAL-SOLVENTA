@@ -254,7 +254,9 @@ async def test_billetera_solo_cuenta_pagos_ejecutados_y_suma_en_decimal(uow, alm
     enrutado = _siniestro(dueno, EstadoSiniestro.ENRUTADO, TipoSiniestro.ASISTIDO, creado=base)
     for siniestro in (asistido, sin_pago, en_evaluacion, rechazado, enrutado):
         almacen.siniestros[siniestro.id] = siniestro
-    pago = _pago_asistido(asistido, Decimal("890000.00"), base)
+    # Un minuto antes del paramétrico: con la misma marca de tiempo el orden de la
+    # billetera lo decidiría el id (el reloj de Windows tiene granularidad de ~15 ms).
+    pago = _pago_asistido(asistido, Decimal("890000.00"), base - timedelta(minutes=1))
     almacen.pagos_siniestro[asistido.id] = pago
     almacen.intentos_pago.append(
         IntentoPago(asistido.id, pago.clave_idempotencia, "ejecutado", pago.comprobante, "operador", base)

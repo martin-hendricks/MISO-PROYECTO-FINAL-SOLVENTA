@@ -8,7 +8,7 @@ from app.dependencies import obtener_adaptador_desembolso, obtener_uow
 from app.domain.modelos import EstadoSiniestro, ResultadoDecision, TipoSiniestro
 from app.ports.pagos import AdaptadorDesembolso
 from app.ports.persistencia import FabricaUnidadDeTrabajo, FiltroSiniestros
-from app.seguridad import LlamanteDep, alcance
+from app.seguridad import LlamanteDep, alcance, exigir_rol
 
 from .schemas import (
     CambiarEstadoEntrada,
@@ -38,12 +38,12 @@ async def ingerir_evento_parametrico(
     adaptador_desembolso: Desembolso,
     llamante: LlamanteDep,
 ):
-    if llamante.rol == "cliente":
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=403, detail="Rol no autorizado")
     """HU-32 + HU-33 + HU-34: ingiere el evento paramétrico simulado, encadena la
-    evaluación del umbral y, si corresponde, dispara el pago paramétrico stub."""
+    evaluación del umbral y, si corresponde, dispara el pago paramétrico stub.
+
+    Solo el operador: quien llama fija umbral y monto, así que ningún otro rol
+    puede disparar un pago. El canal de proveedores entra por TopicoTelemetria."""
+    exigir_rol(llamante, "operador")
     resultado = await casos_uso.recibir_evento_parametrico(
         uow,
         adaptador_desembolso,

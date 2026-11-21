@@ -50,6 +50,16 @@ def test_reingesta_del_mismo_evento_devuelve_200_y_no_duplica(client):
     assert segundo.json()["procesado"] is False
 
 
+def test_solo_el_operador_puede_ingerir_eventos(client):
+    cuerpo = {"evento_id": "evt-rol", "valor": "100", "umbral": "80", "poliza_vigente": True, "monto_pago": "500"}
+
+    for rol in ("asesor", "cliente"):
+        respuesta = client.post("/v1/eventos-parametricos", json=cuerpo, headers=cabecera(rol, uid=uuid4()))
+        assert respuesta.status_code == 403, rol
+
+    assert _ingerir(client, evento_id="evt-rol").status_code == 201
+
+
 def test_evento_sin_id_es_422(client):
     respuesta = client.post(
         "/v1/eventos-parametricos",
