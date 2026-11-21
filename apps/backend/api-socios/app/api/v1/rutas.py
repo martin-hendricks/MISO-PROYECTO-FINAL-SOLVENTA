@@ -8,7 +8,7 @@ from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.dependencies import obtener_cliente_cotizacion, obtener_cliente_identidad, obtener_cliente_perfilamiento
-from app.seguridad import SocioDep
+from app.seguridad import Socio, exigir_alcance
 
 from .schemas import CatalogoVista, ErrorVista, OriginacionEntrada, OriginacionVista, ProductoVista
 
@@ -16,7 +16,9 @@ router = APIRouter(prefix="/v1")
 Cotizacion = Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)]
 Identidad = Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)]
 Perfilamiento = Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)]
-ERRORES = {401: {"model": ErrorVista}, 404: {"model": ErrorVista}, 503: {"model": ErrorVista}}
+LeerCatalogo = Annotated[Socio, Depends(exigir_alcance("catalogo:leer"))]
+EscribirOriginaciones = Annotated[Socio, Depends(exigir_alcance("originaciones:escribir"))]
+ERRORES = {401: {"model": ErrorVista}, 403: {"model": ErrorVista}, 404: {"model": ErrorVista}, 503: {"model": ErrorVista}}
 
 
 @router.get(
@@ -26,7 +28,7 @@ ERRORES = {401: {"model": ErrorVista}, 404: {"model": ErrorVista}, 503: {"model"
     response_model_exclude_none=True,
     responses=ERRORES,
 )
-async def catalogo(cotizacion: Cotizacion, socio: SocioDep):
+async def catalogo(cotizacion: Cotizacion, socio: LeerCatalogo):
     return CatalogoVista(productos=[ProductoVista.desde_nucleo(p) for p in await cotizacion.listar_productos()])
 
 
@@ -37,7 +39,7 @@ async def catalogo(cotizacion: Cotizacion, socio: SocioDep):
     response_model_exclude_none=True,
     responses=ERRORES,
 )
-async def producto(codigo: str, cotizacion: Cotizacion, socio: SocioDep):
+async def producto(codigo: str, cotizacion: Cotizacion, socio: LeerCatalogo):
     return ProductoVista.desde_nucleo(await cotizacion.obtener_producto(codigo))
 
 
@@ -49,7 +51,7 @@ async def producto(codigo: str, cotizacion: Cotizacion, socio: SocioDep):
     responses={**ERRORES, 422: {"model": ErrorVista}},
 )
 async def originar_hipoteca(
-    entrada: OriginacionEntrada, identidad: Identidad, perfilamiento: Perfilamiento, socio: SocioDep
+    entrada: OriginacionEntrada, identidad: Identidad, perfilamiento: Perfilamiento, socio: EscribirOriginaciones
 ):
     """El banco aliado origina el crédito hipotecario de un cliente de Solventa: el
     cliente ve la card Vida hipotecario en Inicio y solo consiente y acepta."""
