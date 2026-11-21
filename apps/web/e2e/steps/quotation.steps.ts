@@ -70,6 +70,7 @@ Then('"Cotizar" goes to the offer with premium and expiry', async function (this
       modelo: 'iPhone 15',
       masDe12Meses: false,
     },
+    moneda: 'COP',
   });
 });
 
