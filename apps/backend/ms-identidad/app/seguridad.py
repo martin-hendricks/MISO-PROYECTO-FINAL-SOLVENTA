@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 ALGORITHM = "HS256"
-ROLES = frozenset({"cliente", "asesor", "operador", "socio"})
+ROLES = frozenset({"cliente", "asesor", "operador", "socio", "servicio"})
 ROLES_BUSQUEDA_POR_DOCUMENTO = frozenset({"asesor", "operador", "socio"})
 ROLES_BACKOFFICE = frozenset({"asesor", "operador"})
 _bearer = HTTPBearer(auto_error=False)
@@ -73,6 +73,12 @@ def exigir_api_socios(llamante: LlamanteDep) -> Llamante:
     if llamante.rol != "socio" or llamante.sub != "api-socios":
         raise HTTPException(status_code=403, detail="Rol no autorizado")
     return llamante
+
+
+def exigir_notificaciones(llamante: Llamante) -> None:
+    """El correo de un usuario solo lo lee el servicio de notificaciones, para enviarle avisos."""
+    if llamante.rol != "servicio" or llamante.sub != "notificaciones":
+        raise HTTPException(status_code=403, detail="Rol no autorizado")
 
 
 def exigir_busqueda_por_documento(llamante: Llamante) -> None:

@@ -45,6 +45,7 @@ class _Notificaciones:
                 n
                 for n in self._vista().values()
                 if n.usuario_id == usuario_id
+                and n.canal == "push"
                 and (antes_de is None or n.creada_en < antes_de)
             ),
             key=lambda n: n.creada_en,
@@ -193,6 +194,29 @@ class PushDoble:
                 )
             )
         return resultados
+
+
+class EmailDoble:
+    def __init__(self, fallar: bool = False) -> None:
+        self.fallar = fallar
+        self.enviados: list[tuple[str, str, str]] = []
+
+    async def enviar(self, destinatario: str, asunto: str, cuerpo: str) -> str:
+        if self.fallar:
+            raise ServicioExternoNoDisponible("email doble no disponible")
+        self.enviados.append((destinatario, asunto, cuerpo))
+        return f"email-doble-{len(self.enviados)}"
+
+
+class ResolutorDoble:
+    def __init__(self, correos: dict[UUID, str] | None = None, fallar: bool = False) -> None:
+        self.correos = correos or {}
+        self.fallar = fallar
+
+    async def correo_de(self, usuario_id: UUID) -> str | None:
+        if self.fallar:
+            raise ServicioExternoNoDisponible("identidad doble no disponible")
+        return self.correos.get(usuario_id)
 
 
 class _Difusiones:

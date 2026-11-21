@@ -49,3 +49,9 @@ variable "tags" {
   description = "Extra tags merged into all taggable resources."
   default     = {}
 }
+
+variable "ses_identity_arns" {
+  type        = list(string)
+  description = "ARNs of the SES identities the senders may use. Empty means every identity of this account and region; set it to the verified domain or address once it exists."
+  default     = []
+}

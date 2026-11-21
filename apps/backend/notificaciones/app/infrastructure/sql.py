@@ -120,7 +120,10 @@ class RepositorioNotificacionesSQL:
     async def listar(
         self, usuario_id: UUID, limite: int, antes_de: datetime | None = None
     ) -> list[Notificacion]:
-        consulta = select(NotificacionFila).where(NotificacionFila.usuario_id == usuario_id)
+        # La bandeja de la app es solo de push: el correo no se lista aquí.
+        consulta = select(NotificacionFila).where(
+            NotificacionFila.usuario_id == usuario_id, NotificacionFila.canal == "push"
+        )
         if antes_de is not None:
             consulta = consulta.where(NotificacionFila.creada_en < antes_de)
         filas = await self._s.scalars(

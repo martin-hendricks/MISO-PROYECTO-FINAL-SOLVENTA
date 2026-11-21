@@ -135,6 +135,16 @@ variablesEntorno:
     valor: "notificaciones"
   - nombre: PUSH_PROVEEDOR
     valor: "fcm"
+  # Canal de correo. Se activa con "ses" una vez verificada la identidad del
+  # remitente en SES y fuera del sandbox (o con destinatarios verificados); con
+  # "" queda apagado y solo sale push. EMAIL_REMITENTE debe ser una identidad
+  # verificada.
+  - nombre: EMAIL_PROVEEDOR
+    valor: ""
+  - nombre: EMAIL_REMITENTE
+    valor: ""
+  - nombre: MS_IDENTIDAD_URL
+    valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
 
 variablesEntornoSecreto:
   - nombre: DATABASE_URL

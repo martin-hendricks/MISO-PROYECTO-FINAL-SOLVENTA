@@ -4,9 +4,10 @@ import logging
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.application.casos_uso import crear_notificacion, despachar_notificacion
+from app.application.casos_uso import crear_notificacion, despachar_email, despachar_notificacion
 from app.domain.eventos import EventoBus
 from app.domain.modelos import EstadoNotificacion, Notificacion
+from app.ports.email import EnviadorEmail, ResolutorDestinatario
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.push import EnviadorPush
 
@@ -16,6 +17,14 @@ TIPOS_SOPORTADOS = frozenset(
     {"PolizaEmitida", "PolizaRenovada", "PolizaModificada", "PolizaCancelada"}
 )
 CANAL_SOCIO = "socio"
+
+
+@dataclass(frozen=True)
+class CanalEmail:
+    """Canal de correo: quién envía y cómo se resuelve el correo del usuario."""
+
+    enviador: EnviadorEmail
+    resolutor: ResolutorDestinatario
 
 
 @dataclass(frozen=True)
@@ -132,41 +141,13 @@ async def _desactivar_dispositivos(uow: FabricaUnidadDeTrabajo, evento: EventoBu
         await tx.confirmar()
 
 
-async def manejar_evento(
-    uow: FabricaUnidadDeTrabajo, push: EnviadorPush, evento: EventoBus
+async def _notificar_push(
+    uow: FabricaUnidadDeTrabajo,
+    push: EnviadorPush,
+    evento: EventoBus,
+    usuario_id: UUID,
+    contenido: ContenidoNotificacion,
 ) -> Notificacion | None:
-    """Convierte un evento del bus en notificación push y la despacha.
-
-    Idempotente por `(evento_id, "push")`: repetir el mensaje no duplica la
-    notificación ni el push. Nunca propaga excepciones para no detener el
-    consumo de la partición.
-    """
-    if evento.tipo == "UsuarioInactivado":
-        try:
-            await _desactivar_dispositivos(uow, evento)
-        except Exception:
-            logger.exception(
-                "error_desactivando_dispositivos", extra={"evento_id": str(evento.evento_id)}
-            )
-        return None
-
-    contenido = construir_contenido(evento)
-    if contenido is None:
-        logger.warning(
-            "evento_ignorado",
-            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
-        )
-        return None
-
-    try:
-        usuario_id = UUID(str(evento.payload.get("usuario_id")))
-    except (TypeError, ValueError, AttributeError):
-        logger.warning(
-            "evento_con_usuario_invalido",
-            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
-        )
-        return None
-
     try:
         notificacion = await crear_notificacion(
             uow,
@@ -197,3 +178,76 @@ async def manejar_evento(
             extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
         )
         return None
+
+
+async def _notificar_email(
+    uow: FabricaUnidadDeTrabajo,
+    email: CanalEmail,
+    evento: EventoBus,
+    usuario_id: UUID,
+    contenido: ContenidoNotificacion,
+) -> None:
+    """Idempotente por `(evento_id, "email")`. Un fallo aquí no afecta al push."""
+    try:
+        notificacion = await crear_notificacion(
+            uow,
+            usuario_id=usuario_id,
+            evento_origen_id=evento.evento_id,
+            canal="email",
+            tipo=contenido.tipo,
+            titulo=contenido.titulo,
+            cuerpo=contenido.cuerpo,
+            destino=contenido.destino,
+            poliza=contenido.poliza,
+        )
+        if notificacion.estado == EstadoNotificacion.PENDIENTE.value:
+            await despachar_email(uow, email.enviador, email.resolutor, notificacion.notificacion_id)
+    except Exception:
+        logger.exception(
+            "error_enviando_email",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+
+
+async def manejar_evento(
+    uow: FabricaUnidadDeTrabajo,
+    push: EnviadorPush,
+    evento: EventoBus,
+    email: CanalEmail | None = None,
+) -> Notificacion | None:
+    """Convierte un evento del bus en notificación push (y correo, si está activo).
+
+    Idempotente por `(evento_id, canal)`: repetir el mensaje no duplica la
+    notificación ni el envío. Nunca propaga excepciones para no detener el
+    consumo de la partición. Devuelve la notificación push.
+    """
+    if evento.tipo == "UsuarioInactivado":
+        try:
+            await _desactivar_dispositivos(uow, evento)
+        except Exception:
+            logger.exception(
+                "error_desactivando_dispositivos", extra={"evento_id": str(evento.evento_id)}
+            )
+        return None
+
+    contenido = construir_contenido(evento)
+    if contenido is None:
+        logger.warning(
+            "evento_ignorado",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+        return None
+
+    try:
+        usuario_id = UUID(str(evento.payload.get("usuario_id")))
+    except (TypeError, ValueError, AttributeError):
+        logger.warning(
+            "evento_con_usuario_invalido",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+        return None
+
+    notificacion = await _notificar_push(uow, push, evento, usuario_id, contenido)
+    if email is not None:
+        await _notificar_email(uow, email, evento, usuario_id, contenido)
+    return notificacion

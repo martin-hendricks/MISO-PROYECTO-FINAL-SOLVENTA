@@ -87,5 +87,9 @@ class ErrorSalida(BaseModel):
     mensaje: str
 
 
+class ContactoSalida(BaseModel):
+    email: str
+
+
 class UsuarioPorDocumentoSalida(BaseModel):
     usuario_id: UUID
