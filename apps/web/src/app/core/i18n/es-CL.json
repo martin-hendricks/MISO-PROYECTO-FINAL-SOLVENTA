@@ -182,14 +182,17 @@
       "motivo": "Motivo"
     },
     "error": {
+      "title": "No pudimos emitir tu póliza",
       "body": "No pudimos completar la emisión.",
       "retry": "Reintentar"
     },
     "expired": {
+      "title": "Oferta vencida",
       "body": "La oferta venció.",
       "action": "Nueva cotización"
     },
     "revoked": {
+      "title": "Autorización revocada",
       "body": "Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.",
       "action": "Nueva cotización"
     },

@@ -90,6 +90,7 @@ describe('EmisionView', () => {
     fixture.detectChanges();
 
     expect(element('emision-expired')?.textContent).toContain('La oferta venció.');
+    expect(element('emision-expired')?.querySelector('h1')?.textContent).toContain('Oferta vencida');
     expect(element('emision-new-quote')?.getAttribute('href')).toBe('/cotizacion');
   });
 
@@ -105,6 +106,9 @@ describe('EmisionView', () => {
       'Revocaste la autorización para usar tus datos en el perfilamiento.',
     );
     expect(element('emision-revoked-new-quote')?.getAttribute('href')).toBe('/cotizacion');
+    expect(element('emision-revoked')?.querySelector('h1')?.textContent).toContain(
+      'Autorización revocada',
+    );
     expect(element('emision-retry')).toBeNull();
   });
 
@@ -113,6 +117,9 @@ describe('EmisionView', () => {
     http.expectOne(URL).error(new ProgressEvent('error'));
     fixture.detectChanges();
 
+    expect(element('emision-error')?.querySelector('h1')?.textContent).toContain(
+      'No pudimos emitir tu póliza',
+    );
     element('emision-retry')!.click();
     http.expectOne(URL).flush(EMITIDA);
     fixture.detectChanges();
@@ -159,5 +166,25 @@ describe('EmisionView', () => {
     http.expectNone(URL);
     expect(element('emision-invalid')).not.toBeNull();
     expect(element('emision-invalid')?.querySelector('a')?.getAttribute('href')).toBe('/');
+    expect(element('emision-invalid')?.querySelector('h1')).not.toBeNull();
+  });
+
+  it('wraps the content in the single main landmark, since it lives outside the shell', () => {
+    const { http, host } = render();
+
+    expect(host.querySelectorAll('main').length).toBe(1);
+    expect(host.querySelector('main [data-testid="emision"]')).not.toBeNull();
+    expect(host.querySelector('header')?.closest('main')).toBeNull();
+    http.expectOne(URL).flush(EMITIDA);
+  });
+
+  it('keeps one level-1 heading in the progress and issued states', () => {
+    const { fixture, http, host } = render();
+    expect(host.querySelectorAll('h1').length).toBe(1);
+
+    http.expectOne(URL).flush(EMITIDA);
+    fixture.detectChanges();
+
+    expect(host.querySelectorAll('h1').length).toBe(1);
   });
 });

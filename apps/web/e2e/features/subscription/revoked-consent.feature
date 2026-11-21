@@ -7,3 +7,4 @@ Feature: Acceptance after revoking the profiling consent
     When the customer accepts the mortgage offer
     Then the customer is told the profiling consent was revoked
     And the customer can start a new quote instead of retrying
+    And the current page has no accessibility violations
