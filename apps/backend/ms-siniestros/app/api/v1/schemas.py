@@ -60,6 +60,7 @@ class SiniestroSalida(BaseModel):
     resultado: str | None = None
     requiere_revision: bool = False
     motivo_revision: str | None = None
+    moneda: str = "COP"
 
     @classmethod
     def desde(cls, siniestro: Siniestro) -> "SiniestroSalida":
@@ -90,6 +91,7 @@ class SiniestroSalida(BaseModel):
             resultado=siniestro.resultado.value if siniestro.resultado else None,
             requiere_revision=siniestro.requiere_revision,
             motivo_revision=siniestro.motivo_revision,
+            moneda=siniestro.moneda or "COP",
         )
 
 

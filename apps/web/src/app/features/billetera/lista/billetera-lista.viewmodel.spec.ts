@@ -1,5 +1,5 @@
 import { of, throwError } from 'rxjs';
-import { BILLETERA } from '../billetera.testing';
+import { ASISTIDO, AUTOMATICO, BILLETERA } from '../billetera.testing';
 import { BilleteraListaViewModel } from './billetera-lista.viewmodel';
 
 describe('BilleteraListaViewModel', () => {
@@ -32,5 +32,20 @@ describe('BilleteraListaViewModel', () => {
     error.load();
     expect(error.status()).toBe('ready');
     expect(error.total()).toBe(1070000);
+  });
+
+  it('keeps a null total null when the deposits use more than one currency', () => {
+    const vm = new BilleteraListaViewModel(() =>
+      of({
+        moneda: null,
+        totalRecibido: null,
+        movimientos: [ASISTIDO, { ...AUTOMATICO, moneda: 'MXN' }],
+      }),
+    );
+    vm.load();
+    expect(vm.status()).toBe('ready');
+    expect(vm.total()).toBeNull();
+    expect(vm.moneda()).toBeNull();
+    expect(vm.movimientos().map((fila) => fila.moneda)).toEqual(['COP', 'MXN']);
   });
 });

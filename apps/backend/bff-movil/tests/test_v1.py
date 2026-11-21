@@ -497,7 +497,7 @@ def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
     doble.respuestas["emitir"] = POLIZA
     doble.respuestas["reconsultar"] = COTIZACION
 
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {
@@ -505,6 +505,7 @@ def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
         "estado": "aceptada",
         "prima": "10.00",
         "moneda": "COP",
+        "monedaInicio": "COP",
         "poliza": {
             "numero": "POL-9",
             "ramo": "Sin clasificar",
@@ -527,7 +528,7 @@ def test_aceptar_cotizacion_v1_emite_la_poliza(client, doble):
     assert doble.llamadas[2]["token_pago_confirmado"] == "pago-1"
 
     doble.llamadas.clear()
-    prefijo = client.post("/bff-movil/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    prefijo = client.post("/bff-movil/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
     assert prefijo.status_code == 200
     assert prefijo.json()["estado"] == "aceptada"
     assert prefijo.json()["poliza"]["numero"] == "POL-9"
@@ -538,7 +539,7 @@ def test_aceptar_cotizacion_rechazada_no_emite(client, doble):
     headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
     doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA", "motivo": "fuera de rango"}
 
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {"estado": "rechazada", "motivo": "fuera de rango"}
@@ -567,13 +568,13 @@ def test_aceptar_cotizacion_clave_invalida_es_422(client, doble):
 def test_aceptar_cotizacion_incompleta_es_502(client, doble):
     headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
     doble.respuestas["aceptar_oferta"] = {"cotizacion_id": "COT-9", "estado": "aceptada", "prima": "10.00"}
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
     assert respuesta.status_code == 502
     assert respuesta.json()["detail"] == DETALLE_INCOMPLETA
     assert _nombres(doble) == ["aceptar_oferta"]
     doble.llamadas.clear()
     doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA"}
-    assert client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers).status_code == 502
+    assert client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"}).status_code == 502
     assert _nombres(doble) == ["aceptar_oferta"]
 
 
@@ -583,13 +584,15 @@ def test_aceptar_emitida_y_rechazada(client, doble):
     doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
     doble.respuestas["emitir"] = POLIZA
     doble.respuestas["reconsultar"] = COTIZACION
-    emitida = client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9"})
+    emitida = client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9", "monedaInicio": "COP"})
     assert emitida.json() == {
         "numero": "POL-9",
         "ramo": "Sin clasificar",
         "descripcion": "",
         "estado": "vigente",
         "venceEn": "2027-01-01",
+        "moneda": "",
+        "monedaInicio": "COP",
     }
     assert _nombres(doble) == ["aceptar_oferta", "cobrar_prima", "emitir", "reconsultar"]
     assert doble.llamadas[0]["cotizacion_id"] == "COT-9"
@@ -599,7 +602,7 @@ def test_aceptar_emitida_y_rechazada(client, doble):
     doble.llamadas.clear()
     doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA", "motivo": "fuera de rango"}
     rechazada = client.post(
-        "/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-RECHAZADA"}
+        "/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-RECHAZADA", "monedaInicio": "COP"}
     )
     assert rechazada.json() == {"estado": "rechazada", "motivo": "fuera de rango"}
     assert _nombres(doble) == ["aceptar_oferta"]
@@ -609,17 +612,17 @@ def test_aceptar_incompleta_es_502(client, doble):
     headers = _auth(client)
     doble.respuestas["aceptar_oferta"] = {"resultado": "OTRO"}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
     doble.respuestas["aceptar_oferta"] = {"decision": "RECHAZADA"}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
     doble.respuestas["aceptar_oferta"] = {"decision": "aceptada", "prima": "1"}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
     sin_estado = {**ACEPTADA}
@@ -628,23 +631,23 @@ def test_aceptar_incompleta_es_502(client, doble):
     doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
     doble.respuestas["emitir"] = POLIZA
     doble.respuestas["reconsultar"] = COTIZACION
-    client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"})
+    client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"})
     assert doble.llamadas[-2]["coberturas"][0]["nombre"] == "cobertura-base"
     doble.respuestas["cobrar_prima"] = {}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
     doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
     doble.respuestas["emitir"] = {"numero": "POL-9", "estado": "vigente"}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
     doble.respuestas["emitir"] = POLIZA
     doble.respuestas["reconsultar"] = {"cotizacion_id": "COT-9"}
     assert (
-        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1"}).status_code
+        client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-1", "monedaInicio": "COP"}).status_code
         == 502
     )
 
@@ -1304,6 +1307,7 @@ def test_cliente_http_traduce_exito_y_errores(monkeypatch):
             oferta_id="o",
             usuario_id="u",
             monto="1",
+            moneda="COP",
             token_medio_pago="t",
         )
     assert exc.value.detail == "ms-pagos no disponible"
@@ -1344,7 +1348,7 @@ def test_aceptar_v0_devuelve_la_muestra(client):
     body = client.post(
         "/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": "COT-1"},
+        json={"cotizacionId": "COT-1", "monedaInicio": "COP"},
     ).json()
     assert body["numero"] == "POL-88219-CO"
 
@@ -1407,7 +1411,7 @@ def test_v0_rechaza_cotizacion(client):
     body = client.post(
         "/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": "COT-RECHAZADA"},
+        json={"cotizacionId": "COT-RECHAZADA", "monedaInicio": "COP"},
     ).json()
     assert body["estado"] == "rechazada"
 
@@ -1763,7 +1767,7 @@ def test_aceptar_con_consentimiento_revocado_conserva_el_codigo(client, doble):
         422, "consentimiento_revocado", "El consentimiento ya no está vigente; vuelva a cotizar"
     )
 
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
 
     assert respuesta.status_code == 422
     assert respuesta.json() == {
@@ -1777,7 +1781,7 @@ def test_un_http_exception_sin_codigo_mantiene_su_cuerpo(client, doble):
     headers = {**_auth(client), "Idempotency-Key": "clave-aceptar-01"}
     doble.respuestas["aceptar_oferta"] = HTTPException(status_code=409, detail="duplicada")
 
-    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers)
+    respuesta = client.post("/v1/cliente/cotizaciones/COT-9/aceptacion", headers=headers, json={"monedaInicio": "COP"})
 
     assert respuesta.status_code == 409
     assert respuesta.json() == {"detail": "duplicada"}
@@ -1911,6 +1915,24 @@ def test_billetera_v1_traduce_tipo_y_ramo(client, doble):
     prefijo = client.get("/bff-movil/v1/cliente/billetera", headers=headers)
     assert prefijo.status_code == 200
     assert _nombres(doble) == ["pagos_recibidos", "pagos_recibidos"]
+
+
+def test_billetera_v1_copia_la_moneda_y_no_suma_mezclas(client, doble):
+    headers = _auth(client)
+    doble.respuestas["pagos_recibidos"] = {"moneda": "COP", "total": "180000.00", "pagos": [PAGO]}
+    solo = client.get("/v1/cliente/billetera", headers=headers).json()
+    assert solo["moneda"] == "COP"
+    assert solo["totalRecibido"] == 180000
+    assert solo["movimientos"][0]["moneda"] == "COP"
+
+    doble.respuestas["pagos_recibidos"] = {
+        "total": None,
+        "pagos": [PAGO, {**PAGO, "siniestro_id": "otro", "moneda": "MXN", "monto": "10.00"}],
+    }
+    mezcla = client.get("/v1/cliente/billetera", headers=headers).json()
+    assert mezcla["moneda"] is None
+    assert mezcla["totalRecibido"] is None
+    assert {fila["moneda"] for fila in mezcla["movimientos"]} == {"COP", "MXN"}
 
 
 def test_billetera_detalle_ajeno_es_404_y_caida_es_503(client, doble):

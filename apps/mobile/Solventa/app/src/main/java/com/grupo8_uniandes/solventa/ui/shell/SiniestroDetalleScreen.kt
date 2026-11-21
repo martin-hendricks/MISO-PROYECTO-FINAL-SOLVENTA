@@ -47,6 +47,7 @@ fun SiniestroDetalleScreen(
     onOpenEvidence: (String) -> Unit = {},
     onOpenWallet: () -> Unit = {},
     onOpenProviders: () -> Unit = {},
+    region: Region = Region.Colombia,
 ) {
     Column(
         modifier = modifier
@@ -116,7 +117,7 @@ fun SiniestroDetalleScreen(
                 summary.reserva?.let { reserva ->
                     Fact(
                         stringResource(R.string.claim_reserve),
-                        pesos(reserva, summary.moneda ?: "COP"),
+                        pesos(reserva, summary.moneda ?: "COP", region),
                         "claim_reserva",
                     )
                 }
@@ -128,7 +129,7 @@ fun SiniestroDetalleScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = pesos(pago.monto, pago.moneda),
+                        text = pesos(pago.monto, pago.moneda, region),
                         style = SolventaTypography.amount,
                     )
                     if (pago.comprobante.isNotBlank()) {
@@ -262,5 +263,5 @@ private fun EvidenceItem(item: ClaimEvidence, onOpen: (String) -> Unit) {
 
 private fun shownDate(raw: String): String = runCatching { formatCoverageDate(raw.take(10)) }.getOrDefault(raw)
 
-private fun pesos(amount: Double, moneda: String): String =
-    formatPremium(BigDecimal.valueOf(amount), moneda.ifBlank { "COP" }, Region.Colombia)
+private fun pesos(amount: Double, moneda: String, region: Region): String =
+    formatPremium(BigDecimal.valueOf(amount), moneda.ifBlank { "COP" }, region)

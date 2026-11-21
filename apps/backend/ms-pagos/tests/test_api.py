@@ -9,6 +9,7 @@ def _cuerpo(oferta_id=None, token="tok_visa", monto="250000.00"):
         "oferta_id": str(oferta_id or uuid4()),
         "usuario_id": str(uuid4()),
         "monto": monto,
+        "moneda": "COP",
         "token_medio_pago": token,
     }
 
@@ -55,6 +56,30 @@ def test_suscripcion_no_aceptada_responde_422(client, suscripciones):
 def test_monto_no_positivo_o_sin_token_responde_422(client):
     assert client.post("/v1/pagos/primas", json=_cuerpo(monto="0")).json()["codigo"] == "monto_no_positivo"
     assert client.post("/v1/pagos/primas", json=_cuerpo(token="")).status_code == 422
+
+
+def test_moneda_de_inicio_se_consulta_y_el_reintento_conserva_la_primera(client, pasarela):
+    cuerpo = _cuerpo()
+    cuerpo["moneda"] = "MXN"
+    creado = client.post("/v1/pagos/primas", json=cuerpo)
+
+    assert creado.status_code == 201
+    assert creado.json()["moneda"] == "MXN"
+    assert client.get(f"/v1/pagos/{creado.json()['id']}").json()["moneda"] == "MXN"
+
+    cuerpo["moneda"] = "CLP"
+    reintento = client.post("/v1/pagos/primas", json=cuerpo)
+    assert reintento.status_code == 200
+    assert reintento.json()["moneda"] == "MXN"
+    assert len(pasarela.movimientos) == 1
+
+
+def test_moneda_no_soportada_responde_422(client, pasarela):
+    respuesta = client.post("/v1/pagos/primas", json=_cuerpo() | {"moneda": "USD"})
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "moneda_no_soportada"
+    assert pasarela.movimientos == []
 
 
 def test_consultar_pago_inexistente_responde_404(client):

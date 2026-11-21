@@ -7,12 +7,15 @@ from app.domain.modelos import EventoDominio, Pago
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 
-def solicitud(oferta_id: UUID | None = None, token: str = "tok_visa", monto: str = "250000.00") -> SolicitudCobro:
+def solicitud(
+    oferta_id: UUID | None = None, token: str = "tok_visa", monto: str = "250000.00", moneda: str = "COP"
+) -> SolicitudCobro:
     return SolicitudCobro(
         solicitud_id=uuid4(),
         oferta_id=oferta_id or uuid4(),
         usuario_id=uuid4(),
         monto=Decimal(monto),
+        moneda=moneda,
         token_medio_pago=token,
     )
 

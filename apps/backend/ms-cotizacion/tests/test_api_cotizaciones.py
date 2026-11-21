@@ -30,6 +30,39 @@ def test_solicitud_valida_devuelve_oferta_en_el_mismo_flujo(client):
     assert cuerpo["factor_riesgo_origen"] in ("real", "respaldo")
 
 
+def test_cotizacion_nueva_se_expresa_en_la_moneda_seleccionada(client):
+    cop = client.post(
+        "/v1/cotizaciones", json=_payload(), headers={"Idempotency-Key": "clave-cop-0001"}
+    ).json()
+    pen = client.post(
+        "/v1/cotizaciones",
+        json=_payload(moneda="PEN"),
+        headers={"Idempotency-Key": "clave-pen-0001"},
+    )
+
+    assert pen.status_code == 201
+    cuerpo = pen.json()
+    assert cuerpo["moneda"] == "PEN"
+    assert cop["moneda"] == "COP"
+    centavos = Decimal("0.01")
+    assert Decimal(cuerpo["prima_neta"]) == (Decimal(cop["prima_neta"]) / Decimal("1100")).quantize(centavos)
+    assert Decimal(cuerpo["gastos_expedicion"]) == (Decimal(cop["gastos_expedicion"]) / Decimal("1100")).quantize(
+        centavos
+    )
+
+
+def test_moneda_no_soportada_no_crea_cotizacion(client):
+    respuesta = client.post(
+        "/v1/cotizaciones",
+        json=_payload(moneda="USD"),
+        headers={"Idempotency-Key": "clave-usd-0001"},
+    )
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "moneda_no_soportada"
+    assert "cotizacion_id" not in respuesta.json()
+
+
 def test_reintento_con_misma_clave_devuelve_200(client):
     client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS)
     respuesta = client.post("/v1/cotizaciones", json=_payload(), headers=CABECERAS)

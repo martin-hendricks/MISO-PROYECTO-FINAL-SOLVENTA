@@ -133,6 +133,7 @@ describe('NuevaCotizacionView', () => {
     const request = http.expectOne(URL);
     expect(request.request.body).toEqual({
       ramo: 'Protección de dispositivo',
+      moneda: 'COP',
       datosRiesgo: {
         valorDispositivo: 2400000,
         marca: 'apple',

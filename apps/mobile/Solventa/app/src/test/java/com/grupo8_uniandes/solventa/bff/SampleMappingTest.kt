@@ -44,6 +44,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyEntryDto
+import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
@@ -55,6 +56,8 @@ import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
+import com.grupo8_uniandes.solventa.data.bff.mapping.toAccepted
+import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
 import java.math.BigDecimal
@@ -400,7 +403,21 @@ class SampleMappingTest {
         assertEquals("Protección de dispositivo", OfferInDto("Protección de dispositivo", risk).ramo)
         assertEquals("oferta_vigente", OfferOutDto("COT-1042", "Protección de dispositivo", "oferta_vigente", 89_000L, "COP", "2026-10-01").estado)
         assertEquals("COT-1042", IdDto("COT-1042").cotizacionId)
+        assertEquals("MXN", IdDto("COT-1042", "MXN").monedaInicio)
         assertEquals("vigente", IssuedDto("POL-88219-CO", "Protección de dispositivo", "vigente", "2027-03-12").estado)
+        val accepted = decode<AcceptedQuoteDto>(
+            """{"cotizacionId":"COT-1042","estado":"aceptada","prima":89000,"moneda":"COP","monedaInicio":"MXN"}""",
+        )!!.toAccepted()
+        assertEquals("COP", accepted.moneda)
+        assertEquals("MXN", accepted.monedaInicio)
+        val issued = decode<IssuedDto>(
+            """{"numero":"POL-1","ramo":"ramo","estado":"vigente","venceEn":"2027-03-12","monedaInicio":"PEN"}""",
+        )!!.toPolicy()
+        assertEquals("PEN", issued.monedaInicio)
+        val legacy = decode<IssuedDto>(
+            """{"numero":"POL-1","ramo":"ramo","estado":"vigente","venceEn":"2027-03-12"}""",
+        )!!.toPolicy()
+        assertEquals("COP", legacy.monedaInicio)
         val entry = PolicyEntryDto("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")
         assertEquals(entry.numero, PoliciesDto(listOf(entry)).polizas.single().numero)
         assertEquals("Robo y Pantalla", DetailDto("POL-88219-CO", "Protección de dispositivo", "Robo y Pantalla", "vigente", "2027-03-12", "Toma la foto del daño y anota fecha y lugar.").resumen)

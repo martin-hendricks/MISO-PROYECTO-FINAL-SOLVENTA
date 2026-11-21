@@ -21,6 +21,8 @@ export interface PolizaOperador {
   estado: 'vigente' | 'cancelada';
   venceEn: string;
   prima: Prima;
+  /** Premium currency. Missing on older records, which are shown as COP. */
+  moneda?: string;
   /** Calculado server-side (Poliza.renovable en ms-polizas): la ventana de
    * gracia tras vencer es una regla de dominio, no se recalcula aquí. */
   renovable: boolean;

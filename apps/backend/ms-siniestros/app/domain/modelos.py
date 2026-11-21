@@ -132,6 +132,8 @@ class Siniestro:
     requiere_revision: bool = False
     motivo_revision: str | None = None
     clave_idempotencia: str | None = None
+    # Moneda de la póliza al reportar. La parametría calcula en COP y luego se expresa aquí.
+    moneda: str = "COP"
 
     @classmethod
     def recibir(
@@ -181,6 +183,7 @@ class Siniestro:
         geo: Geo | None = None,
         lugar: str | None = None,
         clave_idempotencia: str | None = None,
+        moneda: str = "COP",
     ) -> Siniestro:
         """Alta del aviso asistido (N5). Solo valida forma; la vigencia, el monto y el
         fraude los decide el motor de forma asíncrona, para que el aviso nunca se pierda
@@ -212,6 +215,7 @@ class Siniestro:
             lugar=lugar_limpio or None,
             geo=geo,
             clave_idempotencia=clave_idempotencia,
+            moneda=moneda,
         )
 
     def cambiar_estado(self, nuevo_estado: EstadoSiniestro, origen: str) -> None:
@@ -367,6 +371,7 @@ class PagoRecibido:
     comprobante: str
     clave: str
     pagado_en: datetime
+    moneda: str = "COP"
 
 
 @dataclass(frozen=True)

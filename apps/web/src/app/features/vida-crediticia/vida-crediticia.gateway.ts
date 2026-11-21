@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, InjectionToken } from '@angular/core';
 import { catchError, map, Observable, of } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
+import { LocaleService } from '../../core/i18n/locale.service';
 import { FactorOferta, Oferta, OfertaWire, toOferta } from '../cotizacion/cotizacion.gateway';
 
 /** How long each profiling step stays on screen; specs set it to 0. */
@@ -36,6 +37,7 @@ const toOfertaHipotecaria = (wire: OfertaHipotecariaWire) => toOferta(wire) as O
 export class VidaCrediticiaGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly locale = inject(LocaleService);
 
   /** Saves the mortgage typed in Nueva cotización, so Inicio can offer to continue. */
   registrarOriginacion(credito: Credito): Observable<Credito> {
@@ -55,6 +57,7 @@ export class VidaCrediticiaGateway {
       .post<OfertaHipotecariaWire>(`${this.baseUrl}/cliente/oferta-hipotecaria`, {
         credito,
         consentimientoPerfil: true,
+        moneda: this.locale.monedaInicio(),
       })
       .pipe(map(toOfertaHipotecaria));
   }
@@ -66,6 +69,7 @@ export class VidaCrediticiaGateway {
         clienteId,
         credito,
         consentimientoPerfil: true,
+        moneda: this.locale.monedaInicio(),
       })
       .pipe(map(toOfertaHipotecaria));
   }

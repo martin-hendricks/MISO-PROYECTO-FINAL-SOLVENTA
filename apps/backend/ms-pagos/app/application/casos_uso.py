@@ -5,7 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
-from app.domain.modelos import Pago, clave_cobro_prima, pago_prima_registrado
+from app.domain.modelos import MONEDAS_INICIO, Pago, clave_cobro_prima, pago_prima_registrado
 from app.ports.externos import PasarelaPagos, VerificadorSuscripcion
 from app.ports.persistencia import ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 
@@ -16,6 +16,7 @@ class SolicitudCobro:
     oferta_id: UUID
     usuario_id: UUID
     monto: Decimal
+    moneda: str
     token_medio_pago: str
 
 
@@ -31,6 +32,8 @@ async def cobrar_prima(
     pasarela: PasarelaPagos,
     solicitud: SolicitudCobro,
 ) -> Cobro:
+    if solicitud.moneda not in MONEDAS_INICIO:
+        raise ReglaDeNegocioViolada("moneda_no_soportada", "La moneda de inicio no está soportada")
     clave = clave_cobro_prima(solicitud.oferta_id)
     # Un reintento con la misma clave devuelve el resultado original sin volver a cobrar.
     async with uow() as tx:
@@ -45,7 +48,9 @@ async def cobrar_prima(
         )
 
     resultado = await pasarela.cobrar(solicitud.token_medio_pago, solicitud.monto, clave)
-    pago = Pago.registrar_prima(solicitud.oferta_id, solicitud.usuario_id, solicitud.monto, resultado)
+    pago = Pago.registrar_prima(
+        solicitud.oferta_id, solicitud.usuario_id, solicitud.monto, resultado, solicitud.moneda
+    )
     async with uow() as tx:
         await tx.pagos.agregar(pago, solicitud.token_medio_pago)
         await tx.outbox.agregar(pago_prima_registrado(pago))

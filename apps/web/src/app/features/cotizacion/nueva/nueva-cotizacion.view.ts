@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CotizacionFormViewModel } from '../cotizacion-form.viewmodel';
+import { LocaleService } from '../../../core/i18n/locale.service';
 import { CotizacionGateway } from '../cotizacion.gateway';
+import { RAMOS } from '../ramos';
 import { Credito, VidaCrediticiaGateway } from '../../vida-crediticia/vida-crediticia.gateway';
 import { RiesgoFields } from '../riesgo-fields';
 
@@ -21,10 +23,13 @@ export class NuevaCotizacionView {
   private readonly gateway = inject(CotizacionGateway);
   private readonly vida = inject(VidaCrediticiaGateway);
   private readonly router = inject(Router);
+  private readonly locale = inject(LocaleService);
   protected readonly vm = new CotizacionFormViewModel(
     (ramo) => this.gateway.catalog('cliente', ramo),
     (ramo, datos) => this.gateway.quote(ramo, datos),
     (oferta) => void this.router.navigate(['/cotizaciones', oferta.cotizacionId]),
+    RAMOS,
+    () => this.locale.monedaInicio(),
   );
 
   constructor() {

@@ -30,6 +30,7 @@ def test_el_pago_registra_el_resultado_de_la_pasarela_con_su_clave():
     assert pago.estado is EstadoPago.APROBADO
     assert pago.idempotency_key == clave_cobro_prima(oferta)
     assert (pago.proveedor, pago.referencia_externa) == ("stub", "stub-1")
+    assert pago.moneda == "COP"
 
 
 @pytest.mark.parametrize("monto", ["0", "-1"])
@@ -50,8 +51,16 @@ def test_evento_pago_prima_registrado_lleva_oferta_y_estado():
         "pago_id": str(pago.id),
         "oferta_id": str(pago.oferta_id),
         "monto": "100.00",
+        "moneda": "COP",
         "estado": "APROBADO",
     }
+
+
+def test_la_moneda_de_inicio_queda_en_el_pago_y_en_el_evento():
+    pago = Pago.registrar_prima(uuid4(), uuid4(), Decimal("100.00"), APROBADO, moneda="MXN")
+
+    assert pago.moneda == "MXN"
+    assert pago_prima_registrado(pago).payload["moneda"] == "MXN"
 
 
 async def test_el_stub_es_determinista_por_token_y_por_clave():

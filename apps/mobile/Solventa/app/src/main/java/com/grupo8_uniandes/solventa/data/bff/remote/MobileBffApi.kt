@@ -9,6 +9,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MonedaInicioDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
@@ -92,6 +93,7 @@ interface MobileBffApi {
     suspend fun acceptQuote(
         @Header("Idempotency-Key") key: String,
         @Path("cotizacionId") cotizacionId: String,
+        @Body body: MonedaInicioDto,
     ): AcceptedQuoteDto
 
     @POST("cliente/polizas")

@@ -42,3 +42,17 @@ async def test_cobro_idempotente_con_un_solo_movimiento_y_outbox(uow):
             {"id": primero.pago.id},
         )
     assert (movimientos, eventos) == (1, 1)
+
+
+async def test_un_cobro_sin_moneda_explicita_en_la_fila_se_lee_como_cop(uow):
+    pedido = solicitud(moneda="MXN")
+    cobro = await casos_uso.cobrar_prima(uow, SuscripcionesFalsas(), PasarelaStub(), pedido)
+
+    assert cobro.pago.moneda == "MXN"
+    async with uow() as tx:
+        await tx._sesion.execute(
+            text(f"UPDATE {ESQUEMA}.pago SET moneda = DEFAULT WHERE pago_id = :id"),
+            {"id": cobro.pago.id},
+        )
+        await tx.confirmar()
+    assert (await casos_uso.consultar_pago(uow, cobro.pago.id)).moneda == "COP"

@@ -21,6 +21,7 @@ class ClienteMsCotizacion(ClienteServicio):
         datos_riesgo: dict[str, Any],
         asesor_id: UUID | None = None,
         cliente_ref: str | None = None,
+        moneda: str | None = None,
     ) -> dict[str, Any]:
         cuerpo = {
             "usuario_id": str(usuario_id),
@@ -30,6 +31,8 @@ class ClienteMsCotizacion(ClienteServicio):
             "canal": canal,
             "datos_riesgo": datos_riesgo,
         }
+        if moneda is not None:
+            cuerpo["moneda"] = moneda
         # HU-163: solo la venta asistida los envía; el canal cliente sigue
         # mandando el mismo cuerpo de antes.
         if asesor_id is not None:

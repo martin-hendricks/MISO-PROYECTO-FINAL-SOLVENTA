@@ -64,6 +64,7 @@ class AvisoEntrada(BaseModel):
     lugar: str | None = Field(default=None, max_length=200)
     geo: GeoEntrada | None = None
     tipos_adjuntos: list[str] = Field(default_factory=list)
+    moneda: str | None = None
 
 
 class AdjuntoSalida(BaseModel):

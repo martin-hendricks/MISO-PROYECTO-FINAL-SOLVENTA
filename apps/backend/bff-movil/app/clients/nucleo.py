@@ -105,19 +105,23 @@ class ClienteNucleo:
         producto: str,
         canal: str,
         datos_riesgo: dict,
+        moneda: str | None = None,
     ) -> dict:
+        cuerpo = {
+            "usuario_id": usuario_id,
+            "socio_id": socio_id,
+            "consentimiento_id": consentimiento_id,
+            "producto": producto,
+            "canal": canal,
+            "datos_riesgo": datos_riesgo,
+        }
+        if moneda is not None:
+            cuerpo["moneda"] = moneda
         return self._pedir(
             "ms-cotizacion",
             "POST",
             "/v1/cotizaciones",
-            json={
-                "usuario_id": usuario_id,
-                "socio_id": socio_id,
-                "consentimiento_id": consentimiento_id,
-                "producto": producto,
-                "canal": canal,
-                "datos_riesgo": datos_riesgo,
-            },
+            json=cuerpo,
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
@@ -161,6 +165,7 @@ class ClienteNucleo:
         oferta_id: str,
         usuario_id: str,
         monto: str,
+        moneda: str,
         token_medio_pago: str,
     ) -> dict:
         return self._pedir(
@@ -172,6 +177,7 @@ class ClienteNucleo:
                 "oferta_id": oferta_id,
                 "usuario_id": usuario_id,
                 "monto": monto,
+                "moneda": moneda,
                 "token_medio_pago": token_medio_pago,
             },
         )

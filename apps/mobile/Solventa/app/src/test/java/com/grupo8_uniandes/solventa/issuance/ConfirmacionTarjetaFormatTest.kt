@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
+import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.ui.shell.ConfirmacionTarjetaScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.Rule
@@ -94,6 +95,29 @@ class ConfirmacionTarjetaFormatTest {
             }
         }
         rule.onNodeWithText("Prima $128.500 COP").assertIsDisplayed()
+        rule.onNodeWithText("Moneda de inicio COP").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAMexicanRegion_whenTheCardOpens_thenThePremiumKeepsTheOfferCurrencyAndShowsTheStartCurrency() {
+        val viewModel = ConfirmacionTarjetaViewModel(prima = 128_500, moneda = "COP", region = Region.Mexico)
+        rule.setContent {
+            SolventaTheme {
+                ConfirmacionTarjetaScreen(
+                    state = viewModel.state.value,
+                    onTitular = {},
+                    onNumero = {},
+                    onMes = {},
+                    onAnio = {},
+                    onCodigo = {},
+                    onConfirm = {},
+                    onBackToOffer = {},
+                    onLeave = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Prima $128,500 COP").assertIsDisplayed()
+        rule.onNodeWithText("Moneda de inicio MXN").assertIsDisplayed()
     }
 
     @Test

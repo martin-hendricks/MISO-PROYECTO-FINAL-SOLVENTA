@@ -11,7 +11,7 @@ export class BilleteraListaViewModel {
   private readonly totalState = signal<number | null>(null);
   readonly total = this.totalState.asReadonly();
 
-  private readonly monedaState = signal('COP');
+  private readonly monedaState = signal<string | null>('COP');
   readonly moneda = this.monedaState.asReadonly();
 
   private readonly movimientosState = signal<Movimiento[]>([]);
@@ -24,7 +24,11 @@ export class BilleteraListaViewModel {
     this.source().subscribe({
       next: (billetera) => {
         const conDepositos = billetera.movimientos.length > 0;
-        this.totalState.set(conDepositos ? billetera.totalRecibido : null);
+        const suma =
+          conDepositos && billetera.totalRecibido != null && billetera.moneda != null
+            ? billetera.totalRecibido
+            : null;
+        this.totalState.set(suma);
         this.monedaState.set(billetera.moneda);
         this.movimientosState.set(billetera.movimientos);
         this.statusState.set(conDepositos ? 'ready' : 'empty');

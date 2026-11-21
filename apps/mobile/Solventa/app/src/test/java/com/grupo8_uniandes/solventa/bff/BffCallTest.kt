@@ -163,7 +163,8 @@ class BffCallTest {
             {"cotizacionId":"89167dc2-aab6-491c-8378-45131495f364","ramo":"Protección de dispositivo","estado":"cotizada","prima":"106900.00","moneda":"COP","venceEn":"2026-11-02T02:00:23.185686Z"}
         """
         enqueue(body)
-        val answer = RemoteOfferRepository(api(), gate).quote("Protección de dispositivo", DeviceRisk(2_400_000, "apple", false, "iPhone 15"))
+        val answer = RemoteOfferRepository(api(), gate) { "PEN" }.quote("Protección de dispositivo", DeviceRisk(2_400_000, "apple", false, "iPhone 15"))
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"moneda\":\"PEN\""))
         val ready = answer as StandInAnswer.Ready
         assertEquals("89167dc2-aab6-491c-8378-45131495f364", ready.value.cotizacionId)
         assertEquals(106_900L, ready.value.prima)
@@ -208,12 +209,14 @@ class BffCallTest {
             {"cotizacionId":"COT-9","estado":"aceptada","prima":"10.00","moneda":"COP"}
         """
         enqueue(body)
-        val answer = RemoteOfferRepository(api(), gate).accept("COT-9") as StandInAnswer.Ready
+        val answer = RemoteOfferRepository(api(), gate) { "MXN" }.accept("COT-9") as StandInAnswer.Ready
         assertEquals("COT-9", answer.value.cotizacionId)
         assertEquals("aceptada", answer.value.estado)
         assertEquals(10L, answer.value.prima)
         assertEquals("COP", answer.value.moneda)
+        assertEquals("COP", answer.value.monedaInicio)
         val recorded = server.takeRequest()
+        assertTrue(recorded.body.readUtf8().contains("\"monedaInicio\":\"MXN\""))
         assertTrue(recorded.path.orEmpty().endsWith("cliente/cotizaciones/COT-9/aceptacion"))
         assertTrue(recorded.getHeader("Idempotency-Key").orEmpty().length in 8..128)
         assertEquals("POST", recorded.method)
@@ -320,8 +323,11 @@ class BffCallTest {
         assertEquals("La suscripción automática rechazó el riesgo del dispositivo cotizado.", rejection.value.motivo)
 
         enqueue(PublishedSamples.ISSUED)
-        val issued = RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") as StandInAnswer.Ready
+        val issued = RemoteIssuanceRepository(api(), gate, cache) { "PEN" }.accept("COT-1042") as StandInAnswer.Ready
         assertEquals("POL-88219-CO", issued.value.numero)
+        assertEquals("COP", issued.value.monedaInicio)
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"monedaInicio\":\"PEN\""))
 
         enqueue(PublishedSamples.REJECTION)
         assertTrue(RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") is StandInAnswer.Failed)

@@ -217,6 +217,7 @@ def test_pagos_recibidos_respeta_rol_y_dueno(client):
     assert cuerpo["moneda"] == "COP"
     assert Decimal(cuerpo["total"]) == Decimal("180000.00")
     assert cuerpo["pagos"][0]["siniestro_id"] == siniestro_id
+    assert cuerpo["pagos"][0]["moneda"] == "COP"
     assert cuerpo["pagos"][0]["tipo"] == "parametrico"
     assert cuerpo["pagos"][0]["ramo"] == "clima-vuelos"
 

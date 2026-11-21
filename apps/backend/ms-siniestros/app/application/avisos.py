@@ -30,6 +30,7 @@ from app.domain.aviso import (
     validar_cantidad_adjuntos,
 )
 from app.domain.errores import NoEncontrado
+from app.domain.moneda import expresar_monto, validar_moneda
 from app.domain.modelos import (
     EstadoSiniestro,
     Geo,
@@ -94,6 +95,7 @@ async def registrar_aviso(
     archivos: list[ArchivoEvidencia],
     lugar: str | None = None,
     clave_idempotencia: str | None = None,
+    moneda: str | None = None,
 ) -> tuple[DetalleSiniestro, bool]:
     """Alta del aviso (N5) con su evidencia (N6). Devuelve (detalle, creado). Con la misma
     clave de idempotencia un reintento devuelve el aviso original (creado=False), sin
@@ -104,6 +106,7 @@ async def registrar_aviso(
             if existente is not None:
                 return await _detalle(tx, existente), False
 
+    moneda_aviso = validar_moneda(moneda)
     validar_cantidad_adjuntos(archivos)
     siniestro = Siniestro.avisar(
         usuario_id=usuario_id,
@@ -114,6 +117,7 @@ async def registrar_aviso(
         geo=geo,
         lugar=lugar,
         clave_idempotencia=clave_idempotencia,
+        moneda=moneda_aviso,
     )
     adjuntos = [Adjunto.desde_archivo(a, siniestro, almacen.bucket) for a in archivos]
 
@@ -208,8 +212,8 @@ async def _evaluar_uno(tx, siniestro: Siniestro, adaptador_desembolso: Adaptador
         await tx.outbox.agregar(decision_registrada(siniestro, decision))
         return
 
-    siniestro.reserva = resultado.reserva
-    siniestro.umbral_automatico = resultado.umbral_automatico
+    siniestro.reserva = expresar_monto(resultado.reserva, siniestro.moneda)
+    siniestro.umbral_automatico = expresar_monto(resultado.umbral_automatico, siniestro.moneda)
     decision = Decision.registrar(
         siniestro.id, OrigenDecision.MOTOR, ACTOR_MOTOR, resultado.resultado, resultado.motivo, resultado.reglas
     )

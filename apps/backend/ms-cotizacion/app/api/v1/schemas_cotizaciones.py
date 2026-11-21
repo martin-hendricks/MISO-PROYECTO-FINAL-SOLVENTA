@@ -20,6 +20,8 @@ class SolicitarCotizacionEntrada(BaseModel):
     # HU-163: los envía el BFF del back-office; sin ellos el flujo es el de siempre.
     asesor_id: UUID | None = None
     cliente_ref: str | None = Field(default=None, max_length=100)
+    # Moneda seleccionada en el canal. Sin ella la prima queda en la moneda de la fórmula.
+    moneda: str | None = None
 
 
 class CotizacionSalida(BaseModel):

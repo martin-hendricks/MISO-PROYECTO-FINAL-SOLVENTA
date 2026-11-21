@@ -116,7 +116,7 @@ Then('the customer cannot accept it', async function (this: PortalWorld) {
 Then('"Aceptar" starts the issuance', async function (this: PortalWorld) {
   assert.equal(
     await this.cotizacion.acceptHref(),
-    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}`,
+    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}&moneda=${this.offer.moneda}`,
   );
 });
 

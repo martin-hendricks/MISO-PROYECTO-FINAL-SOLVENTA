@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 from ..clients.nucleo import DETALLE_INCOMPLETA, token_saliente
@@ -54,17 +55,38 @@ class Cotizacion(BaseModel):
     ramo: str
     datosRiesgo: dict
     rol: str | None = None
+    moneda: str | None = None
+
+
+MONEDAS_INICIO = {"COP", "MXN", "CLP", "PEN"}
+
+
+def _moneda_de_cotizacion(cotizacion: dict) -> str:
+    """La póliza no guarda moneda: la trae la cotización. Sin una válida, el aviso queda en COP."""
+    moneda = str(cotizacion.get("moneda") or "COP").strip().upper()
+    return moneda if moneda in MONEDAS_INICIO else "COP"
+
+
+def rechazar_moneda(moneda: str | None) -> JSONResponse | None:
+    if moneda not in MONEDAS_INICIO:
+        return JSONResponse(
+            status_code=422,
+            content={"codigo": "moneda_no_soportada", "mensaje": "La moneda de inicio no está soportada"},
+        )
+    return None
 
 
 class Aceptar(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cotizacionId: str
+    monedaInicio: str | None = None
 
 
 class ConfirmacionVacia(BaseModel):
     """Acceptance carries no card data. Any extra field is rejected."""
 
     model_config = ConfigDict(extra="forbid")
+    monedaInicio: str | None = None
 
 
 class PreferenciaRenovacion(BaseModel):
@@ -278,6 +300,8 @@ def _credito_cotizable(nucleo, cliente_id: str, credito: Credito) -> tuple[dict,
 def cotizar(body: Cotizacion, request: Request, usuario: dict = Depends(require_customer)) -> dict:
     if not es_v1(request):
         return _offer(OFFER["cotizacionId"])
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
     contexto = _contexto(usuario)
     producto = _producto_de(body.ramo)
     datos_riesgo = dict(body.datosRiesgo)
@@ -296,6 +320,7 @@ def cotizar(body: Cotizacion, request: Request, usuario: dict = Depends(require_
         producto=producto,
         canal=CANAL,
         datos_riesgo=datos_riesgo,
+        moneda=body.moneda,
     )
     _, descripcion = presentar(producto)
     return _oferta_movil(datos, body.ramo, descripcion)
@@ -342,6 +367,9 @@ def aceptar_cotizacion(
 ) -> dict:
     if not es_v1(request):
         raise HTTPException(status_code=404, detail="No existe")
+    if (rechazo := rechazar_moneda(None if _confirmacion is None else _confirmacion.monedaInicio)) is not None:
+        return rechazo
+    moneda_inicio = _confirmacion.monedaInicio or ""
     nucleo = request.app.state.nucleo
     contexto = _contexto(usuario)
     aceptacion = _exigir(
@@ -365,6 +393,7 @@ def aceptar_cotizacion(
             oferta_id=str(aceptacion["oferta_id"]),
             usuario_id=contexto["usuario_id"],
             monto=str(Decimal(str(aceptacion["prima"]))),
+            moneda=moneda_inicio,
             token_medio_pago=TOKEN_MEDIO_PAGO,
         ),
         "id",
@@ -393,6 +422,7 @@ def aceptar_cotizacion(
         "estado": aceptacion["estado"],
         "prima": aceptacion["prima"],
         "moneda": aceptacion["moneda"],
+        "monedaInicio": pago.get("moneda") or moneda_inicio,
         "poliza": {
             "numero": poliza["numero"],
             "ramo": presentar(cotizacion["producto"])[0],
@@ -409,6 +439,8 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
         if body.cotizacionId == "COT-RECHAZADA":
             return {"estado": "rechazada", "motivo": "Valor del equipo fuera de rango"}
         return dict(POLICY)
+    if (rechazo := rechazar_moneda(body.monedaInicio)) is not None:
+        return rechazo
     nucleo = request.app.state.nucleo
     contexto = _contexto(usuario)
     aceptacion = _exigir(
@@ -432,6 +464,7 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
             oferta_id=str(aceptacion["oferta_id"]),
             usuario_id=contexto["usuario_id"],
             monto=str(Decimal(str(aceptacion["prima"]))),
+            moneda=body.monedaInicio or "",
             token_medio_pago=TOKEN_MEDIO_PAGO,
         ),
         "id",
@@ -462,6 +495,8 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
         "descripcion": descripcion,
         "estado": poliza["estado"],
         "venceEn": poliza["fin_vigencia"],
+        "moneda": aceptacion.get("moneda") or "",
+        "monedaInicio": pago.get("moneda") or body.monedaInicio,
     }
 
 
@@ -699,6 +734,7 @@ async def avisar(request: Request, usuario: dict = Depends(require_customer)) ->
         "descripcion": descripcion,
         "geo": geo,
         "tipos_adjuntos": tipos,
+        "moneda": _moneda_de_cotizacion(cotizacion),
     }
     if lugar:
         datos["lugar"] = lugar
@@ -774,7 +810,7 @@ def _movimiento_billetera(pago: dict) -> dict:
         "resumen": pago.get("descripcion") or "",
         "poliza": pago.get("poliza_numero"),
         "monto": float(pago["monto"]),
-        "moneda": "COP",
+        "moneda": pago.get("moneda") or "COP",
         "comprobante": pago["comprobante"],
         "depositadoEn": pago["pagado_en"],
     }
@@ -787,10 +823,14 @@ def billetera(request: Request, usuario: dict = Depends(require_customer)) -> di
     cuerpo = request.app.state.nucleo.pagos_recibidos()
     if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("pagos"), list):
         raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+    movimientos = [_movimiento_billetera(p) for p in cuerpo["pagos"]]
+    monedas = {movimiento["moneda"] for movimiento in movimientos}
+    if len(monedas) > 1 or cuerpo.get("total") is None:
+        return {"moneda": None, "totalRecibido": None, "movimientos": movimientos}
     return {
-        "moneda": "COP",
+        "moneda": next(iter(monedas), cuerpo.get("moneda") or "COP"),
         "totalRecibido": float(cuerpo["total"]),
-        "movimientos": [_movimiento_billetera(p) for p in cuerpo["pagos"]],
+        "movimientos": movimientos,
     }
 
 

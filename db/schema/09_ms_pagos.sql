@@ -21,13 +21,15 @@ CREATE TABLE ms_pagos.pago (
     prima_id        UUID,
     reclamacion_id  UUID,
     monto           NUMERIC(14,2) NOT NULL,
+    moneda          TEXT          NOT NULL DEFAULT 'COP',
     concepto        TEXT          NOT NULL,
     estado          TEXT          NOT NULL,
     fecha           TIMESTAMPTZ   NOT NULL DEFAULT now(),
     -- Cobro de la prima de emisión (sobre la oferta, antes de que exista la póliza: HU-15),
     -- recaudo de una prima ya emitida o indemnización de reclamación; exactamente uno.
     CONSTRAINT ck_pago_referencia CHECK (num_nonnulls(oferta_id, prima_id, reclamacion_id) = 1),
-    CONSTRAINT ck_pago_monto      CHECK (monto > 0)
+    CONSTRAINT ck_pago_monto      CHECK (monto > 0),
+    CONSTRAINT ck_pago_moneda     CHECK (moneda ~ '^[A-Z]{3}$')
 );
 
 COMMENT ON COLUMN ms_pagos.pago.oferta_id      IS 'ref lógica opcional -> ms_cotizacion.oferta_seguro.oferta_id; su pago_id es el TokenPagoConfirmado de ComandoEmisionDTO';

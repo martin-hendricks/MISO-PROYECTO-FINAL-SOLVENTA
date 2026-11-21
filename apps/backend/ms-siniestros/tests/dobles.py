@@ -134,6 +134,7 @@ class _RepoSiniestros:
             comprobante=comprobante,
             clave=clave,
             pagado_en=pagado_en,
+            moneda=siniestro.moneda or "COP",
         )
 
     async def _de(self, usuario_id):

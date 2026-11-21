@@ -19,8 +19,8 @@ export interface Movimiento {
 }
 
 export interface Billetera {
-  moneda: string;
-  totalRecibido: number;
+  moneda: string | null;
+  totalRecibido: number | null;
   movimientos: Movimiento[];
 }
 

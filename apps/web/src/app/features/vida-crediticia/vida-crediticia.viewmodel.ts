@@ -1,5 +1,6 @@
 import { computed, signal } from '@angular/core';
 import { forkJoin, interval, Observable, of, Subscription, take, timer } from 'rxjs';
+import { rangoEnMoneda } from '../../core/i18n/tasas-moneda';
 import { Catalogo, RechazoCotizacion, rechazoDe } from '../cotizacion/cotizacion.gateway';
 import { Campo, ProblemaCampo, Rango, validarCampo } from '../cotizacion/ramos';
 import { Credito, OfertaHipotecaria } from './vida-crediticia.gateway';
@@ -34,13 +35,17 @@ export class VidaCrediticiaViewModel {
   private readonly catalogoState = signal<Catalogo | null>(null);
   private readonly catalogoStatusState = signal<CatalogoStatus>('loading');
   readonly catalogoStatus = this.catalogoStatusState.asReadonly();
-  readonly moneda = computed(() => this.catalogoState()?.moneda ?? 'COP');
+  readonly moneda = computed(() => this.monedaSeleccionada() || this.catalogoState()?.moneda || 'COP');
 
   readonly rangos = computed(() => {
+    const origen = this.catalogoState()?.moneda || 'COP';
+    const destino = this.moneda();
+    const montos = new Set(CAMPOS_CREDITO.filter((campo) => campo.tipo === 'moneda').map((campo) => campo.clave));
     const rangos: Record<string, Rango> = {};
     for (const dato of this.catalogoState()?.datosRiesgo ?? []) {
       if (dato.tipo === 'rango') {
-        rangos[dato.nombre] = { minimo: dato.minimo, maximo: dato.maximo };
+        const rango = { minimo: dato.minimo, maximo: dato.maximo };
+        rangos[dato.nombre] = montos.has(dato.nombre) ? rangoEnMoneda(rango, origen, destino) : rango;
       }
     }
     return rangos;
@@ -86,6 +91,7 @@ export class VidaCrediticiaViewModel {
     private readonly catalogSource: () => Observable<Catalogo>,
     private readonly source: (credito: Credito) => Observable<OfertaHipotecaria>,
     private readonly etapaMs: number = ETAPA_MS,
+    private readonly monedaSeleccionada: () => string = () => '',
   ) {}
 
   loadCatalog(): void {

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
+import { LocaleService } from '../../core/i18n/locale.service';
 import { PolizaResumen } from '../polizas/polizas.gateway';
 
 export interface Motivo {
@@ -22,8 +23,12 @@ export interface Aceptacion {
 export class EmisionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly locale = inject(LocaleService);
 
   accept(aceptacion: Aceptacion): Observable<ResultadoEmision> {
-    return this.http.post<ResultadoEmision>(`${this.baseUrl}/cliente/polizas`, aceptacion);
+    return this.http.post<ResultadoEmision>(`${this.baseUrl}/cliente/polizas`, {
+      ...aceptacion,
+      monedaInicio: this.locale.monedaInicio(),
+    });
   }
 }

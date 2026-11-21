@@ -1,5 +1,6 @@
 import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
+import { rangoEnMoneda } from '../../core/i18n/tasas-moneda';
 import { Catalogo, Oferta, RechazoCotizacion, rechazoDe } from './cotizacion.gateway';
 import {
   DatosRiesgo,
@@ -32,13 +33,20 @@ export class CotizacionFormViewModel {
   readonly catalogoStatus = this.catalogoStatusState.asReadonly();
 
   readonly coberturas = computed(() => this.catalogoState()?.coberturas ?? []);
-  readonly moneda = computed(() => this.catalogoState()?.moneda ?? 'COP');
+  /** Money fields use the selected region. The catalog currency is only the range's origin. */
+  readonly moneda = computed(() => this.monedaSeleccionada() || this.catalogoState()?.moneda || 'COP');
 
   readonly rangos = computed(() => {
+    const origen = this.catalogoState()?.moneda || 'COP';
+    const destino = this.moneda();
+    const montos = new Set(
+      this.ramoState().campos.filter((campo) => campo.tipo === 'moneda').map((campo) => campo.clave),
+    );
     const rangos: Record<string, Rango> = {};
     for (const dato of this.catalogoState()?.datosRiesgo ?? []) {
       if (dato.tipo === 'rango') {
-        rangos[dato.nombre] = { minimo: dato.minimo, maximo: dato.maximo };
+        const rango = { minimo: dato.minimo, maximo: dato.maximo };
+        rangos[dato.nombre] = montos.has(dato.nombre) ? rangoEnMoneda(rango, origen, destino) : rango;
       }
     }
     return rangos;
@@ -96,6 +104,7 @@ export class CotizacionFormViewModel {
     private readonly onQuoted: (oferta: Oferta) => void = () => undefined,
     /** Lines this channel offers; the advisor enables more than the customer. */
     readonly ramos: readonly Ramo[] = RAMOS,
+    private readonly monedaSeleccionada: () => string = () => '',
   ) {}
 
   /** Switches line: its own fields start empty and its catalog is loaded. */

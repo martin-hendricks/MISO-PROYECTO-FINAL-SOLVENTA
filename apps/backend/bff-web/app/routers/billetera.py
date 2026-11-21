@@ -14,8 +14,6 @@ router_cliente = APIRouter(prefix="/cliente", tags=["cliente-billetera"])
 Cliente = Annotated[dict, Depends(require_roles("cliente"))]
 Siniestros = Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)]
 
-MONEDA = "COP"
-
 
 def movimiento(pago: dict) -> dict:
     tipo = pago.get("tipo")
@@ -27,7 +25,7 @@ def movimiento(pago: dict) -> dict:
         "resumen": pago.get("descripcion") or "",
         "poliza": pago.get("poliza_numero"),
         "monto": float(pago["monto"]),
-        "moneda": MONEDA,
+        "moneda": pago.get("moneda") or "COP",
         "comprobante": pago["comprobante"],
         "depositadoEn": pago["pagado_en"],
     }
@@ -36,10 +34,14 @@ def movimiento(pago: dict) -> dict:
 @router_cliente.get("/billetera")
 async def listar(usuario: Cliente, siniestros: Siniestros) -> dict:
     cuerpo = await siniestros.pagos_recibidos()
+    movimientos = [movimiento(p) for p in cuerpo["pagos"]]
+    monedas = {fila["moneda"] for fila in movimientos}
+    if len(monedas) > 1 or cuerpo.get("total") is None:
+        return {"moneda": None, "totalRecibido": None, "movimientos": movimientos}
     return {
-        "moneda": MONEDA,
+        "moneda": next(iter(monedas), cuerpo.get("moneda") or "COP"),
         "totalRecibido": float(cuerpo["total"]),
-        "movimientos": [movimiento(p) for p in cuerpo["pagos"]],
+        "movimientos": movimientos,
     }
 
 

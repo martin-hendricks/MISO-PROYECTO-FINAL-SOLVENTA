@@ -6,11 +6,15 @@ import pytest
 
 from app.application import casos_uso_cotizaciones as casos_uso
 from app.config import Settings
+from app.domain.catalogo import Booleano, DefinicionProducto, RangoNumerico, TextoLibre, ValoresPermitidos
 from app.domain.errores import NoEncontrado, ProductoNoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import SolicitudCotizacion
+from app.domain.rating import ReglaRating
 from app.domain.riesgo import OrigenFactorRiesgo
 from app.infrastructure.adaptador_perfil_stub import AdaptadorPerfilRiesgoStub
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
+
+from .dobles import CatalogoEnMemoria
 
 DATOS_VALIDOS = {"cilindraje_cc": 150, "modelo_anio": 2022, "ciudad_circulacion": "bogota"}
 
@@ -233,3 +237,69 @@ async def test_cotizar_con_carrera_de_idempotencia_devuelve_la_oferta_del_ganado
 
     assert not resultado.creada
     assert resultado.solicitud.id == ganador_fantasma.id
+
+
+DISPOSITIVO = DefinicionProducto(
+    producto="proteccion-dispositivo",
+    nombre="Protección de dispositivo",
+    moneda="COP",
+    coberturas=(),
+    datos_riesgo={
+        "valorDispositivo": RangoNumerico(Decimal("500000.00"), Decimal("10000000.00")),
+        "marca": ValoresPermitidos(("apple",)),
+        "modelo": TextoLibre(),
+        "masDe12Meses": Booleano(),
+    },
+)
+
+
+async def test_cotizar_en_soles_acepta_el_valor_del_dispositivo(uow, almacen):
+    regla = ReglaRating(
+        id=uuid4(),
+        producto="proteccion-dispositivo",
+        version="0001",
+        formula={
+            "insumos_requeridos": ["valorDispositivo"],
+            "base": "89000",
+            "gastos_fijos": "9000",
+            "moneda": "COP",
+        },
+    )
+    almacen.reglas_rating[regla.id] = regla
+    catalogo = CatalogoEnMemoria(DISPOSITIVO)
+    datos = {"valorDispositivo": 2500, "marca": "apple", "modelo": "iPhone 15", "masDe12Meses": False}
+
+    resultado = await casos_uso.cotizar(
+        uow,
+        catalogo,
+        AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0")),
+        Settings(),
+        "clave-pen-dispositivo",
+        uuid4(),
+        uuid4(),
+        uuid4(),
+        "proteccion-dispositivo",
+        "web",
+        datos,
+        moneda="PEN",
+    )
+
+    assert resultado.solicitud.datos_riesgo["valorDispositivo"] == 2_750_000
+    assert resultado.oferta.moneda == "PEN"
+
+    with pytest.raises(ReglaDeNegocioViolada) as exc:
+        await casos_uso.cotizar(
+            uow,
+            catalogo,
+            AdaptadorPerfilRiesgoStub(latencia_ms=1, factor_fijo=Decimal("1.0")),
+            Settings(),
+            "clave-pen-bajo",
+            uuid4(),
+            uuid4(),
+            uuid4(),
+            "proteccion-dispositivo",
+            "web",
+            {**datos, "valorDispositivo": 100},
+            moneda="PEN",
+        )
+    assert exc.value.codigo == "dato_riesgo_fuera_de_rango"

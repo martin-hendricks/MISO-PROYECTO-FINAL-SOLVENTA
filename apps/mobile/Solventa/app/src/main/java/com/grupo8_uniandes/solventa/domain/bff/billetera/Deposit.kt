@@ -20,7 +20,7 @@ data class Deposit(
 
 data class Wallet(
     val moneda: String,
-    val totalRecibido: BigDecimal,
+    val totalRecibido: BigDecimal?,
     val movimientos: List<Deposit>,
 )
 
