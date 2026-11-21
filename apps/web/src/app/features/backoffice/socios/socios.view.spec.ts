@@ -42,19 +42,34 @@ describe('SociosView', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  for (const role of ['asesor', 'operador'] as const) {
-    it(`lists the partners and their credentials for the ${role}`, () => {
-      const { element } = listado(role);
+  it('lists the partners with their scopes, credentials and actions for the operator', () => {
+    const { element } = listado('operador');
 
-      expect(element('section-socios')?.getAttribute('data-state')).toBe('ready');
-      expect(element(`socio-${ACTIVO_ID}`)?.textContent).toContain('Aliado local');
-      expect(element(`socio-${ACTIVO_ID}`)?.textContent).toContain('catalogo:leer');
-      expect(element(`credencial-${VIGENTE_ID}`)?.textContent).toContain('Vigente');
-      expect(element(`rotar-${ACTIVO_ID}`)).not.toBeNull();
-      expect(element(`revocar-credencial-${VIGENTE_ID}`)).not.toBeNull();
-      expect(element('socios-new')).not.toBeNull();
-    });
-  }
+    expect(element('section-socios')?.getAttribute('data-state')).toBe('ready');
+    expect(element(`socio-${ACTIVO_ID}`)?.textContent).toContain('Aliado local');
+    expect(element(`socio-${ACTIVO_ID}`)?.textContent).toContain('catalogo:leer');
+    expect(element(`credencial-${VIGENTE_ID}`)?.textContent).toContain('Vigente');
+    expect(element(`rotar-${ACTIVO_ID}`)).not.toBeNull();
+    expect(element(`revocar-${ACTIVO_ID}`)).not.toBeNull();
+    expect(element(`revocar-credencial-${VIGENTE_ID}`)).not.toBeNull();
+    expect(element('socios-new')).not.toBeNull();
+  });
+
+  it('shows the advisor only the name and the state of each partner', () => {
+    const { element, host } = listado('asesor');
+    const fila = element(`socio-${ACTIVO_ID}`)!;
+
+    expect(element('section-socios')?.getAttribute('data-state')).toBe('ready');
+    expect(fila.textContent).toContain('Aliado local');
+    expect(fila.textContent).toContain('Activo');
+    expect(fila.textContent).not.toContain('catalogo:leer');
+    expect(element(`credencial-${VIGENTE_ID}`)).toBeNull();
+    expect(element(`rotar-${ACTIVO_ID}`)).toBeNull();
+    expect(element(`revocar-${ACTIVO_ID}`)).toBeNull();
+    expect(host.querySelectorAll('[data-testid^="revocar-credencial-"]').length).toBe(0);
+    expect(element('socios-new')).toBeNull();
+    expect(host.querySelectorAll('thead th').length).toBe(3);
+  });
 
   it('keeps a customer out of the partners', () => {
     const { http, element } = render('cliente');
@@ -75,7 +90,7 @@ describe('SociosView', () => {
   });
 
   it('creates a partner, shows its key once and hides it on dismiss', () => {
-    const { fixture, http, element } = listado('asesor');
+    const { fixture, http, element } = listado('operador');
 
     element('socios-new')!.click();
     fixture.detectChanges();
@@ -167,7 +182,7 @@ describe('SociosView', () => {
   });
 
   it('closes the create form and the confirmation without writing', () => {
-    const { fixture, element } = listado('asesor');
+    const { fixture, element } = listado('operador');
 
     element('socios-new')!.click();
     fixture.detectChanges();
