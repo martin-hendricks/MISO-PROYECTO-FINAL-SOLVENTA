@@ -414,7 +414,10 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
     aceptacion = _exigir(
         nucleo.aceptar_oferta(
             cotizacion_id=body.cotizacionId,
-            idempotency_key=str(uuid.uuid4()),
+            # Estable por cotizacion (igual que bff-web): si el cobro o la emision fallan despues de
+            # aceptar, el reintento reusa la clave y retoma el flujo en vez de chocar con
+            # oferta_ya_usada.
+            idempotency_key=_uuid_desde("aceptacion-cliente", body.cotizacionId),
             perfil_id=contexto["perfil_id"],
             score=SCORE,
             usuario_id=contexto["usuario_id"],
