@@ -22,6 +22,7 @@ export class SociosView {
   protected readonly role = this.session.role;
   protected readonly subject = this.session.subject;
   protected readonly allowed = admite('socios', this.role());
+  protected readonly gestiona = this.role() === 'operador';
   protected readonly alcances = ALCANCES;
   protected readonly nombreMaximo = NOMBRE_MAXIMO;
   protected readonly copiado = signal(false);

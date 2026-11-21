@@ -22,6 +22,13 @@ Then('the partner {string} is listed', async function (this: PortalWorld, nombre
   await this.backoffice.expectPartner(nombre);
 });
 
+Then(
+  'the partner {string} is listed as active without management options',
+  async function (this: PortalWorld, nombre: string) {
+    await this.backoffice.expectPartnerReadOnly(nombre);
+  },
+);
+
 Then('the new API key is shown', async function (this: PortalWorld) {
   await this.backoffice.expectApiKey(API_KEY);
 });

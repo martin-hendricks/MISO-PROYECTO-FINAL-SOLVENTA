@@ -131,6 +131,15 @@ export class BackofficePage {
     assert.equal(await row.count(), 1);
   }
 
+  async expectPartnerReadOnly(nombre: string): Promise<void> {
+    await this.expectPartner(nombre);
+    const row = this.page.locator('[data-testid="socios-table"] tbody tr', { hasText: nombre });
+    assert.match(await row.innerText(), /Activo/);
+    assert.equal(await this.page.getByTestId('socios-new').count(), 0);
+    assert.equal(await row.locator('button').count(), 0);
+    assert.equal(await this.page.locator('[data-testid="socios-table"] thead th').count(), 3);
+  }
+
   async createPartner(nombre: string, alcance: string): Promise<void> {
     await this.page.getByTestId('socios-new').click();
     await this.page.getByTestId('socios-nombre').fill(nombre);

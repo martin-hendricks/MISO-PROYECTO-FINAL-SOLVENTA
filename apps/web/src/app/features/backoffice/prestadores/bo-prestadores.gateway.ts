@@ -143,14 +143,16 @@ export class BoPrestadoresGateway {
       .get<{
         pais?: Pais;
         conteos?: Record<string, number | string> | null;
-        centro?: { lat: number; lng: number } | null;
+        centro?: { lat: number | string; lng: number | string } | null;
         prestadores?: FilaWire[];
       }>(`${this.baseUrl}/operador/prestadores`, { params })
       .pipe(
         map((body) => ({
           pais: body.pais ?? filtro.pais ?? 'CO',
           conteos: conteosDe(body.conteos),
-          centro: body.centro ?? null,
+          centro: body.centro
+            ? { lat: Number(body.centro.lat), lng: Number(body.centro.lng) }
+            : null,
           prestadores: (body.prestadores ?? []).map(filaDe),
         })),
       );

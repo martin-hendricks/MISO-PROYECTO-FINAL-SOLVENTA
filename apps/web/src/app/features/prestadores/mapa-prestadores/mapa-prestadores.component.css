@@ -19,8 +19,9 @@
 }
 
 google-map {
+  position: absolute;
+  inset: 0;
   display: block;
-  height: 100%;
 }
 
 .capa-tarjeta {

@@ -42,3 +42,9 @@ output "vpc_link_id" {
   value       = aws_apigatewayv2_vpc_link.alb.id
   description = "ID of the VPC Link connecting the API Gateway to the internal ALB (EC-SEG-07)."
 }
+
+output "rutas_mapeadas" {
+  value       = sort(tolist(local.rutas_mapeadas))
+  description = "Route keys del API Gateway generadas a partir de var.routes (el mapeo explicito de URLs)."
+}
+

@@ -82,6 +82,11 @@ externalSecrets:
       nombreLocal: ms-pagos-db
       claves:
         - database_url
+    # SOLVENTA_TOKEN_SECRET: ms-pagos valida el JWT de quien lo llama y firma el token de
+    # servicio con el que consulta a ms-suscripcion. Sin esta variable seguridad.py responde
+    # 500 "SOLVENTA_TOKEN_SECRET no configurado" y POST /v1/pagos/primas (emitir poliza) falla.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-pagos-token
 
 serviceAccount:
   crear: true

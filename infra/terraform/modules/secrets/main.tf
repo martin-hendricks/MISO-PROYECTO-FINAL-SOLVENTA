@@ -109,6 +109,32 @@ resource "aws_secretsmanager_secret_version" "compartida_db" {
   })
 }
 
+# --- ElastiCache (CacheOF / CacheOD) ---
+#
+# Mismo patron que compartida_db: un JSON con las claves que el chart proyecta como
+# variables de entorno (values/ms-perfilamiento.yaml: host -> REDIS_CACHE_OD_HOST,
+# auth_token -> REDIS_CACHE_OD_PASSWORD). El TLS no es secreto y va fijo en el values.
+
+resource "aws_secretsmanager_secret" "redis_cache" {
+  name                    = "${var.project_name}-${var.environment}-redis-cache"
+  description             = "Endpoint primario y token de autenticacion de ElastiCache Redis (CacheOF / CacheOD)"
+  kms_key_id              = var.kms_key_id
+  recovery_window_in_days = var.recovery_window_in_days
+
+  tags = merge(local.common_tags, { Name = "${var.project_name}-${var.environment}-redis-cache" })
+}
+
+resource "aws_secretsmanager_secret_version" "redis_cache" {
+  count = var.redis_cache_config != null ? 1 : 0
+
+  secret_id = aws_secretsmanager_secret.redis_cache.id
+  secret_string = jsonencode({
+    host       = var.redis_cache_config.host
+    port       = var.redis_cache_config.port
+    auth_token = var.redis_cache_config.auth_token
+  })
+}
+
 # --- External provider credentials (adapters: open_finance, open_data, kyc_aml,
 # pasarela_pago, firma_electronica, telemetria_iot, reaseguro_acord) ---
 

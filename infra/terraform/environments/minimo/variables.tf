@@ -385,8 +385,18 @@ variable "alb_routes" {
   # socios externos -- no es parte del canal web.
   default = {
     api-socios = {
-      port     = 8080
-      paths    = ["/v1/catalogo"]
+      port = 8080
+      # La API de socios externos completa. Antes solo estaba /v1/catalogo y las otras dos rutas
+      # (cotizaciones y originaciones hipotecarias) caian al target group por defecto, vacio, y el
+      # ALB respondia 503. Todas exigen API key de socio y un alcance por ruta
+      # (apps/backend/api-socios/app/seguridad.py). Se agregan DESPUES de /v1/catalogo: la prioridad
+      # es route.priority + la posicion del path (modules/alb/main.tf), asi que quedan con la 11 y la 12
+      # y la regla que ya existe (10) no cambia.
+      paths = [
+        "/v1/catalogo",
+        "/v1/cotizaciones",
+        "/v1/originaciones-hipotecarias",
+      ]
       priority = 10
     }
     bff-web = {
@@ -399,6 +409,11 @@ variable "alb_routes" {
         "/v1/cliente",
         "/v1/asesor",
         "/v1/operador",
+        # Back-office de socios y perfil del back-office (bff_web/routers/backoffice_socios.py y
+        # perfil_backoffice.py), con JWT de rol operador o asesor. Sin esta regla la pantalla de socios
+        # recibia el 503 del ALB. Va al FINAL de la lista a proposito: asi le toca la prioridad 35 y las
+        # cinco reglas que ya existen (30 a 34) no cambian.
+        "/v1/backoffice",
       ]
       priority = 30
     }
@@ -424,6 +439,12 @@ variable "alb_routes" {
         # alcanzables vía el API Gateway sin esta entrada.
         "/bff-movil/v1/docs",
         "/bff-movil/v1/openapi.json",
+        # Prueba de vida de la app Android (POST identidad/prueba-de-vida, MobileBffApi.kt).
+        # Sin esta regla la peticion caia al target group por defecto, que esta vacio, y el
+        # ALB respondia 503. Va al FINAL de la lista a proposito: la prioridad de cada regla
+        # es route.priority + la posicion del path (modules/alb/main.tf), asi que agregarla
+        # al final le da la 45 y no corre las prioridades de las reglas que ya existen.
+        "/bff-movil/v1/identidad",
       ]
       priority = 40
     }
@@ -444,6 +465,12 @@ variable "alb_routes" {
       priority          = 50
     }
   }
+}
+
+variable "apigw_restringir_a_rutas_mapeadas" {
+  type        = bool
+  description = "Quita la ruta comodin del API Gateway para que solo pasen los paths de alb_routes; el resto responde 404 en el borde. false mantiene el comportamiento actual (comodin + rutas mapeadas)."
+  default     = false
 }
 
 variable "cloudfront_price_class" {

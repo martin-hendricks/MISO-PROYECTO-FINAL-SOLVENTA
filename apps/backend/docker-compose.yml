@@ -235,6 +235,16 @@ services:
       db-polizas:
         condition: service_healthy
 
+  # CacheOF / CacheOD de ms-perfilamiento. En la nube es ElastiCache (TLS + token); aqui es
+  # un Redis plano, por eso ms-perfilamiento no recibe REDIS_CACHE_OD_PASSWORD ni _SSL.
+  cache:
+    image: redis:7.4.2-bookworm
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
   ms-perfilamiento:
     build:
       context: ./ms-perfilamiento
@@ -242,6 +252,7 @@ services:
     environment:
       SERVICE_NAME: ms-perfilamiento
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-perfilamiento:5432/solventa
+      REDIS_CACHE_OD_HOST: cache
       DOBLE_OPEN_FINANCE_LATENCIA_MS: ${DOBLE_OPEN_FINANCE_LATENCIA_MS:-0}
       DOBLE_OPEN_FINANCE_FALLAR: ${DOBLE_OPEN_FINANCE_FALLAR:-false}
       DOBLE_OPEN_DATA_LATENCIA_MS: ${DOBLE_OPEN_DATA_LATENCIA_MS:-0}
@@ -251,6 +262,8 @@ services:
       - "8004:8080"
     depends_on:
       db-perfilamiento:
+        condition: service_healthy
+      cache:
         condition: service_healthy
 
   ms-siniestros:

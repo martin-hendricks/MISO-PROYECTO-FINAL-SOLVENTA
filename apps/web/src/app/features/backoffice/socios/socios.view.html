@@ -9,9 +9,11 @@
         <h1>{{ 'backoffice.socios.title' | translate }}</h1>
         <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
       </div>
-      <button type="button" class="filled" data-testid="socios-new" (click)="vm.abrirCrear()">
-        {{ 'backoffice.socios.new' | translate }}
-      </button>
+      @if (gestiona) {
+        <button type="button" class="filled" data-testid="socios-new" (click)="vm.abrirCrear()">
+          {{ 'backoffice.socios.new' | translate }}
+        </button>
+      }
     </div>
 
     @if (vm.claveNueva(); as clave) {
@@ -131,76 +133,84 @@
           <thead>
             <tr>
               <th scope="col">{{ 'backoffice.socios.column.nombre' | translate }}</th>
-              <th scope="col">{{ 'backoffice.socios.column.alcances' | translate }}</th>
+              @if (gestiona) {
+                <th scope="col">{{ 'backoffice.socios.column.alcances' | translate }}</th>
+              }
               <th scope="col">{{ 'backoffice.socios.column.estado' | translate }}</th>
               <th scope="col">{{ 'backoffice.socios.column.creadoEn' | translate }}</th>
-              <th scope="col">{{ 'backoffice.socios.column.credenciales' | translate }}</th>
-              <th scope="col">{{ 'backoffice.socios.column.acciones' | translate }}</th>
+              @if (gestiona) {
+                <th scope="col">{{ 'backoffice.socios.column.credenciales' | translate }}</th>
+                <th scope="col">{{ 'backoffice.socios.column.acciones' | translate }}</th>
+              }
             </tr>
           </thead>
           <tbody>
             @for (socio of vm.socios(); track socio.socioId) {
               <tr [attr.data-testid]="'socio-' + socio.socioId">
                 <th scope="row">{{ socio.nombre }}</th>
-                <td>
-                  @for (alcance of socio.alcances; track alcance) {
-                    <span class="mono alcance-item">{{ alcance }}</span>
-                  }
-                </td>
+                @if (gestiona) {
+                  <td>
+                    @for (alcance of socio.alcances; track alcance) {
+                      <span class="mono alcance-item">{{ alcance }}</span>
+                    }
+                  </td>
+                }
                 <td>
                   <span class="badge" [attr.data-estado]="socio.estado">{{
                     'backoffice.socios.estado.' + socio.estado | translate
                   }}</span>
                 </td>
                 <td>{{ socio.creadoEn | svDateTime }}</td>
-                <td>
-                  <ul class="credenciales">
-                    @for (credencial of socio.credenciales; track credencial.credencialId) {
-                      <li [attr.data-testid]="'credencial-' + credencial.credencialId">
-                        <span class="mono">{{ corto(credencial.credencialId) }}</span>
-                        · {{ credencial.creadaEn | svDateTime }} ·
-                        @if (credencial.revocadaEn; as revocadaEn) {
-                          {{ 'backoffice.socios.credencial.revocada' | translate }}
-                          {{ revocadaEn | svDateTime }}
-                        } @else {
-                          {{ 'backoffice.socios.credencial.vigente' | translate }}
-                          @if (vm.admiteAcciones(socio)) {
-                            <button
-                              type="button"
-                              class="text"
-                              [attr.data-testid]="'revocar-credencial-' + credencial.credencialId"
-                              (click)="
-                                vm.pedirRevocarCredencial(socio.socioId, credencial.credencialId)
-                              "
-                            >
-                              {{ 'backoffice.socios.revokeCredential' | translate }}
-                            </button>
+                @if (gestiona) {
+                  <td>
+                    <ul class="credenciales">
+                      @for (credencial of socio.credenciales; track credencial.credencialId) {
+                        <li [attr.data-testid]="'credencial-' + credencial.credencialId">
+                          <span class="mono">{{ corto(credencial.credencialId) }}</span>
+                          · {{ credencial.creadaEn | svDateTime }} ·
+                          @if (credencial.revocadaEn; as revocadaEn) {
+                            {{ 'backoffice.socios.credencial.revocada' | translate }}
+                            {{ revocadaEn | svDateTime }}
+                          } @else {
+                            {{ 'backoffice.socios.credencial.vigente' | translate }}
+                            @if (vm.admiteAcciones(socio)) {
+                              <button
+                                type="button"
+                                class="text"
+                                [attr.data-testid]="'revocar-credencial-' + credencial.credencialId"
+                                (click)="
+                                  vm.pedirRevocarCredencial(socio.socioId, credencial.credencialId)
+                                "
+                              >
+                                {{ 'backoffice.socios.revokeCredential' | translate }}
+                              </button>
+                            }
                           }
-                        }
-                      </li>
+                        </li>
+                      }
+                    </ul>
+                  </td>
+                  <td>
+                    @if (vm.admiteAcciones(socio)) {
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'rotar-' + socio.socioId"
+                        (click)="vm.rotar(socio)"
+                      >
+                        {{ 'backoffice.socios.rotate' | translate }}
+                      </button>
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'revocar-' + socio.socioId"
+                        (click)="vm.pedirRevocarSocio(socio.socioId)"
+                      >
+                        {{ 'backoffice.socios.revoke' | translate }}
+                      </button>
                     }
-                  </ul>
-                </td>
-                <td>
-                  @if (vm.admiteAcciones(socio)) {
-                    <button
-                      type="button"
-                      class="text"
-                      [attr.data-testid]="'rotar-' + socio.socioId"
-                      (click)="vm.rotar(socio)"
-                    >
-                      {{ 'backoffice.socios.rotate' | translate }}
-                    </button>
-                    <button
-                      type="button"
-                      class="text"
-                      [attr.data-testid]="'revocar-' + socio.socioId"
-                      (click)="vm.pedirRevocarSocio(socio.socioId)"
-                    >
-                      {{ 'backoffice.socios.revoke' | translate }}
-                    </button>
-                  }
-                </td>
+                  </td>
+                }
               </tr>
             }
           </tbody>

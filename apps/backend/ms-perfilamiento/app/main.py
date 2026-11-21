@@ -3,14 +3,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from redis.asyncio import Redis
 
 from app.api.v1 import rutas
 from app.config import Settings
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
-from app.infrastructure.cache import AdaptadorConCache, CacheRedis
-from app.infrastructure.cache_fuentes import CacheEnMemoria
+from app.infrastructure.cache import CacheRedis, calentar_conexiones, crear_cliente_redis, verificar_conexion
+from app.infrastructure.cache_fuentes import CacheEnMemoria, CacheFuentesConPurga
+from app.infrastructure.resiliencia import AdaptadorResiliente, InterruptorCircuito
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 from app.observabilidad import instrumentar
 
@@ -20,6 +20,26 @@ ESTADO_HTTP = {
     ReglaDeNegocioViolada: 422,
     ConsentimientoNoOtorgado: 403,
 }
+
+
+def _resiliente(adaptador, cache: CacheRedis, fuente: str, config: Settings) -> AdaptadorResiliente:
+    return AdaptadorResiliente(
+        adaptador,
+        cache,
+        fuente,
+        ttl_suave_s=config.redis_cache_od_ttl_seconds,
+        ttl_duro_s=config.redis_cache_od_ttl_duro_seconds,
+        presupuesto_ms=config.presupuesto_respuesta_ms,
+        timeout_proveedor_ms=config.timeout_proveedor_ms,
+        timeout_cache_ms=config.timeout_cache_ms,
+        interruptor=InterruptorCircuito(
+            fuente,
+            ventana_s=config.interruptor_ventana_s,
+            umbral_tasa=config.interruptor_umbral_tasa,
+            min_muestras=config.interruptor_min_muestras,
+            apertura_s=config.interruptor_apertura_s,
+        ),
+    )
 
 
 def crear_app(config: Settings | None = None) -> FastAPI:
@@ -34,20 +54,31 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         open_finance = AdaptadorOpenFinanceStub(config.doble_open_finance_latencia_ms, config.doble_open_finance_fallar)
         open_data = AdaptadorOpenDataStub(config.doble_open_data_latencia_ms, config.doble_open_data_fallar)
         redis = None
+        cache_fuentes = CacheEnMemoria()
         if config.redis_cache_od_host:
-            redis = Redis(host=config.redis_cache_od_host, port=config.redis_cache_od_port)
-            cache = CacheRedis(redis)
-            open_finance = AdaptadorConCache(
-                open_finance, cache, "of", config.redis_cache_od_ttl_seconds, config.timeout_cache_ms
+            redis = crear_cliente_redis(
+                host=config.redis_cache_od_host,
+                port=config.redis_cache_od_port,
+                password=config.redis_cache_od_password or None,
+                ssl=config.redis_cache_od_ssl,
+                max_connections=config.redis_cache_od_pool_max,
+                health_check_interval=config.redis_cache_od_health_check_s,
             )
-            open_data = AdaptadorConCache(open_data, cache, "od", config.redis_cache_od_ttl_seconds, config.timeout_cache_ms)
+            if await verificar_conexion(redis, config.timeout_cache_arranque_ms):
+                await calentar_conexiones(
+                    redis, config.redis_cache_od_pool_calentamiento, config.timeout_cache_arranque_ms
+                )
+            cache = CacheRedis(redis)
+            open_finance = _resiliente(open_finance, cache, "of", config)
+            open_data = _resiliente(open_data, cache, "od", config)
+            cache_fuentes = CacheFuentesConPurga([cache.invalidar_consentimiento])
         app.state.adaptador_open_finance = open_finance
         app.state.adaptador_open_data = open_data
         app.state.config = config
-        app.state.cache_fuentes = CacheEnMemoria()
+        app.state.cache_fuentes = cache_fuentes
         yield
         if redis is not None:
-            await redis.aclose()
+            await redis.aclose(close_connection_pool=True)
         await motor.dispose()
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)

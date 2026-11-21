@@ -93,3 +93,37 @@ async def test_sin_cache_el_fallo_usa_el_valor_de_respaldo(uow, config, adaptado
     ingresos = next(a for a in resultado.oferta.snapshot_atributos if a.nombre == NIVEL_INGRESOS_ESTIMADO)
     assert ingresos.modo == "DEFAULT"
     assert ingresos.degradado is True
+
+
+async def test_la_purga_avisa_a_los_almacenes_compartidos_ademas_de_limpiar_la_memoria():
+    from app.infrastructure.cache_fuentes import CacheFuentesConPurga
+
+    purgados = []
+
+    async def purga(consentimiento_id):
+        purgados.append(consentimiento_id)
+        return 2
+
+    cache = CacheFuentesConPurga([purga])
+    await cache.guardar("OPEN_FINANCE", "123", {"zona_riesgo": Decimal("0.5")}, "consentimiento-1")
+
+    await cache.invalidar_consentimiento("consentimiento-1")
+
+    assert purgados == ["consentimiento-1"]
+    assert await cache.obtener("OPEN_FINANCE", "123") is None
+
+
+async def test_si_la_purga_compartida_falla_la_memoria_queda_limpia_y_no_se_propaga(caplog):
+    from app.infrastructure.cache_fuentes import CacheFuentesConPurga
+
+    async def purga_caida(consentimiento_id):
+        raise ConnectionError("redis caido")
+
+    cache = CacheFuentesConPurga([purga_caida])
+    await cache.guardar("OPEN_FINANCE", "123", {"zona_riesgo": Decimal("0.5")}, "consentimiento-1")
+
+    with caplog.at_level("WARNING"):
+        await cache.invalidar_consentimiento("consentimiento-1")
+
+    assert await cache.obtener("OPEN_FINANCE", "123") is None
+    assert "no se pudo purgar la cache compartida" in caplog.text

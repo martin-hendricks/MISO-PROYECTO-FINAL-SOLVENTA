@@ -92,7 +92,7 @@ interface PrestadorWire {
 }
 
 interface BusquedaWire {
-  centro?: CentroPrestadores | null;
+  centro?: { lat: number | string; lng: number | string; origen: CentroPrestadores['origen'] } | null;
   radioKm?: number | null;
   truncado?: boolean;
   prestadores?: PrestadorWire[];
@@ -136,7 +136,9 @@ export function mapPrestador(wire: PrestadorWire): Prestador {
 
 function mapBusqueda(wire: BusquedaWire): BusquedaPrestadores {
   return {
-    centro: wire.centro ?? null,
+    centro: wire.centro
+      ? { lat: Number(wire.centro.lat), lng: Number(wire.centro.lng), origen: wire.centro.origen }
+      : null,
     radioKm: wire.radioKm ?? null,
     truncado: wire.truncado ?? false,
     prestadores: (wire.prestadores ?? []).map(mapPrestador),

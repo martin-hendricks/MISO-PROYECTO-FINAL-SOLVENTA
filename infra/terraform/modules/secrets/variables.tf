@@ -58,6 +58,17 @@ variable "compartida_db_credentials" {
   sensitive   = true
 }
 
+variable "redis_cache_config" {
+  type = object({
+    host       = string
+    port       = number
+    auth_token = string
+  })
+  description = "Endpoint y token de ElastiCache (CacheOF / CacheOD). ElastiCache exige TLS y token, y la IP del nodo cambia en un failover, asi que ms-perfilamiento lee host y token de aqui por External Secrets en vez de llevarlos fijos en el values. When null, the secret is created empty (no version)."
+  default     = null
+  sensitive   = true
+}
+
 variable "seed_external_provider_placeholders" {
   type        = bool
   description = <<-EOT

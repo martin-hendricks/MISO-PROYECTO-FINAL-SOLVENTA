@@ -757,9 +757,9 @@ async def guardar_renovacion(
     usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     contexto = contexto_canonico(usuario)
-    poliza = await cliente_polizas.obtener_por_numero(numero, UUID(contexto.usuario_id))
+    poliza = await cliente_polizas.obtener_por_numero(numero, contexto.usuario_id)
     actualizada = await cliente_polizas.guardar_preferencia(
-        str(poliza["id"]), body.renovacionAutomatica, contexto.usuario_id
+        str(poliza["id"]), body.renovacionAutomatica, str(contexto.usuario_id)
     )
     return {
         "numero": actualizada["numero"],
