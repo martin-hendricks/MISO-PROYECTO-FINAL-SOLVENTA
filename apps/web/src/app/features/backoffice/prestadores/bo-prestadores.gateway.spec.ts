@@ -55,7 +55,7 @@ describe('BoPrestadoresGateway', () => {
     req.flush({
       pais: 'CO',
       conteos: { Bogotá: 30, Medellín: '20', Chía: 0 },
-      centro: { lat: 4.6097, lng: -74.0817 },
+      centro: { lat: '4.6097', lng: '-74.0817', origen: 'ciudad' },
       prestadores: [FILA],
     });
     expect(cuerpo).toEqual({
