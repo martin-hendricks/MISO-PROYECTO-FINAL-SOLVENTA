@@ -3,17 +3,20 @@ cliente de verdad (serializacion, TTL, conjuntos por consentimiento, autenticaci
 
     REDIS_TEST_HOST=localhost REDIS_TEST_PORT=6379 pytest -m integration tests/test_cache_redis_real.py
     REDIS_TEST_AUTH_HOST=localhost REDIS_TEST_AUTH_PORT=6380 REDIS_TEST_AUTH_PASSWORD=... (Redis con requirepass)
+    REDIS_TEST_TLS_HOST=localhost REDIS_TEST_TLS_PORT=6381 REDIS_TEST_TLS_PASSWORD=... (Redis con TLS y certificado
+    autofirmado, ver README)
 
-TLS no se prueba aqui: ElastiCache lo exige y un Redis local con certificados no aporta
-al contrato; se valida al desplegar con el PING de arranque (ver README)."""
+El TLS de ElastiCache (certificado de Amazon, token) solo se valida al desplegar, con el PING de arranque."""
 
+import asyncio
 import os
+import ssl
 from decimal import Decimal
 
 import pytest
 from redis.asyncio import Redis
 
-from app.infrastructure.cache import CacheRedis, verificar_conexion
+from app.infrastructure.cache import CacheRedis, calentar_conexiones, crear_cliente_redis, verificar_conexion
 from app.infrastructure.resiliencia import AdaptadorResiliente, InterruptorCircuito
 
 pytestmark = pytest.mark.integration
@@ -112,6 +115,30 @@ async def test_revocar_el_consentimiento_borra_lo_guardado_bajo_el(redis):
     assert await redis.exists("perfilamiento:consentimiento:consentimiento-1") == 0
 
 
+async def test_calentar_deja_las_conexiones_abiertas_y_una_rafaga_no_abre_mas(redis):
+    cliente = Redis(
+        host=os.environ["REDIS_TEST_HOST"],
+        port=int(os.environ.get("REDIS_TEST_PORT", "6379")),
+        max_connections=10,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
+    try:
+        async def conectados() -> int:
+            return (await redis.info("clients"))["connected_clients"]
+
+        inicial = await conectados()
+        assert await calentar_conexiones(cliente, 5, 2000) == 5
+        tras_calentar = await conectados()
+        assert tras_calentar - inicial == 5
+
+        await asyncio.gather(*(cliente.get("perfilamiento:rafaga") for _ in range(5)))
+
+        assert await conectados() == tras_calentar  # la rafaga uso las conexiones ya abiertas
+    finally:
+        await cliente.aclose()
+
+
 async def test_el_ping_de_arranque_responde_con_un_redis_vivo(redis):
     assert await verificar_conexion(redis, 2000) is True
 
@@ -130,3 +157,54 @@ async def test_con_token_conecta_con_la_clave_correcta_y_no_sin_ella():
     finally:
         await con_clave.aclose()
         await sin_clave.aclose()
+
+
+@pytest.fixture
+def tls():
+    host = os.environ.get("REDIS_TEST_TLS_HOST")
+    if not host:
+        pytest.skip("requiere REDIS_TEST_TLS_HOST")
+    return {
+        "host": host,
+        "port": int(os.environ.get("REDIS_TEST_TLS_PORT", "6379")),
+        "password": os.environ.get("REDIS_TEST_TLS_PASSWORD"),
+    }
+
+
+def _contar_contextos_ssl(monkeypatch) -> list[int]:
+    creados: list[int] = []
+    original = ssl.create_default_context
+
+    def contado(*args, **kwargs):
+        creados.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ssl, "create_default_context", contado)
+    return creados
+
+
+async def test_con_tls_el_pool_crea_el_contexto_ssl_una_sola_vez(tls, monkeypatch):
+    creados = _contar_contextos_ssl(monkeypatch)
+    cliente = crear_cliente_redis(**tls, ssl=True, max_connections=10, health_check_interval=30, ssl_cert_reqs="none")
+    try:
+        assert await verificar_conexion(cliente, 2000) is True
+        assert await calentar_conexiones(cliente, 5, 2000) == 5
+        await asyncio.gather(*(cliente.ping() for _ in range(5)))
+    finally:
+        await cliente.aclose(close_connection_pool=True)
+
+    assert len(creados) == 1
+
+
+async def test_control_el_cliente_sin_contexto_compartido_crea_uno_por_conexion(tls, monkeypatch):
+    """Documenta la causa del costo: el cliente de redis-py por defecto construye un contexto SSL
+    nuevo en cada conexion."""
+    creados = _contar_contextos_ssl(monkeypatch)
+    cliente = Redis(**tls, ssl=True, ssl_cert_reqs="none", max_connections=10)
+    try:
+        assert await calentar_conexiones(cliente, 5, 2000) == 5
+    finally:
+        await cliente.aclose(close_connection_pool=True)
+
+    assert len(creados) == 5
+

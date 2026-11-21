@@ -122,7 +122,10 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `INTERRUPTOR_VENTANA_S` / `_UMBRAL_TASA` / `_MIN_MUESTRAS` / `_APERTURA_S` | `10` / `0.5` / `10` / `5` | Circuit breaker por tasa de fallo sobre una ventana deslizante |
 | `REDIS_CACHE_OD_PASSWORD` | vacío | Token de autenticación. ElastiCache lo exige; el Redis del compose local no |
 | `REDIS_CACHE_OD_SSL` | `false` | TLS hacia la caché. ElastiCache lo exige (`transit_encryption_enabled`); el compose local no |
-| `TIMEOUT_CACHE_ARRANQUE_MS` | `2000` | Tiempo máximo del PING de arranque. Si falla solo se registra una advertencia y la caché sigue activa |
+| `TIMEOUT_CACHE_ARRANQUE_MS` | `2000` | Tiempo máximo del PING de arranque y de cada conexión que se abre al calentar el pool. Si falla solo se registra una advertencia y la caché sigue activa |
+| `REDIS_CACHE_OD_POOL_CALENTAMIENTO` | `8` | Conexiones que se dejan abiertas al arrancar. Una conexión nueva cuesta decenas de milisegundos, más que `TIMEOUT_CACHE_MS`: sin esto, la primera operación de cada conexión nueva expira y esa petición se queda sin caché. Con TLS, todas las conexiones del pool comparten un único contexto SSL (`redis-py` crea uno por conexión, unos 70 ms de CPU que además bloquean el event loop) |
+| `REDIS_CACHE_OD_POOL_MAX` | `32` | Tope de conexiones por réplica. Pasado el tope la operación falla y se salta la caché |
+| `REDIS_CACHE_OD_HEALTH_CHECK_S` | `30` | Cada cuánto una conexión inactiva se verifica antes de usarla. También se activa el keepalive de TCP |
 | `TIMEOUT_CACHE_MS` | `50` | Tiempo máximo de lectura/escritura en caché; si se excede o falla, se consulta al proveedor |
 
 ## Estrategia de caché y resiliencia
@@ -162,7 +165,18 @@ REDIS_TEST_AUTH_HOST=localhost REDIS_TEST_AUTH_PORT=6391 REDIS_TEST_AUTH_PASSWOR
   pytest -m integration tests/test_cache_redis_real.py
 ```
 
-TLS no se prueba en local: lo exige ElastiCache y se valida al desplegar, con el PING de arranque (`cache redis conectada` en el log; si no responde, el servicio sigue arriba y registra una advertencia).
+TLS también se prueba en local con un certificado autofirmado:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/tls/k.pem -out /tmp/tls/c.pem -days 1 -subj "/CN=localhost"
+docker run -d --name redis-test-tls -p 6392:6379 -v /tmp/tls:/tls:ro redis:7.4.2-bookworm \
+  redis-server --port 0 --tls-port 6379 --tls-cert-file /tls/c.pem --tls-key-file /tls/k.pem \
+  --tls-ca-cert-file /tls/c.pem --tls-auth-clients no --requirepass secreto-tls
+REDIS_TEST_TLS_HOST=localhost REDIS_TEST_TLS_PORT=6392 REDIS_TEST_TLS_PASSWORD=secreto-tls \
+  pytest -m integration tests/test_cache_redis_real.py
+```
+
+Lo que no se puede probar en local es el certificado de Amazon y el token de ElastiCache: eso se valida al desplegar, con el PING de arranque (`cache redis conectada` en el log; si no responde, el servicio sigue arriba y registra una advertencia).
 
 `tests/dobles.py` incluye `AdaptadorConfigurable`, una variante de los adaptadores stub que se puede configurar con `latencia_ms` o `fallar=True` para ejercer en tests el camino de `asyncio.wait_for` expirando (HU-56), sin depender de red real.
 
