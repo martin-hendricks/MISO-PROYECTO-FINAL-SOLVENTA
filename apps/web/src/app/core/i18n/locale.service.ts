@@ -6,6 +6,14 @@ import { defaultLocale } from './provide-i18n';
 export const LOCALES = ['es-CO', 'es-MX', 'es-CL', 'es-PE'] as const;
 export type Locale = (typeof LOCALES)[number];
 
+/** The currency already selected with the region. The charge stores this; it does not reprice the premium. */
+const MONEDA_POR_LOCALE: Record<Locale, string> = {
+  'es-CO': 'COP',
+  'es-MX': 'MXN',
+  'es-CL': 'CLP',
+  'es-PE': 'PEN',
+};
+
 const STORAGE_KEY = 'solventa.locale';
 
 function read(): Locale | null {
@@ -44,6 +52,11 @@ export class LocaleService {
   /** Whether the visitor already chose a locale (first-launch gate). */
   hasChosen(): boolean {
     return read() !== null;
+  }
+
+  /** ISO code of the locale the visitor is using right now. */
+  monedaInicio(): string {
+    return MONEDA_POR_LOCALE[this.current()];
   }
 
   use(locale: Locale): void {

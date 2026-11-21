@@ -70,7 +70,7 @@ data class DeviceRiskDto(
 data class OfferInDto(val ramo: String, val datosRiesgo: DeviceRiskDto)
 
 @Serializable
-data class QuoteRequestDto(val ramo: String, val datosRiesgo: JsonElement)
+data class QuoteRequestDto(val ramo: String, val datosRiesgo: JsonElement, val moneda: String = "COP")
 
 @Serializable
 data class OfferOutDto(
@@ -139,10 +139,14 @@ data class AcceptedQuoteDto(
     @Serializable(with = PesosSerializer::class)
     val prima: Long,
     val moneda: String,
+    val monedaInicio: String = "COP",
 )
 
 @Serializable
-data class IdDto(val cotizacionId: String)
+data class IdDto(val cotizacionId: String, val monedaInicio: String = "COP")
+
+@Serializable
+data class MonedaInicioDto(val monedaInicio: String)
 
 @Serializable
 data class IssuedDto(
@@ -150,6 +154,7 @@ data class IssuedDto(
     val ramo: String,
     val estado: String,
     val venceEn: String,
+    val monedaInicio: String = "COP",
 )
 
 @Serializable
@@ -495,7 +500,7 @@ data class MovimientoDto(
 
 @Serializable
 data class BilleteraDto(
-    val moneda: String,
-    @Serializable(with = DecimalSerializer::class) val totalRecibido: BigDecimal,
+    val moneda: String? = null,
+    @Serializable(with = DecimalSerializer::class) val totalRecibido: BigDecimal? = null,
     val movimientos: List<MovimientoDto>,
 )

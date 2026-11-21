@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.data.bff.remote
 
 import android.content.Context
 import com.grupo8_uniandes.solventa.data.bff.MobileBff
+import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositMemory
@@ -86,11 +87,14 @@ class BffRuntime private constructor(
             val cache = BffCache(context)
             val api = BffClients.open(address, tokens).api
             val gate = BffGate(api, cache)
+            val monedaInicio = {
+                SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion.currencyCode
+            }
             return BffRuntime(
                 RemoteSessionRepository(api, tokens, gate),
                 RemoteSignupRepository(api, gate),
-                RemoteOfferRepository(api, gate),
-                RemoteIssuanceRepository(api, gate, cache),
+                RemoteOfferRepository(api, gate, monedaInicio),
+                RemoteIssuanceRepository(api, gate, cache, monedaInicio),
                 RemoteClaimRepository(api, gate, cache),
                 RemotePaymentRepository(api, gate),
                 RemoteMortgageRepository(api, gate),

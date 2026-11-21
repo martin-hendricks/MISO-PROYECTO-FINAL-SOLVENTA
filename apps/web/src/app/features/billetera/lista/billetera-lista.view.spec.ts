@@ -48,6 +48,23 @@ describe('BilleteraListaView', () => {
     expect(element('billetera-total')).toBeNull();
   });
 
+  it('does not render a null mixed-currency total as zero', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({
+      moneda: null,
+      totalRecibido: null,
+      movimientos: [
+        BILLETERA.movimientos[0],
+        { ...BILLETERA.movimientos[1], moneda: 'MXN' },
+      ],
+    });
+    fixture.detectChanges();
+    expect(element('billetera-total')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="billetera-fila"]').length).toBe(
+      2,
+    );
+  });
+
   it('offers a retry and hides the total when the read fails', () => {
     const { fixture, http, element } = render();
     http.expectOne(URL).error(new ProgressEvent('error'));

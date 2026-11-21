@@ -32,6 +32,7 @@ async def cobrar_prima(
         oferta_id=entrada.oferta_id,
         usuario_id=entrada.usuario_id,
         monto=entrada.monto,
+        moneda=entrada.moneda,
         token_medio_pago=entrada.token_medio_pago,
     )
     resultado = await casos_uso.cobrar_prima(uow, suscripciones, pasarela, solicitud)

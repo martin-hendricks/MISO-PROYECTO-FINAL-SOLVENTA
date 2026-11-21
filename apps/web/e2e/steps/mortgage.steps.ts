@@ -44,6 +44,7 @@ Then(
     assert.deepEqual(this.bff.mortgageBody(), {
       credito: { valor: 180000000, plazoMeses: 240 },
       consentimientoPerfil: true,
+      moneda: 'COP',
     });
   },
 );
@@ -193,5 +194,6 @@ Then('authorizing shows each profiling step before the offer', async function (t
   assert.deepEqual(this.bff.mortgageBody(), {
     credito: { valor: 180000000, plazoMeses: 240 },
     consentimientoPerfil: true,
+    moneda: 'COP',
   });
 });

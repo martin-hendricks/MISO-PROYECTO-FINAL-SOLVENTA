@@ -23,6 +23,7 @@ data class CardUiState(
     val anio: String = "",
     val codigo: String = "",
     val premiumText: String = "",
+    val monedaInicio: String = "",
 ) {
     val canConfirm: Boolean
         get() = CardConfirmation.valid(titular, numero, mes, anio, codigo)
@@ -35,7 +36,12 @@ class ConfirmacionTarjetaViewModel(
     private val offers: ShowFirmOffer? = null,
     private val region: Region = Region.Colombia,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(CardUiState(premiumText = premiumLine(prima, moneda, region)))
+    private val _state = MutableStateFlow(
+        CardUiState(
+            premiumText = premiumLine(prima, moneda, region),
+            monedaInicio = region.currencyCode,
+        ),
+    )
     val state: StateFlow<CardUiState> = _state.asStateFlow()
     private var started = false
 

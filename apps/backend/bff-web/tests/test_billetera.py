@@ -36,6 +36,19 @@ def test_billetera_traduce_el_pago_parametrico(client, nucleo_siniestros):
     assert not any(p.url.path == "/v1/siniestros" for p in nucleo_siniestros.peticiones)
 
 
+def test_billetera_copia_la_moneda_y_no_suma_mezclas(client, nucleo_siniestros):
+    otro = {**PAGO, "siniestro_id": "a51e0000-0000-4000-8000-000000000002", "moneda": "MXN", "monto": "10.00"}
+    nucleo_siniestros.respuestas[("GET", "/v1/pagos-recibidos")] = lambda _: httpx.Response(
+        200, json={"moneda": "COP", "total": "180010.00", "pagos": [{**PAGO, "moneda": "COP"}, otro]}
+    )
+
+    cuerpo = client.get("/v1/cliente/billetera", headers=auth(client)).json()
+
+    assert cuerpo["moneda"] is None
+    assert cuerpo["totalRecibido"] is None
+    assert [fila["moneda"] for fila in cuerpo["movimientos"]] == ["COP", "MXN"]
+
+
 def test_detalle_ajeno_es_404(client, nucleo_siniestros):
     respuesta = client.get(f"/v1/cliente/billetera/{SID}", headers=auth(client))
     assert respuesta.status_code == 404

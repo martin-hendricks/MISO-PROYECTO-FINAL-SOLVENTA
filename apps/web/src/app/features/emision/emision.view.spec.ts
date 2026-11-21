@@ -42,7 +42,7 @@ describe('EmisionView', () => {
 
     const request = http.expectOne(URL);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042' });
+    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042', monedaInicio: 'COP' });
     expect(element('emision-progreso')).not.toBeNull();
     expect(element('emision-progreso')?.querySelector('[role="progressbar"]')).not.toBeNull();
     request.flush(EMITIDA);

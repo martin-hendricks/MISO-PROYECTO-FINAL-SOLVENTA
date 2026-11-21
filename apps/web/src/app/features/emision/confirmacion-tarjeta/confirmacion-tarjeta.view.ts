@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MoneyPipe } from '../../../core/i18n/format';
+import { LocaleService } from '../../../core/i18n/locale.service';
 import { ConfirmacionTarjetaViewModel } from './confirmacion-tarjeta.viewmodel';
 
 @Component({
@@ -25,6 +26,12 @@ export class ConfirmacionTarjetaView {
     this.route.queryParamMap.pipe(map((params) => Number(params.get('prima') ?? '0'))),
     { initialValue: Number(this.route.snapshot.queryParamMap.get('prima') ?? '0') },
   );
+  protected readonly moneda = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('moneda') || 'COP')),
+    { initialValue: this.route.snapshot.queryParamMap.get('moneda') || 'COP' },
+  );
+  private readonly locale = inject(LocaleService);
+  protected readonly monedaInicio = this.locale.monedaInicio.bind(this.locale);
 
   protected holder(event: Event): void {
     this.vm.setHolder((event.target as HTMLInputElement).value);

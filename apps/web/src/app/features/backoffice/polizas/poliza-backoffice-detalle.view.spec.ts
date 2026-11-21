@@ -79,6 +79,19 @@ describe('PolizaBackofficeDetalleView', () => {
     expect(element('poliza-backoffice-numero')?.textContent).toContain('POL-2026-00000001');
     expect(element('poliza-backoffice-estado')?.getAttribute('data-estado')).toBe('vigente');
     expect(element('poliza-backoffice-prima')?.textContent).toContain('1.000');
+    expect(element('poliza-backoffice-prima')?.textContent).toContain('COP');
+  });
+
+  it('formats premium, coverages and the estimated return in the policy currency', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({ ...POLIZA_CANCELADA_WIRE, moneda: 'MXN' });
+    fixture.detectChanges();
+
+    expect(element('poliza-backoffice-prima')?.textContent).toContain('MXN');
+    const coberturas = element('poliza-backoffice-coberturas')?.textContent ?? '';
+    expect(coberturas).toContain('MXN');
+    expect(coberturas.match(/MXN/g)?.length).toBeGreaterThan(1);
+    expect(element('poliza-backoffice-cancelacion-previa')?.textContent).toContain('MXN');
   });
 
   it('shows the open-claims count when the BFF reports one', () => {

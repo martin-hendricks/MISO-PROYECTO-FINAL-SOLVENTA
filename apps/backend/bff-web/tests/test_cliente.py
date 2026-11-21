@@ -104,6 +104,36 @@ def test_cotizacion_y_reconsulta(client, nucleo_cotizacion):
     assert again.json()["cotizacionId"] == COTIZACION_ID
 
 
+def test_cotizacion_reenvia_la_moneda_seleccionada(client, nucleo_cotizacion):
+    nucleo_cotizacion.respuestas[("POST", "/v1/cotizaciones")] = lambda _: httpx.Response(
+        201, json={**COTIZACION_SALIDA, "moneda": "PEN"}
+    )
+
+    response = client.post(
+        "/v1/cliente/cotizaciones",
+        headers=_auth(client),
+        json={"ramo": "Protección de dispositivo", "datosRiesgo": {"valorDispositivo": 2400000}, "moneda": "PEN"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["moneda"] == "PEN"
+    import json as _json
+
+    assert _json.loads(nucleo_cotizacion.peticiones[-1].read())["moneda"] == "PEN"
+
+
+def test_cotizacion_rechaza_moneda_no_soportada_sin_llamar_al_nucleo(client, nucleo_cotizacion):
+    response = client.post(
+        "/v1/cliente/cotizaciones",
+        headers=_auth(client),
+        json={"ramo": "Protección de dispositivo", "datosRiesgo": {}, "moneda": "USD"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["codigo"] == "moneda_no_soportada"
+    assert nucleo_cotizacion.peticiones == []
+
+
 def test_cliente_id_en_cotizacion_de_cliente_es_400(client):
     response = client.post(
         "/v1/cliente/cotizaciones",
@@ -164,7 +194,7 @@ def test_emision_feliz_encadena_aceptacion_pago_y_poliza(client, nucleo_cotizaci
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 200
@@ -210,7 +240,7 @@ def test_emision_reintentada_envia_la_misma_clave_de_idempotencia(
     _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "proteccion-dispositivo")
 
     for _ in range(2):
-        respuesta = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+        respuesta = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"})
         assert respuesta.status_code == 200
 
     claves = [
@@ -228,7 +258,7 @@ def test_emitir_vida_hipotecario_cierra_la_originacion(
     ruta = f"/v1/originaciones/clientes/{_usuario_id()}/pendiente"
     nucleo_perfilamiento.respuestas[("DELETE", ruta)] = lambda _: httpx.Response(204)
 
-    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"})
 
     assert response.json()["resultado"] == "EMITIDA"
     assert len(_ruta(nucleo_perfilamiento.peticiones, "DELETE", ruta)) == 1
@@ -240,7 +270,7 @@ def test_emitir_si_no_se_puede_cerrar_la_originacion_igual_queda_emitida(
     _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "vida-hipotecario")
     nucleo_perfilamiento.respuestas[("DELETE", f"/v1/originaciones/clientes/{_usuario_id()}/pendiente")] = _caido
 
-    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+    response = client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"})
 
     assert response.status_code == 200
     assert response.json()["resultado"] == "EMITIDA"
@@ -251,7 +281,7 @@ def test_emitir_otro_ramo_no_toca_la_originacion(
 ):
     _emision_responde(nucleo_cotizacion, nucleo_pagos, nucleo_polizas, "proteccion-dispositivo")
 
-    client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID})
+    client.post("/v1/cliente/polizas", headers=_auth(client), json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"})
 
     assert nucleo_perfilamiento.peticiones == []
 
@@ -266,7 +296,7 @@ def test_emision_cuando_decision_es_rechazada_no_cobra_ni_emite(
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 200
@@ -291,7 +321,7 @@ def test_emision_con_firma_fallida_responde_rechazo_con_motivo(
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 200
@@ -310,7 +340,7 @@ def test_emision_propaga_otros_rechazos_de_polizas(client, nucleo_cotizacion, nu
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 422
@@ -329,7 +359,7 @@ def test_emision_cuando_pago_falla_no_llama_a_polizas(client, nucleo_cotizacion,
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 503
@@ -344,7 +374,7 @@ def test_emision_rechazo_de_aceptacion_se_propaga(client, nucleo_cotizacion, nuc
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 409
@@ -364,7 +394,7 @@ def test_emision_con_consentimiento_revocado_se_propaga_sin_cobrar(
     response = client.post(
         "/v1/cliente/polizas",
         headers=_auth(client),
-        json={"cotizacionId": COTIZACION_ID},
+        json={"cotizacionId": COTIZACION_ID, "monedaInicio": "COP"},
     )
 
     assert response.status_code == 422

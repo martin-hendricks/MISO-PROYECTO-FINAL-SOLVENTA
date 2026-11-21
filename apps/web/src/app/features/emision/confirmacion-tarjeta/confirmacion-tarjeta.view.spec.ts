@@ -32,6 +32,8 @@ describe('ConfirmacionTarjetaView', () => {
   it('shows the premium and keeps confirmation disabled until the local card is complete', () => {
     const { element } = render();
     expect(element('tarjeta-prima')?.textContent).toContain('42.000');
+    expect(element('tarjeta-prima')?.textContent).toContain('COP');
+    expect(element('tarjeta-moneda-inicio')?.textContent).toContain('COP');
     expect(element('tarjeta-privacidad')?.textContent).toContain('no se envían');
     expect(element('tarjeta-titular')?.getAttribute('placeholder')).toBe('Camila Restrepo');
     expect(element('tarjeta-numero')?.getAttribute('placeholder')).toBe('4242 4242 4242 4242');
@@ -66,6 +68,13 @@ describe('ConfirmacionTarjetaView', () => {
     );
     expect(navigate).toHaveBeenCalledWith(['/emision'], { queryParams: { cotizacion: 'COT-1042' } });
     expect(JSON.stringify(navigate.calls.mostRecent().args)).not.toContain('4242');
+  });
+
+  it('formats the premium in the currency the offer named', () => {
+    const { element } = render({ cotizacion: 'COT-1042', prima: '1234.5', moneda: 'MXN' });
+    expect(element('tarjeta-prima')?.textContent).toContain('MXN');
+    expect(element('tarjeta-prima')?.textContent).toContain('1.234,50');
+    expect(element('tarjeta-moneda-inicio')?.textContent).toContain('COP');
   });
 
   it('hides the premium when the offer did not pass one', () => {

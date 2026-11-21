@@ -232,6 +232,7 @@ def test_dependencia_caida_responde_503(client, suscripciones):
         "oferta_id": str(uuid4()),
         "usuario_id": str(uuid4()),
         "monto": "10.00",
+        "moneda": "COP",
         "token_medio_pago": "tok_visa",
     }
 
@@ -248,6 +249,7 @@ def test_pasarela_caida_responde_503_sin_registrar_el_pago(client, almacen):
         "oferta_id": str(uuid4()),
         "usuario_id": str(uuid4()),
         "monto": "10.00",
+        "moneda": "COP",
         "token_medio_pago": "tok_visa",
     }
 

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
+import { LocaleService } from '../../../core/i18n/locale.service';
 import { SessionService } from '../../../core/session/session.service';
 import { CotizacionGateway } from '../../cotizacion/cotizacion.gateway';
 import { RiesgoFields } from '../../cotizacion/riesgo-fields';
@@ -29,10 +30,12 @@ export class AsesorCotizacionView {
   protected readonly role = inject(SessionService).role;
   protected readonly allowed = admite('cotizaciones', this.role());
   protected readonly campos: readonly CampoCliente[] = ['nombre', 'documento'];
+  private readonly locale = inject(LocaleService);
   protected readonly vm = new AsesorCotizacionViewModel(
     (ramo) => this.gateway.catalog('asesor', ramo),
     (clienteId, ramo, datos) => this.gateway.quoteFor(clienteId, ramo, datos),
     (clienteId, credito) => this.vidaCrediticia.offerFor(clienteId, credito),
+    () => this.locale.monedaInicio(),
   );
 
   constructor() {

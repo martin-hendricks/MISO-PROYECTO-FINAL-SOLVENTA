@@ -12,6 +12,7 @@ from app.config import Settings
 from app.domain.errores import ConsentimientoRevocado, NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
+from app.domain.moneda import expresar_datos_riesgo, expresar_prima, validar_moneda
 from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima, evaluar_idoneidad
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
 from app.metricas_negocio import COTIZACION_LATENCIA, OFERTAS
@@ -126,17 +127,23 @@ async def cotizar(
     datos_riesgo: dict[str, Any],
     asesor_id: UUID | None = None,
     cliente_ref: str | None = None,
+    moneda: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
     flujo de recibir_solicitud, sin exigir una segunda llamada."""
     inicio = time.perf_counter()
     try:
+        validar_moneda(moneda)
         async with uow() as tx:
             existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
             if existente is not None:
                 oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
                 return RegistroOferta(existente, oferta_existente, creada=False)
 
+        definicion = catalogo.obtener(producto)
+        datos_riesgo = expresar_datos_riesgo(
+            datos_riesgo, moneda, definicion.moneda if definicion is not None else "COP"
+        )
         solicitud = SolicitudCotizacion.crear(
             idempotency_key,
             usuario_id,
@@ -153,7 +160,7 @@ async def cotizar(
         # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
         regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
         resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
-        definicion = catalogo.obtener(producto)
+        resultado = expresar_prima(resultado, moneda)
         oferta = Oferta.emitir(
             solicitud,
             regla,

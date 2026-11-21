@@ -94,6 +94,7 @@ async def registrar_aviso(
         archivos=evidencia,
         lugar=(entrada.lugar or "").strip() or None,
         clave_idempotencia=idempotency_key,
+        moneda=entrada.moneda,
     )
     if not creado:
         response.status_code = status.HTTP_200_OK

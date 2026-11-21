@@ -70,6 +70,7 @@ async def solicitar_cotizacion(
         entrada.datos_riesgo,
         asesor_id=entrada.asesor_id,
         cliente_ref=entrada.cliente_ref,
+        moneda=entrada.moneda,
     )
     if llamante.rol == "socio" and resultado.solicitud.socio_id != llamante.uid:
         raise NoEncontrado("Cotización no existe")

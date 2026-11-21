@@ -70,6 +70,7 @@ Then('"Cotizar" goes to the offer with premium and expiry', async function (this
       modelo: 'iPhone 15',
       masDe12Meses: false,
     },
+    moneda: 'COP',
   });
 });
 
@@ -116,7 +117,7 @@ Then('the customer cannot accept it', async function (this: PortalWorld) {
 Then('"Aceptar" starts the issuance', async function (this: PortalWorld) {
   assert.equal(
     await this.cotizacion.acceptHref(),
-    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}`,
+    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}&moneda=${this.offer.moneda}`,
   );
 });
 

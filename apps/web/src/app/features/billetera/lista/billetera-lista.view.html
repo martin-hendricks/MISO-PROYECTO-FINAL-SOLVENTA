@@ -31,7 +31,9 @@
         {{ 'billetera.recibido' | translate }} ·
         {{ 'billetera.count' | translate: { n: vm.movimientos().length } }} · {{ vm.moneda() }}
       </p>
-      <p class="total" data-testid="billetera-total">{{ vm.total()! | svMoney: vm.moneda() }}</p>
+      @if (vm.total() !== null && vm.moneda(); as moneda) {
+        <p class="total" data-testid="billetera-total">{{ vm.total()! | svMoney: moneda }}</p>
+      }
       <div class="table-scroll">
         <table data-testid="billetera-table">
           <caption class="visually-hidden">{{ 'billetera.title' | translate }}</caption>

@@ -65,6 +65,7 @@ export class AsesorCotizacionViewModel {
     catalogSource: (ramo: string) => Observable<Catalogo>,
     source: (clienteId: string, ramo: string, datos: DatosRiesgo) => Observable<Oferta>,
     hipotecarioSource: (clienteId: string, credito: Credito) => Observable<Oferta>,
+    moneda: () => string = () => '',
     private readonly now: () => Date = () => new Date(),
   ) {
     this.form = new CotizacionFormViewModel(
@@ -85,6 +86,7 @@ export class AsesorCotizacionViewModel {
       },
       undefined,
       RAMOS_ASESOR,
+      moneda,
     );
   }
 

@@ -97,6 +97,7 @@ describe('VidaCrediticiaView', () => {
     expect(request.request.body).toEqual({
       credito: { valor: 180000000, plazoMeses: 240 },
       consentimientoPerfil: true,
+      moneda: 'COP',
     });
     request.flush(OFERTA_HIPOTECARIA_WIRE);
     fixture.detectChanges();
@@ -108,7 +109,7 @@ describe('VidaCrediticiaView', () => {
     expect(element('vida-factores')?.textContent).toContain('Aumenta la prima');
     expect(element('vida-degradada')).toBeNull();
     expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
-      '/confirmacion-tarjeta?cotizacion=COT-7001&prima=140100',
+      '/confirmacion-tarjeta?cotizacion=COT-7001&prima=140100&moneda=COP',
     );
   });
 
@@ -234,6 +235,7 @@ describe('VidaCrediticiaView', () => {
     expect(http.expectOne(URL).request.body).toEqual({
       credito: { valor: 250000000, plazoMeses: 300 },
       consentimientoPerfil: true,
+      moneda: 'COP',
     });
   });
 

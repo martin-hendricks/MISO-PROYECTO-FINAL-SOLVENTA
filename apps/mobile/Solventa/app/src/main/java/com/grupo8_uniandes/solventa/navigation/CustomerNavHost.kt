@@ -137,6 +137,7 @@ fun CustomerNavHost(
         modifier = modifier.padding(contentPadding),
     ) {
         composable<InicioRoute> { entry ->
+            val region = appliedRegion()
             val reload by entry.savedStateHandle.getStateFlow(TAB_RELOAD, 0L).collectAsState()
             LaunchedEffect(reload) { onInicioVisible() }
             val billetera: BilleteraViewModel = koinViewModel()
@@ -155,7 +156,7 @@ fun CustomerNavHost(
                 },
                 onOpenMortgage = { navController.navigate(OfertaHipotecarioRoute) },
                 walletLine = newest?.let { deposit ->
-                    val amount = formatPremium(deposit.monto, deposit.moneda.ifBlank { "COP" }, Region.Colombia)
+                    val amount = formatPremium(deposit.monto, deposit.moneda.ifBlank { "COP" }, region)
                     "${deposit.siniestroId} · $amount depositados"
                 },
                 onOpenWallet = { navController.openDestination(Destination.Billetera) },
@@ -251,6 +252,7 @@ fun CustomerNavHost(
             }
             PolizaDetalleScreen(
                 state = state,
+                region = appliedRegion(),
                 renewalChecked = renewalState.checked,
                 renewalMissing = renewalState.missing,
                 onRenewal = renewal::onChecked,
@@ -478,6 +480,7 @@ fun CustomerNavHost(
             val context = LocalContext.current
             SiniestroDetalleScreen(
                 claimId = route.claimId,
+                region = appliedRegion(),
                 claim = detail.claim,
                 missing = detail.phase == DetailPhase.Missing,
                 failed = detail.phase == DetailPhase.Failed,
@@ -500,6 +503,7 @@ fun CustomerNavHost(
             LaunchedEffect(reload) { viewModel.refresh() }
             BilleteraScreen(
                 state = state,
+                region = appliedRegion(),
                 onChip = viewModel::select,
                 onOpen = { id -> navController.navigate(DepositoRoute(id)) },
                 onRetry = { viewModel.refresh() },
@@ -513,6 +517,7 @@ fun CustomerNavHost(
             val context = LocalContext.current
             DepositoScreen(
                 state = state,
+                region = appliedRegion(),
                 onBack = { navController.popBackStack() },
                 onRetry = viewModel::load,
                 onClaim = {
@@ -765,6 +770,14 @@ private fun NavHostController.openParentThen(parent: Any, child: Any) {
         restoreState = true
     }
     navigate(child)
+}
+
+@Composable
+private fun appliedRegion(): Region {
+    val context = LocalContext.current
+    return remember(context) {
+        SharedPrefsRegionRepository(context.applicationContext).read().appliedRegion
+    }
 }
 
 private fun NavHostController.leaveIssuanceToPolicy(numero: String) {

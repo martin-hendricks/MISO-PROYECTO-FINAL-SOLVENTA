@@ -3,6 +3,7 @@ package com.grupo8_uniandes.solventa.data.bff.remote
 import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessUpdateDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MonedaInicioDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
@@ -247,12 +248,13 @@ class RemoteSignupRepository(
 class RemoteOfferRepository(
     private val api: MobileBffApi,
     private val gate: BffGate,
+    private val monedaInicio: () -> String = { "COP" },
 ) : OfferRepository {
     override suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer> {
         gate.flush()
         return try {
             StandInAnswer.Ready(
-                api.quote(newIdempotencyKey(), QuoteRequestDto(ramo, risk.toRequestElement())).toOffer(),
+                api.quote(newIdempotencyKey(), QuoteRequestDto(ramo, risk.toRequestElement(), monedaInicio())).toOffer(),
             )
         } catch (error: HttpException) {
             val detail = problemDetail(error.response()?.errorBody()?.string().orEmpty())
@@ -269,7 +271,9 @@ class RemoteOfferRepository(
         gate.call { api.requote(cotizacionId).toOffer() }
 
     override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> {
-        val answer = gate.call { api.acceptQuote(newIdempotencyKey(), cotizacionId).toAccepted() }
+        val answer = gate.call {
+            api.acceptQuote(newIdempotencyKey(), cotizacionId, MonedaInicioDto(monedaInicio())).toAccepted()
+        }
         return when (answer) {
             is StandInAnswer.Ready -> if (answer.value.estado == "aceptada") answer else StandInAnswer.Failed
             is StandInAnswer.Rejected -> StandInAnswer.Failed
@@ -282,6 +286,7 @@ class RemoteIssuanceRepository(
     private val api: MobileBffApi,
     private val gate: BffGate,
     private val cache: BffCache,
+    private val monedaInicio: () -> String = { "COP" },
 ) : IssuanceRepository {
     override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> =
         readAcceptance(cotizacionId).let { parsed ->
@@ -324,7 +329,7 @@ class RemoteIssuanceRepository(
         revoked = false
         return try {
             gate.flush()
-            api.accept(newIdempotencyKey(), IdDto(cotizacionId)).toAcceptance()
+            api.accept(newIdempotencyKey(), IdDto(cotizacionId, monedaInicio())).toAcceptance()
         } catch (_: IOException) {
             null
         } catch (error: HttpException) {

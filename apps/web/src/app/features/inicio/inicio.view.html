@@ -71,7 +71,7 @@
                 <a
                   class="filled"
                   routerLink="/confirmacion-tarjeta"
-                  [queryParams]="{ cotizacion: offer.cotizacionId, prima: offer.prima }"
+                  [queryParams]="{ cotizacion: offer.cotizacionId, prima: offer.prima, moneda: offer.moneda }"
                   data-testid="inicio-accept"
                 >
                   {{ 'inicio.offer.accept' | translate }}

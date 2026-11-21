@@ -355,6 +355,7 @@
     <string name="onboarding_spending_hint">Monto mensual en COP</string>
     <string name="card_title">Confirma el pago</string>
     <string name="card_premium">Prima %1$s</string>
+    <string name="card_moneda_inicio">Moneda de inicio %1$s</string>
     <string name="card_premium_pending">Prima</string>
     <string name="card_readonly">Solo lectura. La tarjeta no se envía ni se guarda.</string>
     <string name="card_discard_meta">Se descarta al confirmar</string>

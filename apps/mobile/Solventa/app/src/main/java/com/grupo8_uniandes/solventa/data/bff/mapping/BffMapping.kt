@@ -221,9 +221,11 @@ private fun AttachmentKind.toDto() = when (this) {
 
 internal fun OfferOutDto.toOffer() = FirmOffer(cotizacionId, ramo, estado, prima, moneda, venceEn)
 
-internal fun AcceptedQuoteDto.toAccepted() = AcceptedQuote(cotizacionId, estado, prima, moneda)
+internal fun AcceptedQuoteDto.toAccepted() =
+    AcceptedQuote(cotizacionId, estado, prima, moneda, monedaInicio.ifBlank { "COP" })
 
-internal fun IssuedDto.toPolicy() = IssuedPolicy(numero, ramo, estado, venceEn)
+internal fun IssuedDto.toPolicy() =
+    IssuedPolicy(numero, ramo, estado, venceEn, monedaInicio.ifBlank { "COP" })
 
 internal fun RejectionDto.toRejection(): IssueRejection? =
     if (estado == "rechazada") IssueRejection(estado, motivo) else null
@@ -432,7 +434,7 @@ private fun PushTypeDto.toType() = when (this) {
 }
 
 internal fun BilleteraDto.toWallet() = Wallet(
-    moneda,
+    moneda.orEmpty(),
     totalRecibido,
     movimientos.map { it.toDeposit() },
 )

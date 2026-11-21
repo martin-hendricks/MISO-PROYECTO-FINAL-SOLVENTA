@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DateTimePipe, MoneyPipe } from '../../core/i18n/format';
+import { LocaleService } from '../../core/i18n/locale.service';
 import { CotizacionGateway } from '../cotizacion/cotizacion.gateway';
 import { Credito, VIDA_ETAPA_MS, VidaCrediticiaGateway } from './vida-crediticia.gateway';
 import { CAMPOS_CREDITO, ETAPAS, VidaCrediticiaViewModel } from './vida-crediticia.viewmodel';
@@ -26,6 +27,7 @@ export class VidaCrediticiaView {
   private readonly translate = inject(TranslateService);
   private readonly cotizacion = inject(CotizacionGateway);
   private readonly gateway = inject(VidaCrediticiaGateway);
+  private readonly locale = inject(LocaleService);
   private readonly route = inject(ActivatedRoute);
   protected readonly campos = CAMPOS_CREDITO;
   protected readonly etapas = ETAPAS;
@@ -33,6 +35,7 @@ export class VidaCrediticiaView {
     () => this.cotizacion.catalog('cliente', RAMO),
     (credito) => this.gateway.offer(credito),
     inject(VIDA_ETAPA_MS),
+    () => this.locale.monedaInicio(),
   );
 
   constructor() {

@@ -24,6 +24,7 @@ class ClienteMsPagos(ClienteServicio):
         oferta_id: UUID,
         usuario_id: UUID,
         monto: Decimal,
+        moneda: str,
         token_medio_pago: str,
     ) -> dict[str, Any]:
         return await self._pedir(
@@ -34,6 +35,7 @@ class ClienteMsPagos(ClienteServicio):
                 "oferta_id": str(oferta_id),
                 "usuario_id": str(usuario_id),
                 "monto": str(monto),
+                "moneda": moneda,
                 "token_medio_pago": token_medio_pago,
             },
         )

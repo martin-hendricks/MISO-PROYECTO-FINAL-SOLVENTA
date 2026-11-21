@@ -76,6 +76,14 @@ fun ConfirmacionTarjetaScreen(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (state.monedaInicio.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.card_moneda_inicio, state.monedaInicio),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("card_moneda_inicio"),
+                )
+            }
             Text(
                 text = stringResource(R.string.card_readonly),
                 style = MaterialTheme.typography.bodyMedium,

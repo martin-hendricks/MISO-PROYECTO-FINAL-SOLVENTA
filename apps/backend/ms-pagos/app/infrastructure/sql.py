@@ -54,6 +54,7 @@ class PagoFila(Base):
     prima_id: Mapped[UUID | None]
     reclamacion_id: Mapped[UUID | None]
     monto: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    moneda: Mapped[str] = mapped_column(default="COP")
     concepto: Mapped[str]
     estado: Mapped[str]
     fecha: Mapped[datetime]
@@ -87,6 +88,7 @@ def _a_dominio(pago: PagoFila, transaccion: TransaccionFila, medio: MedioPagoFil
         oferta_id=pago.oferta_id,
         usuario_id=medio.usuario_id,
         monto=pago.monto,
+        moneda=pago.moneda or "COP",
         estado=EstadoPago(pago.estado),
         idempotency_key=transaccion.idempotency_key,
         proveedor=transaccion.proveedor,
@@ -132,6 +134,7 @@ class RepositorioPagosSQL:
                 medio_pago_id=medio_pago_id,
                 oferta_id=pago.oferta_id,
                 monto=pago.monto,
+                moneda=pago.moneda,
                 concepto=CONCEPTO_PRIMA,
                 estado=pago.estado.value,
                 fecha=pago.fecha,

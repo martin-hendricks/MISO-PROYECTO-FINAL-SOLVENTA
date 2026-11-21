@@ -7,7 +7,15 @@ import pytest
 from app.application import casos_uso
 from app.domain.aviso import IntentoPago, OrigenDecision, PagoSiniestro
 from app.domain.errores import NoEncontrado, TransicionInvalida
-from app.domain.modelos import EstadoSiniestro, EvaluacionUmbral, EventoParametrico, Siniestro, TipoSiniestro, TransicionEstado
+from app.domain.modelos import (
+    EstadoSiniestro,
+    EvaluacionUmbral,
+    EventoParametrico,
+    PagoRecibido,
+    Siniestro,
+    TipoSiniestro,
+    TransicionEstado,
+)
 
 
 # --- HU-32/33/34: ingesta encadenada -----------------------------------------------
@@ -290,7 +298,9 @@ async def test_billetera_solo_cuenta_pagos_ejecutados_y_suma_en_decimal(uow, alm
     billetera = await casos_uso.listar_pagos_recibidos(uow, dueno)
 
     assert [p.tipo for p in billetera.pagos] == [TipoSiniestro.PARAMETRICO, TipoSiniestro.ASISTIDO]
+    assert billetera.moneda == "COP"
     assert billetera.total == Decimal("1070000.00")
+    assert billetera.pagos[0].moneda == "COP"
     assert billetera.pagos[0].ramo == "clima-vuelos"
     assert billetera.pagos[0].monto == Decimal("180000.00")
     assert all(p.monto != Decimal("420000") for p in billetera.pagos)
@@ -303,3 +313,27 @@ async def test_billetera_solo_cuenta_pagos_ejecutados_y_suma_en_decimal(uow, alm
         await casos_uso.obtener_pago_recibido(uow, uuid4(), dueno)
     with pytest.raises(NoEncontrado):
         await casos_uso.obtener_pago_recibido(uow, en_evaluacion.id, dueno)
+
+
+def _deposito(moneda: str) -> PagoRecibido:
+    return PagoRecibido(
+        siniestro_id=uuid4(),
+        numero=None,
+        tipo=TipoSiniestro.ASISTIDO,
+        ramo=None,
+        poliza_numero=None,
+        descripcion=None,
+        monto=Decimal("10.00"),
+        comprobante="CMP-1",
+        clave="k",
+        pagado_en=datetime.now(UTC),
+        moneda=moneda,
+    )
+
+
+def test_billetera_mixta_no_suma_monedas_distintas():
+    resumen = casos_uso.resumir_pagos_recibidos([_deposito("COP"), _deposito("MXN")])
+
+    assert resumen.moneda is None
+    assert resumen.total is None
+    assert [pago.moneda for pago in resumen.pagos] == ["COP", "MXN"]

@@ -44,6 +44,7 @@ fun BilleteraScreen(
     onRetry: () -> Unit,
     onClaims: () -> Unit,
     modifier: Modifier = Modifier,
+    region: Region = Region.Colombia,
 ) {
     Column(
         modifier = modifier
@@ -57,12 +58,15 @@ fun BilleteraScreen(
         if (state.phase == WalletPhase.Ready || state.phase == WalletPhase.Empty) {
             val wallet = state.wallet
             if (wallet != null) {
+                val total = wallet.totalRecibido
                 SolventaCard(testTag = "billetera_recibido") {
-                    Text(
-                        text = formatPremium(wallet.totalRecibido, wallet.moneda, Region.Colombia),
-                        style = SolventaTypography.amount,
-                        modifier = Modifier.testTag("billetera_total"),
-                    )
+                    if (total != null && wallet.moneda.isNotBlank()) {
+                        Text(
+                            text = formatPremium(total, wallet.moneda, region),
+                            style = SolventaTypography.amount,
+                            modifier = Modifier.testTag("billetera_total"),
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.billetera_count, wallet.movimientos.size),
                         style = MaterialTheme.typography.bodyMedium,
@@ -77,7 +81,7 @@ fun BilleteraScreen(
             if (state.phase == WalletPhase.Ready) {
                 Chips(state.chip, onChip)
                 state.visible.forEach { deposit ->
-                    DepositCard(deposit, onOpen)
+                    DepositCard(deposit, onOpen, region)
                 }
             }
             if (state.phase == WalletPhase.Empty) {
@@ -139,7 +143,7 @@ private fun Chips(chip: DepositType?, onChip: (DepositType?) -> Unit) {
 }
 
 @Composable
-private fun DepositCard(deposit: Deposit, onOpen: (String) -> Unit) {
+private fun DepositCard(deposit: Deposit, onOpen: (String) -> Unit, region: Region) {
     SolventaCard(onClick = { onOpen(deposit.id) }, outlined = true, testTag = "billetera_fila_${deposit.siniestroId}") {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(text = deposit.siniestroId, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -150,7 +154,7 @@ private fun DepositCard(deposit: Deposit, onOpen: (String) -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        val amount = formatPremium(deposit.monto, deposit.moneda, Region.Colombia)
+            val amount = formatPremium(deposit.monto, deposit.moneda.ifBlank { "COP" }, region)
         val tail = if (deposit.tipo == DepositType.Automatic) {
             stringResource(R.string.billetera_depositado)
         } else {

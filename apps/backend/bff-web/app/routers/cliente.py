@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
@@ -135,11 +136,28 @@ class Cotizacion(BaseModel):
     ramo: str
     datosRiesgo: dict
     clienteId: str | None = None
+    moneda: str | None = None
+
+
+MONEDAS_INICIO = {"COP", "MXN", "CLP", "PEN"}
+
+
+def rechazar_moneda(moneda: str | None) -> JSONResponse | None:
+    """Una moneda omitida sigue en COP. Solo un código fuera de la tabla se rechaza."""
+    if moneda is None or not moneda.strip():
+        return None
+    if moneda not in MONEDAS_INICIO:
+        return JSONResponse(
+            status_code=422,
+            content={"codigo": "moneda_no_soportada", "mensaje": "La moneda de inicio no está soportada"},
+        )
+    return None
 
 
 class Aceptar(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cotizacionId: str
+    monedaInicio: str | None = None
 
 
 class PreferenciaRenovacion(BaseModel):
@@ -154,6 +172,7 @@ class Credito(BaseModel):
 class Hipoteca(BaseModel):
     credito: Credito
     consentimientoPerfil: bool
+    moneda: str | None = None
 
 
 def _offer(cotizacion_id: str) -> dict:
@@ -240,6 +259,8 @@ async def cotizar(
 ) -> dict:
     if body.clienteId:
         raise HTTPException(status_code=400, detail="La venta asistida no es de este canal")
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
 
     contexto = contexto_canonico(usuario)
     producto = _producto_de(body.ramo)
@@ -260,6 +281,7 @@ async def cotizar(
         producto=producto,
         canal="web",
         datos_riesgo=datos_riesgo,
+        moneda=body.moneda,
     )
     _, descripcion = presentar(producto)
     return _cotizacion_salida(datos, body.ramo, descripcion)
@@ -319,6 +341,8 @@ async def emitir(
     # TODO: mismo placeholder de identidad que en cotizar() -- no hay
     # ms-identidad real para resolver el correo de la sesión a un contexto.
     contexto = contexto_canonico(usuario)
+    if (rechazo := rechazar_moneda(body.monedaInicio)) is not None:
+        return rechazo
 
     # TODO: `score` es un stub fijo documentado: no hay ms-perfilamiento
     # conectado aún que calcule un score real de riesgo/crédito para el
@@ -355,6 +379,7 @@ async def emitir(
         oferta_id=oferta_id,
         usuario_id=contexto.usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 
@@ -398,6 +423,7 @@ async def emitir(
             "finVigencia": poliza.get("fin_vigencia", ""),
             "moneda": aceptacion.get("moneda", ""),
             "primaTotal": float(aceptacion["prima"]),
+            "monedaInicio": pago.get("moneda") or body.monedaInicio,
             "referenciaPago": pago.get("token_referencia", "stub-medio-pago"),
         },
     }
@@ -504,6 +530,7 @@ async def ofertar_vida_hipotecario(
     asesor_id: UUID | None = None,
     cliente_ref: str | None = None,
     idempotency_key: str | None = None,
+    moneda: str | None = None,
 ) -> dict:
     """Oferta de vida hipotecario (HU-105/HU-162) para el cliente y el asesor.
 
@@ -540,6 +567,7 @@ async def ofertar_vida_hipotecario(
         datos_riesgo={"valor": credito.valor, "plazoMeses": credito.plazoMeses},
         asesor_id=asesor_id,
         cliente_ref=cliente_ref,
+        moneda=moneda,
     )
     return {
         **_cotizacion_salida(datos, RAMO_VIDA_HIPOTECARIO),
@@ -632,6 +660,8 @@ async def hipoteca(
     """
     if not body.consentimientoPerfil:
         return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
 
     contexto = contexto_canonico(usuario)
     clave = None
@@ -641,7 +671,13 @@ async def hipoteca(
     except ServicioNoDisponible:
         pass
     return await ofertar_vida_hipotecario(
-        contexto, body.credito, "web", cliente_perfilamiento, cliente_cotizacion, idempotency_key=clave
+        contexto,
+        body.credito,
+        "web",
+        cliente_perfilamiento,
+        cliente_cotizacion,
+        idempotency_key=clave,
+        moneda=body.moneda,
     )
 
 

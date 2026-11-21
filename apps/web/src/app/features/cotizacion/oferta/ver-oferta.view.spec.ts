@@ -70,7 +70,7 @@ describe('VerOfertaView', () => {
     fixture.detectChanges();
 
     expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
-      '/confirmacion-tarjeta?cotizacion=COT-4471&prima=128500',
+      '/confirmacion-tarjeta?cotizacion=COT-4471&prima=128500&moneda=COP',
     );
   });
 

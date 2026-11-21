@@ -4,9 +4,10 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from .cliente import rechazar_moneda
 from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_identidad import ClienteMsIdentidad
@@ -51,12 +52,14 @@ class VentaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     ramo: str
     datosRiesgo: dict
+    moneda: str | None = None
 
 
 class OfertaHipotecariaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     credito: Credito
     consentimientoPerfil: bool
+    moneda: str | None = None
 
 
 def _contexto_atendido(cliente_id: str) -> ContextoUsuario:
@@ -103,6 +106,8 @@ async def venta(
     ms-identidad real que resuelva clienteId a una identidad verificada;
     ContextoUsuario deriva UUIDs deterministas a partir del string tal cual
     llega (mismo patrón ya documentado en cliente.py)."""
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
     contexto = _contexto_atendido(body.clienteId)
     producto = _producto_de(body.ramo)
 
@@ -116,6 +121,7 @@ async def venta(
         datos_riesgo=body.datosRiesgo,
         asesor_id=_asesor_id(sesion),
         cliente_ref=body.clienteId,
+        moneda=body.moneda,
     )
     _, descripcion = presentar(producto)
     return _cotizacion_salida(datos, body.ramo, descripcion)
@@ -135,6 +141,8 @@ async def oferta_hipotecaria(
     cotización queda con el asesor, así sigue a emisión por HU-163."""
     if not body.consentimientoPerfil:
         return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
 
     return await ofertar_vida_hipotecario(
         _contexto_atendido(body.clienteId),
@@ -144,6 +152,7 @@ async def oferta_hipotecaria(
         cliente_cotizacion,
         asesor_id=_asesor_id(sesion),
         cliente_ref=body.clienteId,
+        moneda=body.moneda,
     )
 
 
@@ -347,9 +356,15 @@ async def consultar_emision(
     }
 
 
+class EmisionAsesor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    monedaInicio: str | None = None
+
+
 @router.post("/emisiones/{solicitud_id}/poliza")
 async def firmar_y_emitir(
     solicitud_id: str,
+    body: EmisionAsesor,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
@@ -370,6 +385,8 @@ async def firmar_y_emitir(
     el paso Emisión en ERROR; si la firma es exitosa, su fecha y hash salen
     de la constancia persistida, no de la póliza.
     """
+    if (rechazo := rechazar_moneda(body.monedaInicio)) is not None:
+        return rechazo
     score_stub = Decimal("0.5000")
     perfil_id = ContextoUsuario(solicitud_id).perfil_id
 
@@ -394,6 +411,7 @@ async def firmar_y_emitir(
         oferta_id=oferta_id,
         usuario_id=contexto.usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 
@@ -449,6 +467,8 @@ async def firmar_y_emitir(
             "expedidaEn": inicio,
             "inicioVigencia": inicio,
             "finVigencia": poliza.get("fin_vigencia", ""),
+            "moneda": aceptacion.get("moneda", ""),
+            "monedaInicio": pago.get("moneda") or body.monedaInicio,
         },
     }
 

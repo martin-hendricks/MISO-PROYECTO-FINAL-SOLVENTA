@@ -117,6 +117,7 @@ describe('AsesorCotizacionView', () => {
     expect(request.request.body).toEqual({
       clienteId: '1020334556',
       ramo: 'Protección de dispositivo',
+      moneda: 'COP',
       datosRiesgo: {
         valorDispositivo: 2400000,
         marca: 'samsung',
@@ -333,6 +334,7 @@ describe('AsesorCotizacionView', () => {
         clienteId: '1020334556',
         credito: { valor: 180000000, plazoMeses: 240 },
         consentimientoPerfil: true,
+        moneda: 'COP',
       });
       request.flush(OFERTA_HIPOTECARIA_WIRE);
       fixture.detectChanges();

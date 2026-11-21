@@ -71,15 +71,26 @@ async def listar_siniestros(
 
 @dataclass(frozen=True)
 class PagosRecibidos:
-    moneda: str
-    total: Decimal
+    moneda: str | None
+    total: Decimal | None
     pagos: list[PagoRecibido]
+
+
+def resumir_pagos_recibidos(pagos: list[PagoRecibido]) -> PagosRecibidos:
+    """Un total solo cuando cada depósito nombra la misma moneda. Sin filas, el total es cero en COP."""
+    monedas = {pago.moneda for pago in pagos}
+    if len(monedas) > 1:
+        return PagosRecibidos(moneda=None, total=None, pagos=pagos)
+    moneda = next(iter(monedas), "COP")
+    return PagosRecibidos(
+        moneda=moneda, total=sum((pago.monto for pago in pagos), Decimal("0.00")), pagos=pagos
+    )
 
 
 async def listar_pagos_recibidos(uow: FabricaUnidadDeTrabajo, usuario_id: UUID) -> PagosRecibidos:
     async with uow() as tx:
         pagos = await tx.siniestros.listar_pagos_recibidos(usuario_id)
-    return PagosRecibidos(moneda="COP", total=sum((p.monto for p in pagos), Decimal("0.00")), pagos=pagos)
+    return resumir_pagos_recibidos(pagos)
 
 
 async def obtener_pago_recibido(uow: FabricaUnidadDeTrabajo, siniestro_id: UUID, usuario_id: UUID) -> PagoRecibido:

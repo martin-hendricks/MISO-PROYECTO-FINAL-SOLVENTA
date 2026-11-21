@@ -77,7 +77,7 @@
             <dd data-testid="poliza-backoffice-vence">{{ poliza.venceEn | svDate }}</dd>
             <dt>{{ 'backoffice.polizas.prima' | translate }}</dt>
             <dd class="mono" data-testid="poliza-backoffice-prima">
-              {{ poliza.prima.valor | svMoney: 'COP' }}
+              {{ poliza.prima.valor | svMoney: (poliza.moneda || 'COP') }}
             </dd>
             @if (poliza.siniestrosAbiertos !== null) {
               <dt>{{ 'backoffice.polizas.siniestrosAbiertos' | translate }}</dt>
@@ -97,10 +97,10 @@
                   @for (cobertura of poliza.coberturas; track cobertura.nombre) {
                     <li>
                       <span>{{ cobertura.nombre }}</span>
-                      <span class="mono">{{ cobertura.sumaAsegurada | svMoney: 'COP' }}</span>
+                      <span class="mono">{{ cobertura.sumaAsegurada | svMoney: (poliza.moneda || 'COP') }}</span>
                       <span class="mono"
                         >{{ 'backoffice.polizas.coberturas.deducible' | translate }}:
-                        {{ cobertura.deducible | svMoney: 'COP' }}</span
+                        {{ cobertura.deducible | svMoney: (poliza.moneda || 'COP') }}</span
                       >
                     </li>
                   }
@@ -123,7 +123,7 @@
                 <dd>{{ poliza.canceladaPor }}</dd>
                 @if (poliza.devolucionEstimada !== null) {
                   <dt>{{ 'backoffice.polizas.cancelacionPrevia.devolucion' | translate }}</dt>
-                  <dd class="mono">{{ poliza.devolucionEstimada | svMoney: 'COP' }}</dd>
+                  <dd class="mono">{{ poliza.devolucionEstimada | svMoney: (poliza.moneda || 'COP') }}</dd>
                 }
               </dl>
             </div>

@@ -42,6 +42,7 @@ fun PolizaDetalleScreen(
     onRenewal: (Boolean) -> Unit = {},
     onOpenClaim: (String) -> Unit = {},
     onReportClaim: () -> Unit = {},
+    region: Region = Region.Colombia,
 ) {
     val detail = state.detail
     Column(
@@ -85,7 +86,7 @@ fun PolizaDetalleScreen(
                     Text(
                         text = stringResource(
                             R.string.policy_coverage_limit,
-                            pesos(coverage.sumaAsegurada, detail.moneda),
+                            pesos(coverage.sumaAsegurada, detail.moneda, region),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -93,7 +94,7 @@ fun PolizaDetalleScreen(
                         Text(
                             text = stringResource(
                                 R.string.policy_deductible,
-                                pesos(coverage.deducible, detail.moneda),
+                                pesos(coverage.deducible, detail.moneda, region),
                             ),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.testTag("policy_deductible_${coverage.nombre}"),
@@ -103,7 +104,7 @@ fun PolizaDetalleScreen(
                 if (detail.primaTotal != null) {
                     SectionLabel(stringResource(R.string.policy_annual_premium))
                     Text(
-                        text = pesos(detail.primaTotal, detail.moneda),
+                        text = pesos(detail.primaTotal, detail.moneda, region),
                         style = SolventaTypography.amount,
                         modifier = Modifier.testTag("policy_prima"),
                     )
@@ -134,7 +135,7 @@ fun PolizaDetalleScreen(
                             Text(
                                 text = stringResource(
                                     R.string.policy_refund,
-                                    pesos(devolucion, detail.moneda),
+                                    pesos(devolucion, detail.moneda, region),
                                 ),
                                 style = SolventaTypography.amount,
                                 modifier = Modifier.testTag("policy_refund"),
@@ -245,5 +246,5 @@ private fun vigencia(detail: PolicyDetail): String {
 
 private fun shownDate(raw: String): String = runCatching { formatCoverageDate(raw.take(10)) }.getOrDefault(raw)
 
-private fun pesos(amount: Double, moneda: String): String =
-    formatPremium(BigDecimal.valueOf(amount), moneda.ifBlank { "COP" }, Region.Colombia)
+private fun pesos(amount: Double, moneda: String, region: Region): String =
+    formatPremium(BigDecimal.valueOf(amount), moneda.ifBlank { "COP" }, region)

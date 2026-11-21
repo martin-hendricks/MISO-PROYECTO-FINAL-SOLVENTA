@@ -7,6 +7,7 @@ data class IssuedPolicy(
     val ramo: String,
     val estado: String,
     val venceEn: String,
+    val monedaInicio: String = "COP",
 )
 
 data class IssueRejection(

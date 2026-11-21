@@ -21,8 +21,9 @@ describe('CotizacionFormViewModel', () => {
     source: (ramo: string, datos: DatosRiesgo) => Observable<Oferta> = () => of(OFERTA),
     onQuoted?: (oferta: Oferta) => void,
     catalog: (ramo: string) => Observable<Catalogo> = (ramo) => of(CATALOGOS[ramo]),
+    moneda: () => string = () => '',
   ) {
-    const vm = new CotizacionFormViewModel(catalog, source, onQuoted);
+    const vm = new CotizacionFormViewModel(catalog, source, onQuoted, undefined, moneda);
     vm.loadCatalog();
     return vm;
   }
@@ -90,6 +91,11 @@ describe('CotizacionFormViewModel', () => {
       'Reposición por equipo nuevo',
     ]);
     expect(vm.rangos()['valorDispositivo']).toEqual({ minimo: 500000, maximo: 10000000 });
+    const soles = form(undefined, undefined, undefined, () => 'PEN');
+    expect(soles.moneda()).toBe('PEN');
+    expect(soles.rangos()['valorDispositivo']).toEqual({ minimo: 455, maximo: 9090 });
+    soles.edit('valorDispositivo', '2500');
+    expect(soles.issue('valorDispositivo')).toBeNull();
     expect(vm.opciones('marca')).toEqual(['samsung', 'apple', 'xiaomi', 'motorola']);
     expect(vm.opciones('modelo')).toEqual([]);
   });

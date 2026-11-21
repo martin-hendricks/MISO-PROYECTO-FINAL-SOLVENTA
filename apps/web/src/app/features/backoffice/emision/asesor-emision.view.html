@@ -90,6 +90,7 @@
                   {{ 'backoffice.emision.resumen.vigencia' | translate }}
                   {{ poliza.inicioVigencia | svDate }} – {{ poliza.finVigencia | svDate }}
                 </p>
+                <p data-testid="poliza-monedas">{{ poliza.moneda }} · {{ poliza.monedaInicio }}</p>
               </div>
             }
             @case ('rejected') {

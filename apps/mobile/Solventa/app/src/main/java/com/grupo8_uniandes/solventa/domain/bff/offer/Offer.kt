@@ -28,6 +28,7 @@ data class AcceptedQuote(
     val estado: String,
     val prima: Long,
     val moneda: String,
+    val monedaInicio: String = "COP",
 )
 
 interface OfferRepository {

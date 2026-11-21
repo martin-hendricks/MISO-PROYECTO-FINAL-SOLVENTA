@@ -43,6 +43,7 @@ fun DepositoScreen(
     onDownload: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    region: Region = Region.Colombia,
 ) {
     Column(
         modifier = modifier
@@ -75,7 +76,7 @@ fun DepositoScreen(
                 fontWeight = FontWeight.Medium,
                 fontSize = 20.sp,
             )
-            DepositCard(deposit)
+            DepositCard(deposit, region)
             Text(
                 text = if (deposit.tipo == DepositType.Automatic) {
                     stringResource(R.string.billetera_frase_automatico)
@@ -127,8 +128,8 @@ fun DepositoScreen(
 }
 
 @Composable
-private fun DepositCard(deposit: Deposit) {
-    val amount = formatPremium(deposit.monto, deposit.moneda, Region.Colombia)
+private fun DepositCard(deposit: Deposit, region: Region) {
+    val amount = formatPremium(deposit.monto, deposit.moneda.ifBlank { "COP" }, region)
     val event = listOf(deposit.resumen, deposit.poliza).filter { it.isNotBlank() }.joinToString(" · ")
     SolventaCard(outlined = true, testTag = "deposito_card") {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

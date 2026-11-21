@@ -16,6 +16,7 @@ class PagoRecibidoSalida(BaseModel):
     poliza_numero: str | None
     descripcion: str | None
     monto: Decimal
+    moneda: str
     comprobante: str
     clave: str
     pagado_en: datetime
@@ -30,6 +31,7 @@ class PagoRecibidoSalida(BaseModel):
             poliza_numero=pago.poliza_numero,
             descripcion=pago.descripcion,
             monto=pago.monto,
+            moneda=pago.moneda,
             comprobante=pago.comprobante,
             clave=pago.clave,
             pagado_en=pago.pagado_en,
@@ -37,8 +39,8 @@ class PagoRecibidoSalida(BaseModel):
 
 
 class PagosRecibidosSalida(BaseModel):
-    moneda: str
-    total: Decimal
+    moneda: str | None
+    total: Decimal | None
     pagos: list[PagoRecibidoSalida]
 
     @classmethod

@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from .errores import ReglaDeNegocioViolada
 
 CONCEPTO_PRIMA = "PRIMA"
+MONEDAS_INICIO = frozenset({"COP", "MXN", "CLP", "PEN"})
 
 
 class EstadoPago(StrEnum):
@@ -34,6 +35,7 @@ class Pago:
     oferta_id: UUID
     usuario_id: UUID
     monto: Decimal
+    moneda: str
     estado: EstadoPago
     idempotency_key: str
     proveedor: str
@@ -47,7 +49,12 @@ class Pago:
 
     @classmethod
     def registrar_prima(
-        cls, oferta_id: UUID, usuario_id: UUID, monto: Decimal, resultado: ResultadoPasarela
+        cls,
+        oferta_id: UUID,
+        usuario_id: UUID,
+        monto: Decimal,
+        resultado: ResultadoPasarela,
+        moneda: str = "COP",
     ) -> Pago:
         cls.validar_monto(monto)
         return cls(
@@ -55,6 +62,7 @@ class Pago:
             oferta_id=oferta_id,
             usuario_id=usuario_id,
             monto=monto,
+            moneda=moneda,
             estado=resultado.estado,
             idempotency_key=clave_cobro_prima(oferta_id),
             proveedor=resultado.proveedor,
@@ -79,6 +87,7 @@ def pago_prima_registrado(pago: Pago) -> EventoDominio:
             "pago_id": str(pago.id),
             "oferta_id": str(pago.oferta_id),
             "monto": str(pago.monto),
+            "moneda": pago.moneda,
             "estado": pago.estado.value,
         },
     )

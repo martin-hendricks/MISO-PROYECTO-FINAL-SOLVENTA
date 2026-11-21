@@ -24,7 +24,7 @@ from ..dependencies import (
     require_roles,
 )
 from ..ramos import presentar
-from .cliente import _cotizacion_de_poliza, contexto_canonico
+from .cliente import MONEDAS_INICIO, _cotizacion_de_poliza, contexto_canonico
 
 router_cliente = APIRouter(prefix="/cliente", tags=["cliente-siniestros"])
 router_operador = APIRouter(prefix="/operador", tags=["operador-siniestros"])
@@ -35,8 +35,13 @@ Siniestros = Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)]
 Polizas = Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)]
 Cotizaciones = Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)]
 
-MONEDA = "COP"
 MAX_ARCHIVOS = 5
+
+
+def _moneda(s: dict) -> str:
+    """La moneda la guarda el núcleo con el aviso. Un aviso viejo, sin columna, sigue en COP."""
+    moneda = str(s.get("moneda") or "COP").strip().upper()
+    return moneda if moneda in MONEDAS_INICIO else "COP"
 
 
 class GeoEntrada(BaseModel):
@@ -81,7 +86,7 @@ def _fila_cliente(s: dict) -> dict:
         "estado": s["estado"],
         "resultado": s.get("resultado"),
         "reserva": float(s["reserva"]) if s.get("reserva") is not None else None,
-        "moneda": MONEDA,
+        "moneda": _moneda(s),
     }
 
 
@@ -136,6 +141,7 @@ async def reportar_siniestro(
         "descripcion": descripcion,
         "geo": _parse_geo(geo),
         "tipos_adjuntos": ["foto" if (a.content_type or "").startswith("image/") else "documento" for a in archivos],
+        "moneda": _moneda(cotizacion),
     }
     evidencia = [
         (a.filename or "evidencia", await a.read(), (a.content_type or "application/octet-stream"))
@@ -171,7 +177,7 @@ async def detalle_siniestro(siniestro_id: UUID, usuario: Cliente, siniestros: Si
             {
                 "comprobante": detalle["pago"]["comprobante"],
                 "monto": float(detalle["pago"]["monto"]),
-                "moneda": MONEDA,
+                "moneda": _moneda(s),
                 "fecha": detalle["pago"]["pagado_en"],
             }
             if detalle.get("pago")
@@ -249,7 +255,7 @@ def _detalle_operador(detalle: dict) -> dict:
             and s.get("umbral_automatico") is not None
             and float(s["reserva"]) <= float(s["umbral_automatico"])
         ),
-        "moneda": MONEDA,
+        "moneda": _moneda(s),
         "clavePago": detalle.get("clave_pago"),
         "motivoRevision": s.get("motivo_revision"),
         # Solo lectura: el operador ve la evidencia pero no puede editarla (HU-26).

@@ -271,7 +271,11 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
         200, json=FIRMA_SALIDA
     )
 
-    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    respuesta = client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
@@ -295,8 +299,16 @@ def test_firmar_y_emitir_reintento_reusa_la_misma_clave_de_aceptacion(client, nu
 
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = aceptar
 
-    client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
-    client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
+    client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
 
     assert len(claves) == 2
     assert claves[0] == claves[1]
@@ -310,7 +322,11 @@ def test_firmar_y_emitir_con_decision_rechazada_no_cobra_ni_emite(
         201, json=ACEPTACION_RECHAZADA
     )
 
-    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    respuesta = client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {"resultado": "RECHAZADA", "motivo": ACEPTACION_RECHAZADA["motivo"]}
@@ -328,7 +344,11 @@ def test_firmar_y_emitir_con_firma_fallida_responde_rechazo_con_motivo(
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(422, json=FIRMA_FALLIDA)
 
-    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    respuesta = client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {
@@ -353,7 +373,11 @@ def test_firmar_y_emitir_propaga_otros_rechazos_del_nucleo(client, nucleo_cotiza
         422, json={"codigo": "sin_cobro_exitoso", "mensaje": "No hay cobro"}
     )
 
-    respuesta = client.post(f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza", headers=headers)
+    respuesta = client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=headers,
+        json={"monedaInicio": "COP"},
+    )
 
     assert respuesta.status_code == 422
 

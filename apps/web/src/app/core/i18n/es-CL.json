@@ -228,6 +228,7 @@
     },
     "privacidad": "Formato validado aquí. Estos datos no se envían a Solventa ni se guardan.",
     "primaLabel": "Prima total · solo lectura",
+    "monedaInicio": "Moneda de inicio",
     "confirmar": "Confirmar pago",
     "cancelar": "Volver a la oferta",
     "volver": "← Volver",

@@ -20,6 +20,7 @@ from sqlalchemy import (
     delete,
     exists,
     func,
+    literal,
     select,
     union_all,
 )
@@ -100,6 +101,7 @@ class SiniestroFila(Base):
     requiere_revision: Mapped[bool] = mapped_column(default=False)
     motivo_revision: Mapped[str | None]
     clave_idempotencia: Mapped[str | None] = mapped_column(String, unique=True)
+    moneda: Mapped[str] = mapped_column(String(3), default="COP", server_default="COP")
 
 
 class TransicionEstadoFila(Base):
@@ -262,6 +264,7 @@ def _siniestro_a_dominio(fila: SiniestroFila, transiciones: list[TransicionEstad
         requiere_revision=bool(fila.requiere_revision),
         motivo_revision=fila.motivo_revision,
         clave_idempotencia=fila.clave_idempotencia,
+        moneda=fila.moneda or "COP",
     )
 
 
@@ -292,6 +295,7 @@ def _copiar_a_fila(siniestro: Siniestro, fila: SiniestroFila) -> None:
     fila.requiere_revision = siniestro.requiere_revision
     fila.motivo_revision = siniestro.motivo_revision
     fila.clave_idempotencia = siniestro.clave_idempotencia
+    fila.moneda = siniestro.moneda or "COP"
 
 
 def _evaluacion_a_dominio(fila: EvaluacionUmbralFila) -> EvaluacionUmbral:
@@ -391,6 +395,7 @@ class RepositorioSiniestrosSQL:
                 PagoSiniestroFila.comprobante,
                 PagoSiniestroFila.clave_idempotencia.label("clave"),
                 PagoSiniestroFila.pagado_en,
+                SiniestroFila.moneda,
             )
             .join(PagoSiniestroFila, PagoSiniestroFila.siniestro_id == SiniestroFila.id)
             .where(
@@ -412,6 +417,7 @@ class RepositorioSiniestrosSQL:
                 PagoParametricoFila.comprobante,
                 PagoParametricoFila.evento_id.label("clave"),
                 PagoParametricoFila.pagado_en,
+                literal("COP").label("moneda"),
             )
             .join(PagoParametricoFila, PagoParametricoFila.siniestro_id == SiniestroFila.id)
             .where(
@@ -434,6 +440,7 @@ class RepositorioSiniestrosSQL:
             comprobante=fila.comprobante,
             clave=fila.clave,
             pagado_en=fila.pagado_en,
+            moneda=fila.moneda or "COP",
         )
 
     async def listar_pagos_recibidos(self, usuario_id: UUID) -> list[PagoRecibido]:

@@ -119,6 +119,21 @@ def test_reportar_envia_foto_de_poliza_y_evidencia_al_nucleo(client, nucleo_poli
     assert "suma_asegurada" not in datos["poliza"]
     assert datos["geo"] == {"lat": 4.65, "lng": -74.08, "precision_m": 12.0}
     assert datos["tipos_adjuntos"] == ["foto"]
+    assert datos["moneda"] == "COP"
+
+
+def test_reportar_en_soles_guarda_la_moneda_de_la_poliza(
+    client, nucleo_polizas, nucleo_cotizacion, nucleo_siniestros
+):
+    _preparar_alta(nucleo_polizas, nucleo_cotizacion, nucleo_siniestros)
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/por-oferta/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json={"producto": "proteccion-dispositivo", "prima": "116.82", "moneda": "PEN"}
+    )
+
+    assert _reportar(client).status_code == 201
+    cuerpo = nucleo_siniestros.peticiones[-1].read()
+    datos = json.loads(cuerpo.split(b'name="datos"\r\n\r\n')[1].split(b"\r\n--")[0])
+    assert datos["moneda"] == "PEN"
 
 
 def test_reportar_sin_ubicacion_sigue(client, nucleo_polizas, nucleo_cotizacion, nucleo_siniestros):
@@ -160,6 +175,13 @@ def test_mis_siniestros_filtra_por_el_usuario_de_la_sesion(client, nucleo_sinies
     assert fila["ramo"] == "Vida crediticia"  # nombre canónico (app/ramos.py), no el código
     assert fila["estado"] == "en_evaluacion"
     assert fila["reserva"] == 3200000.0
+    assert fila["moneda"] == "COP"
+
+    en_soles = {**SINIESTRO, "moneda": "PEN", "reserva": "381.82"}
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json=[en_soles])
+    soles = client.get("/v1/cliente/siniestros", headers=auth(client, "cliente")).json()["siniestros"][0]
+    assert soles["moneda"] == "PEN"
+    assert soles["reserva"] == 381.82
     assert nucleo_siniestros.peticiones[-1].url.params["usuario_id"] == DUENO
 
 

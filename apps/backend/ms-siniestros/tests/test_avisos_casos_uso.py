@@ -35,7 +35,7 @@ def poliza(ramo="proteccion-dispositivo", estado="vigente", poliza_id=None) -> S
     )
 
 
-async def registrar(uow, evidencias, *, usuario_id=None, archivos=None, clave=None, **kw):
+async def registrar(uow, evidencias, *, usuario_id=None, archivos=None, clave=None, moneda=None, **kw):
     detalle, creado = await avisos.registrar_aviso(
         uow,
         evidencias,
@@ -47,6 +47,7 @@ async def registrar(uow, evidencias, *, usuario_id=None, archivos=None, clave=No
         geo=None,
         archivos=[PNG] if archivos is None else archivos,
         clave_idempotencia=clave,
+        moneda=moneda,
     )
     return detalle, creado
 
@@ -105,6 +106,21 @@ async def test_motor_aprueba_y_paga_solo_el_bajo_monto(uow, almacen, evidencias,
     assert final.decisiones[0].origen.value == "motor"
     assert final.pago.origen.value == "motor"
     assert adaptador_desembolso.desembolsos == [(final.pago.clave_idempotencia, Decimal("420000"))]
+    assert s.moneda == "COP"
+
+
+async def test_motor_expresa_la_reserva_en_la_moneda_de_la_poliza(uow, evidencias, adaptador_desembolso):
+    detalle, _ = await registrar(uow, evidencias, moneda="PEN")
+
+    await avisos.evaluar_pendientes(uow, adaptador_desembolso)
+
+    final = await avisos.consultar_detalle(uow, detalle.siniestro.id)
+    s = final.siniestro
+    assert s.moneda == "PEN"
+    assert s.reserva == Decimal("381.82")
+    assert s.umbral_automatico == Decimal("454.55")
+    assert s.estado is EstadoSiniestro.PAGADO
+    assert adaptador_desembolso.desembolsos == [(final.pago.clave_idempotencia, Decimal("381.82"))]
 
 
 async def test_motor_retiene_monto_alto_en_la_cola(uow, evidencias, adaptador_desembolso):

@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
+import { LocaleService } from '../../core/i18n/locale.service';
 import { DatosRiesgo } from './ramos';
 
 /** A Solventa-own profile factor that explains the price (HU-55), never the provider's raw data. */
@@ -119,6 +120,7 @@ export function rechazoDe(error: unknown): RechazoCotizacion | null {
 export class CotizacionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly locale = inject(LocaleService);
 
   /** Coverages and valid ranges of a line, so the form blocks the CTA before quoting. */
   catalog(canal: Canal, ramo: string): Observable<Catalogo> {
@@ -130,14 +132,23 @@ export class CotizacionGateway {
   /** Customer quote of the chosen line. */
   quote(ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, { ramo, datosRiesgo })
+      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, {
+        ramo,
+        datosRiesgo,
+        moneda: this.locale.monedaInicio(),
+      })
       .pipe(map(toOferta));
   }
 
   /** Assisted sale: the advisor quotes on behalf of the customer they serve. */
   quoteFor(clienteId: string, ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, { clienteId, ramo, datosRiesgo })
+      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, {
+        clienteId,
+        ramo,
+        datosRiesgo,
+        moneda: this.locale.monedaInicio(),
+      })
       .pipe(map(toOferta));
   }
 
