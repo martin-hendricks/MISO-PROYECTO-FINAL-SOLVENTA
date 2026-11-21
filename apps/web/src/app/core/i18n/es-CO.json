@@ -246,7 +246,7 @@
     "customer": {
       "claim": "Tu seguro, en un solo lugar.",
       "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Tus pólizas, tus avisos y tus pagos automáticos en un solo lugar.",
-      "hint": "Correo y contraseña. Sin KYC ni biometría en web."
+      "hint": "Correo y contraseña."
     },
     "backoffice": {
       "claim": "Portal de asesor y operador.",
