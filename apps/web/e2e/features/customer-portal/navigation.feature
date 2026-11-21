@@ -36,3 +36,4 @@ Feature: Customer portal navigation
     Given the customer accepted a valid offer
     When the customer is on Emitiendo or Póliza emitida
     Then the customer cannot change destination
+    And the current page has no accessibility violations

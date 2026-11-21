@@ -13,3 +13,4 @@ Feature: Customer home
     Given a valid offer on Inicio
     Then "Nueva cotización" stays in the page head
     And accepting starts the issuance, not a recalculation
+    And the current page has no accessibility violations

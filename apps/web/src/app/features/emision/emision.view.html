@@ -1,10 +1,11 @@
 <header class="top-nav">
   <p class="brand" data-testid="portal-title">{{ 'shell.portal' | translate }}</p>
 </header>
+<main>
 <section data-testid="emision" [attr.data-state]="valid ? vm.status() : 'invalid'">
   @if (!valid) {
     <div class="empty-state" role="alert" data-testid="emision-invalid">
-      <h2>{{ 'emision.invalid.title' | translate }}</h2>
+      <h1>{{ 'emision.invalid.title' | translate }}</h1>
       <p>{{ 'emision.invalid.body' | translate }}</p>
       <a class="outlined" routerLink="/">{{ 'emision.irInicio' | translate }}</a>
     </div>
@@ -56,6 +57,7 @@
       }
       @case ('expired') {
         <div class="empty-state" role="alert" data-testid="emision-expired">
+          <h1>{{ 'emision.expired.title' | translate }}</h1>
           <p>{{ 'emision.expired.body' | translate }}</p>
           <a class="filled" routerLink="/cotizacion" data-testid="emision-new-quote">{{
             'emision.expired.action' | translate
@@ -64,6 +66,7 @@
       }
       @case ('revoked') {
         <div class="empty-state" role="alert" data-testid="emision-revoked">
+          <h1>{{ 'emision.revoked.title' | translate }}</h1>
           <p>{{ 'emision.revoked.body' | translate }}</p>
           <a class="filled" routerLink="/cotizacion" data-testid="emision-revoked-new-quote">{{
             'emision.revoked.action' | translate
@@ -72,6 +75,7 @@
       }
       @case ('error') {
         <div class="empty-state" role="alert" data-testid="emision-error">
+          <h1>{{ 'emision.error.title' | translate }}</h1>
           <p>{{ 'emision.error.body' | translate }}</p>
           <button type="button" class="outlined" data-testid="emision-retry" (click)="vm.issue()">
             {{ 'emision.error.retry' | translate }}
@@ -95,3 +99,4 @@
     }
   }
 </section>
+</main>
