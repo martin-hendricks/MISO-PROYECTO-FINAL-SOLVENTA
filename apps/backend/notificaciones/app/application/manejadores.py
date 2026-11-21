@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 TIPOS_SOPORTADOS = frozenset(
     {"PolizaEmitida", "PolizaRenovada", "PolizaModificada", "PolizaCancelada"}
 )
+CANAL_SOCIO = "socio"
 
 
 @dataclass(frozen=True)
@@ -38,11 +39,26 @@ def _sujeto(payload: dict) -> str:
     return f"La póliza {numero}" if numero else "Tu póliza"
 
 
+def _aviso_consentimiento(payload: dict) -> ContenidoNotificacion | None:
+    if _texto(payload, "canal") != CANAL_SOCIO or payload.get("consentimiento_pendiente") is not True:
+        return None
+    if not _texto(payload, "usuario_id"):
+        return None
+    return ContenidoNotificacion(
+        tipo="consentimiento_pendiente",
+        titulo="Autoriza el uso de tus datos",
+        cuerpo="Un aliado de Solventa te cotizó un seguro. Autoriza el uso de tus datos para poder aceptarlo.",
+        destino="consentimiento",
+    )
+
+
 def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
     """Traduce un evento de dominio al texto de la notificación (canal `es-CO`).
 
     Devuelve `None` para tipos no soportados o eventos sin `payload.usuario_id`.
     """
+    if evento.tipo == "SolicitudCotizacionRecibida":
+        return _aviso_consentimiento(evento.payload)
     if evento.tipo not in TIPOS_SOPORTADOS:
         return None
     if not _texto(evento.payload, "usuario_id"):

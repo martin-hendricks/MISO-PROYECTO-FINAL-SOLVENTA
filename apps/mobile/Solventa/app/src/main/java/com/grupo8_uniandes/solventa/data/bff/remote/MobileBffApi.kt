@@ -137,6 +137,9 @@ interface MobileBffApi {
     @DELETE("cliente/consentimiento-perfil")
     suspend fun revokeProfilingConsent(): ProfilingConsentDto
 
+    @POST("cliente/consentimiento-perfil")
+    suspend fun grantProfilingConsent(): ProfilingConsentDto
+
     @GET("cliente/avisos")
     suspend fun notices(): NoticesDto
 

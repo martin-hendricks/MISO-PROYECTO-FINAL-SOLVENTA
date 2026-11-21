@@ -440,6 +440,9 @@ class RemoteProfilingConsentRepository(
 
     override suspend fun revoke(): StandInAnswer<ProfilingConsent> =
         gate.call { api.revokeProfilingConsent().toProfilingConsent() }
+
+    override suspend fun grant(): StandInAnswer<ProfilingConsent> =
+        gate.call { api.grantProfilingConsent().toProfilingConsent() }
 }
 
 class RemoteNoticeRepository(

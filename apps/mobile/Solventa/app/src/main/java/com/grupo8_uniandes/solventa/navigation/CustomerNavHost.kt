@@ -114,6 +114,13 @@ fun CustomerNavHost(
         val target = pushTarget ?: return@LaunchedEffect
         when (target) {
             is PushTarget.PolizaDetalle -> navController.navigate(PolizaDetalleRoute(target.numero))
+            PushTarget.Consentimiento -> navController.navigate(PerfilRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
             PushTarget.Inicio -> navController.navigate(InicioRoute) {
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true

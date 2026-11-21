@@ -50,6 +50,15 @@ class PushNavigationTest {
     }
 
     @Test
+    fun givenASignedInShell_whenTheTargetIsTheConsent_thenTheProfileOpens() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, PushTarget.Consentimiento)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+        assertEquals(PerfilRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+    }
+
+    @Test
     fun givenATargetWhileSignedOut_whenSignInSucceeds_thenThePolicyOpens() {
         var signedIn by mutableStateOf(false)
         rule.setContent {
