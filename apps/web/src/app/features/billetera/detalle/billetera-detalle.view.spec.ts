@@ -72,6 +72,7 @@ describe('BilleteraDetalleView', () => {
     http.expectOne('/web/cliente/billetera/ausente').flush({}, { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
     expect(element('billetera-detalle-ausente')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('h1')).not.toBeNull();
   });
 
   it('retries after a failure', () => {
@@ -80,6 +81,7 @@ describe('BilleteraDetalleView', () => {
     fixture.detectChanges();
     const retry = (fixture.nativeElement as HTMLElement).querySelector('button');
     expect(element('billetera-detalle-error')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('h1')).not.toBeNull();
     retry?.click();
     http.expectOne(`/web/cliente/billetera/${ASISTIDO.id}`).flush({ ...ASISTIDO, resumen: '' });
     fixture.detectChanges();

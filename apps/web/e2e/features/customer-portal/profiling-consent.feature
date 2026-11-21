@@ -7,6 +7,7 @@ Feature: Profiling consent managed from Perfil
     When the customer revokes the profiling consent from Perfil
     Then the revocation reaches the BFF once
     And Perfil shows the profiling consent as revoked
+    And the current page has no accessibility violations
 
   Scenario: Cancelling keeps the profiling consent in force
     Given the customer is signed in

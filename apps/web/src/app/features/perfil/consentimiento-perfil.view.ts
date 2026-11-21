@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { capturarFocoActivo, restaurarFoco } from '../../core/a11y/focus-restore';
 import { DateTimePipe } from '../../core/i18n/format';
 import { ConfirmDialog } from '../backoffice/confirm-dialog/confirm-dialog';
 import { ConsentimientoPerfilGateway } from './consentimiento-perfil.gateway';
@@ -19,7 +20,19 @@ export class ConsentimientoPerfilView {
     () => this.gateway.revoke(),
   );
 
+  private focoPrevio: HTMLElement | null = null;
+
   constructor() {
     this.vm.load();
+  }
+
+  protected abrir(): void {
+    this.focoPrevio = capturarFocoActivo();
+    this.vm.abrir();
+  }
+
+  protected cancelar(): void {
+    this.vm.cerrar();
+    restaurarFoco(this.focoPrevio);
   }
 }

@@ -12,7 +12,8 @@
       "close": "Cerrar menú",
       "billetera": "Billetera"
     },
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "skip": "Saltar al contenido"
   },
   "idiomaRegion": {
     "title": "Idioma y región",
@@ -537,7 +538,8 @@
       },
       "page": {
         "prev": "Anterior",
-        "next": "Siguiente"
+        "next": "Siguiente",
+        "label": "Paginación"
       },
       "cotizar": "Cotizar",
       "estado": {
@@ -568,7 +570,10 @@
       "historial": "Historial",
       "error": "No pudimos cargar las notificaciones.",
       "retry": "Reintentar",
-      "sendError": "No pudimos enviar el aviso."
+      "sendError": "No pudimos enviar el aviso.",
+      "enviadas": "Enviadas",
+      "fallidas": "Fallidas",
+      "sinDispositivo": "Sin dispositivo"
     },
     "cotizacion": {
       "title": "Nueva cotización",
