@@ -65,6 +65,7 @@ const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
 const CLIENTES = '**/web/operador/clientes**';
 const NOTIFICACIONES = '**/web/operador/notificaciones/**';
+const SOCIOS = '**/web/backoffice/socios**';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
 const BILLETERA = '**/web/cliente/billetera';
@@ -276,6 +277,57 @@ export class BffDoubles {
     await this.replaceClients((route) =>
       route.fulfill({ status: 503, json: { detail: 'Servicio no disponible' } }),
     );
+  }
+
+  async servePartners(nombres: string[], apiKey: string): Promise<void> {
+    const socios = nombres.map((nombre, indice) => ({
+      socioId: `5ec10000-0000-4000-8000-00000000000${indice}`,
+      nombre,
+      alcances: ['catalogo:leer'],
+      estado: 'activo',
+      creadoEn: '2026-11-19T10:00:00Z',
+      credenciales: [
+        {
+          credencialId: `c4ed0000-0000-4000-8000-00000000000${indice}`,
+          creadaEn: '2026-11-19T10:00:00Z',
+          revocadaEn: null,
+        },
+      ],
+    }));
+    await this.page.unroute(SOCIOS);
+    await this.page.route(SOCIOS, (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.fulfill({ json: { socios } });
+      }
+      const body = route.request().postDataJSON() as { nombre: string; alcances: string[] };
+      const socio = {
+        socioId: `5ec10000-0000-4000-8000-0000000000${socios.length + 10}`,
+        nombre: body.nombre,
+        alcances: body.alcances,
+        estado: 'activo',
+        creadoEn: '2026-11-20T12:00:00Z',
+        credenciales: [
+          {
+            credencialId: `c4ed0000-0000-4000-8000-0000000000${socios.length + 10}`,
+            creadaEn: '2026-11-20T12:00:00Z',
+            revocadaEn: null,
+          },
+        ],
+      };
+      socios.push(socio);
+      return route.fulfill({
+        status: 201,
+        json: {
+          socioId: socio.socioId,
+          nombre: socio.nombre,
+          alcances: socio.alcances,
+          estado: socio.estado,
+          creadoEn: socio.creadoEn,
+          credencialId: socio.credenciales[0].credencialId,
+          apiKey,
+        },
+      });
+    });
   }
 
   async failWallet(): Promise<void> {

@@ -58,6 +58,7 @@ describe('BackofficeLayout', () => {
     expect(element('backoffice-tag')?.textContent).toContain('Back-office');
     expect(links).toEqual([
       'Clientes',
+      'Socios',
       'Cotizaciones',
       'Pólizas',
       'Avisos',

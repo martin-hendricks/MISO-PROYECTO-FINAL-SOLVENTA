@@ -2,6 +2,7 @@ import { Role } from '../../core/session/session.service';
 
 export type Section =
   | 'clientes'
+  | 'socios'
   | 'cotizaciones'
   | 'polizas'
   | 'avisos'
@@ -12,6 +13,7 @@ export type Section =
 
 export const SECTIONS: readonly Section[] = [
   'clientes',
+  'socios',
   'cotizaciones',
   'polizas',
   'avisos',
@@ -23,6 +25,7 @@ export const SECTIONS: readonly Section[] = [
 
 const ALLOWED_ROLES: Record<Section, readonly Role[]> = {
   clientes: ['asesor', 'operador'],
+  socios: ['asesor', 'operador'],
   cotizaciones: ['asesor'],
   // HU-59/61: renovar y cancelar son exclusivas del operador.
   polizas: ['operador'],
