@@ -78,6 +78,32 @@ configurations.configureEach {
     }
 }
 
+// Tests must not download these jars themselves. Maven Central answers 429 when
+// every Robolectric class fetches android-all-instrumented during the run.
+// The suite uses SDK 35 (default), 33, and 28.
+val robolectricSdkDir = layout.buildDirectory.dir("robolectric-deps")
+val robolectricSdkJars = listOf(
+    libs.robolectric.instrumented.sdk35,
+    libs.robolectric.instrumented.sdk33,
+    libs.robolectric.instrumented.sdk28,
+).mapIndexed { index, dependency ->
+    // One configuration per jar: Gradle keeps a single version of a module.
+    val sdk = configurations.resolvable("robolectricSdk$index") {
+        isTransitive = false
+    }
+    dependencies.add(sdk.name, dependency)
+    sdk
+}
+val installRobolectricSdk = tasks.register<Sync>("installRobolectricSdk") {
+    robolectricSdkJars.forEach { from(it) }
+    into(robolectricSdkDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(installRobolectricSdk)
+    systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

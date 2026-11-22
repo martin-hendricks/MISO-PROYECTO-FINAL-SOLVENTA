@@ -82,7 +82,7 @@
     <string name="issuing_title">Emitiendo tu póliza · paso 3 de 4</string>
     <string name="issuing_body">Paso 3 de 4: cobramos la prima y firmamos. Al terminar, tu póliza vive en Pólizas.</string>
     <string name="issuing_status">Procesando</string>
-    <string name="issued_title">Póliza emitida · Protección de dispositivo</string>
+    <string name="issued_title">Póliza emitida · %1$s</string>
     <string name="issued_body">Resumen de la prima aprobada. La póliza ya está emitida.</string>
     <string name="issued_status">Exitosa</string>
     <string name="quote_title">Cotización</string>

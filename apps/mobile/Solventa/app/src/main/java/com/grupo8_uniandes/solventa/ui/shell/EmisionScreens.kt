@@ -64,6 +64,7 @@ fun EmisionEnCursoScreen(
 @Composable
 fun PolizaEmitidaScreen(
     policyId: String,
+    ramo: String,
     onGoHome: () -> Unit,
     onGoPolicy: () -> Unit,
     renewalChecked: Boolean = false,
@@ -81,7 +82,7 @@ fun PolizaEmitidaScreen(
     ) {
         SolventaStatusMark(status = SolventaStatus.Success)
         Text(
-            text = stringResource(R.string.issued_title),
+            text = stringResource(R.string.issued_title, ramo),
             fontFamily = HankenGrotesk,
             fontWeight = FontWeight.SemiBold,
             fontSize = 24.sp,

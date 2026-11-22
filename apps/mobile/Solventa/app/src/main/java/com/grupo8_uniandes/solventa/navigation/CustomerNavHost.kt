@@ -585,7 +585,9 @@ fun CustomerNavHost(
             val issuance by viewModel.state.collectAsState()
             LaunchedEffect(issuance) {
                 when (val step = issuance) {
-                    is IssuanceUi.Issued -> navController.navigate(PolizaEmitidaRoute(step.numero)) {
+                    is IssuanceUi.Issued -> navController.navigate(
+                        PolizaEmitidaRoute(numero = step.numero, ramo = step.ramo),
+                    ) {
                         popUpTo<EmisionEnCursoRoute> { inclusive = true }
                     }
                     is IssuanceUi.Refused -> navController.navigate(SuscripcionRechazadaRoute) {
@@ -617,6 +619,7 @@ fun CustomerNavHost(
             val renewalState by renewal.state.collectAsState()
             PolizaEmitidaScreen(
                 policyId = route.numero,
+                ramo = route.ramo,
                 renewalChecked = renewalState.checked,
                 renewalMissing = renewalState.missing,
                 onRenewal = renewal::onChecked,

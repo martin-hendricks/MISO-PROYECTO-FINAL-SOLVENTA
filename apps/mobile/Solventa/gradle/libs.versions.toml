@@ -4,6 +4,10 @@ coreKtx = "1.10.1"
 jacoco = "0.8.15"
 junit = "4.13.2"
 robolectric = "4.15.1"
+# Preinstrumented jars for Robolectric 4.15.1. The suite uses SDK 35, 33, and 28.
+robolectricInstrumentedSdk35 = "15-robolectric-12650502-i7"
+robolectricInstrumentedSdk33 = "13-robolectric-9030017-i7"
+robolectricInstrumentedSdk28 = "9-robolectric-4913185-2-i7"
 junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 lifecycleRuntimeKtx = "2.6.1"
@@ -31,6 +35,9 @@ mapsComposeUtils = "6.4.1"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+robolectric-instrumented-sdk35 = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricInstrumentedSdk35" }
+robolectric-instrumented-sdk33 = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricInstrumentedSdk33" }
+robolectric-instrumented-sdk28 = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricInstrumentedSdk28" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
