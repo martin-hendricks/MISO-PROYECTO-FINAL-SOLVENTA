@@ -41,10 +41,38 @@ class BilleteraViewModelTest {
         val repo = Scripted(StandInAnswer.Ready(two()))
         val viewModel = BilleteraViewModel(ListDeposits(repo, InMemoryDepositStore()) { "t" }, FakeNetworkMonitor(true))
         assertEquals(1, viewModel.reads)
-        assertEquals(2, viewModel.state.value.visible.size)
-        viewModel.select(DepositType.Automatic)
+        assertEquals(2, viewModel.state.value.visible("COP").size)
+        viewModel.select(WalletFilter.Automatic)
         assertEquals(1, viewModel.reads)
-        assertEquals(listOf(DepositType.Automatic), viewModel.state.value.visible.map { it.tipo })
+        assertEquals(listOf(DepositType.Automatic), viewModel.state.value.visible("COP").map { it.tipo })
+    }
+
+    @Test
+    fun regionTotalsMatchingDepositsAndHidesTheRest() {
+        val cop = row("a", DepositType.Assisted, "CMP-1", "2026-07-11T15:20:00Z")
+        val soles = row("b", DepositType.Automatic, "CMP-2", "2026-07-02T09:05:00Z")
+            .copy(moneda = "PEN", monto = BigDecimal("381.82"))
+        val blank = row("c", DepositType.Assisted, "CMP-3", "2026-07-01T00:00:00Z").copy(moneda = "  ")
+        val repo = Scripted(StandInAnswer.Ready(Wallet("", null, listOf(cop, soles, blank))))
+        val viewModel = BilleteraViewModel(ListDeposits(repo, InMemoryDepositStore()) { "t" }, FakeNetworkMonitor(true))
+
+        assertEquals(listOf("b"), viewModel.state.value.visible("PEN").map { it.id })
+        assertEquals(0, BigDecimal("381.82").compareTo(viewModel.state.value.regionTotal("PEN")))
+
+        assertEquals(listOf("a", "c"), viewModel.state.value.visible("COP").map { it.id })
+        assertEquals(0, BigDecimal("2").compareTo(viewModel.state.value.regionTotal("COP")))
+
+        viewModel.select(WalletFilter.OtherCurrencies)
+        assertEquals(listOf("a", "c"), viewModel.state.value.visible("PEN").map { it.id })
+        assertNull(viewModel.state.value.regionTotal("PEN"))
+
+        viewModel.select(WalletFilter.Automatic)
+        assertEquals(listOf("b"), viewModel.state.value.visible("PEN").map { it.id })
+        assertTrue(viewModel.state.value.visible("COP").isEmpty())
+        assertNull(viewModel.state.value.regionTotal("COP"))
+
+        viewModel.select(WalletFilter.Assisted)
+        assertEquals(listOf("a", "c"), viewModel.state.value.visible("COP").map { it.id })
     }
 
     @Test

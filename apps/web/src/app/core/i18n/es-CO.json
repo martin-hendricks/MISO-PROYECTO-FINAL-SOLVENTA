@@ -1137,6 +1137,13 @@
       "asistido": "Asistido",
       "pago_automatico": "Pago automático"
     },
+    "chip": {
+      "grupo": "Filtrar depósitos",
+      "todos": "Todos",
+      "asistido": "Asistido",
+      "otras": "Otras monedas",
+      "pago_automatico": "Pago automático"
+    },
     "empty": "Cuando Solventa pague un siniestro, el depósito aparece aquí.",
     "verSiniestros": "Ver siniestros",
     "error": "No pudimos cargar tu billetera.",
