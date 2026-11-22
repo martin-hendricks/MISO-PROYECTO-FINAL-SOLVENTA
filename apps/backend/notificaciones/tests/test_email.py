@@ -164,6 +164,22 @@ async def test_ses_arma_la_peticion_y_devuelve_el_message_id():
     assert cliente.kwargs["Destination"] == {"ToAddresses": ["ana@solventa.co"]}
     assert cliente.kwargs["Content"]["Simple"]["Subject"]["Data"] == "Asunto"
     assert cliente.kwargs["ConfigurationSetName"] == "conf"
+    assert "Html" not in cliente.kwargs["Content"]["Simple"]["Body"]
+
+
+async def test_ses_incluye_el_html_cuando_se_provee():
+    class Cliente:
+        def send_email(self, **kwargs):
+            self.kwargs = kwargs
+            return {"MessageId": "ses-1"}
+
+    cliente = Cliente()
+    ses = EnviadorSES("us-east-1", "no-reply@solventa.co")
+    ses._cliente = cliente
+
+    await ses.enviar("ana@solventa.co", "Asunto", "Cuerpo", "<p>Cuerpo</p>")
+
+    assert cliente.kwargs["Content"]["Simple"]["Body"]["Html"]["Data"] == "<p>Cuerpo</p>"
 
 
 async def test_ses_traduce_los_errores_del_proveedor():

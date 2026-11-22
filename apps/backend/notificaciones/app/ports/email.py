@@ -5,8 +5,12 @@ from uuid import UUID
 
 
 class EnviadorEmail(Protocol):
-    async def enviar(self, destinatario: str, asunto: str, cuerpo: str) -> str:
-        """Envía un correo de texto plano y devuelve el id del proveedor."""
+    async def enviar(
+        self, destinatario: str, asunto: str, cuerpo: str, cuerpo_html: str | None = None
+    ) -> str:
+        """Envía el correo y devuelve el id del proveedor. `cuerpo` es el texto plano;
+        `cuerpo_html`, si se da, viaja como alternativa multipart para los clientes
+        que renderizan HTML."""
         ...
 
 

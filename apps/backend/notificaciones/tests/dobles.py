@@ -200,11 +200,15 @@ class EmailDoble:
     def __init__(self, fallar: bool = False) -> None:
         self.fallar = fallar
         self.enviados: list[tuple[str, str, str]] = []
+        self.enviados_html: list[str | None] = []
 
-    async def enviar(self, destinatario: str, asunto: str, cuerpo: str) -> str:
+    async def enviar(
+        self, destinatario: str, asunto: str, cuerpo: str, cuerpo_html: str | None = None
+    ) -> str:
         if self.fallar:
             raise ServicioExternoNoDisponible("email doble no disponible")
         self.enviados.append((destinatario, asunto, cuerpo))
+        self.enviados_html.append(cuerpo_html)
         return f"email-doble-{len(self.enviados)}"
 
 
