@@ -12,7 +12,7 @@ async function signInCustomer(world: PortalWorld): Promise<void> {
 }
 
 async function signInAdvisor(world: PortalWorld): Promise<void> {
-  world.clientes = clients(5);
+  world.clientes = [...clients(4), { clienteId: 'CLI-ANDRES', nombre: 'Andrés Gómez', documento: '1020334556', canal: 'web' as const, estado: 'activo' as const, consentimiento: 'habeas_data' as const }];
   await world.bff.serveClients(world.clientes);
   await world.bff.acceptSignIn(world.account.email, 'asesor');
   await world.login.open('backoffice');
@@ -140,7 +140,7 @@ When('the asesor sends the product and the minimum risk data', async function (t
 Then('the asesor gets a quote id and sees the firm offer', async function (this: PortalWorld) {
   await this.cotizacion.expectOffer(this.offer);
   await this.cotizacion.expectOfferId(this.offer.cotizacionId);
-  assert.equal(this.bff.quoteBody()?.['clienteId'], '1020334556');
+  assert.equal(this.bff.quoteBody()?.['clienteId'], 'CLI-ANDRES');
 });
 
 // The advisor keeps the offer in the panel by its id; the core calculated it once.

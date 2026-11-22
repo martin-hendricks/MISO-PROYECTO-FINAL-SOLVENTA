@@ -67,7 +67,7 @@ Then('Perfil does not start this flow', async function (this: PortalWorld) {
 
 Given('a profile built by Solventa', async function (this: PortalWorld) {
   this.offer = mortgageOffer();
-  this.clientes = clients(5);
+  this.clientes = [...clients(4), { clienteId: 'CLI-RICARDO', nombre: 'Ricardo Salas', documento: '80112334', canal: 'web' as const, estado: 'activo' as const, consentimiento: 'habeas_data' as const }];
   await this.bff.serveCatalogs('asesor', CATALOGS);
   await this.bff.serveMortgageOffer('asesor', this.offer as MortgageOffer);
   await this.bff.serveClients(this.clientes);
@@ -93,7 +93,7 @@ Then(
     const factores = await this.page.getByTestId('oferta-factores').textContent();
     assert.ok(factores?.includes('Zona de riesgo'), 'factors should show Zona de riesgo');
     assert.equal(new URL(this.page.url()).pathname, '/cms/cotizaciones/nueva');
-    assert.equal(this.bff.mortgageBody()?.['clienteId'], '80112334');
+    assert.equal(this.bff.mortgageBody()?.['clienteId'], 'CLI-RICARDO');
   },
 );
 
