@@ -505,7 +505,7 @@ private fun routeTitle(route: Any): String = when (route) {
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
-    is PolizaEmitidaRoute -> stringResource(R.string.issued_title)
+    is PolizaEmitidaRoute -> stringResource(R.string.issued_title, route.ramo)
     SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
     SiniestrosRoute, MapaPrestadoresRoute, is MapaPrestadoresSiniestroRoute -> stringResource(R.string.destination_siniestros)

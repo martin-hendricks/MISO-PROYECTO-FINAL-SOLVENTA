@@ -108,7 +108,8 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("action_accept_mortgage").performClick()
         rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
-        assertTrue(holder[0]!!.currentBackStackEntry!!.toSolventaRoute() is PolizaEmitidaRoute)
+        val issued = holder[0]!!.currentBackStackEntry!!.toSolventaRoute() as PolizaEmitidaRoute
+        rule.onNodeWithText("Póliza emitida · ${issued.ramo}").assertIsDisplayed()
     }
 
     @Test
@@ -138,6 +139,8 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("action_accept_offer").performClick()
         rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        val issued = nav.currentBackStackEntry!!.toSolventaRoute() as PolizaEmitidaRoute
+        rule.onNodeWithText("Póliza emitida · ${issued.ramo}").assertIsDisplayed()
         rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()

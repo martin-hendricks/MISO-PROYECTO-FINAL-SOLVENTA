@@ -72,7 +72,7 @@
     <string name="field_helper_error">Revisa este dato</string>
     <string name="issuing_title">Emitiendo tu póliza · paso 3 de 4</string>
     <string name="issuing_status">Procesando</string>
-    <string name="issued_title">Póliza emitida · Protección de dispositivo</string>
+    <string name="issued_title">Póliza emitida · %1$s</string>
     <string name="issued_status">Exitosa</string>
     <string name="quote_title">Cotización</string>
     <string name="offer_title">Revisa el precio · paso 2 de 4</string>

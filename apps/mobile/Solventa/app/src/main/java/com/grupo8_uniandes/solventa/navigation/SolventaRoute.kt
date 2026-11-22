@@ -73,7 +73,10 @@ data class ConfirmacionTarjetaRoute(
 )
 
 @Serializable
-data class PolizaEmitidaRoute(val numero: String = "POL-88219-CO")
+data class PolizaEmitidaRoute(
+    val numero: String = "POL-88219-CO",
+    val ramo: String = "Protección de dispositivo",
+)
 
 @Serializable
 data object SuscripcionRechazadaRoute
