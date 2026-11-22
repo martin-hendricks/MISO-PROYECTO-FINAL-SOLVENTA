@@ -128,3 +128,7 @@ variablesEntorno:
     valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
   - nombre: MS_SINIESTROS_URL
     valor: "http://ms-siniestros.solventa.svc.cluster.local:8080"
+  - nombre: MS_CONSENTIMIENTO_URL
+    valor: "http://ms-consentimiento.solventa.svc.cluster.local:8080"
+  - nombre: ANALITICA_URL
+    valor: "http://analitica.solventa.svc.cluster.local:8080"
