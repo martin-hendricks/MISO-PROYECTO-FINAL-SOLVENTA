@@ -15,10 +15,13 @@ import {
 } from '../../cotizacion/cotizacion.testing';
 import { RAMOS } from '../../cotizacion/ramos';
 import { sessionAs } from '../backoffice.testing';
+import { CLIENTES } from '../clientes/clientes.testing';
 import { AsesorCotizacionView } from './asesor-cotizacion.view';
 
 describe('AsesorCotizacionView', () => {
   const URL = '/web/asesor/cotizaciones';
+  const CLIENTES_URL = '/web/operador/clientes';
+  const ANDRES = CLIENTES[0];
   const DISPOSITIVO_URL = '/web/asesor/catalogo/Protecci%C3%B3n%20de%20dispositivo';
   const VIGENTE = { ...OFERTA_DESGLOSE_WIRE, venceEn: '2999-01-01T00:00:00Z' };
 
@@ -59,9 +62,17 @@ describe('AsesorCotizacionView', () => {
       select.dispatchEvent(new Event('change'));
       fixture.detectChanges();
     };
+    const buscar = (texto: string, clientes = [ANDRES]) => {
+      type('cliente-busqueda', texto);
+      const request = http.expectOne((req) => req.url === CLIENTES_URL);
+      request.flush({ clientes, pagina: 1, hayMas: false });
+      fixture.detectChanges();
+      return request.request;
+    };
     const cliente = () => {
-      type('cliente-nombre', 'Andrés Gómez');
-      type('cliente-documento', '1020334556');
+      buscar('Andrés');
+      element(`cliente-opcion-${ANDRES.documento}`)!.click();
+      fixture.detectChanges();
     };
     const fill = () => {
       cliente();
@@ -75,7 +86,7 @@ describe('AsesorCotizacionView', () => {
       element('calcular')!.closest('form')!.dispatchEvent(new Event('submit'));
       fixture.detectChanges();
     };
-    return { fixture, http, element, type, choose, cliente, fill, calcular };
+    return { fixture, http, element, type, choose, buscar, cliente, fill, calcular };
   }
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
@@ -83,7 +94,7 @@ describe('AsesorCotizacionView', () => {
   it('groups customer and risk data, with the line picker and no plate for devices', () => {
     const { element } = render();
 
-    expect(element('cliente-nombre')).not.toBeNull();
+    expect(element('cliente-busqueda')).not.toBeNull();
     expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
     expect(element('riesgo-placa')).toBeNull();
     expect(element('sin-oferta')).not.toBeNull();
@@ -115,7 +126,7 @@ describe('AsesorCotizacionView', () => {
     expect(element('oferta-calculando')).not.toBeNull();
     const request = http.expectOne(URL);
     expect(request.request.body).toEqual({
-      clienteId: '1020334556',
+      clienteId: ANDRES.usuarioId,
       ramo: 'Protección de dispositivo',
       moneda: 'COP',
       datosRiesgo: {
@@ -134,7 +145,7 @@ describe('AsesorCotizacionView', () => {
     expect(element('oferta-expedicion')?.textContent).toContain('8.500');
     expect(element('oferta-id')?.textContent).toContain('COT-4471');
     expect(element('continuar-emision')?.getAttribute('href')).toBe(
-      '/cms/cotizaciones/COT-4471/emision?cliente=1020334556',
+      `/cms/cotizaciones/COT-4471/emision?cliente=${ANDRES.usuarioId}`,
     );
   });
 
@@ -145,7 +156,7 @@ describe('AsesorCotizacionView', () => {
     choose('cotizacion-ramo', 'soat');
     http.expectOne('/web/asesor/catalogo/SOAT%20motocicleta').flush(CATALOGO_SOAT_WIRE);
     fixture.detectChanges();
-    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
+    expect(element('cliente-nombre')?.textContent).toContain('Andrés Gómez');
     type('riesgo-placa', 'AB1');
     element('riesgo-placa')!.dispatchEvent(new Event('blur'));
     fixture.detectChanges();
@@ -172,8 +183,9 @@ describe('AsesorCotizacionView', () => {
       documento: '1020334556',
     });
 
-    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
-    expect(element<HTMLInputElement>('cliente-documento')!.value).toBe('1020334556');
+    expect(element('cliente-nombre')?.textContent).toContain('Andrés Gómez');
+    expect(element('cliente-documento')?.textContent).toContain('1020334556');
+    expect(element('cliente-busqueda')).toBeNull();
     type('riesgo-valorDispositivo', '2400000');
     choose('riesgo-marca', 'apple');
     type('riesgo-modelo', 'iPhone 15');
@@ -190,29 +202,43 @@ describe('AsesorCotizacionView', () => {
     );
   });
 
-  it('falls back to the document once the advisor edits a prefilled client', () => {
-    const { fixture, http, element, type, choose, calcular } = render('asesor', {
-      cliente: 'CLI-18',
-      nombre: 'Andrés Gómez',
-      documento: '1020334556',
-    });
+  it('searches active customers by name or document and picks one', () => {
+    const { fixture, element, buscar } = render();
 
-    type('cliente-documento', '52448901');
-    type('riesgo-valorDispositivo', '2400000');
-    choose('riesgo-marca', 'apple');
-    type('riesgo-modelo', 'iPhone 15');
-    element('riesgo-masDe12Meses-no')!.dispatchEvent(new Event('change'));
+    const request = buscar('1020', CLIENTES.slice(0, 2));
+
+    expect(request.params.get('q')).toBe('1020');
+    expect(request.params.get('estado')).toBe('ACTIVO');
+    expect(element('cliente-resultados')?.textContent).toContain('Laura Peña');
+    element(`cliente-opcion-${ANDRES.documento}`)!.click();
     fixture.detectChanges();
-    calcular();
 
-    expect(http.expectOne(URL).request.body.clienteId).toBe('52448901');
+    expect(element('cliente-resultados')).toBeNull();
+    expect(element('cliente-nombre')?.textContent).toContain('Andrés Gómez');
+    expect(element('cliente-documento')?.textContent).toContain('1020334556');
+  });
+
+  it('drops the picked customer and the offer when the advisor changes the customer', () => {
+    const { fixture, http, element, fill, calcular } = render();
+    fill();
+    calcular();
+    http.expectOne(URL).flush(VIGENTE);
+    fixture.detectChanges();
+
+    element('cliente-cambiar')!.click();
+    fixture.detectChanges();
+
+    expect(element('cliente-seleccionado')).toBeNull();
+    expect(element('cliente-busqueda')).not.toBeNull();
+    expect(element('sin-oferta')).not.toBeNull();
+    expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
   });
 
   it('prefills only the id when Clientes sends no name or document', () => {
     const { element } = render('asesor', { cliente: 'CLI-18' });
 
-    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('');
-    expect(element<HTMLInputElement>('cliente-documento')!.value).toBe('');
+    expect(element('cliente-nombre')?.textContent?.trim()).toBe('');
+    expect(element('cliente-documento')?.textContent?.trim()).toBe('');
   });
 
   it('omits the breakdown when bff-web does not send it', () => {
@@ -254,19 +280,45 @@ describe('AsesorCotizacionView', () => {
     );
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
     expect(element('sin-oferta')).not.toBeNull();
-    expect(element<HTMLInputElement>('cliente-nombre')!.value).toBe('Andrés Gómez');
+    expect(element('cliente-nombre')?.textContent).toContain('Andrés Gómez');
   });
 
-  it('validates customer data before quoting', () => {
-    const { fixture, element, type } = render();
-
-    type('cliente-documento', '12ab');
-    element('cliente-nombre')!.dispatchEvent(new Event('blur'));
+  it('does not quote without a picked customer and says when no customer matches', () => {
+    const { fixture, element, type, choose, buscar } = render();
+    type('riesgo-valorDispositivo', '2400000');
+    choose('riesgo-marca', 'samsung');
+    type('riesgo-modelo', 'Galaxy S24');
+    element('riesgo-masDe12Meses-si')!.dispatchEvent(new Event('change'));
     fixture.detectChanges();
 
-    expect(element('cliente-documento-error')?.textContent).toContain('entre 5 y 12');
-    expect(element('cliente-nombre-error')?.textContent).toContain('obligatorio');
     expect(element<HTMLButtonElement>('calcular')!.disabled).toBeTrue();
+    buscar('99999999', []);
+    expect(element('cliente-sin-resultados')?.textContent).toContain('Clientes');
+  });
+
+  it('does not search with fewer than two characters', () => {
+    const { fixture, http, element, type, buscar } = render();
+    buscar('Andrés');
+
+    type('cliente-busqueda', 'A');
+
+    http.expectNone((req) => req.url === CLIENTES_URL);
+    expect(element('cliente-resultados')).toBeNull();
+    expect(element('cliente-sin-resultados')).toBeNull();
+    fixture.detectChanges();
+  });
+
+  it('shows no matches when the customer search fails', () => {
+    const { fixture, http, element, type } = render();
+
+    type('cliente-busqueda', 'Andrés');
+    http
+      .expectOne((req) => req.url === CLIENTES_URL)
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+
+    expect(element('cliente-resultados')).toBeNull();
+    expect(element('cliente-sin-resultados')).not.toBeNull();
   });
 
   it('shows the core rejection and an outage in the offer panel', () => {
@@ -300,7 +352,9 @@ describe('AsesorCotizacionView', () => {
       const view = render();
       view.cliente();
       view.choose('cotizacion-ramo', 'hipotecario');
-      view.http.expectOne('/web/asesor/catalogo/Vida%20hipotecario').flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
+      view.http
+        .expectOne('/web/asesor/catalogo/Vida%20hipotecario')
+        .flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
       view.fixture.detectChanges();
       view.type('riesgo-valor', '180000000');
       view.type('riesgo-plazoMeses', '240');
@@ -331,7 +385,7 @@ describe('AsesorCotizacionView', () => {
       calcular();
       const request = http.expectOne(HIPOTECARIO_URL);
       expect(request.request.body).toEqual({
-        clienteId: '1020334556',
+        clienteId: ANDRES.usuarioId,
         credito: { valor: 180000000, plazoMeses: 240 },
         consentimientoPerfil: true,
         moneda: 'COP',
@@ -344,7 +398,7 @@ describe('AsesorCotizacionView', () => {
       expect(element('oferta-factores')?.textContent).toContain('Reduce la prima');
       expect(element('oferta-degradada')).toBeNull();
       expect(element('continuar-emision')?.getAttribute('href')).toBe(
-        '/cms/cotizaciones/COT-7001/emision?cliente=1020334556',
+        `/cms/cotizaciones/COT-7001/emision?cliente=${ANDRES.usuarioId}`,
       );
     });
 

@@ -58,8 +58,13 @@ export class CotizacionPage {
   }
 
   async fillClient(nombre: string, documento: string): Promise<void> {
-    await this.page.getByTestId('cliente-nombre').fill(nombre);
-    await this.page.getByTestId('cliente-documento').fill(documento);
+    await this.page.getByTestId('cliente-busqueda').fill(documento);
+    await this.page.getByTestId(`cliente-opcion-${documento}`).click();
+    await this.page.getByTestId('cliente-nombre').filter({ hasText: nombre }).waitFor();
+  }
+
+  async text(testId: string): Promise<string> {
+    return (await this.page.getByTestId(testId).textContent())!.trim();
   }
 
   async fillSoat(cilindraje: string): Promise<void> {
