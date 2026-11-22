@@ -402,14 +402,15 @@ async def firmar_y_emitir(
 
     oferta_id = UUID(aceptacion["oferta_id"])
     solicitud_uuid = UUID(aceptacion["cotizacion_id"])
-    contexto = ContextoUsuario(solicitud_id)
+    cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
+    usuario_id = UUID(cotizacion["usuario_id"])
 
     # TODO: `token_medio_pago` es un placeholder -- mismo faltante que en
     # cliente.emitir() (sin pasarela real integrada todavía).
     pago = await cliente_pagos.cobrar_prima(
         solicitud_id=solicitud_uuid,
         oferta_id=oferta_id,
-        usuario_id=contexto.usuario_id,
+        usuario_id=usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
         moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
@@ -426,7 +427,7 @@ async def firmar_y_emitir(
         poliza = await cliente_polizas.emitir(
             solicitud_id=solicitud_uuid,
             oferta_id=oferta_id,
-            usuario_id=contexto.usuario_id,
+            usuario_id=usuario_id,
             token_pago_confirmado=UUID(str(pago["id"])),
             coberturas=cobertura_minima,
         )
@@ -445,7 +446,6 @@ async def firmar_y_emitir(
         }
 
     constancia = await cliente_polizas.consultar_firma(oferta_id)
-    cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
     ramo, descripcion = presentar(cotizacion.get("producto"))
 
     inicio = poliza.get("inicio_vigencia", "")
