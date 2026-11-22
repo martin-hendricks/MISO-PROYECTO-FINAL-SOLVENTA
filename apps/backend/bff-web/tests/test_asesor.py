@@ -10,6 +10,7 @@ PAGO_ID = "33333333-3333-3333-3333-333333333333"
 
 COTIZACION_SALIDA = {
     "cotizacion_id": COTIZACION_ID,
+    "usuario_id": "88888888-8888-4888-8888-888888888888",
     "estado": "oferta_vigente",
     "producto": "proteccion-dispositivo",
     "creada_en": "2026-10-01T00:00:00Z",
@@ -289,6 +290,41 @@ def test_firmar_y_emitir_feliz_encadena_aceptacion_pago_y_poliza(
     assert cuerpo["pasos"][3] == {"paso": "POLIZA", "estado": "COMPLETADO"}
 
 
+def test_firmar_y_emitir_emite_a_nombre_del_cliente_de_la_cotizacion(
+    client, nucleo_cotizacion, nucleo_pagos, nucleo_polizas
+):
+    enviados: dict[str, dict] = {}
+
+    def capturar(clave: str, respuesta: dict):
+        def manejar(peticion: httpx.Request) -> httpx.Response:
+            enviados[clave] = json.loads(peticion.content)
+            return httpx.Response(201, json=respuesta)
+
+        return manejar
+
+    nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
+        201, json=ACEPTACION_SALIDA
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
+    nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = capturar("pago", PAGO_SALIDA)
+    nucleo_polizas.respuestas[("POST", "/v1/polizas")] = capturar("poliza", POLIZA_SALIDA)
+    nucleo_polizas.respuestas[("GET", f"/v1/polizas/firmas/{OFERTA_ID}")] = lambda _: httpx.Response(
+        200, json=FIRMA_SALIDA
+    )
+
+    respuesta = client.post(
+        f"/v1/asesor/emisiones/{COTIZACION_ID}/poliza",
+        headers=_auth(client, "asesor"),
+        json={"monedaInicio": "COP"},
+    )
+
+    assert respuesta.status_code == 200
+    assert enviados["pago"]["usuario_id"] == COTIZACION_SALIDA["usuario_id"]
+    assert enviados["poliza"]["usuario_id"] == COTIZACION_SALIDA["usuario_id"]
+
+
 def test_firmar_y_emitir_reintento_reusa_la_misma_clave_de_aceptacion(client, nucleo_cotizacion):
     headers = _auth(client, "asesor")
     claves: list[str] = []
@@ -341,6 +377,9 @@ def test_firmar_y_emitir_con_firma_fallida_responde_rechazo_con_motivo(
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
         201, json=ACEPTACION_SALIDA
     )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
+    )
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(422, json=FIRMA_FALLIDA)
 
@@ -367,6 +406,9 @@ def test_firmar_y_emitir_propaga_otros_rechazos_del_nucleo(client, nucleo_cotiza
     headers = _auth(client, "asesor")
     nucleo_cotizacion.respuestas[("POST", f"/v1/cotizaciones/{COTIZACION_ID}/aceptacion")] = lambda _: httpx.Response(
         201, json=ACEPTACION_SALIDA
+    )
+    nucleo_cotizacion.respuestas[("GET", f"/v1/cotizaciones/{COTIZACION_ID}")] = lambda _: httpx.Response(
+        200, json=COTIZACION_SALIDA
     )
     nucleo_pagos.respuestas[("POST", "/v1/pagos/primas")] = lambda _: httpx.Response(201, json=PAGO_SALIDA)
     nucleo_polizas.respuestas[("POST", "/v1/polizas")] = lambda _: httpx.Response(

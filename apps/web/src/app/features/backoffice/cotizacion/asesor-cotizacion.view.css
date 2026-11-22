@@ -80,3 +80,41 @@ dd {
   align-items: flex-start;
   font-weight: 400;
 }
+
+.cliente-elegido {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cliente-elegido dl {
+  margin: 0;
+}
+
+.cliente-resultados {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.cliente-resultados button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cliente-resultados button:hover,
+.cliente-resultados button:focus-visible {
+  background: var(--sv-surface-container-low);
+}

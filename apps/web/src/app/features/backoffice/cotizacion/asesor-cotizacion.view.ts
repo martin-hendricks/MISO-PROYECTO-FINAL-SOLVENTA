@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DateTimePipe, MoneyPipe } from '../../../core/i18n/format';
 import { LocaleService } from '../../../core/i18n/locale.service';
@@ -7,9 +8,10 @@ import { SessionService } from '../../../core/session/session.service';
 import { CotizacionGateway } from '../../cotizacion/cotizacion.gateway';
 import { RiesgoFields } from '../../cotizacion/riesgo-fields';
 import { VidaCrediticiaGateway } from '../../vida-crediticia/vida-crediticia.gateway';
+import { ClientesGateway } from '../clientes/clientes.gateway';
 import { NoPermission } from '../no-permission/no-permission';
 import { admite, allowedRoles } from '../sections';
-import { AsesorCotizacionViewModel, CampoCliente } from './asesor-cotizacion.viewmodel';
+import { AsesorCotizacionViewModel } from './asesor-cotizacion.viewmodel';
 
 @Component({
   selector: 'sv-asesor-cotizacion',
@@ -25,17 +27,20 @@ import { AsesorCotizacionViewModel, CampoCliente } from './asesor-cotizacion.vie
 export class AsesorCotizacionView {
   private readonly gateway = inject(CotizacionGateway);
   private readonly vidaCrediticia = inject(VidaCrediticiaGateway);
+  private readonly clientes = inject(ClientesGateway);
   private readonly translate = inject(TranslateService);
   protected readonly required = allowedRoles('cotizaciones');
   protected readonly role = inject(SessionService).role;
   protected readonly allowed = admite('cotizaciones', this.role());
-  protected readonly campos: readonly CampoCliente[] = ['nombre', 'documento'];
   private readonly locale = inject(LocaleService);
   protected readonly vm = new AsesorCotizacionViewModel(
     (ramo) => this.gateway.catalog('asesor', ramo),
     (clienteId, ramo, datos) => this.gateway.quoteFor(clienteId, ramo, datos),
     (clienteId, credito) => this.vidaCrediticia.offerFor(clienteId, credito),
     () => this.locale.monedaInicio(),
+    undefined,
+    (q) =>
+      this.clientes.list({ q, estado: 'ACTIVO', pagina: 1 }).pipe(map((pagina) => pagina.clientes)),
   );
 
   constructor() {

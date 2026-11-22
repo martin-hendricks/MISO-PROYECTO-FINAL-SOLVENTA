@@ -177,7 +177,7 @@ Then(
   'the offer panel shows "Sin oferta" without losing the captured data',
   async function (this: PortalWorld) {
     await this.cotizacion.expectNoOffer();
-    assert.equal(await this.cotizacion.value('cliente-nombre'), 'Andrés Gómez');
+    assert.equal(await this.cotizacion.text('cliente-nombre'), 'Andrés Gómez');
     assert.equal(await this.cotizacion.value('riesgo-cilindraje_cc'), '2500');
   },
 );

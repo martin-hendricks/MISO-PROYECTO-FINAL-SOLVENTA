@@ -677,6 +677,10 @@
       "title": "Nueva cotización",
       "nueva": "Nueva cotización",
       "cliente": "Datos del cliente",
+      "clienteBuscar": "Buscar cliente",
+      "clienteBuscarPlaceholder": "Nombre o número de documento",
+      "clienteSinResultados": "No hay clientes activos con ese nombre o documento. Regístralo primero en Clientes.",
+      "clienteCambiar": "Cambiar cliente",
       "campo": {
         "nombre": "Nombre",
         "documento": "Documento",
@@ -685,13 +689,6 @@
         "consentimiento": "El cliente autoriza a Solventa a consultar su información crediticia para personalizar la oferta (consentimiento de perfilamiento)."
       },
       "error": {
-        "nombre": {
-          "required": "Campo obligatorio"
-        },
-        "documento": {
-          "required": "Campo obligatorio",
-          "format": "Solo números, entre 5 y 12 dígitos"
-        },
         "placa": {
           "required": "Campo obligatorio",
           "format": "Formato ABC12D"
