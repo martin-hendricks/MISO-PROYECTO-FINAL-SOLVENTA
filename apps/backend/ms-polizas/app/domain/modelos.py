@@ -227,9 +227,9 @@ def poliza_por_vencer(poliza: Poliza) -> EventoDominio:
     """HU-67: orquestador de ciclo de vida -- avisa que una póliza VIGENTE
     entró a la ventana de vencimiento (HU-119/notices.feature), sin esperar a
     que alguien llame GET /v1/polizas/por-vencer a mano. `usuario_id` va en
-    el payload (a diferencia de poliza_renovada/modificada/cancelada, que no
-    lo incluyen) porque notificaciones.app.application.manejadores.manejar_evento
-    lo exige para CUALQUIER tipo de evento que vaya a generar push real."""
+    el payload porque notificaciones.app.application.manejadores.manejar_evento
+    lo exige para CUALQUIER tipo de evento que vaya a generar push o correo
+    reales (igual que poliza_emitida/renovada/modificada/cancelada)."""
     return EventoDominio(
         tipo="PolizaPorVencer",
         agregado_id=poliza.id,
@@ -265,6 +265,7 @@ def poliza_renovada(poliza: Poliza) -> EventoDominio:
         agregado_id=poliza.id,
         payload={
             "poliza_id": str(poliza.id),
+            "usuario_id": str(poliza.usuario_id),
             "numero": poliza.numero,
             "fin_vigencia": poliza.fin_vigencia.isoformat(),
             "estado": poliza.estado.value,
@@ -278,6 +279,7 @@ def poliza_modificada(poliza: Poliza) -> EventoDominio:
         agregado_id=poliza.id,
         payload={
             "poliza_id": str(poliza.id),
+            "usuario_id": str(poliza.usuario_id),
             "numero": poliza.numero,
             "coberturas": [
                 {"nombre": c.nombre, "suma_asegurada": str(c.suma_asegurada), "deducible": str(c.deducible)}
@@ -294,6 +296,7 @@ def poliza_cancelada(poliza: Poliza) -> EventoDominio:
         agregado_id=poliza.id,
         payload={
             "poliza_id": str(poliza.id),
+            "usuario_id": str(poliza.usuario_id),
             "numero": poliza.numero,
             "motivo_cancelacion": poliza.motivo_cancelacion,
             "cancelada_en": poliza.cancelada_en.isoformat() if poliza.cancelada_en else None,
