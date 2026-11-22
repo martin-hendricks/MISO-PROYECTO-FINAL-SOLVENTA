@@ -105,8 +105,12 @@ describe('VidaCrediticiaView', () => {
     expect(element('oferta-prima')?.textContent).toContain('140.100');
     expect(element('vida-monto')?.textContent).toContain('180.000.000');
     expect(element('vida-plazo')?.textContent).toContain('240 meses');
-    expect(element('vida-factor-zona_riesgo')?.textContent).toContain('Zona de riesgo');
-    expect(element('vida-factores')?.textContent).toContain('Aumenta la prima');
+    expect(element('vida-analizados')?.textContent?.trim()).toBe(
+      'Para calcular tu prima analizamos tu comportamiento de pago y la zona de riesgo.',
+    );
+    expect(element('vida-factores')?.textContent).not.toContain('Aumenta la prima');
+    expect(element('vida-factores')?.textContent).not.toContain('Reduce la prima');
+    expect(element('vida-ajuste-competitivo')).toBeNull();
     expect(element('vida-degradada')).toBeNull();
     expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
       '/confirmacion-tarjeta?cotizacion=COT-7001&prima=140100&moneda=COP',
@@ -192,7 +196,32 @@ describe('VidaCrediticiaView', () => {
     });
     fixture.detectChanges();
 
-    expect(element('vida-factor-factor_nuevo')?.textContent).toContain('factor_nuevo');
+    expect(element('vida-analizados')?.textContent?.trim()).toBe(
+      'Para calcular tu prima analizamos factor_nuevo.',
+    );
+  });
+
+  it('lists every analyzed factor in one sentence', () => {
+    const { fixture, http, element, catalogo, fill, autorizar } = render();
+    catalogo();
+    fill();
+
+    autorizar();
+    http.expectOne(URL).flush({
+      ...OFERTA_HIPOTECARIA_WIRE,
+      factores: [
+        { factor: 'nivel_ingresos_estimado', impacto: 'reduce_prima' },
+        { factor: 'score_comportamiento', impacto: 'reduce_prima' },
+        { factor: 'zona_riesgo', impacto: 'aumenta_prima' },
+        { factor: 'antiguedad_documento', impacto: 'reduce_prima' },
+      ],
+    });
+    fixture.detectChanges();
+
+    expect(element('vida-analizados')?.textContent?.trim()).toBe(
+      'Para calcular tu prima analizamos tu nivel de ingresos estimado, tu comportamiento de pago, ' +
+        'la zona de riesgo y la antigüedad de tu documento.',
+    );
   });
 
   it('names the competitive adjustment in business terms', () => {
@@ -203,12 +232,18 @@ describe('VidaCrediticiaView', () => {
     autorizar();
     http.expectOne(URL).flush({
       ...OFERTA_HIPOTECARIA_WIRE,
-      factores: [{ factor: 'ajuste_competitivo', impacto: 'reduce_prima' }],
+      factores: [
+        { factor: 'zona_riesgo', impacto: 'aumenta_prima' },
+        { factor: 'ajuste_competitivo', impacto: 'reduce_prima' },
+      ],
     });
     fixture.detectChanges();
 
-    expect(element('vida-factor-ajuste_competitivo')?.textContent).toContain(
-      'Ajustada al precio de mercado',
+    expect(element('vida-analizados')?.textContent?.trim()).toBe(
+      'Para calcular tu prima analizamos la zona de riesgo.',
+    );
+    expect(element('vida-ajuste-competitivo')?.textContent?.trim()).toBe(
+      'Tu prima se ajustó al precio de mercado.',
     );
   });
 

@@ -28,13 +28,16 @@
               'vidaCrediticia.oferta.plazoValor' | translate: { meses: oferta.credito.plazoMeses }
             }}
           </dd>
-          @for (item of oferta.factores; track item.factor) {
-            <dt [attr.data-testid]="'vida-factor-' + item.factor">{{ factor(item.factor) }}</dt>
-            <dd [attr.data-impacto]="item.impacto">
-              {{ 'vidaCrediticia.impacto.' + item.impacto | translate }}
-            </dd>
-          }
         </dl>
+        @let analizadosTexto = analizados(oferta.factores);
+        @if (analizadosTexto) {
+          <p class="analizados" data-testid="vida-analizados">{{ analizadosTexto }}</p>
+        }
+        @if (ajustada(oferta.factores)) {
+          <p class="analizados" data-testid="vida-ajuste-competitivo">
+            {{ 'vidaCrediticia.oferta.ajusteCompetitivo' | translate }}
+          </p>
+        }
         @if (!oferta.factores.length) {
           <p class="hint" data-testid="vida-sin-factores">
             {{ 'vidaCrediticia.oferta.sinFactores' | translate }}

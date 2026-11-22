@@ -3,12 +3,16 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { DateTimePipe, MoneyPipe } from '../../core/i18n/format';
 import { LocaleService } from '../../core/i18n/locale.service';
-import { CotizacionGateway } from '../cotizacion/cotizacion.gateway';
+import { CotizacionGateway, FactorOferta } from '../cotizacion/cotizacion.gateway';
 import { Credito, VIDA_ETAPA_MS, VidaCrediticiaGateway } from './vida-crediticia.gateway';
 import { CAMPOS_CREDITO, ETAPAS, VidaCrediticiaViewModel } from './vida-crediticia.viewmodel';
 
 /** The core names the mortgage life product this way in its catalog (bff-web RAMO_A_PRODUCTO). */
 const RAMO = 'Vida hipotecario';
+
+const AJUSTE_COMPETITIVO = 'ajuste_competitivo';
+
+const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
 
 /** Card Vida Crediticia of Inicio (HU-105): consentimiento-hipotecario, then oferta-hipotecario. */
 @Component({
@@ -60,11 +64,25 @@ export class VidaCrediticiaView {
     return valor > 0 && plazoMeses > 0 ? { valor, plazoMeses } : null;
   }
 
-  /** Factors are Solventa attribute codes; show their business name when there is one. */
-  protected factor(codigo: string): string {
-    const key = `vidaCrediticia.factor.${codigo}`;
-    const label = this.translate.instant(key) as string;
-    return label === key ? codigo : label;
+  protected analizados(factores: FactorOferta[]): string {
+    const nombres = factores
+      .filter((item) => item.factor !== AJUSTE_COMPETITIVO)
+      .map((item) => this.analizado(item.factor));
+    return nombres.length
+      ? (this.translate.instant('vidaCrediticia.oferta.analizados', {
+          factores: LISTA.format(nombres),
+        }) as string)
+      : '';
+  }
+
+  protected ajustada(factores: FactorOferta[]): boolean {
+    return factores.some((item) => item.factor === AJUSTE_COMPETITIVO);
+  }
+
+  private analizado(codigo: string): string {
+    const key = `vidaCrediticia.analizado.${codigo}`;
+    const texto = this.translate.instant(key) as string;
+    return texto === key ? codigo : texto;
   }
 
   protected submit(event: Event): void {
