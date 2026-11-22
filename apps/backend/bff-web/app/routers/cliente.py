@@ -776,6 +776,7 @@ def _perfil_salida(usuario: dict) -> dict:
         "correo": usuario["email"],
         "nombre": usuario.get("nombre") or "",
         "apellidos": usuario.get("apellidos") or "",
+        "tipoDocumento": usuario.get("tipo_documento") or "",
         "documento": usuario.get("numero_documento") or "",
     }
 

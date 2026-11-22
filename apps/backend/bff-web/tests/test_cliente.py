@@ -1094,7 +1094,12 @@ def test_inicio_propaga_una_forma_que_no_es_del_nucleo(
 def test_perfil_lee_y_guarda(client, nucleo_identidad):
     nucleo_identidad.respuestas[("GET", f"/v1/usuarios/{UID}")] = lambda _: httpx.Response(
         200,
-        json={"usuario_id": UID, "email": "persona@correo.com", "numero_documento": "1012345678"},
+        json={
+            "usuario_id": UID,
+            "email": "persona@correo.com",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+        },
     )
     headers = _auth(client)
     leido = client.get("/v1/cliente/perfil", headers=headers)
@@ -1104,6 +1109,7 @@ def test_perfil_lee_y_guarda(client, nucleo_identidad):
         "correo": "persona@correo.com",
         "nombre": "",
         "apellidos": "",
+        "tipoDocumento": "CC",
         "documento": "1012345678",
     }
 
@@ -1123,6 +1129,7 @@ def test_perfil_lee_y_guarda(client, nucleo_identidad):
     assert guardado.status_code == 200
     assert guardado.json()["nombre"] == "Camila"
     assert guardado.json()["apellidos"] == "Restrepo"
+    assert guardado.json()["tipoDocumento"] == ""
 
 
 def test_token_sin_uid_no_abre_el_canal():
