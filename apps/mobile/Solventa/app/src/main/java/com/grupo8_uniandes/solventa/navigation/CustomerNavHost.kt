@@ -248,6 +248,7 @@ fun CustomerNavHost(
             val avisos: AvisoVigenciaViewModel = koinViewModel()
             val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(route.policyId) }
             val renewalState by renewal.state.collectAsState()
+            val aviso = avisoViewModel()
             LaunchedEffect(state.detail?.renovacionAutomatica) {
                 state.detail?.let { renewal.adopt(it.renovacionAutomatica) }
             }
@@ -258,7 +259,10 @@ fun CustomerNavHost(
                 renewalMissing = renewalState.missing,
                 onRenewal = renewal::onChecked,
                 onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
-                onReportClaim = { navController.navigate(AvisoSiniestroRoute) },
+                onReportClaim = {
+                    aviso.preselect(route.policyId)
+                    navController.navigate(AvisoSiniestroRoute)
+                },
                 onExpiryNotices = {
                     avisos.requestExpiry(route.policyId) { reading ->
                         if (reading != null) navController.navigate(AvisoVencimientoRoute)

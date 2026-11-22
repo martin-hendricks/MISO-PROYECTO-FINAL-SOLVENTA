@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -252,10 +253,15 @@ private fun EvidenceItem(
     val image = item.contentType.startsWith("image/") || item.tipo.equals("foto", ignoreCase = true)
     val remote = image && (item.url.startsWith("http://") || item.url.startsWith("https://"))
     var thumb by remember(item.url) { mutableStateOf<Bitmap?>(null) }
+    var settled by remember(item.url) { mutableStateOf(!remote) }
     if (remote) {
-        LaunchedEffect(item.url) { thumb = loadThumb(item.url) }
+        LaunchedEffect(item.url) {
+            thumb = loadThumb(item.url)
+            settled = true
+        }
     }
     val open = { if (item.url.isNotBlank()) onOpen(item.url) }
+    val label = evidenceLabel(item)
     if (image) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -266,16 +272,23 @@ private fun EvidenceItem(
                 .testTag("claim_evidence_${item.nombre}"),
         ) {
             val bitmap = thumb
-            if (bitmap != null) {
-                Image(
+            when {
+                bitmap != null -> Image(
                     bitmap = bitmap.asImageBitmap(),
-                    contentDescription = item.nombre,
+                    contentDescription = label,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(SolventaSpacing.s8)) {
-                    Text(text = item.nombre, style = MaterialTheme.typography.labelLarge)
+                !settled -> Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .testTag("claim_evidence_loading_${item.nombre}"),
+                        strokeWidth = 2.dp,
+                    )
+                }
+                else -> Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(SolventaSpacing.s8)) {
+                    Text(text = label, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -288,6 +301,11 @@ private fun EvidenceItem(
                 .testTag("claim_evidence_${item.nombre}"),
         )
     }
+}
+
+private fun evidenceLabel(item: ClaimEvidence): String {
+    val raw = item.nombre.ifBlank { item.url }
+    return raw.substringBefore('?').substringAfterLast('/').ifBlank { raw }
 }
 
 private fun shownDate(raw: String): String = runCatching { formatCoverageDate(raw.take(10)) }.getOrDefault(raw)

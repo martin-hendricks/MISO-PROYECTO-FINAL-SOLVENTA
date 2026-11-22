@@ -91,7 +91,7 @@ class AvisoSiniestroViewModelTest {
     @Test
     fun givenOnePolicyInForce_whenTheFormOpens_thenItIsPreselected() = runBlocking {
         val wallet = ScriptedWallet()
-        assertEquals(listOf("POL-1", "POL-3", "POL-5"), PoliciesInForce(wallet).invoke().map { it.numero })
+        assertEquals(listOf("POL-1", "POL-3", "POL-5", "POL-8"), PoliciesInForce(wallet).invoke().map { it.numero })
         assertEquals("Vida", PoliciesInForce(wallet).invoke()[1].ramo)
         wallet.fail = true
         assertEquals(emptyList<PolicyEntry>(), PoliciesInForce(wallet).invoke())
@@ -127,6 +127,19 @@ class AvisoSiniestroViewModelTest {
         assertEquals(false, AvisoUiState(NoticePhase.Form, viewModel.state.value.draft, "", false).queued)
     }
 
+    @Test
+    fun givenSeveralPolicies_whenOpenedFromOne_thenThatPolicyStaysSelected() = runBlocking {
+        val viewModel = AvisoSiniestroViewModel(
+            OpenClaimNotice(QuietClaims(), MemoryClaimHold()) { "key-1" },
+            PoliciesInForce(ScriptedWallet()),
+            FixedLocator(null),
+        )
+        viewModel.preselect("POL-8")
+        viewModel.reopen()
+        assertEquals("POL-8", viewModel.state.value.draft.poliza)
+        assertEquals("Vida hipotecario", viewModel.state.value.policyOptions.first { it.numero == "POL-8" }.ramo)
+    }
+
     private class ScriptedWallet(
         var fail: Boolean = false,
         private val onlyOne: Boolean = false,
@@ -147,6 +160,8 @@ class AvisoSiniestroViewModelTest {
                         PolicyEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
                         PolicyEntry("POL-5", "SOAT", "moto", "VIGENTE", "2027-06-01"),
                         PolicyEntry("POL-6", "SOAT", "moto", "CANCELADA", "2027-06-01"),
+                        PolicyEntry("POL-7", "Vida hipotecario", "saldo", "vigente", "2020-01-01"),
+                        PolicyEntry("POL-8", "Vida hipotecario", "saldo", "VIGENTE", "2028-01-01"),
                     )
                 },
             )

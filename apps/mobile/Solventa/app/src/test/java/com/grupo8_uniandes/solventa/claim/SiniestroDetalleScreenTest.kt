@@ -16,6 +16,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -216,5 +217,49 @@ class SiniestroDetalleScreenTest {
         rule.onNodeWithText("roto.jpg").assertIsDisplayed()
         rule.onNodeWithTag("claim_evidence_vacio.jpg").performClick()
         assertEquals("untouched", opened)
+    }
+
+    @Test
+    fun givenAPhotoStillLoading_whenShown_thenTheTileShowsASpinnerNotTheUrl() {
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-4",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-4",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.RECIBIDO,
+                            resultado = "",
+                            fecha = "2026-11-01",
+                            reserva = null,
+                            moneda = "COP",
+                        ),
+                        poliza = "POL-1",
+                        descripcion = "Golpe",
+                        lugar = "Calle 1",
+                        geo = null,
+                        motivo = null,
+                        evidencia = listOf(
+                            ClaimEvidence(
+                                "https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+                                "foto",
+                                "image/jpeg",
+                                "https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+                            ),
+                        ),
+                        historial = emptyList(),
+                        pago = null,
+                        umbral = null,
+                    ),
+                    loadThumb = { suspendCancellableCoroutine { } },
+                )
+            }
+        }
+        rule.onNodeWithTag(
+            "claim_evidence_loading_https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+        ).assertIsDisplayed()
+        rule.onNodeWithText("https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc").assertDoesNotExist()
     }
 }

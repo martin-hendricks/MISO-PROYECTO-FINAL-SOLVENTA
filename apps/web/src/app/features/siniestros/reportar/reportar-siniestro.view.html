@@ -52,9 +52,11 @@
               >
                 <option value="">{{ 'siniestros.reportar.elegirPoliza' | translate }}</option>
                 @for (poliza of vm.polizas(); track poliza.numero) {
-                  <option [value]="poliza.numero">
-                    {{ poliza.producto }} · {{ poliza.numero }}
-                  </option>
+                  @if (poliza.estado.trim().toLowerCase() !== 'cancelada') {
+                    <option [value]="poliza.numero">
+                      {{ poliza.producto }} · {{ poliza.numero }}
+                    </option>
+                  }
                 }
               </select>
               @if (vm.intentoContinuar() && vm.errores().poliza) {

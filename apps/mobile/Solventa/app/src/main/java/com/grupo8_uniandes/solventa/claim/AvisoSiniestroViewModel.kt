@@ -38,6 +38,7 @@ class AvisoSiniestroViewModel(
 ) : ViewModel() {
     private var policyOptions: List<PolicyEntry> = emptyList()
     private var policiesLoaded = false
+    private var pendingPolicy = ""
     private var locating = false
     private var fileRejected = false
     private val _state = MutableStateFlow(notice.snapshot())
@@ -50,14 +51,23 @@ class AvisoSiniestroViewModel(
                 val options = policies()
                 policyOptions = options
                 policiesLoaded = true
-                if (options.isNotEmpty()) notice.offerPolicies(options.map { it.numero })
+                applyPending(clearPending = false)
                 publish()
             }
         }
     }
 
+    fun preselect(numero: String) {
+        pendingPolicy = numero.substringBefore(" · ").trim()
+        if (policiesLoaded && notice.phase == NoticePhase.Form) {
+            applyPending(clearPending = false)
+            publish()
+        }
+    }
+
     fun reopen() {
         notice.reopen()
+        if (policiesLoaded) applyPending(clearPending = true)
         publish()
     }
 
@@ -135,8 +145,19 @@ class AvisoSiniestroViewModel(
     }
 
     fun cancel() {
+        pendingPolicy = ""
         notice.cancel()
         publish()
+    }
+
+    private fun applyPending(clearPending: Boolean) {
+        if (!policiesLoaded) return
+        val pending = pendingPolicy
+        if (pending.isNotBlank() && policyOptions.any { it.numero == pending }) {
+            notice.revise(poliza = pending)
+        }
+        if (policyOptions.isNotEmpty()) notice.offerPolicies(policyOptions.map { it.numero })
+        if (clearPending) pendingPolicy = ""
     }
 
     private fun assistanceIsoDate(value: String): String {

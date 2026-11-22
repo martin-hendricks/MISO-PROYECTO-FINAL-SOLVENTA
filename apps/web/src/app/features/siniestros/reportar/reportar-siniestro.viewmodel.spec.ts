@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
+import { PolizaResumen } from '../../polizas/polizas.gateway';
 import { POLIZAS } from '../../polizas/polizas.testing';
 import { AvisoRecibido, NuevoAviso, Ubicacion } from '../siniestros.gateway';
 import {
@@ -42,6 +43,44 @@ describe('ReportarSiniestroViewModel', () => {
     expect(vm.polizas().map((p) => p.estado)).toEqual(['VIGENTE']);
     expect(vm.poliza()).toBe(POLIZAS[0].numero);
     expect(vm.ramoSeleccionado()).toBe('Hogar');
+  });
+
+  it('no lista una póliza Cancelada sea cual sea el casing', () => {
+    const { vm } = crear({
+      polizas: () =>
+        of([
+          { ...POLIZAS[0], estado: 'vigente' as PolizaResumen['estado'] },
+          { ...POLIZAS[1], estado: 'Cancelada' as PolizaResumen['estado'] },
+          { ...POLIZAS[1], numero: 'POL-CANCELADA', estado: 'cancelada' as PolizaResumen['estado'] },
+        ]),
+    });
+    vm.cargarPolizas();
+    expect(vm.polizas().map((p) => p.numero)).toEqual([POLIZAS[0].numero]);
+  });
+
+  it('ofrece Vida hipotecario vigente y omite la que ya venció', () => {
+    const { vm } = crear({
+      polizas: () =>
+        of([
+          {
+            ...POLIZAS[0],
+            numero: 'POL-HIP',
+            producto: 'Vida hipotecario',
+            estado: 'VIGENTE',
+            finVigencia: '2028-01-01',
+          },
+          {
+            ...POLIZAS[0],
+            numero: 'POL-VENCIDA',
+            producto: 'Vida hipotecario',
+            estado: 'VIGENTE',
+            finVigencia: '2020-01-01',
+          },
+        ]),
+    });
+    vm.cargarPolizas();
+    expect(vm.polizas().map((p) => p.numero)).toEqual(['POL-HIP']);
+    expect(vm.ramoSeleccionado()).toBe('Vida hipotecario');
   });
 
   it('sin pólizas vigentes no deja reportar', () => {
