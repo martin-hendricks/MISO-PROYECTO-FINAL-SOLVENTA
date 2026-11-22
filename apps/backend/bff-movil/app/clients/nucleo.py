@@ -310,6 +310,28 @@ class ClienteNucleo:
     def originacion_pendiente(self, cliente_id: str) -> dict:
         return self._pedir("ms-perfilamiento", "GET", f"/v1/originaciones/clientes/{cliente_id}/pendiente")
 
+    def cerrar_originacion(self, cliente_id: str) -> None:
+        headers = {}
+        token = token_saliente.get()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        correlacion = correlacion_saliente.get()
+        if correlacion:
+            headers["X-Correlation-Id"] = correlacion
+        try:
+            http = self._clientes.get("ms-perfilamiento")
+            if http is None:
+                http = httpx.Client(base_url=self._base("ms-perfilamiento"), timeout=TIMEOUT_S)
+                self._clientes["ms-perfilamiento"] = http
+            respuesta = http.request(
+                "DELETE", f"/v1/originaciones/clientes/{cliente_id}/pendiente", headers=headers
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="ms-perfilamiento no disponible") from exc
+        if respuesta.status_code in (204, 404):
+            return
+        raise HTTPException(status_code=503, detail="ms-perfilamiento no disponible")
+
     def solicitar_oferta_hipotecario(self, *, idempotency_key: str, cliente_id: str) -> dict:
         return self._pedir(
             "ms-perfilamiento",

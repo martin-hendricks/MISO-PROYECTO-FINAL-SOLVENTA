@@ -269,6 +269,9 @@ class DobleNucleo:
     def originacion_pendiente(self, cliente_id):
         return self._llamar("originacion_pendiente", cliente_id=cliente_id)
 
+    def cerrar_originacion(self, cliente_id):
+        self._llamar("cerrar_originacion", cliente_id=cliente_id)
+
     def polizas_por_vencer(self, **kwargs):
         return self._llamar("polizas_por_vencer", **kwargs) or []
 
@@ -2127,3 +2130,66 @@ def test_aceptar_poliza_usa_una_clave_de_idempotencia_estable_por_cotizacion(cli
 
     assert primera == _uuid_desde("aceptacion-cliente", "COT-9")
 
+
+
+HIPOTECARIA = {**COTIZACION, "producto": "vida-hipotecario"}
+
+
+def test_aceptar_poliza_hipotecaria_cierra_la_originacion(client, doble):
+    headers = _auth(client)
+    doble.respuestas["aceptar_oferta"] = ACEPTADA
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = HIPOTECARIA
+
+    respuesta = client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9"})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["numero"] == "POL-9"
+    assert _nombres(doble) == ["aceptar_oferta", "cobrar_prima", "emitir", "reconsultar", "cerrar_originacion"]
+    assert doble.llamadas[-1]["cliente_id"] == UID
+
+
+def test_aceptar_cotizacion_hipotecaria_cierra_la_originacion(client, doble):
+    headers = _auth(client)
+    doble.respuestas["aceptar_oferta"] = {**ACEPTADA, "moneda": "COP"}
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = HIPOTECARIA
+
+    respuesta = client.post(
+        "/v1/cliente/cotizaciones/COT-9/aceptacion",
+        headers={**headers, "Idempotency-Key": "clave-aceptacion-1"},
+        json={"monedaInicio": "COP"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["poliza"]["numero"] == "POL-9"
+    assert _nombres(doble)[-1] == "cerrar_originacion"
+    assert doble.llamadas[-1]["cliente_id"] == UID
+
+
+def test_aceptar_poliza_no_hipotecaria_no_cierra_originacion(client, doble):
+    headers = _auth(client)
+    doble.respuestas["aceptar_oferta"] = ACEPTADA
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = COTIZACION
+
+    client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9"})
+
+    assert "cerrar_originacion" not in _nombres(doble)
+
+
+def test_aceptar_hipotecaria_emite_aunque_falle_cerrar_originacion(client, doble):
+    headers = _auth(client)
+    doble.respuestas["aceptar_oferta"] = ACEPTADA
+    doble.respuestas["cobrar_prima"] = {"id": "pago-1"}
+    doble.respuestas["emitir"] = POLIZA
+    doble.respuestas["reconsultar"] = HIPOTECARIA
+    doble.respuestas["cerrar_originacion"] = HTTPException(status_code=503, detail="ms-perfilamiento no disponible")
+
+    respuesta = client.post("/v1/cliente/polizas", headers=headers, json={"cotizacionId": "COT-9"})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["numero"] == "POL-9"
