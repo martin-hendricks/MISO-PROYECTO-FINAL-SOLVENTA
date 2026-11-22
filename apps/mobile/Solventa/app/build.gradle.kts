@@ -78,6 +78,22 @@ configurations.configureEach {
     }
 }
 
+// Tests must not download this jar themselves. Maven Central answers 429 when
+// every Robolectric class fetches android-all-instrumented during the run.
+val robolectricSdk = configurations.resolvable("robolectricSdk") {
+    isTransitive = false
+}
+val robolectricSdkDir = layout.buildDirectory.dir("robolectric-deps")
+val installRobolectricSdk = tasks.register<Sync>("installRobolectricSdk") {
+    from(robolectricSdk)
+    into(robolectricSdkDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(installRobolectricSdk)
+    systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -109,6 +125,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    add(robolectricSdk.name, libs.robolectric.android.all.instrumented)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
     testImplementation(libs.mockwebserver)
