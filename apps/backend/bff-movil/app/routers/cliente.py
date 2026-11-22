@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -48,6 +49,7 @@ CANAL = "movil"
 SCORE = "0.5000"
 TOKEN_MEDIO_PAGO = "stub-medio-pago"
 RAMO_SIN_CLASIFICAR = SIN_CLASIFICAR
+logger = logging.getLogger(__name__)
 _NAMESPACE = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
 
 
@@ -274,6 +276,7 @@ RAMO_VIDA_HIPOTECARIO = "Vida hipotecario"
 
 
 PRODUCTO_VIDA_HIPOTECARIO = "vida-hipotecario"
+PRODUCTOS_HIPOTECARIOS = frozenset({PRODUCTO_VIDA_HIPOTECARIO, "vida-crediticia"})
 
 
 def _factores_perfil(perfil: dict) -> tuple[list[str], bool]:
@@ -360,6 +363,15 @@ def reconsultar(
     return _oferta_movil(datos, ramo, descripcion)
 
 
+def _cerrar_originacion(nucleo, producto: str, cliente_id: str) -> None:
+    if producto not in PRODUCTOS_HIPOTECARIOS:
+        return
+    try:
+        nucleo.cerrar_originacion(cliente_id)
+    except HTTPException:
+        logger.warning("no se pudo cerrar la originacion hipotecaria del cliente %s", cliente_id)
+
+
 @router.post("/cotizaciones/{cotizacion_id}/aceptacion")
 def aceptar_cotizacion(
     cotizacion_id: str,
@@ -420,6 +432,7 @@ def aceptar_cotizacion(
         "fin_vigencia",
     )
     cotizacion = _exigir(nucleo.reconsultar(str(aceptacion["cotizacion_id"])), "producto")
+    _cerrar_originacion(nucleo, cotizacion["producto"], contexto["usuario_id"])
     return {
         "cotizacionId": aceptacion["cotizacion_id"],
         "estado": aceptacion["estado"],
@@ -494,6 +507,7 @@ def aceptar(body: Aceptar, request: Request, usuario: dict = Depends(require_cus
         "fin_vigencia",
     )
     cotizacion = _exigir(nucleo.reconsultar(str(aceptacion["cotizacion_id"])), "producto")
+    _cerrar_originacion(nucleo, cotizacion["producto"], contexto["usuario_id"])
     ramo, descripcion = presentar(cotizacion["producto"])
     return {
         "numero": poliza["numero"],
