@@ -14,24 +14,48 @@ import com.grupo8_uniandes.solventa.domain.bff.billetera.WalletSource
 import com.grupo8_uniandes.solventa.domain.bff.billetera.changed
 import com.grupo8_uniandes.solventa.domain.network.NetworkMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class WalletPhase { Loading, Ready, Empty, Error, FirstLoad }
 
+/** Todos, Asistido and Pago automático stay inside the current region. Otras monedas is the rest. */
+enum class WalletFilter { All, Assisted, OtherCurrencies, Automatic }
+
 data class BilleteraUiState(
     val phase: WalletPhase = WalletPhase.Loading,
     val wallet: Wallet? = null,
-    val chip: DepositType? = null,
+    val chip: WalletFilter = WalletFilter.All,
     val source: WalletSource? = null,
     val notice: WalletNotice = WalletNotice.None,
     val savedAt: String? = null,
     val offline: Boolean = false,
 ) {
-    val visible: List<Deposit>
-        get() = wallet?.movimientos?.filter { chip == null || it.tipo == chip }.orEmpty()
+    fun visible(currency: String): List<Deposit> {
+        val rows = wallet?.movimientos.orEmpty()
+        return rows.filter { deposit ->
+            val inRegion = currencyOf(deposit) == currency
+            when (chip) {
+                WalletFilter.OtherCurrencies -> !inRegion
+                WalletFilter.All -> inRegion
+                WalletFilter.Assisted -> inRegion && deposit.tipo == DepositType.Assisted
+                WalletFilter.Automatic -> inRegion && deposit.tipo == DepositType.Automatic
+            }
+        }
+    }
+
+    /** Sum of the rows the active filter shows, except Otras monedas, which is never accumulated. */
+    fun regionTotal(currency: String): BigDecimal? {
+        if (chip == WalletFilter.OtherCurrencies) return null
+        val rows = visible(currency)
+        if (rows.isEmpty()) return null
+        return rows.fold(BigDecimal.ZERO) { sum, row -> sum + row.monto }
+    }
 }
+
+private fun currencyOf(deposit: Deposit): String = deposit.moneda.trim().ifBlank { "COP" }
 
 class BilleteraViewModel(
     private val deposits: ListDeposits,
@@ -84,7 +108,7 @@ class BilleteraViewModel(
         }
     }
 
-    fun select(chip: DepositType?) {
+    fun select(chip: WalletFilter) {
         stateFlow.value = stateFlow.value.copy(chip = chip)
     }
 

@@ -1,7 +1,9 @@
 package com.grupo8_uniandes.solventa.claim
 
+import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -14,6 +16,7 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -166,5 +169,97 @@ class SiniestroDetalleScreenTest {
         assertEquals("untouched", opened)
         rule.onNodeWithTag("claim_evidence_foto.jpg").performClick()
         assertEquals("https://example.test/foto.jpg", opened)
+    }
+
+    @Test
+    fun givenPhotoUrls_whenShown_thenALoadedUrlIsAThumbnailAndABrokenOneKeepsTheName() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        var opened = "untouched"
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-3",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-3",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.RECIBIDO,
+                            resultado = "",
+                            fecha = "2026-11-01",
+                            reserva = null,
+                            moneda = "COP",
+                        ),
+                        poliza = "POL-1",
+                        descripcion = "Golpe",
+                        lugar = "Calle 1",
+                        geo = null,
+                        motivo = null,
+                        evidencia = listOf(
+                            ClaimEvidence("foto.jpg", "foto", "image/jpeg", "https://example.test/foto.jpg"),
+                            ClaimEvidence("http.jpg", "FOTO", "text/plain", "http://example.test/http.jpg"),
+                            ClaimEvidence("roto.jpg", "foto", "image/jpeg", "https://example.test/roto.jpg"),
+                            ClaimEvidence("vacio.jpg", "foto", "image/jpeg", ""),
+                        ),
+                        historial = emptyList(),
+                        pago = null,
+                        umbral = null,
+                    ),
+                    onOpenEvidence = { opened = it },
+                    loadThumb = { url ->
+                        if (url.endsWith("foto.jpg") || url.startsWith("http://")) bitmap else null
+                    },
+                )
+            }
+        }
+        rule.onNodeWithContentDescription("foto.jpg").assertIsDisplayed()
+        rule.onNodeWithContentDescription("http.jpg").assertIsDisplayed()
+        rule.onNodeWithText("roto.jpg").assertIsDisplayed()
+        rule.onNodeWithTag("claim_evidence_vacio.jpg").performClick()
+        assertEquals("untouched", opened)
+    }
+
+    @Test
+    fun givenAPhotoStillLoading_whenShown_thenTheTileShowsASpinnerNotTheUrl() {
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-4",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-4",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.RECIBIDO,
+                            resultado = "",
+                            fecha = "2026-11-01",
+                            reserva = null,
+                            moneda = "COP",
+                        ),
+                        poliza = "POL-1",
+                        descripcion = "Golpe",
+                        lugar = "Calle 1",
+                        geo = null,
+                        motivo = null,
+                        evidencia = listOf(
+                            ClaimEvidence(
+                                "https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+                                "foto",
+                                "image/jpeg",
+                                "https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+                            ),
+                        ),
+                        historial = emptyList(),
+                        pago = null,
+                        umbral = null,
+                    ),
+                    loadThumb = { suspendCancellableCoroutine { } },
+                )
+            }
+        }
+        rule.onNodeWithTag(
+            "claim_evidence_loading_https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc",
+        ).assertIsDisplayed()
+        rule.onNodeWithText("https://example.test/solventa-local/foto-uuid.jpg?X-Amz-Signature=abc").assertDoesNotExist()
     }
 }

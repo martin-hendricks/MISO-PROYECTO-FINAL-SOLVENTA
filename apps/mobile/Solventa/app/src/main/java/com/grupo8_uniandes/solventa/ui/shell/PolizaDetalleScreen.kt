@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.claim.canReportClaim
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
 import com.grupo8_uniandes.solventa.domain.bff.issuance.formatCoverageDate
 import com.grupo8_uniandes.solventa.domain.bff.issuance.guidanceFor
@@ -166,13 +167,16 @@ fun PolizaDetalleScreen(
             state.claims.forEach { claim ->
                 ClaimOfPolicy(claim, onOpenClaim)
             }
-            SolventaButton(
-                text = stringResource(R.string.policy_report_claim),
-                style = SolventaButtonStyle.Outlined,
-                onClick = onReportClaim,
-                modifier = Modifier.fillMaxWidth(),
-                testTag = "action_report_claim",
-            )
+            val coverageEnd = detail.finVigencia?.takeIf { it.isNotBlank() } ?: detail.venceEn
+            if (canReportClaim(detail.estado, coverageEnd)) {
+                SolventaButton(
+                    text = stringResource(R.string.policy_report_claim),
+                    style = SolventaButtonStyle.Outlined,
+                    onClick = onReportClaim,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "action_report_claim",
+                )
+            }
         }
         if (state.notice) {
             Text(

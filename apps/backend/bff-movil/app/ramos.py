@@ -46,6 +46,11 @@ def producto_de(ramo: str) -> str | None:
 
 
 def presentar(producto: str | None) -> tuple[str, str]:
-    if producto and producto in PRODUCTOS:
+    if not producto:
+        return SIN_CLASIFICAR, ""
+    if producto in PRODUCTOS:
         return PRODUCTOS[producto]
+    codigo = producto_de(producto)
+    if codigo:
+        return PRODUCTOS[codigo]
     return SIN_CLASIFICAR, ""

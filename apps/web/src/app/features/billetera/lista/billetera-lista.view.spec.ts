@@ -27,6 +27,12 @@ describe('BilleteraListaView', () => {
     return { fixture, http, element };
   }
 
+  function filas(fixture: { nativeElement: HTMLElement }): string[] {
+    return [...fixture.nativeElement.querySelectorAll('[data-testid="billetera-fila"] th')].map(
+      (cell) => cell.textContent?.trim() ?? '',
+    );
+  }
+
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
   it('shows the total and both deposits', () => {
@@ -48,21 +54,27 @@ describe('BilleteraListaView', () => {
     expect(element('billetera-total')).toBeNull();
   });
 
-  it('does not render a null mixed-currency total as zero', () => {
+  it('totals the region currency and lists the other currencies under Otras monedas', () => {
     const { fixture, http, element } = render();
     http.expectOne(URL).flush({
       moneda: null,
       totalRecibido: null,
-      movimientos: [
-        BILLETERA.movimientos[0],
-        { ...BILLETERA.movimientos[1], moneda: 'MXN' },
-      ],
+      movimientos: [BILLETERA.movimientos[0], { ...BILLETERA.movimientos[1], moneda: 'MXN' }],
     });
     fixture.detectChanges();
-    expect(element('billetera-total')).toBeNull();
-    expect((fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="billetera-fila"]').length).toBe(
-      2,
+
+    const chips = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.chip')].map((chip) =>
+      chip.textContent?.trim(),
     );
+    expect(chips).toEqual(['Todos', 'Asistido', 'Otras monedas', 'Pago automático']);
+    expect(element('billetera-total')?.textContent).toContain('890.000');
+    expect(filas(fixture)).toEqual(['SIN-1988']);
+
+    (element('chip-otras') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element('chip-otras')?.getAttribute('aria-pressed')).toBe('true');
+    expect(element('billetera-total')).toBeNull();
+    expect(filas(fixture)).toEqual(['SIN-1002']);
   });
 
   it('offers a retry and hides the total when the read fails', () => {

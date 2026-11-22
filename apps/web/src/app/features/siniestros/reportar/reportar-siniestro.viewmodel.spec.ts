@@ -1,9 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, Subject, throwError } from 'rxjs';
+import { PolizaResumen } from '../../polizas/polizas.gateway';
 import { POLIZAS } from '../../polizas/polizas.testing';
 import { AvisoRecibido, NuevoAviso, Ubicacion } from '../siniestros.gateway';
 import {
   Dependencias,
+  puedeReportarPoliza,
   ReportarSiniestroViewModel,
   TAMANO_MAXIMO,
 } from './reportar-siniestro.viewmodel';
@@ -42,6 +44,52 @@ describe('ReportarSiniestroViewModel', () => {
     expect(vm.polizas().map((p) => p.estado)).toEqual(['VIGENTE']);
     expect(vm.poliza()).toBe(POLIZAS[0].numero);
     expect(vm.ramoSeleccionado()).toBe('Hogar');
+  });
+
+  it('no lista una póliza Cancelada sea cual sea el casing', () => {
+    const { vm } = crear({
+      polizas: () =>
+        of([
+          { ...POLIZAS[0], estado: 'vigente' as PolizaResumen['estado'] },
+          { ...POLIZAS[1], estado: 'Cancelada' as PolizaResumen['estado'] },
+          { ...POLIZAS[1], numero: 'POL-CANCELADA', estado: 'cancelada' as PolizaResumen['estado'] },
+        ]),
+    });
+    vm.cargarPolizas();
+    expect(vm.polizas().map((p) => p.numero)).toEqual([POLIZAS[0].numero]);
+  });
+
+  it('ofrece Vida hipotecario vigente y omite la que ya venció', () => {
+    const { vm } = crear({
+      polizas: () =>
+        of([
+          {
+            ...POLIZAS[0],
+            numero: 'POL-HIP',
+            producto: 'Vida hipotecario',
+            estado: 'VIGENTE',
+            finVigencia: '2028-01-01',
+          },
+          {
+            ...POLIZAS[0],
+            numero: 'POL-VENCIDA',
+            producto: 'Vida hipotecario',
+            estado: 'VIGENTE',
+            finVigencia: '2020-01-01',
+          },
+        ]),
+    });
+    vm.cargarPolizas();
+    expect(vm.polizas().map((p) => p.numero)).toEqual(['POL-HIP']);
+    expect(vm.ramoSeleccionado()).toBe('Vida hipotecario');
+  });
+
+  it('acepta por vencer y una vigencia que no se puede comparar', () => {
+    expect(puedeReportarPoliza('vigente')).toBeTrue();
+    expect(puedeReportarPoliza('por_vencer', '2026-11-02', '2026-11-02')).toBeTrue();
+    expect(puedeReportarPoliza('  POR_VENCER ', '', '2026-11-02')).toBeTrue();
+    expect(puedeReportarPoliza('vigente', '2028-01-01', '')).toBeTrue();
+    expect(puedeReportarPoliza('vencida', '2028-01-01', '2026-11-02')).toBeFalse();
   });
 
   it('sin pólizas vigentes no deja reportar', () => {

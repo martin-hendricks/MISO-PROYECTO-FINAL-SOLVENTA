@@ -8,6 +8,15 @@ export type PolizasStatus = 'loading' | 'ready' | 'sin-polizas' | 'error';
 export type UbicacionStatus = 'pendiente' | 'solicitando' | 'guardada' | 'bloqueada';
 export type EnvioStatus = 'idle' | 'enviando' | 'error' | 'rechazado';
 
+/** Vigente o por vencer, y con fin de vigencia hoy o después. Cancelada y vencida no. */
+export function puedeReportarPoliza(estado: string, finVigencia = '', hoy = ''): boolean {
+  const normalizado = estado.trim().toLowerCase();
+  if (normalizado !== 'vigente' && normalizado !== 'por_vencer') return false;
+  const fin = finVigencia.trim().slice(0, 10);
+  if (!fin || !hoy) return true;
+  return fin >= hoy;
+}
+
 /** Mismos límites que valida el núcleo (Figma evidencia-siniestro: PNG, JPG o PDF, 10 MB). */
 export const TIPOS_PERMITIDOS = ['image/png', 'image/jpeg', 'application/pdf'];
 export const TAMANO_MAXIMO = 10 * 1024 * 1024;
@@ -62,7 +71,9 @@ export class ReportarSiniestroViewModel {
     this.polizasStatus.set('loading');
     this.deps.polizas().subscribe({
       next: (polizas) => {
-        const vigentes = polizas.filter((p) => p.estado === 'VIGENTE');
+        const vigentes = polizas.filter((p) =>
+          puedeReportarPoliza(p.estado, p.finVigencia, this.hoy),
+        );
         this.polizas.set(vigentes);
         this.polizasStatus.set(vigentes.length ? 'ready' : 'sin-polizas');
         if (vigentes.length === 1) {

@@ -12,6 +12,7 @@
     <string name="billetera_movimientos">MOVIMIENTOS</string>
     <string name="billetera_chip_todos">Todos</string>
     <string name="billetera_chip_asistido">Asistido</string>
+    <string name="billetera_chip_otras">Otras monedas</string>
     <string name="billetera_chip_automatico">Pago automático</string>
     <string name="billetera_info">Cada línea es un depósito de un siniestro pagado. El comprobante no cambia si Solventa reintenta el pago.</string>
     <string name="billetera_empty">Cuando Solventa pague un siniestro, el depósito aparece aquí.</string>

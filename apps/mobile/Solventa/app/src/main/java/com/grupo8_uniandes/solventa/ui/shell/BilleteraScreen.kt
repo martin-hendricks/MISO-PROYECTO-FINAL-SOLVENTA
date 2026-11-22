@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.billetera.BilleteraUiState
+import com.grupo8_uniandes.solventa.billetera.WalletFilter
 import com.grupo8_uniandes.solventa.billetera.WalletPhase
 import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
 import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
@@ -39,7 +40,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 @Composable
 fun BilleteraScreen(
     state: BilleteraUiState,
-    onChip: (DepositType?) -> Unit,
+    onChip: (WalletFilter) -> Unit,
     onOpen: (String) -> Unit,
     onRetry: () -> Unit,
     onClaims: () -> Unit,
@@ -58,17 +59,19 @@ fun BilleteraScreen(
         if (state.phase == WalletPhase.Ready || state.phase == WalletPhase.Empty) {
             val wallet = state.wallet
             if (wallet != null) {
-                val total = wallet.totalRecibido
+                val rows = state.visible(region.currencyCode)
+                val total = state.regionTotal(region.currencyCode)
+                val count = if (state.phase == WalletPhase.Ready) rows.size else wallet.movimientos.size
                 SolventaCard(testTag = "billetera_recibido") {
-                    if (total != null && wallet.moneda.isNotBlank()) {
+                    if (state.phase == WalletPhase.Ready && total != null) {
                         Text(
-                            text = formatPremium(total, wallet.moneda, region),
+                            text = formatPremium(total, region.currencyCode, region),
                             style = SolventaTypography.amount,
                             modifier = Modifier.testTag("billetera_total"),
                         )
                     }
                     Text(
-                        text = stringResource(R.string.billetera_count, wallet.movimientos.size),
+                        text = stringResource(R.string.billetera_count, count),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.testTag("billetera_count"),
                     )
@@ -80,7 +83,7 @@ fun BilleteraScreen(
             }
             if (state.phase == WalletPhase.Ready) {
                 Chips(state.chip, onChip)
-                state.visible.forEach { deposit ->
+                state.visible(region.currencyCode).forEach { deposit ->
                     DepositCard(deposit, onOpen, region)
                 }
             }
@@ -131,14 +134,15 @@ private fun Notice(notice: WalletNotice, savedAt: String?) {
 }
 
 @Composable
-private fun Chips(chip: DepositType?, onChip: (DepositType?) -> Unit) {
+private fun Chips(chip: WalletFilter, onChip: (WalletFilter) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
     ) {
-        SolventaChip(stringResource(R.string.billetera_chip_todos), chip == null, { onChip(null) }, testTag = "chip_todos", showSelectionIcon = false)
-        SolventaChip(stringResource(R.string.billetera_chip_asistido), chip == DepositType.Assisted, { onChip(DepositType.Assisted) }, testTag = "chip_asistido", showSelectionIcon = false)
-        SolventaChip(stringResource(R.string.billetera_chip_automatico), chip == DepositType.Automatic, { onChip(DepositType.Automatic) }, testTag = "chip_automatico", showSelectionIcon = false)
+        SolventaChip(stringResource(R.string.billetera_chip_todos), chip == WalletFilter.All, { onChip(WalletFilter.All) }, testTag = "chip_todos", showSelectionIcon = false)
+        SolventaChip(stringResource(R.string.billetera_chip_asistido), chip == WalletFilter.Assisted, { onChip(WalletFilter.Assisted) }, testTag = "chip_asistido", showSelectionIcon = false)
+        SolventaChip(stringResource(R.string.billetera_chip_otras), chip == WalletFilter.OtherCurrencies, { onChip(WalletFilter.OtherCurrencies) }, testTag = "chip_otras", showSelectionIcon = false)
+        SolventaChip(stringResource(R.string.billetera_chip_automatico), chip == WalletFilter.Automatic, { onChip(WalletFilter.Automatic) }, testTag = "chip_automatico", showSelectionIcon = false)
     }
 }
 
