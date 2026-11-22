@@ -4,32 +4,8 @@
     <p class="subtitle">{{ id }}</p>
   }
 
-  @if (nombre()) {
-    <p data-testid="perfil-nombre">{{ nombre() }}</p>
-  }
   @if (siniestro()) {
     <p data-testid="siniestro-id">{{ siniestro() }}</p>
-  }
-
-  @if (destino === 'perfil') {
-    <button
-      type="button"
-      class="outlined"
-      data-testid="perfil-idioma-region-open"
-      [attr.aria-expanded]="idiomaRegionOpen()"
-      aria-controls="destino-idioma-region"
-      (click)="idiomaRegionOpen.set(true)"
-    >
-      {{ 'idiomaRegion.title' | translate }}
-    </button>
-    @if (idiomaRegionOpen()) {
-      <sv-idioma-region
-        id="destino-idioma-region"
-        [embedded]="true"
-        (done)="idiomaRegionOpen.set(false)"
-      />
-    }
-    <sv-consentimiento-perfil />
   }
 
   <div class="empty-state" data-testid="destino-pending">

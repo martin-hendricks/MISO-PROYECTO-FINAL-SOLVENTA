@@ -166,8 +166,19 @@ export class BffDoubles {
           correo,
           nombre: 'Camila',
           apellidos: 'Restrepo',
+          tipoDocumento: 'CC',
           documento: '1012345678',
         },
+      }),
+    );
+  }
+
+  async serveDataConsent(otorgadoEn: string | null): Promise<void> {
+    const url = '**/web/cliente/consentimiento';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) =>
+      route.fulfill({
+        json: otorgadoEn ? { estado: 'vigente', otorgadoEn } : { estado: 'sin_consentimiento' },
       }),
     );
   }

@@ -9,6 +9,7 @@ export interface PerfilCliente {
   correo: string;
   nombre: string;
   apellidos: string;
+  tipoDocumento: string;
   documento: string;
 }
 

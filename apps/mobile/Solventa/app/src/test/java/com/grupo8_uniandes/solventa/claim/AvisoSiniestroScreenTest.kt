@@ -168,6 +168,9 @@ class AvisoSiniestroScreenTest {
                         PolicyEntry("POL-2", "Vida", "amparo", "por_vencer", "2026-12-01"),
                         PolicyEntry("POL-3", "SOAT", "moto", "vencida", "2020-01-01"),
                         PolicyEntry("POL-4", "SOAT", "moto", "cancelada", "2027-01-01"),
+                        PolicyEntry("POL-7", "SOAT", "moto", "Cancelada", "2027-01-01"),
+                        PolicyEntry("POL-8", "Vida hipotecario", "saldo", "vigente", "2020-01-01"),
+                        PolicyEntry("POL-9", "Vida hipotecario", "saldo", "vigente", "2028-01-01"),
                     ),
                     policiesLoaded = true,
                     sentences = listOf(policy, "2026-11-01", "Choque", "Calle 72"),
@@ -183,6 +186,9 @@ class AvisoSiniestroScreenTest {
         rule.onNodeWithTag("claim_policy_option_POL-2").assertIsDisplayed()
         rule.onAllNodesWithTag("claim_policy_option_POL-3").assertCountEquals(0)
         rule.onAllNodesWithTag("claim_policy_option_POL-4").assertCountEquals(0)
+        rule.onAllNodesWithTag("claim_policy_option_POL-7").assertCountEquals(0)
+        rule.onAllNodesWithTag("claim_policy_option_POL-8").assertCountEquals(0)
+        rule.onNodeWithTag("claim_policy_option_POL-9").assertIsDisplayed()
         rule.onNodeWithTag("claim_policy_option_POL-1").performClick()
         rule.onNodeWithTag("claim_continue").assertIsEnabled()
     }

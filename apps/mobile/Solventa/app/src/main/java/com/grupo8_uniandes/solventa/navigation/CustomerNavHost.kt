@@ -67,6 +67,7 @@ import com.grupo8_uniandes.solventa.ui.shell.AsistenciaSitioScreen
 import com.grupo8_uniandes.solventa.ui.shell.MapaPrestadoresScreen
 import com.grupo8_uniandes.solventa.ui.shell.PrestadorFichaScreen
 import com.grupo8_uniandes.solventa.ui.shell.SiniestroDetalleScreen
+import com.grupo8_uniandes.solventa.ui.shell.fetchEvidenceThumb
 import androidx.activity.ComponentActivity
 import com.grupo8_uniandes.solventa.claim.AvisoSiniestroViewModel
 import com.grupo8_uniandes.solventa.claim.ParametricoViewModel
@@ -247,6 +248,7 @@ fun CustomerNavHost(
             val avisos: AvisoVigenciaViewModel = koinViewModel()
             val renewal: RenewalChoiceViewModel = koinViewModel { parametersOf(route.policyId) }
             val renewalState by renewal.state.collectAsState()
+            val aviso = avisoViewModel()
             LaunchedEffect(state.detail?.renovacionAutomatica) {
                 state.detail?.let { renewal.adopt(it.renovacionAutomatica) }
             }
@@ -257,7 +259,10 @@ fun CustomerNavHost(
                 renewalMissing = renewalState.missing,
                 onRenewal = renewal::onChecked,
                 onOpenClaim = { id -> navController.navigate(SiniestroDetalleRoute(id)) },
-                onReportClaim = { navController.navigate(AvisoSiniestroRoute) },
+                onReportClaim = {
+                    aviso.preselect(route.policyId)
+                    navController.navigate(AvisoSiniestroRoute)
+                },
                 onExpiryNotices = {
                     avisos.requestExpiry(route.policyId) { reading ->
                         if (reading != null) navController.navigate(AvisoVencimientoRoute)
@@ -494,6 +499,7 @@ fun CustomerNavHost(
                     navController.openWalletFor(detail.claim?.summary?.siniestroId ?: route.claimId)
                 },
                 onOpenProviders = { navController.navigate(MapaPrestadoresSiniestroRoute(route.claimId)) },
+                loadThumb = ::fetchEvidenceThumb,
             )
         }
         composable<BilleteraRoute> { entry ->

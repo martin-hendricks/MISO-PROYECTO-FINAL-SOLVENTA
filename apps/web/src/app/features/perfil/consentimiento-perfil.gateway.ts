@@ -8,16 +8,23 @@ export type ConsentimientoPerfil =
   | { estado: 'revocado'; revocadoEn: string }
   | { estado: 'sin_consentimiento' };
 
+export type TipoConsentimiento = 'datos' | 'perfil';
+
+const RUTA: Record<TipoConsentimiento, string> = {
+  datos: 'consentimiento',
+  perfil: 'consentimiento-perfil',
+};
+
 @Injectable({ providedIn: 'root' })
 export class ConsentimientoPerfilGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  load(): Observable<ConsentimientoPerfil> {
-    return this.http.get<ConsentimientoPerfil>(`${this.baseUrl}/cliente/consentimiento-perfil`);
+  load(tipo: TipoConsentimiento): Observable<ConsentimientoPerfil> {
+    return this.http.get<ConsentimientoPerfil>(`${this.baseUrl}/cliente/${RUTA[tipo]}`);
   }
 
-  revoke(): Observable<ConsentimientoPerfil> {
-    return this.http.delete<ConsentimientoPerfil>(`${this.baseUrl}/cliente/consentimiento-perfil`);
+  revoke(tipo: TipoConsentimiento): Observable<ConsentimientoPerfil> {
+    return this.http.delete<ConsentimientoPerfil>(`${this.baseUrl}/cliente/${RUTA[tipo]}`);
   }
 }

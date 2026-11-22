@@ -1,0 +1,61 @@
+<section data-testid="perfil">
+  <h1>{{ 'perfil.title' | translate }}</h1>
+  @if (identidad()) {
+    <p class="subtitle" data-testid="perfil-nombre">{{ identidad() }}</p>
+  }
+
+  <div class="columnas">
+    <div class="filas">
+      <button
+        type="button"
+        class="fila"
+        aria-haspopup="dialog"
+        data-testid="perfil-idioma-region-open"
+        (click)="abrir('idioma')"
+      >
+        <span class="fila-texto">
+          <span class="fila-titulo">{{ 'idiomaRegion.title' | translate }}</span>
+          <span class="fila-detalle" data-testid="perfil-idioma-resumen">
+            {{ 'perfil.region.' + locale() | translate }} · {{ locale() }} · {{ moneda() }}
+          </span>
+        </span>
+        <span class="fila-chevron" aria-hidden="true">›</span>
+      </button>
+      <sv-consentimiento-perfil tipo="datos" />
+      <sv-consentimiento-perfil tipo="perfil" />
+    </div>
+
+    <div class="lateral">
+      <article class="tarjeta" data-testid="perfil-dispositivo">
+        <h2>{{ 'perfil.dispositivo.title' | translate }}</h2>
+        <p>{{ 'perfil.dispositivo.texto' | translate }}</p>
+      </article>
+      <button
+        type="button"
+        class="outlined"
+        aria-haspopup="dialog"
+        data-testid="perfil-cerrar-sesion"
+        (click)="abrir('cerrarSesion')"
+      >
+        {{ 'perfil.cerrarSesion.boton' | translate }}
+      </button>
+    </div>
+  </div>
+
+  @switch (dialogo()) {
+    @case ('idioma') {
+      <sv-perfil-dialog [titulo]="'idiomaRegion.title' | translate" (cerrar)="cerrar()">
+        <sv-idioma-region [embedded]="true" (done)="cerrar()" />
+      </sv-perfil-dialog>
+    }
+    @case ('cerrarSesion') {
+      <sv-confirm-dialog
+        [titulo]="'perfil.cerrarSesion.title' | translate"
+        [advertencia]="'perfil.cerrarSesion.advertencia' | translate"
+        confirmarTexto="perfil.cerrarSesion.boton"
+        (cancelar)="cerrar()"
+        (confirmar)="cerrarSesion()"
+      />
+    }
+  }
+</section>

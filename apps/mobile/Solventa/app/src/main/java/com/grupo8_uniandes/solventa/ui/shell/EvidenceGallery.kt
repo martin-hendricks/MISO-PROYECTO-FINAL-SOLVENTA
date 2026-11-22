@@ -1,7 +1,6 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
+import com.grupo8_uniandes.solventa.ui.capture.decodeOrientedImage
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
@@ -161,14 +161,7 @@ private fun Attachment.placeholderIcon(): ImageVector = when {
 
 internal fun evidenceFrame(bytes: ByteArray?, contentType: String, cacheDir: File): Bitmap? {
     if (bytes == null || bytes.isEmpty()) return null
-    if (contentType.startsWith("image/")) {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        val options = BitmapFactory.Options().apply {
-            inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight)
-        }
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-    }
+    if (contentType.startsWith("image/")) return decodeOrientedImage(bytes)
     if (!contentType.startsWith("video/")) return null
     val file = File(cacheDir, "claim-thumb.mp4")
     return runCatching {
@@ -181,10 +174,4 @@ internal fun evidenceFrame(bytes: ByteArray?, contentType: String, cacheDir: Fil
             retriever.release()
         }
     }.getOrNull()
-}
-
-private fun sampleSize(width: Int, height: Int): Int {
-    var size = 1
-    while (width / size > 720 || height / size > 720) size *= 2
-    return size
 }

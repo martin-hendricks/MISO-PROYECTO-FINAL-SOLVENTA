@@ -12,10 +12,8 @@ export class ConsentimientoPerfilViewModel {
   readonly revocando = this.revocandoState.asReadonly();
   readonly error = this.errorState.asReadonly();
 
-  readonly visible = computed(() => {
-    const estado = this.estadoState()?.estado;
-    return estado === 'vigente' || estado === 'revocado';
-  });
+  readonly cargado = computed(() => this.estadoState() !== null);
+  readonly vigente = computed(() => this.estadoState()?.estado === 'vigente');
   readonly otorgadoEn = computed(() => {
     const estado = this.estadoState();
     return estado?.estado === 'vigente' ? estado.otorgadoEn : null;

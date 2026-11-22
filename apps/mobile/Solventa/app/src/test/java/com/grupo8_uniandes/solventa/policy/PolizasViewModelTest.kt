@@ -210,9 +210,32 @@ class PolizasViewModelTest {
         rule.onNodeWithText("Fin del contrato", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("policy_refund", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithTag("policy_claims_empty").assertIsDisplayed()
-        rule.onNodeWithTag("action_report_claim").performClick()
-        assertEquals(1, reported)
+        rule.onNodeWithTag("action_report_claim").assertDoesNotExist()
+        assertEquals(0, reported)
         assertEquals("", opened)
+    }
+
+    @Test
+    fun givenAnExpiredPolicy_whenShown_thenReportClaimStaysHidden() {
+        rule.setContent {
+            SolventaTheme {
+                PolizaDetalleScreen(
+                    state = PolicyDetailUiState(
+                        phase = PolicyPhase.Ready,
+                        detail = PolicyDetail(
+                            numero = "POL-8",
+                            ramo = "Vida hipotecario",
+                            resumen = "Saldo",
+                            estado = "VIGENTE",
+                            venceEn = "2020-01-01",
+                            queHacer = "",
+                            finVigencia = "2020-01-01",
+                        ),
+                    ),
+                )
+            }
+        }
+        rule.onNodeWithTag("action_report_claim").assertDoesNotExist()
     }
 
     @Test

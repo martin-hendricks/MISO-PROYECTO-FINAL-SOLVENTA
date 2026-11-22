@@ -4,8 +4,9 @@ import { PortalWorld } from '../support/world';
 
 async function openPerfil(world: PortalWorld): Promise<void> {
   await world.bff.serveProfile(world.account.email);
+  await world.bff.serveDataConsent('2026-10-01T10:00:00Z');
   await world.page.goto('/perfil');
-  await world.page.getByTestId('destino-perfil').waitFor({ state: 'visible' });
+  await world.page.getByTestId('perfil').waitFor({ state: 'visible' });
 }
 
 Given('the customer granted the profiling consent', async function (this: PortalWorld) {
@@ -50,7 +51,6 @@ Then('Perfil shows the profiling consent as revoked', async function (this: Port
   const auditoria = this.page.getByTestId('perfil-consentimiento-auditoria');
   await auditoria.waitFor({ state: 'visible' });
   assert.match((await auditoria.textContent()) ?? '', /Revocado/);
-  assert.equal(await this.page.getByTestId('perfil-consentimiento-open').isDisabled(), true);
 });
 
 Then(
@@ -62,7 +62,11 @@ Then(
   },
 );
 
-Then('Perfil does not list a profiling consent', async function (this: PortalWorld) {
-  await this.page.getByTestId('perfil-nombre').waitFor({ state: 'visible' });
-  assert.equal(await this.page.getByTestId('perfil-consentimiento').count(), 0);
-});
+Then(
+  'Perfil shows the profiling consent without an active originación',
+  async function (this: PortalWorld) {
+    await this.page.getByTestId('perfil-nombre').waitFor({ state: 'visible' });
+    const auditoria = this.page.getByTestId('perfil-consentimiento-auditoria');
+    assert.match((await auditoria.textContent()) ?? '', /Sin originación activa/);
+  },
+);

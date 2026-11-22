@@ -27,9 +27,25 @@
       </div>
     }
     @default {
+      <div class="chips" role="group" [attr.aria-label]="'billetera.chip.grupo' | translate">
+        @for (filtro of filtros; track filtro) {
+          <button
+            type="button"
+            class="chip"
+            [attr.data-testid]="'chip-' + filtro"
+            [attr.aria-pressed]="vm.filtro() === filtro"
+            (click)="vm.seleccionar(filtro)"
+          >
+            {{ 'billetera.chip.' + filtro | translate }}
+          </button>
+        }
+      </div>
       <p class="eyebrow" data-testid="billetera-recibido">
         {{ 'billetera.recibido' | translate }} ·
-        {{ 'billetera.count' | translate: { n: vm.movimientos().length } }} · {{ vm.moneda() }}
+        {{ 'billetera.count' | translate: { n: vm.movimientos().length } }}
+        @if (vm.moneda(); as moneda) {
+          · {{ moneda }}
+        }
       </p>
       @if (vm.total() !== null && vm.moneda(); as moneda) {
         <p class="total" data-testid="billetera-total">{{ vm.total()! | svMoney: moneda }}</p>

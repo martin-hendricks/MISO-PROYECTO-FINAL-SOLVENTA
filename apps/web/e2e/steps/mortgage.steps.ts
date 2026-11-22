@@ -40,7 +40,7 @@ Then(
   'the customer sees the mortgage offer with premium and internal factors',
   async function (this: PortalWorld) {
     await this.cotizacion.expectOffer(this.offer);
-    await this.vidaCrediticia.expectFactor('Zona de riesgo');
+    await this.vidaCrediticia.expectFactor('la zona de riesgo');
     assert.deepEqual(this.bff.mortgageBody(), {
       credito: { valor: 180000000, plazoMeses: 240 },
       consentimientoPerfil: true,
@@ -190,7 +190,7 @@ Then(
 Then('authorizing shows each profiling step before the offer', async function (this: PortalWorld) {
   await this.vidaCrediticia.authorizePrefilled();
   await this.vidaCrediticia.expectProfilingSteps();
-  await this.vidaCrediticia.expectFactor('Zona de riesgo');
+  await this.vidaCrediticia.expectFactor('la zona de riesgo');
   assert.deepEqual(this.bff.mortgageBody(), {
     credito: { valor: 180000000, plazoMeses: 240 },
     consentimientoPerfil: true,

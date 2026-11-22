@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 import httpx
@@ -57,9 +58,29 @@ def test_alta_con_cuenta_que_no_puede_entrar_es_401(client, nucleo_identidad):
     assert client.post("/v1/registro", json=BODY).status_code == 401
 
 
-def test_alta_sin_consentimiento_se_rechaza(client):
+def test_alta_otorga_habeas_data_en_ms_consentimiento(client, nucleo_consentimiento):
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 200
+    otorgadas = [p for p in nucleo_consentimiento.peticiones if p.method == "POST" and p.url.path == "/v1/consentimientos"]
+    assert len(otorgadas) == 1
+    assert json.loads(otorgadas[0].content) == {"cliente_id": "11111111-1111-1111-1111-111111111111"}
+
+
+def test_alta_sin_ms_consentimiento_disponible_es_503(client, nucleo_consentimiento):
+    nucleo_consentimiento.respuestas = {}
+    nucleo_consentimiento._default_status = 503
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 503
+    assert "accessToken" not in response.text
+
+
+def test_alta_sin_consentimiento_se_rechaza(client, nucleo_consentimiento):
     response = client.post("/v1/registro", json={**BODY, "habeasData": False})
     assert response.status_code == 422
+    assert nucleo_consentimiento.peticiones == []
 
 
 @pytest.mark.parametrize("campo", ["contrasena", "habeasData"])

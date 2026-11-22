@@ -1,0 +1,18 @@
+.dialog {
+  max-width: 480px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.texto {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  line-height: 24px;
+}
+
+.filled {
+  background: var(--sv-primary);
+}
