@@ -64,14 +64,16 @@ fun readPicked(resolver: ContentResolver, uri: Uri): PickedEvidence? {
     }
     val mime = evidenceMime(resolver.getType(uri), name)
     val kind = evidenceKind(mime) ?: AttachmentKind.SOPORTE
+    val stored = if (mime == "image/jpeg") normalizeJpegOrientation(bytes) else bytes
+    val reported = if (stored === bytes) size.coerceAtLeast(bytes.size.toLong()) else stored.size.toLong()
     return PickedEvidence(
         attachment = Attachment(
             tipo = kind,
             nombre = name,
             contentType = mime,
-            tamanoBytes = size.coerceAtLeast(bytes.size.toLong()),
+            tamanoBytes = reported,
         ),
-        bytes = bytes,
+        bytes = stored,
     )
 }
 
@@ -205,9 +207,10 @@ internal fun readFile(file: File): PickedEvidence? {
     val bytes = file.readBytes()
     val mime = evidenceMime(null, file.name)
     val kind = evidenceKind(mime) ?: AttachmentKind.SOPORTE
+    val stored = if (mime == "image/jpeg") normalizeJpegOrientation(bytes) else bytes
     return PickedEvidence(
-        attachment = Attachment(kind, file.name, mime, bytes.size.toLong()),
-        bytes = bytes,
+        attachment = Attachment(kind, file.name, mime, stored.size.toLong()),
+        bytes = stored,
     )
 }
 

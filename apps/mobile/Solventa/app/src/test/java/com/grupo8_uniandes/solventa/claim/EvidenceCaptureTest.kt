@@ -1,6 +1,10 @@
 package com.grupo8_uniandes.solventa.claim
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.media.ExifInterface
 import android.provider.MediaStore
 import android.location.Location
 import android.location.LocationManager
@@ -19,8 +23,10 @@ import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
 import com.grupo8_uniandes.solventa.domain.bff.claim.bytesMissing
 import com.grupo8_uniandes.solventa.domain.bff.claim.storedFiles
 import com.grupo8_uniandes.solventa.ui.capture.LimitedCaptureVideo
+import com.grupo8_uniandes.solventa.ui.capture.decodeOrientedImage
 import com.grupo8_uniandes.solventa.ui.capture.evidenceKind
 import com.grupo8_uniandes.solventa.ui.capture.evidenceMime
+import com.grupo8_uniandes.solventa.ui.capture.normalizeJpegOrientation
 import com.grupo8_uniandes.solventa.ui.capture.readFile
 import com.grupo8_uniandes.solventa.ui.capture.readPicked
 import kotlinx.coroutines.runBlocking
@@ -34,6 +40,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.fakes.RoboCursor
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -96,6 +103,34 @@ class EvidenceCaptureTest {
         val unknown = File(context.cacheDir, "claim/nota.txt")
         unknown.writeBytes(byteArrayOf(3))
         assertEquals(AttachmentKind.SOPORTE, readFile(unknown)!!.attachment.tipo)
+    }
+
+    @Test
+    fun givenARotatedJpeg_whenRead_thenThePixelsAreUprightAndStayUpright() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val wide = Bitmap.createBitmap(8, 4, Bitmap.Config.ARGB_8888)
+        wide.eraseColor(Color.BLUE)
+        val rotated = File(context.cacheDir, "claim/wide.jpg")
+        rotated.parentFile?.mkdirs()
+        rotated.outputStream().use { wide.compress(Bitmap.CompressFormat.JPEG, 100, it) }
+        ExifInterface(rotated.absolutePath).apply {
+            setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_ROTATE_90.toString())
+            saveAttributes()
+        }
+
+        val picked = readFile(rotated)!!
+        val decoded = BitmapFactory.decodeByteArray(picked.bytes, 0, picked.bytes.size)
+        assertEquals(4, decoded.width)
+        assertEquals(8, decoded.height)
+        val again = decodeOrientedImage(picked.bytes)
+        assertEquals(4, again!!.width)
+        assertEquals(8, again.height)
+        assertTrue(normalizeJpegOrientation(picked.bytes).contentEquals(picked.bytes))
+
+        val upright = jpegBytes(8, 4)
+        assertTrue(normalizeJpegOrientation(upright).contentEquals(upright))
+        val junk = byteArrayOf(1, 2, 3, 4)
+        assertTrue(normalizeJpegOrientation(junk).contentEquals(junk))
     }
 
     @Test
@@ -224,6 +259,14 @@ class EvidenceCaptureTest {
                 summary = detail.summary.copy(tipo = "parametrico", estado = ClaimStatus.RECIBIDO),
             ).storedPayment() != null,
         )
+    }
+
+    private fun jpegBytes(width: Int, height: Int): ByteArray {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.RED)
+        val out = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+        return out.toByteArray()
     }
 
     private fun point(provider: String, lat: Double, lng: Double, accuracy: Float) =

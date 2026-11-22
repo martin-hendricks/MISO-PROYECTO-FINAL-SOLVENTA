@@ -1,5 +1,7 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,8 +17,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -48,6 +57,7 @@ fun SiniestroDetalleScreen(
     onOpenWallet: () -> Unit = {},
     onOpenProviders: () -> Unit = {},
     region: Region = Region.Colombia,
+    loadThumb: suspend (String) -> Bitmap? = { null },
 ) {
     Column(
         modifier = modifier
@@ -158,7 +168,7 @@ fun SiniestroDetalleScreen(
                 )
             }
             claim.evidencia.forEach { item ->
-                EvidenceItem(item, onOpenEvidence)
+                EvidenceItem(item, onOpenEvidence, loadThumb)
             }
             Text(
                 text = stringResource(R.string.claim_history),
@@ -234,8 +244,17 @@ private fun Fact(label: String, value: String, tag: String, onClick: (() -> Unit
 }
 
 @Composable
-private fun EvidenceItem(item: ClaimEvidence, onOpen: (String) -> Unit) {
+private fun EvidenceItem(
+    item: ClaimEvidence,
+    onOpen: (String) -> Unit,
+    loadThumb: suspend (String) -> Bitmap?,
+) {
     val image = item.contentType.startsWith("image/") || item.tipo.equals("foto", ignoreCase = true)
+    val remote = image && (item.url.startsWith("http://") || item.url.startsWith("https://"))
+    var thumb by remember(item.url) { mutableStateOf<Bitmap?>(null) }
+    if (remote) {
+        LaunchedEffect(item.url) { thumb = loadThumb(item.url) }
+    }
     val open = { if (item.url.isNotBlank()) onOpen(item.url) }
     if (image) {
         Surface(
@@ -246,8 +265,18 @@ private fun EvidenceItem(item: ClaimEvidence, onOpen: (String) -> Unit) {
                 .clickable(onClick = open)
                 .testTag("claim_evidence_${item.nombre}"),
         ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(SolventaSpacing.s8)) {
-                Text(text = item.nombre, style = MaterialTheme.typography.labelLarge)
+            val bitmap = thumb
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = item.nombre,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(SolventaSpacing.s8)) {
+                    Text(text = item.nombre, style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     } else {

@@ -1,7 +1,9 @@
 package com.grupo8_uniandes.solventa.claim
 
+import android.graphics.Bitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -166,5 +168,49 @@ class SiniestroDetalleScreenTest {
         assertEquals("untouched", opened)
         rule.onNodeWithTag("claim_evidence_foto.jpg").performClick()
         assertEquals("https://example.test/foto.jpg", opened)
+    }
+
+    @Test
+    fun givenPhotoUrls_whenShown_thenALoadedUrlIsAThumbnailAndABrokenOneKeepsTheName() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        var opened = "untouched"
+        rule.setContent {
+            SolventaTheme {
+                SiniestroDetalleScreen(
+                    claimId = "SIN-3",
+                    claim = ClaimDetail(
+                        summary = ClaimSummary(
+                            siniestroId = "SIN-3",
+                            ramo = "SOAT",
+                            resumen = "Golpe",
+                            estado = ClaimStatus.RECIBIDO,
+                            resultado = "",
+                            fecha = "2026-11-01",
+                            reserva = null,
+                            moneda = "COP",
+                        ),
+                        poliza = "POL-1",
+                        descripcion = "Golpe",
+                        lugar = "Calle 1",
+                        geo = null,
+                        motivo = null,
+                        evidencia = listOf(
+                            ClaimEvidence("foto.jpg", "foto", "image/jpeg", "https://example.test/foto.jpg"),
+                            ClaimEvidence("roto.jpg", "foto", "image/jpeg", "https://example.test/roto.jpg"),
+                            ClaimEvidence("vacio.jpg", "foto", "image/jpeg", ""),
+                        ),
+                        historial = emptyList(),
+                        pago = null,
+                        umbral = null,
+                    ),
+                    onOpenEvidence = { opened = it },
+                    loadThumb = { url -> if (url.endsWith("foto.jpg")) bitmap else null },
+                )
+            }
+        }
+        rule.onNodeWithContentDescription("foto.jpg").assertIsDisplayed()
+        rule.onNodeWithText("roto.jpg").assertIsDisplayed()
+        rule.onNodeWithTag("claim_evidence_vacio.jpg").performClick()
+        assertEquals("untouched", opened)
     }
 }
