@@ -85,17 +85,50 @@
     "poliza": "Detalle de póliza",
     "siniestro": "Detalle de siniestro",
     "siniestros": "Siniestros",
-    "perfil": "Perfil",
     "pending": {
       "title": "Sección en preparación",
       "body": "Pronto podrás continuar desde aquí.",
       "home": "Volver al inicio"
     }
   },
-  "consentimientoPerfil": {
-    "title": "Perfilamiento para vida hipotecario",
+  "perfil": {
+    "title": "Perfil",
+    "entendido": "Entendido",
+    "region": {
+      "es-CO": "Español · Colombia",
+      "es-MX": "Español · México",
+      "es-CL": "Español · Chile",
+      "es-PE": "Español · Perú"
+    },
+    "dispositivo": {
+      "title": "Dispositivo",
+      "texto": "Cámara, fotos y GPS se gestionan en la app Android. En web usas carga de archivos y geolocalización del navegador cuando el siniestro lo pide."
+    },
+    "cerrarSesion": {
+      "boton": "Cerrar sesión",
+      "title": "¿Cerrar sesión?",
+      "advertencia": "Tendrás que ingresar de nuevo para consultar tus pólizas y siniestros."
+    }
+  },
+  "consentimientoDatos": {
+    "title": "Consentimiento de datos",
     "otorgado": "Otorgado el {{fecha}}",
     "revocado": "Revocado el {{fecha}}",
+    "sin": "Sin consentimiento vigente",
+    "info": "No tienes un consentimiento de datos vigente. Desde Perfil no se puede volver a otorgar.",
+    "error": "No pudimos revocar el consentimiento. Intenta de nuevo en unos minutos.",
+    "dialog": {
+      "title": "Revocar el consentimiento de datos",
+      "advertencia": "Solventa dejará de tratar tus datos personales bajo habeas data. Desde Perfil no podrás volver a otorgarlo.",
+      "revocar": "Revocar"
+    }
+  },
+  "consentimientoPerfil": {
+    "title": "Consentimiento Vida Crediticia",
+    "otorgado": "Otorgado el {{fecha}}",
+    "revocado": "Revocado el {{fecha}}",
+    "sin": "Sin originación activa",
+    "info": "No tienes una autorización de perfilamiento vigente. Se solicita al cotizar Vida Crediticia para un crédito hipotecario.",
     "error": "No pudimos revocar la autorización. Intenta de nuevo en unos minutos.",
     "dialog": {
       "title": "Revocar la autorización de perfilamiento",
@@ -883,7 +916,9 @@
       "prima": "Prima",
       "aceptar": "Aceptar y emitir",
       "degradada": "No pudimos consultar todos tus datos a tiempo: la prima usa valores de respaldo. Puedes aceptarla igual.",
-      "sinFactores": "Sin factores de perfil disponibles."
+      "sinFactores": "Sin factores de perfil disponibles.",
+      "analizados": "Para calcular tu prima analizamos {{factores}}.",
+      "ajusteCompetitivo": "Tu prima se ajustó al precio de mercado."
     },
     "factor": {
       "nivel_ingresos_estimado": "Nivel de ingresos estimado",
@@ -891,6 +926,12 @@
       "zona_riesgo": "Zona de riesgo",
       "antiguedad_documento": "Antigüedad del documento",
       "ajuste_competitivo": "Ajustada al precio de mercado"
+    },
+    "analizado": {
+      "nivel_ingresos_estimado": "tu nivel de ingresos estimado",
+      "score_comportamiento": "tu comportamiento de pago",
+      "zona_riesgo": "la zona de riesgo",
+      "antiguedad_documento": "la antigüedad de tu documento"
     },
     "impacto": {
       "reduce_prima": "Reduce la prima",

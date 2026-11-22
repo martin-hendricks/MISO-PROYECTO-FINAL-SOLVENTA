@@ -798,6 +798,64 @@ def test_consentimiento_perfil_exige_rol_cliente(client, nucleo_perfilamiento):
     assert nucleo_perfilamiento.peticiones == []
 
 
+def test_consultar_consentimiento_datos_vigente(client, nucleo_consentimiento):
+    nucleo_consentimiento.respuestas[("GET", f"/v1/consentimientos/{_usuario_id()}")] = lambda _: httpx.Response(
+        200, json=_consentimiento()
+    )
+
+    response = client.get("/v1/cliente/consentimiento", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json() == {"estado": "vigente", "otorgadoEn": "2026-10-01T10:00:00Z"}
+    assert [(p.method, p.url.path) for p in nucleo_consentimiento.peticiones] == [
+        ("GET", f"/v1/consentimientos/{_usuario_id()}")
+    ]
+
+
+def test_consultar_sin_consentimiento_datos(client, nucleo_consentimiento):
+    response = client.get("/v1/cliente/consentimiento", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json() == {"estado": "sin_consentimiento"}
+
+
+def test_consultar_consentimiento_datos_con_servicio_caido_es_503(client, nucleo_consentimiento):
+    nucleo_consentimiento.respuestas[("GET", f"/v1/consentimientos/{_usuario_id()}")] = _caido
+
+    response = client.get("/v1/cliente/consentimiento", headers=_auth(client))
+
+    assert response.status_code == 503
+
+
+def test_revocar_consentimiento_datos(client, nucleo_consentimiento):
+    nucleo_consentimiento.respuestas[("DELETE", f"/v1/consentimientos/{_usuario_id()}")] = lambda _: httpx.Response(
+        200, json=_consentimiento(revocado_en="2026-11-22T15:30:00Z")
+    )
+
+    response = client.delete("/v1/cliente/consentimiento", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json() == {"estado": "revocado", "revocadoEn": "2026-11-22T15:30:00Z"}
+    assert [(p.method, p.url.path) for p in nucleo_consentimiento.peticiones] == [
+        ("DELETE", f"/v1/consentimientos/{_usuario_id()}")
+    ]
+
+
+def test_revocar_sin_consentimiento_datos_vigente(client, nucleo_consentimiento):
+    response = client.delete("/v1/cliente/consentimiento", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json() == {"estado": "sin_consentimiento"}
+
+
+def test_consentimiento_datos_exige_rol_cliente(client, nucleo_consentimiento):
+    consulta = client.get("/v1/cliente/consentimiento", headers=_auth(client, "asesor"))
+    revocacion = client.delete("/v1/cliente/consentimiento", headers=_auth(client, "asesor"))
+
+    assert (consulta.status_code, revocacion.status_code) == (403, 403)
+    assert nucleo_consentimiento.peticiones == []
+
+
 def test_hipoteca_usa_la_identidad_de_cada_sesion(client, nucleo_perfilamiento, nucleo_cotizacion):
     _perfilamiento_responde(nucleo_perfilamiento)
     _cotizacion_vida_responde(nucleo_cotizacion)
@@ -1036,7 +1094,12 @@ def test_inicio_propaga_una_forma_que_no_es_del_nucleo(
 def test_perfil_lee_y_guarda(client, nucleo_identidad):
     nucleo_identidad.respuestas[("GET", f"/v1/usuarios/{UID}")] = lambda _: httpx.Response(
         200,
-        json={"usuario_id": UID, "email": "persona@correo.com", "numero_documento": "1012345678"},
+        json={
+            "usuario_id": UID,
+            "email": "persona@correo.com",
+            "tipo_documento": "CC",
+            "numero_documento": "1012345678",
+        },
     )
     headers = _auth(client)
     leido = client.get("/v1/cliente/perfil", headers=headers)
@@ -1046,6 +1109,7 @@ def test_perfil_lee_y_guarda(client, nucleo_identidad):
         "correo": "persona@correo.com",
         "nombre": "",
         "apellidos": "",
+        "tipoDocumento": "CC",
         "documento": "1012345678",
     }
 
@@ -1065,6 +1129,7 @@ def test_perfil_lee_y_guarda(client, nucleo_identidad):
     assert guardado.status_code == 200
     assert guardado.json()["nombre"] == "Camila"
     assert guardado.json()["apellidos"] == "Restrepo"
+    assert guardado.json()["tipoDocumento"] == ""
 
 
 def test_token_sin_uid_no_abre_el_canal():

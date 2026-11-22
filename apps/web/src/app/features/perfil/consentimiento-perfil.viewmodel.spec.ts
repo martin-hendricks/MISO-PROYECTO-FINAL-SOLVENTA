@@ -13,24 +13,28 @@ describe('ConsentimientoPerfilViewModel', () => {
     return { vm, revocar };
   }
 
-  it('shows the row with the grant date when the consent is in force', () => {
+  it('exposes the grant date when the consent is in force', () => {
     const { vm } = crear();
 
-    expect(vm.visible()).toBeTrue();
+    expect(vm.vigente()).toBeTrue();
     expect(vm.otorgadoEn()).toBe('2026-10-01T10:00:00Z');
     expect(vm.revocadoEn()).toBeNull();
   });
 
-  it('hides the row when the customer never granted the consent', () => {
+  it('has no dates when the customer never granted the consent', () => {
     const { vm } = crear(of({ estado: 'sin_consentimiento' }));
 
-    expect(vm.visible()).toBeFalse();
+    expect(vm.cargado()).toBeTrue();
+    expect(vm.vigente()).toBeFalse();
+    expect(vm.otorgadoEn()).toBeNull();
+    expect(vm.revocadoEn()).toBeNull();
   });
 
-  it('hides the row when the consent cannot be read', () => {
+  it('is not in force when the consent cannot be read', () => {
     const { vm } = crear(throwError(() => new Error('503')));
 
-    expect(vm.visible()).toBeFalse();
+    expect(vm.cargado()).toBeFalse();
+    expect(vm.vigente()).toBeFalse();
   });
 
   it('opens and closes the dialog without revoking', () => {
@@ -45,7 +49,7 @@ describe('ConsentimientoPerfilViewModel', () => {
     expect(vm.otorgadoEn()).toBe('2026-10-01T10:00:00Z');
   });
 
-  it('revokes, closes the dialog and keeps the row with the revocation date', () => {
+  it('revokes, closes the dialog and keeps the revocation date', () => {
     const { vm, revocar } = crear();
 
     vm.abrir();
@@ -53,7 +57,7 @@ describe('ConsentimientoPerfilViewModel', () => {
 
     expect(revocar).toHaveBeenCalledTimes(1);
     expect(vm.dialogo()).toBeFalse();
-    expect(vm.visible()).toBeTrue();
+    expect(vm.vigente()).toBeFalse();
     expect(vm.revocadoEn()).toBe('2026-11-11T15:30:00Z');
     expect(vm.otorgadoEn()).toBeNull();
     expect(vm.error()).toBeFalse();
@@ -86,12 +90,12 @@ describe('ConsentimientoPerfilViewModel', () => {
     expect(vm.otorgadoEn()).toBe('2026-10-01T10:00:00Z');
   });
 
-  it('hides the row when the core reports nothing left to revoke', () => {
+  it('is no longer in force when the core reports nothing left to revoke', () => {
     const { vm } = crear(of(VIGENTE), of({ estado: 'sin_consentimiento' }));
 
     vm.abrir();
     vm.revocar();
 
-    expect(vm.visible()).toBeFalse();
+    expect(vm.vigente()).toBeFalse();
   });
 });

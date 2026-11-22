@@ -8,8 +8,8 @@ from .base import ClienteServicio
 class ClienteMsConsentimiento(ClienteServicio):
     """Cliente de ms-consentimiento (habeas data, HU-141/SOLV-...): servicio
     DISTINTO de ms-perfilamiento (consentimiento de perfilamiento
-    hipotecario, ver ClienteMsPerfilamiento). Se usa hoy únicamente al dar de
-    alta un cliente nuevo desde el back-office (routers/asesor.py)."""
+    hipotecario, ver ClienteMsPerfilamiento). Lo otorgan el alta del asesor y
+    el autorregistro; el cliente lo consulta y revoca desde Perfil."""
 
     nombre = "ms-consentimiento"
 
@@ -22,3 +22,9 @@ class ClienteMsConsentimiento(ClienteServicio):
             "/v1/consentimientos",
             json={"cliente_id": cliente_id},
         )
+
+    async def consentimiento_vigente(self, cliente_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/consentimientos/{cliente_id}")
+
+    async def revocar_consentimiento(self, cliente_id: str) -> dict[str, Any]:
+        return await self._pedir("DELETE", f"/v1/consentimientos/{cliente_id}")

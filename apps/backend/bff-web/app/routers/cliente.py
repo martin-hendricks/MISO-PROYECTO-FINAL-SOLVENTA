@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
@@ -18,6 +19,7 @@ from ..clients.ms_polizas import ClienteMsPolizas
 from ..clients.ms_siniestros import ClienteMsSiniestros
 from ..ramos import PRODUCTOS, presentar, producto_de
 from ..dependencies import (
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
     obtener_cliente_identidad,
     obtener_cliente_pagos,
@@ -645,6 +647,32 @@ async def revocar_consentimiento_perfil(
     return {"estado": "revocado", "revocadoEn": revocado["revocado_en"]}
 
 
+@router.get("/consentimiento")
+async def consentimiento_datos(
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        vigente = await cliente_consentimiento.consentimiento_vigente(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "vigente", "otorgadoEn": vigente["otorgado_en"]}
+
+
+@router.delete("/consentimiento")
+async def revocar_consentimiento_datos(
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        revocado = await cliente_consentimiento.revocar_consentimiento(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "revocado", "revocadoEn": revocado["revocado_en"]}
+
+
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,
@@ -748,6 +776,7 @@ def _perfil_salida(usuario: dict) -> dict:
         "correo": usuario["email"],
         "nombre": usuario.get("nombre") or "",
         "apellidos": usuario.get("apellidos") or "",
+        "tipoDocumento": usuario.get("tipo_documento") or "",
         "documento": usuario.get("numero_documento") or "",
     }
 

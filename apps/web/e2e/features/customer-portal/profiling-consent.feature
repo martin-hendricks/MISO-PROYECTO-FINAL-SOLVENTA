@@ -20,4 +20,4 @@ Feature: Profiling consent managed from Perfil
     Given the customer is signed in
     And the customer never granted the profiling consent
     When the customer opens Perfil
-    Then Perfil does not list a profiling consent
+    Then Perfil shows the profiling consent without an active originación

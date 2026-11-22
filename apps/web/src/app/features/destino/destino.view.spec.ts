@@ -25,24 +25,6 @@ describe('DestinoView', () => {
     const fixture = TestBed.createComponent(DestinoView);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
-    if (destino === 'perfil') {
-      const perfil = http.expectOne('/web/cliente/perfil');
-      if (fallo) {
-        perfil.flush({}, { status: 503, statusText: 'Unavailable' });
-      } else {
-        perfil.flush({
-          usuarioId: '11111111-1111-1111-1111-111111111111',
-          correo: 'camila@correo.com',
-          nombre: 'Camila',
-          apellidos: 'Restrepo',
-          documento: '1012345678',
-        });
-      }
-      http
-        .expectOne('/web/cliente/consentimiento-perfil')
-        .flush({ estado: 'vigente', otorgadoEn: '2026-10-01T10:00:00Z' });
-      fixture.detectChanges();
-    }
     if (destino === 'siniestro' || destino === 'siniestros') {
       const inicio = http.expectOne('/web/cliente/inicio');
       if (fallo) {
@@ -79,77 +61,17 @@ describe('DestinoView', () => {
     expect(host.querySelector('.subtitle')).toBeNull();
   });
 
-  it('Perfil offers the idioma-region dialog, closed by default', () => {
-    const { host: perfil } = render('perfil', null);
-    const toggle = perfil.querySelector('[data-testid="perfil-idioma-region-open"]');
-    expect(toggle).not.toBeNull();
-    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
-    expect(toggle?.getAttribute('aria-controls')).toBe('destino-idioma-region');
-    expect(perfil.querySelector('[data-testid="idioma-region"]')).toBeNull();
-  });
-
-  it('other destinations do not offer the idioma-region dialog', () => {
-    const { host: otro } = render('cotizacion', null);
-    expect(otro.querySelector('[data-testid="perfil-idioma-region-open"]')).toBeNull();
-  });
-
-  it('Perfil lists the profiling consent, separate from the data consent', () => {
-    const { host: perfil } = render('perfil', null);
-    expect(perfil.querySelector('[data-testid="perfil-consentimiento-open"]')).not.toBeNull();
-
-    TestBed.resetTestingModule();
-    const { host: otro } = render('cotizacion', null);
-    expect(otro.querySelector('[data-testid="perfil-consentimiento"]')).toBeNull();
-  });
-
-  it('shows the profile name and the open claim', () => {
-    const { host: perfil } = render('perfil', null);
-    expect(perfil.querySelector('[data-testid="perfil-nombre"]')?.textContent).toContain(
-      'Camila Restrepo',
-    );
-
-    TestBed.resetTestingModule();
+  it('shows the open claim', () => {
     const { host: siniestro } = render('siniestro', null);
     expect(siniestro.querySelector('[data-testid="siniestro-id"]')?.textContent).toContain('SIN-1');
   });
 
-  it('leaves the name and the claim blank when those reads fail or there is no claim', () => {
-    const { host: perfil } = render('perfil', null, true);
-    expect(perfil.querySelector('[data-testid="perfil-nombre"]')).toBeNull();
-
-    TestBed.resetTestingModule();
+  it('leaves the claim blank when that read fails or there is no claim', () => {
     const { host: vacio } = render('siniestros', null);
     expect(vacio.querySelector('[data-testid="siniestro-id"]')).toBeNull();
 
     TestBed.resetTestingModule();
     const { host: caido } = render('siniestro', null, true);
     expect(caido.querySelector('[data-testid="siniestro-id"]')).toBeNull();
-  });
-
-  it('opens the embedded dialog from Perfil and closes it on done', () => {
-    const { fixture, host } = render('perfil', null);
-
-    host.querySelector<HTMLButtonElement>('[data-testid="perfil-idioma-region-open"]')!.click();
-    fixture.detectChanges();
-
-    expect(
-      host
-        .querySelector('[data-testid="perfil-idioma-region-open"]')
-        ?.getAttribute('aria-expanded'),
-    ).toBe('true');
-    const dialog = host.querySelector('[data-testid="idioma-region"]');
-    expect(dialog).not.toBeNull();
-    expect(dialog?.getAttribute('data-embedded')).toBe('true');
-    expect(host.querySelector('#destino-idioma-region')).not.toBeNull();
-
-    host.querySelector<HTMLButtonElement>('[data-testid="idioma-region-done"]')!.click();
-    fixture.detectChanges();
-
-    expect(host.querySelector('[data-testid="idioma-region"]')).toBeNull();
-    expect(
-      host
-        .querySelector('[data-testid="perfil-idioma-region-open"]')
-        ?.getAttribute('aria-expanded'),
-    ).toBe('false');
   });
 });

@@ -54,6 +54,11 @@ h2 {
   text-align: center;
 }
 
+.analizados {
+  margin: 16px 0 0;
+  line-height: 24px;
+}
+
 .degradada {
   margin-bottom: 24px;
   background: var(--sv-surface-container);
