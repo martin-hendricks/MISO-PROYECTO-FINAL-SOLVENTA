@@ -139,10 +139,14 @@ variablesEntorno:
   # remitente en SES y fuera del sandbox (o con destinatarios verificados); con
   # "" queda apagado y solo sale push. EMAIL_REMITENTE debe ser una identidad
   # verificada.
+  #
+  # Proyecto académico, sin salida de sandbox: mr.romero@uniandes.edu.co se
+  # verificó como identidad individual (no dominio, sin DKIM) solo para
+  # pruebas -- remitente y destinatario deben estar verificados en SES.
   - nombre: EMAIL_PROVEEDOR
-    valor: ""
+    valor: "ses"
   - nombre: EMAIL_REMITENTE
-    valor: ""
+    valor: "mr.romero@uniandes.edu.co"
   - nombre: MS_IDENTIDAD_URL
     valor: "http://ms-identidad.solventa.svc.cluster.local:8080"
 
