@@ -1,36 +1,46 @@
-@if (vm.visible()) {
-  <div class="consentimiento-perfil" data-testid="perfil-consentimiento">
-    <button
-      type="button"
-      class="outlined"
-      data-testid="perfil-consentimiento-open"
-      aria-haspopup="dialog"
-      [disabled]="vm.revocadoEn() !== null"
-      (click)="abrir()"
-    >
-      {{ 'consentimientoPerfil.title' | translate }}
-    </button>
-    <p class="auditoria" data-testid="perfil-consentimiento-auditoria">
-      @if (vm.otorgadoEn(); as otorgadoEn) {
-        {{ 'consentimientoPerfil.otorgado' | translate: { fecha: (otorgadoEn | svDateTime) } }}
-      } @else if (vm.revocadoEn(); as revocadoEn) {
-        {{ 'consentimientoPerfil.revocado' | translate: { fecha: (revocadoEn | svDateTime) } }}
-      }
+<div [attr.data-testid]="testid('fila')">
+  <button
+    type="button"
+    class="fila"
+    aria-haspopup="dialog"
+    [attr.data-testid]="testid('open')"
+    (click)="abrir()"
+  >
+    <span class="fila-texto">
+      <span class="fila-titulo">{{ clave('title') | translate }}</span>
+      <span class="fila-detalle" [attr.data-testid]="testid('auditoria')">
+        @if (vm.otorgadoEn(); as otorgadoEn) {
+          {{ clave('otorgado') | translate: { fecha: (otorgadoEn | svDateTime) } }}
+        } @else if (vm.revocadoEn(); as revocadoEn) {
+          {{ clave('revocado') | translate: { fecha: (revocadoEn | svDateTime) } }}
+        } @else if (vm.cargado()) {
+          {{ clave('sin') | translate }}
+        }
+      </span>
+    </span>
+    <span class="fila-chevron" aria-hidden="true">›</span>
+  </button>
+  @if (vm.error()) {
+    <p class="error" role="alert" [attr.data-testid]="testid('error')">
+      {{ clave('error') | translate }}
     </p>
-    @if (vm.error()) {
-      <p class="error" role="alert" data-testid="perfil-consentimiento-error">
-        {{ 'consentimientoPerfil.error' | translate }}
-      </p>
-    }
-  </div>
-}
+  }
+</div>
 
 @if (vm.dialogo()) {
-  <sv-confirm-dialog
-    [titulo]="'consentimientoPerfil.dialog.title' | translate"
-    [advertencia]="'consentimientoPerfil.dialog.advertencia' | translate"
-    confirmarTexto="consentimientoPerfil.dialog.revocar"
-    (cancelar)="cancelar()"
-    (confirmar)="vm.revocar()"
-  />
+  @if (vm.vigente()) {
+    <sv-confirm-dialog
+      [titulo]="clave('dialog.title') | translate"
+      [advertencia]="clave('dialog.advertencia') | translate"
+      [confirmarTexto]="clave('dialog.revocar')"
+      (cancelar)="cancelar()"
+      (confirmar)="vm.revocar()"
+    />
+  } @else {
+    <sv-perfil-dialog
+      [titulo]="clave('title') | translate"
+      [texto]="clave('info') | translate"
+      (cerrar)="cancelar()"
+    />
+  }
 }

@@ -270,7 +270,10 @@ export const routes: Routes = [
             (m) => m.BilleteraDetalleView,
           ),
       },
-      destino('perfil', 'perfil'),
+      {
+        path: 'perfil',
+        loadComponent: () => import('./features/perfil/perfil.view').then((m) => m.PerfilView),
+      },
       {
         path: 'vida-crediticia',
         loadComponent: () =>
