@@ -5,6 +5,7 @@ import { POLIZAS } from '../../polizas/polizas.testing';
 import { AvisoRecibido, NuevoAviso, Ubicacion } from '../siniestros.gateway';
 import {
   Dependencias,
+  puedeReportarPoliza,
   ReportarSiniestroViewModel,
   TAMANO_MAXIMO,
 } from './reportar-siniestro.viewmodel';
@@ -81,6 +82,14 @@ describe('ReportarSiniestroViewModel', () => {
     vm.cargarPolizas();
     expect(vm.polizas().map((p) => p.numero)).toEqual(['POL-HIP']);
     expect(vm.ramoSeleccionado()).toBe('Vida hipotecario');
+  });
+
+  it('acepta por vencer y una vigencia que no se puede comparar', () => {
+    expect(puedeReportarPoliza('vigente')).toBeTrue();
+    expect(puedeReportarPoliza('por_vencer', '2026-11-02', '2026-11-02')).toBeTrue();
+    expect(puedeReportarPoliza('  POR_VENCER ', '', '2026-11-02')).toBeTrue();
+    expect(puedeReportarPoliza('vigente', '2028-01-01', '')).toBeTrue();
+    expect(puedeReportarPoliza('vencida', '2028-01-01', '2026-11-02')).toBeFalse();
   });
 
   it('sin pólizas vigentes no deja reportar', () => {
