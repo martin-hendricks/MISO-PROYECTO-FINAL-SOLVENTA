@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..clients.base import RechazoDelNucleo
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_identidad import ClienteMsIdentidad
-from ..dependencies import issue_pair, obtener_cliente_identidad
+from ..dependencies import issue_pair, obtener_cliente_consentimiento, obtener_cliente_identidad
 
 router = APIRouter(prefix="/registro", tags=["registro"])
 
@@ -36,7 +37,11 @@ ClienteIdentidad = Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identid
 
 
 @router.post("")
-async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
+async def alta(
+    body: Alta,
+    cliente_identidad: ClienteIdentidad,
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+) -> dict:
     # El alta solo existe con habeas data: el consentimiento no se otorga despues desde Perfil.
     if not body.habeasData:
         raise HTTPException(status_code=422, detail="Consentimiento de datos requerido")
@@ -61,6 +66,7 @@ async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
 
     if usuario.get("estado") != "ACTIVO" or not usuario.get("usuario_id"):
         raise HTTPException(status_code=401, detail="Credenciales invalidas")
+    await cliente_consentimiento.otorgar_consentimiento(str(usuario["usuario_id"]))
     return {
         **issue_pair(usuario.get("email") or body.correo, "cliente", str(usuario["usuario_id"])),
         "cliente": body.model_dump(include={"nombre", "apellidos", "documento", "correo"}),
