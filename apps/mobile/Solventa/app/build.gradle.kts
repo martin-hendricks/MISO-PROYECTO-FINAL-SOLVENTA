@@ -78,14 +78,24 @@ configurations.configureEach {
     }
 }
 
-// Tests must not download this jar themselves. Maven Central answers 429 when
+// Tests must not download these jars themselves. Maven Central answers 429 when
 // every Robolectric class fetches android-all-instrumented during the run.
-val robolectricSdk = configurations.resolvable("robolectricSdk") {
-    isTransitive = false
-}
+// The suite uses SDK 35 (default), 33, and 28.
 val robolectricSdkDir = layout.buildDirectory.dir("robolectric-deps")
+val robolectricSdkJars = listOf(
+    libs.robolectric.instrumented.sdk35,
+    libs.robolectric.instrumented.sdk33,
+    libs.robolectric.instrumented.sdk28,
+).mapIndexed { index, dependency ->
+    // One configuration per jar: Gradle keeps a single version of a module.
+    val sdk = configurations.resolvable("robolectricSdk$index") {
+        isTransitive = false
+    }
+    dependencies.add(sdk.name, dependency)
+    sdk
+}
 val installRobolectricSdk = tasks.register<Sync>("installRobolectricSdk") {
-    from(robolectricSdk)
+    robolectricSdkJars.forEach { from(it) }
     into(robolectricSdkDir)
 }
 
@@ -125,7 +135,6 @@ dependencies {
     implementation(libs.androidx.camera.view)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
-    add(robolectricSdk.name, libs.robolectric.android.all.instrumented)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
     testImplementation(libs.mockwebserver)
