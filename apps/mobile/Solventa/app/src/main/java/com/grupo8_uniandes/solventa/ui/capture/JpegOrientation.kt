@@ -56,8 +56,7 @@ private fun rotate(bitmap: Bitmap, orientation: Int): Bitmap? {
     val degrees = when (orientation) {
         ExifInterface.ORIENTATION_ROTATE_90 -> 90f
         ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-        else -> return bitmap
+        else -> 270f
     }
     val matrix = Matrix().apply { postRotate(degrees) }
     return runCatching {

@@ -32,6 +32,7 @@ import com.grupo8_uniandes.solventa.ui.capture.readPicked
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -131,6 +132,26 @@ class EvidenceCaptureTest {
         assertTrue(normalizeJpegOrientation(upright).contentEquals(upright))
         val junk = byteArrayOf(1, 2, 3, 4)
         assertTrue(normalizeJpegOrientation(junk).contentEquals(junk))
+        assertTrue(normalizeJpegOrientation(ByteArray(0)).contentEquals(ByteArray(0)))
+    }
+
+    @Test
+    fun givenOtherExifTags_whenDecoded_thenEachRotationIsAppliedOnce() {
+        val turned = decodeOrientedImage(taggedJpeg(8, 4, ExifInterface.ORIENTATION_ROTATE_90))
+        assertEquals(4, turned!!.width)
+        assertEquals(8, turned.height)
+        val flipped = decodeOrientedImage(taggedJpeg(8, 4, ExifInterface.ORIENTATION_ROTATE_270))
+        assertEquals(4, flipped!!.width)
+        assertEquals(8, flipped.height)
+        val upsideDown = taggedJpeg(8, 4, ExifInterface.ORIENTATION_ROTATE_180)
+        val decoded = decodeOrientedImage(upsideDown)
+        assertEquals(8, decoded!!.width)
+        assertEquals(4, decoded.height)
+        val stored = normalizeJpegOrientation(upsideDown)
+        val plain = BitmapFactory.decodeByteArray(stored, 0, stored.size)
+        assertEquals(8, plain.width)
+        assertEquals(4, plain.height)
+        assertNotNull(decodeOrientedImage(jpegBytes(1600, 8)))
     }
 
     @Test
@@ -267,6 +288,18 @@ class EvidenceCaptureTest {
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
         return out.toByteArray()
+    }
+
+    private fun taggedJpeg(width: Int, height: Int, orientation: Int): ByteArray {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "claim/tag-$orientation.jpg")
+        file.parentFile?.mkdirs()
+        file.writeBytes(jpegBytes(width, height))
+        ExifInterface(file.absolutePath).apply {
+            setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
+            saveAttributes()
+        }
+        return file.readBytes()
     }
 
     private fun point(provider: String, lat: Double, lng: Double, accuracy: Float) =

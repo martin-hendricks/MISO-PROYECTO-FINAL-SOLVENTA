@@ -196,6 +196,7 @@ class SiniestroDetalleScreenTest {
                         motivo = null,
                         evidencia = listOf(
                             ClaimEvidence("foto.jpg", "foto", "image/jpeg", "https://example.test/foto.jpg"),
+                            ClaimEvidence("http.jpg", "FOTO", "text/plain", "http://example.test/http.jpg"),
                             ClaimEvidence("roto.jpg", "foto", "image/jpeg", "https://example.test/roto.jpg"),
                             ClaimEvidence("vacio.jpg", "foto", "image/jpeg", ""),
                         ),
@@ -204,11 +205,14 @@ class SiniestroDetalleScreenTest {
                         umbral = null,
                     ),
                     onOpenEvidence = { opened = it },
-                    loadThumb = { url -> if (url.endsWith("foto.jpg")) bitmap else null },
+                    loadThumb = { url ->
+                        if (url.endsWith("foto.jpg") || url.startsWith("http://")) bitmap else null
+                    },
                 )
             }
         }
         rule.onNodeWithContentDescription("foto.jpg").assertIsDisplayed()
+        rule.onNodeWithContentDescription("http.jpg").assertIsDisplayed()
         rule.onNodeWithText("roto.jpg").assertIsDisplayed()
         rule.onNodeWithTag("claim_evidence_vacio.jpg").performClick()
         assertEquals("untouched", opened)
