@@ -257,6 +257,13 @@ jobs:
             echo "MSK: bootstrap brokers resueltos para ${{ matrix.service }} (entrada variablesEntorno[$idx])"
           fi
 
+          # --force-conflicts: Helm (Server-Side Apply) rechaza el upgrade si
+          # otro field manager (p.ej. "kubectl-set" de un hotfix manual con
+          # `kubectl set env` entre deploys) es dueño de un campo que este
+          # values.yaml también declara -- confirmado en el cluster real
+          # (deploy de analitica, UPGRADE FAILED: conflict ... con
+          # "kubectl-set" sobre env[MSK_BOOTSTRAP_BROKERS].value). El pipeline
+          # debe ser la fuente de verdad: siempre gana sobre un cambio manual.
           helm upgrade --install ${{ matrix.service }} infra/k8s/charts/microservicio \
             --namespace solventa \
             --values ${{ matrix.values }} \
@@ -264,6 +271,7 @@ jobs:
             --set imagen.tag=${{ github.sha }} \
             "${irsa_args[@]}" \
             "${msk_args[@]}" \
+            --force-conflicts \
             --timeout 3m
 
       # Bootstrap del tópico BusEventos: una sola vez por clúster.
