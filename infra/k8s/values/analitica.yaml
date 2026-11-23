@@ -14,6 +14,16 @@
 
 nombre: analitica
 
+# necesitaMsk: true -> el workflow de CD resuelve el bootstrap broker SASL/IAM
+# real contra la API de AWS en cada deploy y lo inyecta en la entrada
+# MSK_BOOTSTRAP_BROKERS de variablesEntorno (ver .github/workflows/deploy.yml,
+# paso "Desplegar con Helm"). Sin este flag, MSK_BOOTSTRAP_BROKERS queda ""
+# y app/main.py nunca arranca el consumidor (if config.msk_bootstrap_brokers:),
+# por lo que conteo_eventos nunca se puebla y /v1/metricas responde siempre
+# vacio -- mismo patron que notificaciones.yaml y outbox-relay.yaml.
+kafka:
+  necesitaMsk: true
+
 imagen:
   repositorio: "<account>.dkr.ecr.us-east-1.amazonaws.com/solventa-minimo-analitica"
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
@@ -91,7 +101,15 @@ externalSecrets:
 serviceAccount:
   crear: true
   nombre: analitica
-  roleArn: ""  # Rellenar con: terraform output -json irsa_role_arns | jq -r '."analitica"'
+  # irsa: true -> el workflow de CD arma el ARN por convención
+  # ("${project_name}-${environment}-analitica-irsa") y lo pasa con --set,
+  # igual que outbox-relay.yaml y notificaciones.yaml. El rol ya existe en AWS
+  # (module.irsa_aplicacion, local.msk_consumers) pero sin este flag nunca se
+  # anotaba en el ServiceAccount real -- confirmado con `kubectl get sa
+  # analitica -o jsonpath='{.metadata.annotations}'` sin
+  # eks.amazonaws.com/role-arn.
+  irsa: true
+  roleArn: ""
 
 podDisruptionBudget:
   habilitado: false
