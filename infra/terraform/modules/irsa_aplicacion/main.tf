@@ -59,7 +59,10 @@ locals {
     "analitica" = {
       service_account = "analitica"
       topics          = ["BusEventos"]
-      consumer_groups = ["analitica"]
+      # Debe coincidir con MSK_CONSUMER_GROUP (app/config.py: "analitica-cg"),
+      # no con el nombre del componente -- group.id real al conectar, o el
+      # consumidor recibe GroupAuthorizationFailedError al hacer JoinGroup.
+      consumer_groups = ["analitica-cg"]
     }
     "notificaciones" = {
       service_account = "notificaciones"
