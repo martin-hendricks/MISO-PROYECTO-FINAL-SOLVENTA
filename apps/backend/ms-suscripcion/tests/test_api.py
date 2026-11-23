@@ -80,3 +80,19 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
     assert respuesta.status_code == 503
     assert respuesta.json() == {"status": "unavailable"}
+
+
+def test_evaluar_sin_token_es_401(client):
+    client.headers.pop("Authorization", None)
+
+    respuesta = _evaluar(client)
+
+    assert respuesta.status_code == 401
+
+
+def test_consultar_suscripcion_sin_token_es_401(client):
+    client.headers.pop("Authorization", None)
+
+    respuesta = client.get(f"/v1/suscripciones/{uuid4()}")
+
+    assert respuesta.status_code == 401

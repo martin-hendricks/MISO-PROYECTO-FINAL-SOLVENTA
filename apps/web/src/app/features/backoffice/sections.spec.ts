@@ -1,15 +1,45 @@
-import { homeSection, requiredRole, SECTIONS } from './sections';
+import { admite, allowedRoles, homeSection, SECTIONS } from './sections';
 
 describe('back-office sections', () => {
-  it('exposes exactly four destinations in order', () => {
-    expect(SECTIONS).toEqual(['clientes', 'cotizaciones', 'polizas', 'avisos']);
+  it('exposes the destinations in order, including notificaciones', () => {
+    expect(SECTIONS).toEqual([
+      'clientes',
+      'socios',
+      'cotizaciones',
+      'polizas',
+      'avisos',
+      'reportes',
+      'metricas',
+      'notificaciones',
+      'prestadores',
+    ]);
   });
 
-  it('keeps Avisos for the operator and the rest for the advisor', () => {
-    expect(requiredRole('avisos')).toBe('operador');
-    expect(requiredRole('clientes')).toBe('asesor');
-    expect(requiredRole('cotizaciones')).toBe('asesor');
-    expect(requiredRole('polizas')).toBe('asesor');
+  it('keeps operator sections for the operator and quotes for the advisor', () => {
+    expect(allowedRoles('avisos')).toEqual(['operador']);
+    expect(allowedRoles('polizas')).toEqual(['operador']);
+    expect(allowedRoles('reportes')).toEqual(['operador']);
+    expect(allowedRoles('metricas')).toEqual(['operador']);
+    expect(allowedRoles('notificaciones')).toEqual(['operador']);
+    expect(allowedRoles('cotizaciones')).toEqual(['asesor']);
+    expect(allowedRoles('clientes')).toEqual(['asesor', 'operador']);
+  });
+
+  it('opens socios to both the advisor and the operator', () => {
+    expect(allowedRoles('socios')).toEqual(['asesor', 'operador']);
+    expect(admite('socios', 'asesor')).toBeTrue();
+    expect(admite('socios', 'operador')).toBeTrue();
+    expect(admite('socios', 'cliente')).toBeFalse();
+  });
+
+  it('hides notificaciones from the advisor and keeps clientes for both roles', () => {
+    expect(admite('notificaciones', 'asesor')).toBeFalse();
+    expect(admite('notificaciones', 'operador')).toBeTrue();
+    expect(admite('clientes', 'asesor')).toBeTrue();
+    expect(admite('clientes', 'operador')).toBeTrue();
+    expect(admite('prestadores', 'operador')).toBeTrue();
+    expect(admite('prestadores', 'asesor')).toBeTrue();
+    expect(allowedRoles('prestadores')).toEqual(['operador', 'asesor']);
   });
 
   it('lands each role on a section it can open', () => {

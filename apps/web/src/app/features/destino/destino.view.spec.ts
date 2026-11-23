@@ -1,14 +1,18 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
 import { Destino, DestinoView } from './destino.view';
 
 describe('DestinoView', () => {
-  function render(destino: Destino, id: string | null) {
+  function render(destino: Destino, id: string | null, fallo = false) {
     TestBed.configureTestingModule({
       imports: [DestinoView],
       providers: [
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         ...provideSolventaI18n(),
         {
           provide: ActivatedRoute,
@@ -20,11 +24,27 @@ describe('DestinoView', () => {
     });
     const fixture = TestBed.createComponent(DestinoView);
     fixture.detectChanges();
-    return fixture.nativeElement as HTMLElement;
+    const http = TestBed.inject(HttpTestingController);
+    if (destino === 'siniestro' || destino === 'siniestros') {
+      const inicio = http.expectOne('/web/cliente/inicio');
+      if (fallo) {
+        inicio.flush({}, { status: 503, statusText: 'Unavailable' });
+      } else {
+        inicio.flush({
+          ofertaVigente: null,
+          poliza: null,
+          siniestroEnCurso:
+            destino === 'siniestro' ? { siniestroId: 'SIN-1', estado: 'recibido' } : null,
+          hipotecario: null,
+        });
+      }
+      fixture.detectChanges();
+    }
+    return { fixture, host: fixture.nativeElement as HTMLElement };
   }
 
   it('names the pending destination with the id Inicio sent', () => {
-    const host = render('emision', 'COT-1042');
+    const { host } = render('emision', 'COT-1042');
 
     const section = host.querySelector('[data-testid="destino-emision"]');
     expect(section?.getAttribute('data-id')).toBe('COT-1042');
@@ -35,9 +55,23 @@ describe('DestinoView', () => {
   });
 
   it('omits the id when the destination has none', () => {
-    const host = render('cotizacion', null);
+    const { host } = render('cotizacion', null);
 
     expect(host.querySelector('[data-testid="destino-cotizacion"]')).not.toBeNull();
     expect(host.querySelector('.subtitle')).toBeNull();
+  });
+
+  it('shows the open claim', () => {
+    const { host: siniestro } = render('siniestro', null);
+    expect(siniestro.querySelector('[data-testid="siniestro-id"]')?.textContent).toContain('SIN-1');
+  });
+
+  it('leaves the claim blank when that read fails or there is no claim', () => {
+    const { host: vacio } = render('siniestros', null);
+    expect(vacio.querySelector('[data-testid="siniestro-id"]')).toBeNull();
+
+    TestBed.resetTestingModule();
+    const { host: caido } = render('siniestro', null, true);
+    expect(caido.querySelector('[data-testid="siniestro-id"]')).toBeNull();
   });
 });

@@ -14,6 +14,6 @@ import { homeSection } from '../sections';
 })
 export class NoPermission {
   readonly current = input.required<Role | null>();
-  readonly required = input.required<Role>();
+  readonly required = input.required<readonly Role[]>();
   protected readonly home = computed(() => ['/cms', homeSection(this.current())]);
 }

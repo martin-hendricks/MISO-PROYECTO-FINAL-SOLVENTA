@@ -2,12 +2,20 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, map, Observable, of, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../core/api/api-base-url';
+import { LocaleService } from '../../core/i18n/locale.service';
 import { DatosRiesgo } from './ramos';
+
+/** A Solventa-own profile factor that explains the price (HU-55), never the provider's raw data. */
+export interface FactorOferta {
+  factor: string;
+  impacto: string;
+}
 
 /** Firm offer (HU-6): the core calculates it once and reconsulting returns the same price. */
 export interface Oferta {
   cotizacionId: string;
   ramo: string;
+  descripcion?: string;
   estado: string;
   prima: number;
   moneda: string;
@@ -15,10 +23,13 @@ export interface Oferta {
   /** Breakdown of the premium (HU-4); optional so an older answer still renders. */
   primaNeta?: number;
   expedicion?: number;
+  /** Only the mortgage life offer (HU-162) is profiled: its factors and whether it degraded. */
+  factores?: FactorOferta[];
+  degradada?: boolean;
 }
 
 /** The core sends amounts as JSON decimals (strings); the channel formats numbers. */
-type OfertaWire = Omit<Oferta, 'prima' | 'primaNeta' | 'expedicion'> & {
+export type OfertaWire = Omit<Oferta, 'prima' | 'primaNeta' | 'expedicion'> & {
   prima: number | string;
   primaNeta?: number | string | null;
   expedicion?: number | string | null;
@@ -36,6 +47,7 @@ export interface Cobertura {
 
 export interface Catalogo {
   ramo: string;
+  descripcion?: string;
   nombre: string;
   moneda: string;
   coberturas: Cobertura[];
@@ -83,7 +95,7 @@ export interface RechazoCotizacion {
 const optional = (amount: number | string | null | undefined) =>
   amount === null || amount === undefined ? undefined : Number(amount);
 
-function toOferta(wire: OfertaWire): Oferta {
+export function toOferta(wire: OfertaWire): Oferta {
   return {
     ...wire,
     prima: Number(wire.prima),
@@ -95,8 +107,11 @@ function toOferta(wire: OfertaWire): Oferta {
 /** A 409/422 from the core is a business answer about the input, not an outage. */
 export function rechazoDe(error: unknown): RechazoCotizacion | null {
   if (error instanceof HttpErrorResponse && (error.status === 409 || error.status === 422)) {
-    const body = error.error as Partial<RechazoCotizacion> | null;
-    return { codigo: body?.codigo ?? 'rechazo', mensaje: body?.mensaje ?? '' };
+    const body = error.error as (Partial<RechazoCotizacion> & { detail?: string }) | null;
+    return {
+      codigo: body?.codigo ?? 'rechazo',
+      mensaje: body?.mensaje || (typeof body?.detail === 'string' ? body.detail : ''),
+    };
   }
   return null;
 }
@@ -105,6 +120,7 @@ export function rechazoDe(error: unknown): RechazoCotizacion | null {
 export class CotizacionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly locale = inject(LocaleService);
 
   /** Coverages and valid ranges of a line, so the form blocks the CTA before quoting. */
   catalog(canal: Canal, ramo: string): Observable<Catalogo> {
@@ -116,14 +132,23 @@ export class CotizacionGateway {
   /** Customer quote of the chosen line. */
   quote(ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, { ramo, datosRiesgo })
+      .post<OfertaWire>(`${this.baseUrl}/cliente/cotizaciones`, {
+        ramo,
+        datosRiesgo,
+        moneda: this.locale.monedaInicio(),
+      })
       .pipe(map(toOferta));
   }
 
   /** Assisted sale: the advisor quotes on behalf of the customer they serve. */
   quoteFor(clienteId: string, ramo: string, datosRiesgo: DatosRiesgo): Observable<Oferta> {
     return this.http
-      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, { clienteId, ramo, datosRiesgo })
+      .post<OfertaWire>(`${this.baseUrl}/asesor/cotizaciones`, {
+        clienteId,
+        ramo,
+        datosRiesgo,
+        moneda: this.locale.monedaInicio(),
+      })
       .pipe(map(toOferta));
   }
 

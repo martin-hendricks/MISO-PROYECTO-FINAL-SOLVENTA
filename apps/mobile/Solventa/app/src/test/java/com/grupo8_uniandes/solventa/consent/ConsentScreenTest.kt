@@ -51,6 +51,7 @@ class ConsentScreenTest {
             }
         }
 
+        rule.onNodeWithText("Paso 2 de 4 · Consentimiento de datos").assertIsDisplayed()
         rule.onNodeWithText("Consentimiento").assertIsDisplayed()
         rule.onNodeWithText("Tratamiento de datos").assertIsDisplayed()
         rule.onNodeWithText(
@@ -84,6 +85,7 @@ class ConsentScreenTest {
         }
 
         rule.onNodeWithTag("solventa_bottom_sheet").assertIsDisplayed()
+        rule.onNodeWithText("Paso 2 de 4 · Consentimiento de datos").assertDoesNotExist()
         rule.onNodeWithContentDescription("Cerrar").assertIsDisplayed()
         rule.onNodeWithTag("action_close").performClick()
         assertEquals(1, closes)

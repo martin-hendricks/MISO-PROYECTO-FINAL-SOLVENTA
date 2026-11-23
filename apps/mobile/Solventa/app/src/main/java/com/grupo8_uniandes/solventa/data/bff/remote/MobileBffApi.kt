@@ -1,39 +1,58 @@
 package com.grupo8_uniandes.solventa.data.bff.remote
 
+import com.grupo8_uniandes.solventa.data.bff.dto.AccountNameDto
+import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
-import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MonedaInicioDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
-import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PushTokenRetiroDto
 import com.grupo8_uniandes.solventa.data.bff.dto.QuoteRequestDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RefreshInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.LivenessResultDto
+import com.grupo8_uniandes.solventa.data.bff.dto.LivenessUpdateDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MovimientoDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
 import kotlinx.serialization.json.JsonElement
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Response
+import com.grupo8_uniandes.solventa.data.bff.dto.RenewalPreferenceDto
+import com.grupo8_uniandes.solventa.data.bff.dto.RenewalRequestDto
+import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface MobileBffApi {
     @POST("sesion/ingreso")
@@ -51,6 +70,13 @@ interface MobileBffApi {
     @POST("registro")
     suspend fun register(@Body body: SignupDto): SignupDto
 
+    @Multipart
+    @POST("identidad/prueba-de-vida")
+    suspend fun checkLiveness(@Part foto: MultipartBody.Part): LivenessResultDto
+
+    @PATCH("cliente/prueba-de-vida")
+    suspend fun recordLiveness(@Body body: LivenessUpdateDto): LivenessUpdateDto
+
     @POST("registro/revocacion")
     suspend fun revoke(@Body body: RevokeDto): RevokeDto
 
@@ -63,6 +89,13 @@ interface MobileBffApi {
     @GET("cliente/cotizaciones/{cotizacionId}")
     suspend fun requote(@Path("cotizacionId") cotizacionId: String): OfferOutDto
 
+    @POST("cliente/cotizaciones/{cotizacionId}/aceptacion")
+    suspend fun acceptQuote(
+        @Header("Idempotency-Key") key: String,
+        @Path("cotizacionId") cotizacionId: String,
+        @Body body: MonedaInicioDto,
+    ): AcceptedQuoteDto
+
     @POST("cliente/polizas")
     suspend fun accept(
         @Header("Idempotency-Key") key: String,
@@ -70,19 +103,29 @@ interface MobileBffApi {
     ): JsonElement
 
     @GET("cliente/polizas")
-    suspend fun wallet(): WalletDto
+    suspend fun policies(): PoliciesDto
+
+    @GET("cliente/billetera")
+    suspend fun billetera(): BilleteraDto
+
+    @GET("cliente/billetera/{id}")
+    suspend fun movimiento(@Path("id") id: String): MovimientoDto
 
     @GET("cliente/polizas/{numero}")
     suspend fun detail(@Path("numero") numero: String): DetailDto
 
+    @Multipart
     @POST("cliente/siniestros")
     suspend fun notify(
         @Header("Idempotency-Key") key: String,
-        @Body body: ClaimNoticeDto,
+        @Part parts: List<MultipartBody.Part>,
     ): ClaimReceiptDto
 
     @GET("cliente/siniestros")
     suspend fun claims(): ClaimsDto
+
+    @GET("cliente/siniestros/{id}")
+    suspend fun claim(@Path("id") id: String): ClaimDetailDto
 
     @GET("cliente/pagos-automaticos")
     suspend fun payment(): PaymentDto
@@ -90,8 +133,23 @@ interface MobileBffApi {
     @POST("cliente/oferta-hipotecaria")
     suspend fun mortgage(@Body body: MortgageInDto): MortgageOutDto
 
+    @GET("cliente/consentimiento-perfil")
+    suspend fun profilingConsent(): ProfilingConsentDto
+
+    @DELETE("cliente/consentimiento-perfil")
+    suspend fun revokeProfilingConsent(): ProfilingConsentDto
+
+    @POST("cliente/consentimiento-perfil")
+    suspend fun grantProfilingConsent(): ProfilingConsentDto
+
     @GET("cliente/avisos")
     suspend fun notices(): NoticesDto
+
+    @PATCH("cliente/polizas/{numero}/preferencias")
+    suspend fun preferences(
+        @Path("numero") numero: String,
+        @Body body: RenewalRequestDto,
+    ): RenewalPreferenceDto
 
     @POST("cliente/polizas/{numero}/ciclo")
     suspend fun cycle(
@@ -103,14 +161,44 @@ interface MobileBffApi {
     @GET("cliente/inicio")
     suspend fun home(): HomeDto
 
-    @POST("cliente/push")
-    suspend fun registerPush(@Body body: PushRegistrationDto): PushRegistrationDto
+    @GET("cliente/perfil")
+    suspend fun accountName(): AccountNameDto
 
-    @GET("cliente/push")
-    suspend fun pushNotice(): PushNoticeDto
+    @PATCH("cliente/perfil")
+    suspend fun saveAccountName(@Body body: AccountNameDto): AccountNameDto
+
+    @POST("cliente/avisos/token")
+    suspend fun registerPush(@Body body: PushRegistrationDto): Response<ResponseBody>
+
+    @HTTP(method = "DELETE", path = "cliente/avisos/token", hasBody = true)
+    suspend fun unregisterPush(@Body body: PushTokenRetiroDto): Response<ResponseBody>
+
+    @GET("cliente/prestadores/ciudades")
+    suspend fun providerCities(@Query("pais") pais: String): ProviderCitiesDto
 
     @GET("cliente/prestadores")
-    suspend fun providers(): ProvidersDto
+    suspend fun providers(
+        @Query("lat") lat: Double? = null,
+        @Query("lng") lng: Double? = null,
+        @Query("ramo") ramo: String? = null,
+        @Query("ciudad") ciudad: String? = null,
+        @Query("radioKm") radioKm: Double? = null,
+        @Query("pais") pais: String? = null,
+        @Query("norte") norte: Double? = null,
+        @Query("sur") sur: Double? = null,
+        @Query("este") este: Double? = null,
+        @Query("oeste") oeste: Double? = null,
+    ): ProvidersDto
+
+    @GET("cliente/siniestros/{id}/prestadores")
+    suspend fun providersNearClaim(
+        @Path("id") id: String,
+        @Query("radioKm") radioKm: Double? = null,
+        @Query("norte") norte: Double? = null,
+        @Query("sur") sur: Double? = null,
+        @Query("este") este: Double? = null,
+        @Query("oeste") oeste: Double? = null,
+    ): ClaimProvidersDto
 
     @POST("cliente/asistencias")
     suspend fun assistance(@Body body: AssistanceInDto): AssistanceOutDto

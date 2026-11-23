@@ -42,10 +42,62 @@ class Consentimiento:
             self.revocado_en = datetime.now(UTC)
 
 
+class OrigenOriginacion(StrEnum):
+    CLIENTE = "cliente"
+    SOCIO = "socio"
+
+
+PLAZO_MAXIMO_MESES = 480
+
+
+@dataclass
+class Originacion:
+    id: UUID
+    cliente_id: str
+    valor: Decimal
+    plazo_meses: int
+    origen: OrigenOriginacion
+    creada_en: datetime
+    cerrada_en: datetime | None
+
+    @classmethod
+    def abrir(cls, cliente_id: str, valor: Decimal, plazo_meses: int, origen: OrigenOriginacion) -> Originacion:
+        if not cliente_id.strip():
+            raise ReglaDeNegocioViolada("cliente_id_vacio", "El cliente_id es obligatorio")
+        if valor <= 0:
+            raise ReglaDeNegocioViolada("valor_credito_invalido", "El valor del crédito debe ser mayor que cero")
+        if not 1 <= plazo_meses <= PLAZO_MAXIMO_MESES:
+            raise ReglaDeNegocioViolada(
+                "plazo_credito_invalido", f"El plazo debe estar entre 1 y {PLAZO_MAXIMO_MESES} meses"
+            )
+        return cls(
+            id=uuid4(),
+            cliente_id=cliente_id.strip(),
+            valor=valor,
+            plazo_meses=plazo_meses,
+            origen=origen,
+            creada_en=datetime.now(UTC),
+            cerrada_en=None,
+        )
+
+    @property
+    def pendiente(self) -> bool:
+        return self.cerrada_en is None
+
+    def cerrar(self) -> None:
+        if self.cerrada_en is None:
+            self.cerrada_en = datetime.now(UTC)
+
+
 class EstadoAdaptador(StrEnum):
     EXITO = "exito"
     DEGRADADO = "degradado"
     ERROR = "error"
+
+
+class CausaDegradacion(StrEnum):
+    TIMEOUT = "timeout"
+    FALLO = "fallo"
 
 
 @dataclass(frozen=True)
@@ -53,13 +105,16 @@ class AtributoPerfil:
     """Un atributo propio de Solventa devuelto por UN adaptador (HU-54). `valor` ya es
     el atributo inventado por Solventa (p.ej. "nivel_ingresos_estimado"), nunca el
     payload crudo del proveedor real. `degradado` indica si este atributo en particular
-    vino del valor de respaldo (timeout o fallo del adaptador, HU-56)."""
+    vino del valor de respaldo (timeout o fallo del adaptador, HU-56); `causa` dice
+    cuál de los dos ocurrió, aunque luego se haya servido desde caché."""
 
     nombre: str
     valor: Decimal
     origen: OrigenAdaptador
     estado: EstadoAdaptador
     degradado: bool
+    modo: str = "LIVE"
+    causa: CausaDegradacion | None = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +146,23 @@ class FactorInterno:
     factor: str
     impacto: str
     peso: Decimal
+
+
+AJUSTE_COMPETITIVO = "ajuste_competitivo"
+
+
+def ajuste_por_factores(factores: tuple[FactorInterno, ...], atributos: tuple[AtributoPerfil, ...]) -> Decimal:
+    """`1 + sum(peso_i * valor_i)`: el multiplicador que el perfil aplica sobre una
+    tarifa base (HU-55). Se recalcula siempre desde los factores y el snapshot
+    persistidos, así que es reconstruible sin guardar un dato aparte."""
+    valores = {a.nombre: a.valor for a in atributos}
+    ajuste = Decimal("1") + sum(
+        (f.peso * valores[f.factor] for f in factores if f.factor in valores), Decimal("0")
+    )
+    for f in factores:
+        if f.factor == AJUSTE_COMPETITIVO:
+            ajuste = min(ajuste, f.peso)
+    return ajuste
 
 
 @dataclass(frozen=True)
@@ -129,6 +201,13 @@ class Oferta:
             creado_en=datetime.now(UTC),
         )
 
+    @property
+    def factor_ajuste(self) -> Decimal:
+        """Multiplicador del perfil sobre la tarifa base. Es lo que consume
+        ms-cotizacion por IPerfilRiesgo para que la prima cotizada use este mismo
+        perfil (una sola fuente de precio para vida crediticia)."""
+        return ajuste_por_factores(self.factores, self.snapshot_atributos)
+
 
 @dataclass(frozen=True)
 class EventoDominio:
@@ -162,6 +241,22 @@ def consentimiento_revocado(consentimiento: Consentimiento) -> EventoDominio:
     )
 
 
+def _fuentes(atributos: tuple[AtributoPerfil, ...]) -> list[dict]:
+    """Una entrada por adaptador: qué fuente respondió y cómo (HU-54)."""
+    por_origen: dict[OrigenAdaptador, AtributoPerfil] = {}
+    for atributo in atributos:
+        por_origen.setdefault(atributo.origen, atributo)
+    return [
+        {
+            "origen": atributo.origen.value,
+            "estado": atributo.estado.value,
+            "modo": atributo.modo,
+            "causa": atributo.causa.value if atributo.causa else None,
+        }
+        for atributo in por_origen.values()
+    ]
+
+
 def oferta_emitida(oferta: Oferta) -> EventoDominio:
     return EventoDominio(
         tipo="OfertaHipotecarioEmitida",
@@ -171,5 +266,6 @@ def oferta_emitida(oferta: Oferta) -> EventoDominio:
             "cliente_id": oferta.cliente_id,
             "precio": str(oferta.precio),
             "degradado": oferta.degradado,
+            "fuentes": _fuentes(oferta.snapshot_atributos),
         },
     )

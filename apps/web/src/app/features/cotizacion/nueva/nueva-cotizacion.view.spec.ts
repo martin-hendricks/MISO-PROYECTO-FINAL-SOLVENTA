@@ -6,9 +6,11 @@ import { provideSolventaI18n } from '../../../core/i18n/provide-i18n';
 import {
   CATALOGO_DISPOSITIVO_WIRE,
   CATALOGO_SOAT_WIRE,
+  CATALOGO_VIDA_HIPOTECARIO_WIRE,
   FUERA_DE_RANGO,
   OFERTA_WIRE,
 } from '../cotizacion.testing';
+import { RAMOS } from '../ramos';
 import { NuevaCotizacionView } from './nueva-cotizacion.view';
 
 describe('NuevaCotizacionView', () => {
@@ -64,19 +66,47 @@ describe('NuevaCotizacionView', () => {
 
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('offers the seven lines and disables the ones the core does not quote yet', () => {
+  it('offers every line the channel quotes, with the S7 step and help copy', () => {
     const { element } = render();
 
-    const options = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options);
-    expect(options.map((o) => [o.textContent!.replace(/\s+/g, ' ').trim(), o.disabled])).toEqual([
-      ['Protección de dispositivo', false],
+    const lines = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options);
+    expect(
+      lines.map((line) => [line.textContent!.replace(/\s+/g, ' ').trim(), line.disabled]),
+    ).toEqual([
+      ['Dispositivo', false],
       ['SOAT motocicleta', false],
-      ['Microseguro de vida · Próximamente', true],
-      ['Clima y vuelos · Próximamente', true],
-      ['Vida hipotecario · Próximamente', true],
-      ['Pagos · Próximamente', true],
-      ['Viaje · Próximamente', true],
+      ['Vida', false],
+      ['Clima y vuelos', false],
+      ['Hipotecario', false],
+      ['Pagos', false],
+      ['Viaje', false],
     ]);
+    expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
+    expect(element('cancelar')?.textContent).toContain('Volver');
+    expect(element('cancelar')?.getAttribute('href')).toBe('/inicio');
+    expect(element('nueva-cotizacion')?.querySelector('h1')?.textContent).toContain(
+      'Nueva cotización · paso 1 de 4',
+    );
+    expect(element('cotizacion-leyenda')?.textContent?.trim()).toBe('Datos del riesgo');
+    expect(element('cotizacion-subtitulo')?.textContent).toContain('hurto calificado');
+    expect(element('cotizacion-recibiras')?.textContent).toContain('¿Qué es la prima?');
+  });
+
+  it('keeps a line the channel does not quote yet disabled and marked Próximamente', () => {
+    const viaje = RAMOS.find((ramo) => ramo.id === 'viaje')!;
+    viaje.disponible = false;
+    try {
+      const { element } = render();
+      const option = Array.from(element<HTMLSelectElement>('cotizacion-ramo')!.options).find(
+        (item) => item.value === 'viaje',
+      )!;
+
+      expect(option.disabled).toBeTrue();
+      expect(option.textContent).toContain('Próximamente');
+      expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('dispositivo');
+    } finally {
+      viaje.disponible = true;
+    }
   });
 
   it('shows the device form with the coverages and brands of the catalog', () => {
@@ -103,6 +133,7 @@ describe('NuevaCotizacionView', () => {
     const request = http.expectOne(URL);
     expect(request.request.body).toEqual({
       ramo: 'Protección de dispositivo',
+      moneda: 'COP',
       datosRiesgo: {
         valorDispositivo: 2400000,
         marca: 'apple',
@@ -137,6 +168,10 @@ describe('NuevaCotizacionView', () => {
     http.expectOne('/web/cliente/catalogo/SOAT%20motocicleta').flush(CATALOGO_SOAT_WIRE);
     fixture.detectChanges();
 
+    expect(element('cotizacion-leyenda')?.textContent?.trim()).toBe('Datos del riesgo');
+    expect(element('cotizacion-subtitulo')?.textContent).toContain('accidente de tránsito');
+    expect(element('cotizacion-recibiras')?.textContent).toContain('accidente de tránsito');
+    expect(element<HTMLSelectElement>('cotizacion-ramo')!.value).toBe('soat');
     expect(element('riesgo-valorDispositivo')).toBeNull();
     expect(element('riesgo-cilindraje_cc')?.nextElementSibling?.textContent).toContain(
       'Entre 50 y 1800',
@@ -217,11 +252,6 @@ describe('NuevaCotizacionView', () => {
     expect(element('catalogo-error')).toBeNull();
   });
 
-  it('returns to Inicio on cancel', () => {
-    const { element } = render();
-
-    expect(element('cancelar')?.getAttribute('href')).toBe('/inicio');
-  });
   it('shows a catalog value without a translation as the core sends it', () => {
     const conHuawei = {
       ...CATALOGO_DISPOSITIVO_WIRE,
@@ -231,5 +261,46 @@ describe('NuevaCotizacionView', () => {
 
     const marcas = Array.from(element<HTMLSelectElement>('riesgo-marca')!.options);
     expect(marcas.map((o) => o.textContent!.trim())).toEqual(['Selecciona una opción', 'huawei']);
+  });
+
+  describe('mortgage life', () => {
+    const ORIGINACION_URL = '/web/cliente/originacion-hipotecaria';
+    const CATALOGO_HIPOTECARIO_URL = '/web/cliente/catalogo/Vida%20hipotecario';
+
+    function hipotecario() {
+      const vista = render();
+      vista.choose('cotizacion-ramo', 'hipotecario');
+      vista.http.expectOne(CATALOGO_HIPOTECARIO_URL).flush(CATALOGO_VIDA_HIPOTECARIO_WIRE);
+      vista.fixture.detectChanges();
+      vista.type('riesgo-valor', '180000000');
+      vista.type('riesgo-plazoMeses', '240');
+      return vista;
+    }
+
+    it('saves the mortgage and continues in /vida-crediticia instead of quoting', () => {
+      const { http, navigate, cotizar } = hipotecario();
+
+      cotizar();
+
+      const guardada = http.expectOne(ORIGINACION_URL);
+      expect(guardada.request.method).toBe('POST');
+      expect(guardada.request.body).toEqual({ valor: 180000000, plazoMeses: 240 });
+      guardada.flush({ valor: 180000000, plazoMeses: 240, origen: 'cliente' });
+      http.expectNone(URL);
+      expect(navigate).toHaveBeenCalledWith(['/vida-crediticia'], {
+        queryParams: { valor: 180000000, plazoMeses: 240 },
+      });
+    });
+
+    it('still continues with the typed mortgage when saving it fails', () => {
+      const { http, navigate, cotizar } = hipotecario();
+
+      cotizar();
+      http.expectOne(ORIGINACION_URL).flush(null, { status: 503, statusText: 'Unavailable' });
+
+      expect(navigate).toHaveBeenCalledWith(['/vida-crediticia'], {
+        queryParams: { valor: 180000000, plazoMeses: 240 },
+      });
+    });
   });
 });

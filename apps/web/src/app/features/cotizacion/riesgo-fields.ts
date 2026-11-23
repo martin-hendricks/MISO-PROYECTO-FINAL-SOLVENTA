@@ -10,13 +10,18 @@ import { CotizacionFormViewModel } from './cotizacion-form.viewmodel';
   imports: [TranslatePipe, MoneyPipe],
   templateUrl: './riesgo-fields.html',
   styleUrl: './cotizacion-form.css',
-  host: { style: 'display: contents' },
+  host: {
+    style: 'display: contents',
+    '[class.portal]': 'portal()',
+  },
 })
 export class RiesgoFields {
   private readonly translate = inject(TranslateService);
   readonly vm = input.required<CotizacionFormViewModel>();
   /** Id prefix so two forms never share label targets. */
   readonly prefix = input('cotizacion');
+  /** Customer quote page: the page owns the line picker and the 12px labels. */
+  readonly portal = input(false);
 
   /** Catalog values are codes (`bogota`); show the translated name when there is one. */
   protected etiqueta(valor: string): string {

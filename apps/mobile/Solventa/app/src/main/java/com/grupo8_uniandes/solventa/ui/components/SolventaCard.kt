@@ -12,6 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
@@ -23,7 +26,12 @@ fun SolventaCard(
     testTag: String = "solventa_card",
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val cardModifier = modifier.fillMaxWidth().testTag(testTag)
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .testTag(testTag)
+        .semantics(mergeDescendants = true) {
+            if (onClick != null) role = Role.Button
+        }
     val shape = SolventaSpacing.cardRadius
     val colors = CardDefaults.cardColors(
         containerColor = if (outlined) {

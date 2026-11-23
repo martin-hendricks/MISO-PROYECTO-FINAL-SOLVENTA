@@ -6,16 +6,24 @@ import httpx
 
 from app.domain.errores import DependenciaNoDisponible
 
+from .token_servicio import token_de_servicio
+
 
 class SuscripcionesHTTP:
-    """Consulta la decisión de HU-13 en ms-suscripcion: GET /v1/suscripciones/{solicitud_id}."""
+    """Consulta la decisión de HU-13 en ms-suscripcion: GET /v1/suscripciones/{solicitud_id}.
+    ms-suscripcion exige autenticación: se genera un token de servicio nuevo en cada
+    llamada (dura 5 minutos, no se puede reusar de un arranque a otro del proceso)."""
 
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    def __init__(self, http: httpx.AsyncClient, secreto: str) -> None:
         self._http = http
+        self._secreto = secreto
 
     async def aceptada(self, solicitud_id: UUID) -> bool:
         try:
-            respuesta = await self._http.get(f"/v1/suscripciones/{solicitud_id}")
+            respuesta = await self._http.get(
+                f"/v1/suscripciones/{solicitud_id}",
+                headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-polizas')}"},
+            )
         except httpx.HTTPError as exc:
             raise DependenciaNoDisponible("ms-suscripcion") from exc
         if respuesta.status_code == 404:
@@ -27,14 +35,19 @@ class SuscripcionesHTTP:
 
 class CobrosHTTP:
     """Consulta el cobro de HU-15 en ms-pagos: GET /v1/pagos/{pago_id}. Solo vale un cobro APROBADO
-    de la misma oferta; un pago rechazado, inexistente o de otra oferta no habilita la emisión."""
+    de la misma oferta; un pago rechazado, inexistente o de otra oferta no habilita la emisión.
+    ms-pagos exige autenticación: token de servicio nuevo en cada llamada, igual que arriba."""
 
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    def __init__(self, http: httpx.AsyncClient, secreto: str) -> None:
         self._http = http
+        self._secreto = secreto
 
     async def exitoso(self, oferta_id: UUID, token_pago_confirmado: UUID) -> bool:
         try:
-            respuesta = await self._http.get(f"/v1/pagos/{token_pago_confirmado}")
+            respuesta = await self._http.get(
+                f"/v1/pagos/{token_pago_confirmado}",
+                headers={"Authorization": f"Bearer {token_de_servicio(self._secreto, 'ms-polizas')}"},
+            )
         except httpx.HTTPError as exc:
             raise DependenciaNoDisponible("ms-pagos") from exc
         if respuesta.status_code == 404:

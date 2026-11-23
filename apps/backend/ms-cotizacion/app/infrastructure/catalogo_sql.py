@@ -10,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 
 from app.domain.catalogo import (
+    Booleano,
     Cobertura,
     DefinicionDatoRiesgo,
     DefinicionProducto,
     RangoNumerico,
+    TextoLibre,
     UnidadLimite,
     ValoresPermitidos,
 )
@@ -28,9 +30,12 @@ class ProductoFila(Base):
     codigo: Mapped[str] = mapped_column(String, unique=True)
     nombre: Mapped[str]
     ramo: Mapped[str]
+    descripcion: Mapped[str] = mapped_column(default="")
     moneda: Mapped[str]
     coberturas: Mapped[list[CoberturaFila]] = relationship(order_by="CoberturaFila.orden")
-    datos_riesgo: Mapped[list[DatoRiesgoFila]] = relationship(order_by="DatoRiesgoFila.nombre")
+    datos_riesgo: Mapped[list[DatoRiesgoFila]] = relationship(
+        order_by="DatoRiesgoFila.orden, DatoRiesgoFila.nombre"
+    )
 
 
 class CoberturaFila(Base):
@@ -55,6 +60,7 @@ class DatoRiesgoFila(Base):
     minimo: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     maximo: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     valores: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    orden: Mapped[int] = mapped_column(default=0)
 
 
 def _dato_a_dominio(fila: DatoRiesgoFila) -> DefinicionDatoRiesgo:
@@ -62,6 +68,10 @@ def _dato_a_dominio(fila: DatoRiesgoFila) -> DefinicionDatoRiesgo:
         return RangoNumerico(minimo=Decimal(fila.minimo), maximo=Decimal(fila.maximo))
     if fila.tipo == "valores":
         return ValoresPermitidos(valores=tuple(fila.valores))
+    if fila.tipo == "texto":
+        return TextoLibre()
+    if fila.tipo == "booleano":
+        return Booleano()
     raise ValueError(f"Tipo de dato de riesgo desconocido '{fila.tipo}' en '{fila.nombre}'")
 
 
@@ -69,6 +79,7 @@ def a_definicion(fila: ProductoFila) -> DefinicionProducto:
     return DefinicionProducto(
         producto=fila.codigo,
         nombre=fila.nombre,
+        descripcion=fila.descripcion or "",
         moneda=fila.moneda,
         coberturas=tuple(
             Cobertura(

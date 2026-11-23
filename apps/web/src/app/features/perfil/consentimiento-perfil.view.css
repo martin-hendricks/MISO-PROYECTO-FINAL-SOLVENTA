@@ -1,0 +1,5 @@
+.error {
+  margin: 4px 0 0;
+  color: var(--sv-error);
+  font-size: 0.875rem;
+}

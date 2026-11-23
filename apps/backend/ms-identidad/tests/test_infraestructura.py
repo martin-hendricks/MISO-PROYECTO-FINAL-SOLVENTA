@@ -7,8 +7,14 @@ from sqlalchemy.exc import IntegrityError
 
 from app import main
 from app.config import Settings
-from app.dependencies import obtener_uow
+from app.dependencies import (
+    obtener_cliente_consentimiento,
+    obtener_cliente_perfilamiento,
+    obtener_uow,
+    obtener_verificador_kyc,
+)
 from app.domain.modelos import EstadoUsuario, Usuario
+from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import (
     UnidadDeTrabajoSQL,
     UsuarioFila,
@@ -19,16 +25,23 @@ from app.ports.persistencia import CuentaYaExiste
 
 
 class SesionFalsa:
-    def __init__(self, error_commit: Exception | None = None, fila=None) -> None:
+    def __init__(self, error_commit: Exception | None = None, fila=None, filas: list | None = None) -> None:
         self.agregados: list = []
         self.error_commit = error_commit
         self.fila = fila
+        self.filas = filas or []
         self.commits = self.rollbacks = self.cierres = 0
 
     def add(self, objeto) -> None:
         self.agregados.append(objeto)
 
     async def scalar(self, _consulta):
+        return self.fila
+
+    async def scalars(self, _consulta):
+        return self.filas
+
+    async def get(self, _modelo, _identificador):
         return self.fila
 
     async def commit(self) -> None:
@@ -98,9 +111,74 @@ async def test_obtener_por_email_sin_fila_devuelve_none():
         assert await tx.usuarios.obtener_por_email("nadie@correo.com") is None
 
 
+async def test_obtener_por_id_mapea_la_fila_y_sin_fila_devuelve_none():
+    fila = UsuarioFila(
+        usuario_id=uuid4(),
+        tipo_documento="CC",
+        numero_documento="123",
+        email="camila@correo.com",
+        password_hash="hash",
+        estado="ACTIVO",
+        nombre="Camila",
+        apellidos="Restrepo",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        usuario = await tx.usuarios.obtener_por_id(fila.usuario_id)
+
+    assert usuario.nombre == "Camila"
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        assert await tx.usuarios.obtener_por_id(uuid4()) is None
+
+
+async def test_actualizar_escribe_el_perfil_y_no_falla_si_la_fila_no_esta():
+    usuario = _usuario()
+    usuario.actualizar_perfil(nombre="Ana", apellidos="Lopez")
+    fila = UsuarioFila(
+        usuario_id=usuario.id,
+        tipo_documento="CC",
+        numero_documento="1012345678",
+        email="viejo@correo.com",
+        password_hash="hash",
+        estado="ACTIVO",
+    )
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+        await tx.usuarios.actualizar(usuario)
+
+    assert (fila.nombre, fila.apellidos, fila.email, fila.estado) == ("Ana", "Lopez", usuario.email, "ACTIVO")
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        await tx.usuarios.actualizar(usuario)
+
+
 async def test_obtener_por_documento_sin_fila_devuelve_none():
     async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
         assert await tx.usuarios.obtener_por_documento("CC", "123") is None
+
+
+async def test_listar_por_rol_mapea_todas_las_filas_al_dominio():
+    filas = [
+        UsuarioFila(
+            usuario_id=uuid4(),
+            tipo_documento="CC",
+            numero_documento=str(i),
+            email=f"cliente{i}@correo.com",
+            password_hash="hash",
+            estado="ACTIVO",
+            rol="cliente",
+        )
+        for i in range(2)
+    ]
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(filas=filas)) as tx:
+        usuarios = await tx.usuarios.listar_por_rol("cliente")
+
+    assert {u.numero_documento for u in usuarios} == {"0", "1"}
+
+
+async def test_listar_por_rol_sin_filas_devuelve_lista_vacia():
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa()) as tx:
+        assert await tx.usuarios.listar_por_rol("cliente") == []
 
 
 async def test_email_duplicado_se_traduce_al_puerto():
@@ -152,13 +230,47 @@ def test_al_arrancar_la_app_crea_la_fabrica_y_libera_el_motor(monkeypatch):
     app = main.crear_app()
     with TestClient(app) as cliente:
         assert app.state.fabrica_uow is not None
+        assert isinstance(app.state.verificador_kyc, VerificadorKYCStub)
         assert cliente.get("/health/live").json() == {"status": "ok"}
         assert cliente.get("/metrics").status_code == 200
     assert motor.liberado
 
 
+def test_al_arrancar_la_app_configura_el_doble_de_kyc_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace()
+
+    async def liberar():
+        pass
+
+    motor.dispose = liberar
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_KYC_LATENCIA_MS", "500")
+    monkeypatch.setenv("DOBLE_KYC_FALLAR", "true")
+    monkeypatch.setenv("DOBLE_KYC_DOCUMENTOS_RECHAZADOS", "0000000000, 123 ,")
+
+    app = main.crear_app()
+    with TestClient(app):
+        doble = app.state.verificador_kyc
+        assert (doble._latencia_ms, doble._fallar) == (500, True)
+        assert doble._documentos_rechazados == {"0000000000", "123"}
+
+
+def test_sin_configurar_el_doble_de_kyc_no_rechaza_ningun_documento(monkeypatch):
+    monkeypatch.delenv("DOBLE_KYC_DOCUMENTOS_RECHAZADOS", raising=False)
+
+    assert Settings().documentos_rechazados_kyc() == []
+
+
 def test_dependencias_leen_el_estado_de_la_app():
-    estado = SimpleNamespace(fabrica_uow=object())
+    estado = SimpleNamespace(
+        fabrica_uow=object(),
+        verificador_kyc=object(),
+        cliente_consentimiento=object(),
+        cliente_perfilamiento=object(),
+    )
     request = SimpleNamespace(app=SimpleNamespace(state=estado))
 
     assert obtener_uow(request) is estado.fabrica_uow
+    assert obtener_verificador_kyc(request) is estado.verificador_kyc
+    assert obtener_cliente_consentimiento(request) is estado.cliente_consentimiento
+    assert obtener_cliente_perfilamiento(request) is estado.cliente_perfilamiento

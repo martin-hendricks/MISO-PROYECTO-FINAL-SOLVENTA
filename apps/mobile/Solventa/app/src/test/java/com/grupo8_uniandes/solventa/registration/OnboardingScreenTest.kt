@@ -24,8 +24,10 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -38,9 +40,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingPhotoInjector
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingUiState
-import com.grupo8_uniandes.solventa.ui.registration.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.registration.decodeDocumentPhoto
-import com.grupo8_uniandes.solventa.ui.registration.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -73,18 +75,37 @@ class OnboardingScreenTest {
 
         rule.onNodeWithText("Solventa").assertIsDisplayed()
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertIsDisplayed()
         rule.onNodeWithText("Con tu cuenta cotizas en minutos, avisas un siniestro con una foto y consultas tu póliza cuando quieras. Datos, documento y contraseña para ingresar después.").assertIsDisplayed()
         rule.onNodeWithText("Como aparece en tu documento").assertIsDisplayed()
         rule.onNodeWithText("El mismo que usarás para ingresar").assertIsDisplayed()
-        rule.onNodeWithText("Mínimo 8 caracteres").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Requisitos de la contraseña").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Al menos 8 caracteres").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Máximo 72 caracteres").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Confirmar contraseña").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Misma que usarás para ingresar").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Foto del documento").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Una sola cara, sin flash").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Tratamiento de datos").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText(
+            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
+        ).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("field_habeas_data").performScrollTo().assertIsOff()
         rule.onNodeWithTag("action_continuar").assertIsNotEnabled()
         rule.onNodeWithTag("action_ya_tengo_cuenta").assertIsDisplayed()
         rule.onNodeWithTag("preview_documento", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun givenConsentAlreadyRecorded_whenShown_thenDataTreatmentStaysOffTheForm() {
+        show(OnboardingUiState(habeasData = true, showDataTreatment = false))
+
+        rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
+        rule.onNodeWithText("Tratamiento de datos").assertDoesNotExist()
+        rule.onNodeWithText(
+            "Autorizas el tratamiento de tus datos para emitir y administrar tu póliza (habeas data).",
+        ).assertDoesNotExist()
+        rule.onNodeWithTag("field_habeas_data").assertDoesNotExist()
     }
 
     @Test
@@ -92,7 +113,7 @@ class OnboardingScreenTest {
         show(OnboardingUiState(), showStep = false)
 
         rule.onNodeWithText("Crea tu cuenta").assertIsDisplayed()
-        rule.onNodeWithText("Paso 2 de 4 · Crea tu cuenta").assertDoesNotExist()
+        rule.onNodeWithText("Paso 3 de 4 · Crea tu cuenta").assertDoesNotExist()
     }
 
     @Test
@@ -125,6 +146,7 @@ class OnboardingScreenTest {
                     onPasswordConfirm = { passwordConfirm = it },
                     onPhotoAttached = {},
                     onPhotoDeclined = {},
+                    onHabeasData = {},
                     onContinue = {},
                     onExistingAccount = {},
                 )
@@ -177,6 +199,7 @@ class OnboardingScreenTest {
                         hasPhoto = true
                     },
                     onPhotoDeclined = { hasPhoto = false },
+                    onHabeasData = {},
                     onContinue = {},
                     onExistingAccount = {},
                 )
@@ -346,6 +369,15 @@ class OnboardingScreenTest {
         }
     }
 
+    @Test
+    fun givenCopDigits_whenTheAmountFieldsAreShown_thenTheyReadAsGroupedPesos() {
+        show(
+            state = OnboardingUiState(monthlyIncome = "4500000", monthlySpending = "1200000"),
+        )
+        rule.onNodeWithText("$4.500.000").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("$1.200.000").performScrollTo().assertIsDisplayed()
+    }
+
     private fun jpeg(color: Int): ByteArray {
         val bitmap = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(color)
@@ -388,8 +420,11 @@ class OnboardingScreenTest {
         onDocumentNumber: (String) -> Unit = {},
         onPassword: (String) -> Unit = {},
         onPasswordConfirm: (String) -> Unit = {},
+        onIncome: (String) -> Unit = {},
+        onSpending: (String) -> Unit = {},
         onPhotoAttached: (ByteArray) -> Unit = {},
         onPhotoDeclined: () -> Unit = {},
+        onHabeasData: (Boolean) -> Unit = {},
         onContinue: () -> Unit = {},
         onExistingAccount: () -> Unit = {},
         showStep: Boolean = true,
@@ -407,8 +442,11 @@ class OnboardingScreenTest {
                         onDocumentNumber = onDocumentNumber,
                         onPassword = onPassword,
                         onPasswordConfirm = onPasswordConfirm,
+                        onIncome = onIncome,
+                        onSpending = onSpending,
                         onPhotoAttached = onPhotoAttached,
                         onPhotoDeclined = onPhotoDeclined,
+                        onHabeasData = onHabeasData,
                         onContinue = onContinue,
                         onExistingAccount = onExistingAccount,
                         showStep = showStep,

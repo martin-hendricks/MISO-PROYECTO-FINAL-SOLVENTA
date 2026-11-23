@@ -12,6 +12,7 @@ class CobrarPrimaEntrada(BaseModel):
     oferta_id: UUID
     usuario_id: UUID
     monto: Decimal = Field(max_digits=14, decimal_places=2)
+    moneda: str
     token_medio_pago: str = Field(min_length=1, max_length=120)
 
 
@@ -19,6 +20,7 @@ class PagoSalida(BaseModel):
     id: UUID
     oferta_id: UUID
     monto: Decimal
+    moneda: str
     estado: str
     idempotency_key: str
     referencia_externa: str
@@ -30,6 +32,7 @@ class PagoSalida(BaseModel):
             id=pago.id,
             oferta_id=pago.oferta_id,
             monto=pago.monto,
+            moneda=pago.moneda,
             estado=pago.estado.value,
             idempotency_key=pago.idempotency_key,
             referencia_externa=pago.referencia_externa,

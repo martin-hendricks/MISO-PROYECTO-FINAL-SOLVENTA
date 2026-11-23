@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Oferta } from '../cotizacion.gateway';
+import { offerExpired } from '../oferta-expiration';
 
 export type VerOfertaStatus = 'loading' | 'ready' | 'expired' | 'not-found' | 'error';
 
@@ -26,7 +27,7 @@ export class VerOfertaViewModel {
           return;
         }
         // HU-7: an expired offer keeps its original price and cannot be accepted.
-        const expired = new Date(oferta.venceEn) <= this.now();
+        const expired = offerExpired(oferta.venceEn, this.now());
         this.statusState.set(expired ? 'expired' : 'ready');
       },
       error: () => this.statusState.set('error'),

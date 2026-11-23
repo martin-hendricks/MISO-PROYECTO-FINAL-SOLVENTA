@@ -1,0 +1,253 @@
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from uuid import UUID
+
+from app.application.casos_uso import crear_notificacion, despachar_email, despachar_notificacion
+from app.domain.eventos import EventoBus
+from app.domain.modelos import EstadoNotificacion, Notificacion
+from app.ports.email import EnviadorEmail, ResolutorDestinatario
+from app.ports.persistencia import FabricaUnidadDeTrabajo
+from app.ports.push import EnviadorPush
+
+logger = logging.getLogger(__name__)
+
+TIPOS_SOPORTADOS = frozenset(
+    {"PolizaEmitida", "PolizaRenovada", "PolizaModificada", "PolizaCancelada"}
+)
+CANAL_SOCIO = "socio"
+
+
+@dataclass(frozen=True)
+class CanalEmail:
+    """Canal de correo: quién envía y cómo se resuelve el correo del usuario."""
+
+    enviador: EnviadorEmail
+    resolutor: ResolutorDestinatario
+
+
+@dataclass(frozen=True)
+class ContenidoNotificacion:
+    tipo: str
+    titulo: str
+    cuerpo: str
+    destino: str
+    poliza: str | None = None
+
+
+def _texto(payload: dict, clave: str) -> str | None:
+    valor = payload.get(clave)
+    if isinstance(valor, str) and valor.strip():
+        return valor.strip()
+    return None
+
+
+def _sujeto(payload: dict) -> str:
+    numero = _texto(payload, "numero")
+    return f"La póliza {numero}" if numero else "Tu póliza"
+
+
+def _aviso_consentimiento(payload: dict) -> ContenidoNotificacion | None:
+    if _texto(payload, "canal") != CANAL_SOCIO or payload.get("consentimiento_pendiente") is not True:
+        return None
+    if not _texto(payload, "usuario_id"):
+        return None
+    return ContenidoNotificacion(
+        tipo="consentimiento_pendiente",
+        titulo="Autoriza el uso de tus datos",
+        cuerpo="Un aliado de Solventa te cotizó un seguro. Autoriza el uso de tus datos para poder aceptarlo.",
+        destino="consentimiento",
+    )
+
+
+def construir_contenido(evento: EventoBus) -> ContenidoNotificacion | None:
+    """Traduce un evento de dominio al texto de la notificación (canal `es-CO`).
+
+    Devuelve `None` para tipos no soportados o eventos sin `payload.usuario_id`.
+    """
+    if evento.tipo == "SolicitudCotizacionRecibida":
+        return _aviso_consentimiento(evento.payload)
+    if evento.tipo not in TIPOS_SOPORTADOS:
+        return None
+    if not _texto(evento.payload, "usuario_id"):
+        return None
+
+    sujeto = _sujeto(evento.payload)
+    fin_vigencia = _texto(evento.payload, "fin_vigencia")
+    numero = _texto(evento.payload, "numero")
+    destino = "poliza-detalle" if numero else "inicio"
+
+    if evento.tipo == "PolizaEmitida":
+        cuerpo = (
+            f"{sujeto} está vigente hasta {fin_vigencia}."
+            if fin_vigencia
+            else f"{sujeto} está vigente."
+        )
+        return ContenidoNotificacion(
+            tipo="poliza_emitida",
+            titulo="Tu póliza fue emitida",
+            cuerpo=cuerpo,
+            destino=destino,
+            poliza=numero,
+        )
+
+    if evento.tipo == "PolizaRenovada":
+        cuerpo = (
+            f"{sujeto} ahora vence el {fin_vigencia}."
+            if fin_vigencia
+            else f"{sujeto} fue renovada."
+        )
+        return ContenidoNotificacion(
+            tipo="poliza_renovada",
+            titulo="Tu póliza fue renovada",
+            cuerpo=cuerpo,
+            destino=destino,
+            poliza=numero,
+        )
+
+    if evento.tipo == "PolizaModificada":
+        return ContenidoNotificacion(
+            tipo="poliza_modificada",
+            titulo="Actualizamos tus coberturas",
+            cuerpo=f"{sujeto} tiene nuevas coberturas.",
+            destino=destino,
+            poliza=numero,
+        )
+
+    cuerpo = f"{sujeto} fue cancelada."
+    devolucion = _texto(evento.payload, "devolucion_estimada")
+    if devolucion:
+        cuerpo += f" Devolución estimada: {devolucion}."
+    return ContenidoNotificacion(
+        tipo="poliza_cancelada",
+        titulo="Tu póliza fue cancelada",
+        cuerpo=cuerpo,
+        destino=destino,
+        poliza=numero,
+    )
+
+
+async def _desactivar_dispositivos(uow: FabricaUnidadDeTrabajo, evento: EventoBus) -> None:
+    try:
+        usuario_id = UUID(str(evento.payload.get("usuario_id")))
+    except (TypeError, ValueError, AttributeError):
+        logger.warning("usuario_inactivado_invalido", extra={"evento_id": str(evento.evento_id)})
+        return
+    async with uow() as tx:
+        if not await tx.eventos.consumir(evento.evento_id, evento.tipo):
+            return
+        await tx.dispositivos.desactivar_de_usuario(usuario_id)
+        await tx.confirmar()
+
+
+async def _notificar_push(
+    uow: FabricaUnidadDeTrabajo,
+    push: EnviadorPush,
+    evento: EventoBus,
+    usuario_id: UUID,
+    contenido: ContenidoNotificacion,
+) -> Notificacion | None:
+    try:
+        notificacion = await crear_notificacion(
+            uow,
+            usuario_id=usuario_id,
+            evento_origen_id=evento.evento_id,
+            canal="push",
+            tipo=contenido.tipo,
+            titulo=contenido.titulo,
+            cuerpo=contenido.cuerpo,
+            destino=contenido.destino,
+            poliza=contenido.poliza,
+        )
+        if notificacion.estado == EstadoNotificacion.PENDIENTE.value:
+            await despachar_notificacion(uow, push, notificacion.notificacion_id)
+            # despachar_notificacion actualiza su propia instancia dentro de
+            # otra unidad de trabajo y devuelve solo un bool -- hay que
+            # releer para que el estado (enviada/fallida) quede reflejado en
+            # el valor que se retorna aquí, no en la instancia ya obsoleta
+            # que `crear_notificacion` devolvió antes de despachar.
+            async with uow() as tx:
+                actualizada = await tx.notificaciones.obtener(notificacion.notificacion_id)
+            if actualizada is not None:
+                return actualizada
+        return notificacion
+    except Exception:
+        logger.exception(
+            "error_manejando_evento",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+        return None
+
+
+async def _notificar_email(
+    uow: FabricaUnidadDeTrabajo,
+    email: CanalEmail,
+    evento: EventoBus,
+    usuario_id: UUID,
+    contenido: ContenidoNotificacion,
+) -> None:
+    """Idempotente por `(evento_id, "email")`. Un fallo aquí no afecta al push."""
+    try:
+        notificacion = await crear_notificacion(
+            uow,
+            usuario_id=usuario_id,
+            evento_origen_id=evento.evento_id,
+            canal="email",
+            tipo=contenido.tipo,
+            titulo=contenido.titulo,
+            cuerpo=contenido.cuerpo,
+            destino=contenido.destino,
+            poliza=contenido.poliza,
+        )
+        if notificacion.estado == EstadoNotificacion.PENDIENTE.value:
+            await despachar_email(uow, email.enviador, email.resolutor, notificacion.notificacion_id)
+    except Exception:
+        logger.exception(
+            "error_enviando_email",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+
+
+async def manejar_evento(
+    uow: FabricaUnidadDeTrabajo,
+    push: EnviadorPush,
+    evento: EventoBus,
+    email: CanalEmail | None = None,
+) -> Notificacion | None:
+    """Convierte un evento del bus en notificación push (y correo, si está activo).
+
+    Idempotente por `(evento_id, canal)`: repetir el mensaje no duplica la
+    notificación ni el envío. Nunca propaga excepciones para no detener el
+    consumo de la partición. Devuelve la notificación push.
+    """
+    if evento.tipo == "UsuarioInactivado":
+        try:
+            await _desactivar_dispositivos(uow, evento)
+        except Exception:
+            logger.exception(
+                "error_desactivando_dispositivos", extra={"evento_id": str(evento.evento_id)}
+            )
+        return None
+
+    contenido = construir_contenido(evento)
+    if contenido is None:
+        logger.warning(
+            "evento_ignorado",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+        return None
+
+    try:
+        usuario_id = UUID(str(evento.payload.get("usuario_id")))
+    except (TypeError, ValueError, AttributeError):
+        logger.warning(
+            "evento_con_usuario_invalido",
+            extra={"evento_id": str(evento.evento_id), "tipo": evento.tipo},
+        )
+        return None
+
+    notificacion = await _notificar_push(uow, push, evento, usuario_id, contenido)
+    if email is not None:
+        await _notificar_email(uow, email, evento, usuario_id, contenido)
+    return notificacion

@@ -4,6 +4,11 @@ interface RegistrationRepository {
     /** Null while registration is not completed. */
     fun read(): Registration?
 
+    /** Name saved at registration, without loading the document photo. */
+    fun storedGivenName(): String = read()?.givenName?.trim().orEmpty()
+
+    fun storedSurnames(): String = read()?.surnames?.trim().orEmpty()
+
     /** Stores the six trimmed texts and the photo, and marks registration completed. */
     fun save(registration: Registration)
 

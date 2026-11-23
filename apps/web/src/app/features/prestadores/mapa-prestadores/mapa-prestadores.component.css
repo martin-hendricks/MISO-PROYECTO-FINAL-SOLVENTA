@@ -1,0 +1,62 @@
+:host {
+  display: block;
+  min-height: 280px;
+}
+
+.lienzo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.marco {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+google-map {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.capa-tarjeta {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1;
+}
+
+.capa-tarjeta:empty {
+  display: none;
+}
+
+.pines,
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pines button,
+.pin-claim,
+.leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}

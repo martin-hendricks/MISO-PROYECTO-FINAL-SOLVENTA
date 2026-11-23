@@ -158,10 +158,12 @@ Cada rol lleva una *trust policy* atada a `system:serviceaccount:<namespace>:<co
 
 | Componente | Permisos |
 | --- | --- |
-| `ms-siniestros` | `PutObject`/`GetObject` sobre el bucket de evidencias (sin borrado: la evidencia es auditable y su expiración la gobierna la lifecycle policy), más `kms:GenerateDataKey` sobre la CMK del bucket |
-| `ms-parametrico` | MSK acotado al tópico `TopicoTelemetria` y a su grupo de consumidores |
+| `ms-siniestros` | `PutObject`/`GetObject` sobre el bucket de evidencias (sin borrado: la evidencia es auditable y su expiración la gobierna la lifecycle policy), más `kms:GenerateDataKey` sobre la CMK del bucket. Además consume `TopicoTelemetria` con el grupo `ms-siniestros-telemetria` (:MotorParametrico, decisión D5 opción B) |
+| `ms-parametrico` | Produce en `TopicoTelemetria` y es su dueño: único con `CreateTopic`/`AlterTopic` sobre él (Job `crear-topico-telemetria`). Sin grupo de consumidores |
 | `ms-pagos` | Idem, sobre `ColaPagos` |
 | `analitica` y `notificaciones` | Idem, sobre `BusEventos` |
+
+> **Cambio 2026-11-20 — canal de telemetría paramétrica (aplicar ANTES del merge).** `ms-parametrico` pasó de consumidor a productor y dueño de `TopicoTelemetria` (`crear_topicos = true`, sin grupo), y `ms-siniestros` agregó el consumo con el grupo `ms-siniestros-telemetria`. Plan esperado: `2 to add, 1 to change, 0 to destroy`. Sin el `apply`, el Job `crear-topico-telemetria` del primer deploy falla. Detalle, plan recurso por recurso y verificación: [`docs/despliegue-telemetria-parametrica.md`](../../docs/despliegue-telemetria-parametrica.md).
 
 El output `irsa_role_arns` alimenta `serviceAccount.roleArn` de los values correspondientes. Como el ARN incluye el account id, solo se conoce tras el `apply`; los cinco values indican el comando exacto para obtenerlo.
 

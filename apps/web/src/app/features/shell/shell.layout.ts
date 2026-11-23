@@ -1,27 +1,44 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, signal } from '@angular/core';
 import { NavigationStart, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { iniciales } from '../../core/session/iniciales';
 import { SessionService } from '../../core/session/session.service';
+import { PerfilCliente, PerfilGateway } from '../perfil/perfil.gateway';
 
-/** Four customer destinations (HU-107/SOLV-231): Inicio, Pólizas, Siniestros,
- * Perfil. "Nueva cotización" is a filled CTA, not a fifth underlined
- * destination -- it keeps its own styling in the template/CSS. */
+/** Five customer destinations: Inicio, Pólizas, Siniestros, Billetera,
+ * Perfil. "Nueva cotización" stays a filled button, not a sixth destination. */
 @Component({
   selector: 'sv-shell-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, CdkTrapFocus],
   templateUrl: './shell.layout.html',
   styleUrl: './shell.layout.css',
 })
 export class ShellLayout {
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
+  private readonly perfilGateway = inject(PerfilGateway);
 
   /** Hamburger overlay state on narrow viewports (<= 600px, see shell.layout.css).
    * Closing the overlay never navigates on its own -- only clicking a
    * destination (or the close button) does, matching "closing the overlay
    * does not change the page" from the HU. */
   protected readonly menuOpen = signal(false);
+
+  /** Avatar initials next to "Cerrar sesión": loaded once per shell instance,
+   * not blocking render -- the avatar just stays empty until it resolves
+   * (or forever, on a transient error; it is a decorative detail, not
+   * something worth retrying or surfacing to the user). */
+  private readonly perfil = signal<PerfilCliente | null>(null);
+  protected readonly iniciales = computed(() => {
+    const perfil = this.perfil();
+    return perfil ? iniciales(perfil.nombre, perfil.apellidos, perfil.correo) : '';
+  });
+  protected readonly nombreCompleto = computed(() => {
+    const perfil = this.perfil();
+    return perfil ? [perfil.nombre, perfil.apellidos].filter(Boolean).join(' ').trim() : '';
+  });
 
   constructor() {
     // Any navigation (including re-clicking the already-active destination)
@@ -31,14 +48,26 @@ export class ShellLayout {
         this.menuOpen.set(false);
       }
     });
+    this.perfilGateway.load().subscribe({
+      next: (perfil) => this.perfil.set(perfil),
+      error: () => undefined,
+    });
   }
 
   protected toggleMenu(): void {
     this.menuOpen.update((open) => !open);
   }
 
+  @HostListener('document:keydown.escape')
   protected closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  /** Skip link: moves focus to <main> without touching the URL (a plain
+   * `#fragment` href would trigger a router navigation). */
+  protected saltarAlContenido(event: Event): void {
+    event.preventDefault();
+    document.getElementById('contenido-principal')?.focus();
   }
 
   protected signOut(): void {

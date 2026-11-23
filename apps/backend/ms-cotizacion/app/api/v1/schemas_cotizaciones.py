@@ -13,17 +13,20 @@ from app.domain.oferta import ConsultaOferta, Oferta
 class SolicitarCotizacionEntrada(BaseModel):
     usuario_id: UUID
     socio_id: UUID
-    consentimiento_id: UUID
+    consentimiento_id: UUID | None = None
     producto: str = Field(min_length=1, max_length=80)
     canal: str = Field(min_length=1, max_length=40)
     datos_riesgo: dict[str, Any] = Field(default_factory=dict)
     # HU-163: los envía el BFF del back-office; sin ellos el flujo es el de siempre.
     asesor_id: UUID | None = None
     cliente_ref: str | None = Field(default=None, max_length=100)
+    # Moneda seleccionada en el canal. Sin ella la prima queda en la moneda de la fórmula.
+    moneda: str | None = None
 
 
 class CotizacionSalida(BaseModel):
     cotizacion_id: UUID
+    usuario_id: UUID
     estado: str
     producto: str
     creada_en: datetime
@@ -39,6 +42,7 @@ class CotizacionSalida(BaseModel):
     def desde(cls, solicitud: SolicitudCotizacion, oferta: Oferta) -> "CotizacionSalida":
         return cls(
             cotizacion_id=solicitud.id,
+            usuario_id=solicitud.usuario_id,
             estado=solicitud.estado.value,
             producto=solicitud.producto,
             creada_en=solicitud.creada_en,
@@ -67,6 +71,22 @@ class CotizacionAsesorSalida(CotizacionSalida):
             **base.model_dump(),
             oferta_id=pendiente.consulta.oferta.id,
             cliente_ref=pendiente.solicitud.cliente_ref,
+        )
+
+
+class PaginaCotizacionesSalida(BaseModel):
+    items: list[CotizacionSalida]
+    pagina: int
+    tamano: int
+    hay_mas: bool
+
+    @classmethod
+    def desde(cls, pagina: PaginaPendientes) -> "PaginaCotizacionesSalida":
+        return cls(
+            items=[CotizacionSalida.desde_consulta(p.solicitud, p.consulta) for p in pagina.items],
+            pagina=pagina.pagina,
+            tamano=pagina.tamano,
+            hay_mas=pagina.hay_mas,
         )
 
 

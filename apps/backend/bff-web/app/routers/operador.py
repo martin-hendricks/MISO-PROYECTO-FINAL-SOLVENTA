@@ -5,9 +5,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from ..clients.ms_siniestros import ClienteMsSiniestros
 from ..clients.ms_polizas import ClienteMsPolizas
-from ..dependencies import obtener_cliente_polizas, obtener_cliente_siniestros, require_roles
+from ..dependencies import (
+    obtener_cliente_cotizacion,
+    obtener_cliente_polizas,
+    obtener_cliente_siniestros,
+    require_roles,
+)
+from ..ramos import presentar
+from ..clients.ms_cotizacion import ClienteMsCotizacion
 
 router = APIRouter(
     prefix="/operador",
@@ -15,37 +23,16 @@ router = APIRouter(
     dependencies=[Depends(require_roles("operador"))],
 )
 
-# Mapea la decisión del operador (vocabulario del canal web) al estado real
-# del enum EstadoSiniestro de ms-siniestros (ver
-# apps/backend/ms-siniestros/app/domain/modelos.py). El dominio de
-# ms-siniestros modela un único estado "decidido" como el paso siguiente a
-# "en_evaluacion" -- NO distingue aprobado/rechazado con valores de enum
-# separados ni expone un campo adicional para esa distinción binaria. Hasta
-# que ms-siniestros agregue ese campo (p.ej. un "resultado" dentro de la
-# transición), tanto aprobar como rechazar se traducen al mismo estado
-# "decidido" en el núcleo; el motivo de rechazo que captura el canal web hoy
-# no tiene dónde persistirse del lado de ms-siniestros.
-_DECISION_A_ESTADO = {"aprobar": "decidido", "rechazar": "decidido"}
-
-
-class Decision(BaseModel):
-    siniestroId: str
-    decision: str
-    motivo: str | None = None
+Operador = Annotated[dict, Depends(require_roles("operador"))]
 
 
 class Ciclo(BaseModel):
     numero: str
-    # TODO: el canal web solo conoce `numero` (número visible de póliza),
-    # pero ms-polizas solo expone los endpoints de ciclo de vida por
-    # poliza_id (UUID interno) -- todavía no existe en esta rama un endpoint
-    # de "buscar póliza por número" en ms-polizas que resuelva numero ->
-    # poliza_id (ese endpoint de lectura es alcance de otro trabajo en
-    # paralelo). Mientras tanto, si el frontend ya conoce el UUID interno de
-    # la póliza (p.ej. porque lo guardó de una consulta previa), puede
-    # mandarlo directamente en `polizaId` para poder probar el flujo
-    # end-to-end; si no lo manda, la ruta responde 501 explícito en vez de
-    # inventar un UUID o fallar silenciosamente.
+    # El canal web solo conoce `numero` (número visible de póliza); ciclo()
+    # lo resuelve a poliza_id vía ClienteMsPolizas.obtener_por_numero() antes
+    # de llamar a renovar/modificar/cancelar. Si el frontend ya conoce el
+    # UUID interno (p.ej. de una consulta previa), puede mandarlo directo en
+    # `polizaId` para ahorrarse esa resolución.
     polizaId: UUID | None = None
     verbo: str
     motivo: str | None = None
@@ -61,97 +48,75 @@ class Ciclo(BaseModel):
     nuevaFinVigencia: date | None = None
 
 
-@router.get("/avisos")
-async def cola(
-    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
+# HU-26/27/28/29: la cola de avisos, la decisión, el perito y el pago viven en
+# routers/siniestros.py (router_operador), integrados con el siniestro asistido real.
+
+
+def _poliza_salida(
+    numero: str,
+    poliza: dict,
+    siniestros_abiertos: int | None = None,
+    cotizacion: dict | None = None,
 ) -> dict:
-    """Integración real con ms-siniestros (GET /v1/siniestros).
-
-    TODO: ms-siniestros no filtra por operador/cola -- GET /v1/siniestros
-    devuelve la lista completa del servicio (hasta `limite`), sin noción de
-    "cola asignada a este operador". Mientras ms-siniestros no ofrezca ese
-    filtro, el BFF expone la lista completa tal cual.
-
-    TODO: el shape del canal web espera "poliza" y "ramo" por aviso, pero el
-    modelo de ms-siniestros (ver app/domain/modelos.py) no tiene esos campos
-    -- un Siniestro solo referencia evento_id, no una póliza ni un ramo.
-    Hace falta que ms-siniestros se relacione con ms-polizas (o que el BFF
-    componga con una llamada adicional a ms-polizas) para resolver esos
-    datos. Por ahora se devuelven como placeholder explícito (cadena vacía),
-    nunca como un valor inventado que parezca real.
-    """
-    siniestros = await cliente_siniestros.listar()
+    ramo, descripcion = presentar((cotizacion or {}).get("producto"))
+    datos = (cotizacion or {}).get("datos_riesgo") or {}
     return {
-        "avisos": [
-            {
-                "siniestroId": str(s["id"]),
-                "poliza": "",
-                "ramo": "",
-                "estado": s["estado"],
-            }
-            for s in siniestros
-        ]
-    }
-
-
-@router.post("/avisos/decision")
-async def decidir(
-    body: Decision,
-    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
-) -> dict:
-    """Integración real con ms-siniestros (POST /v1/siniestros/{id}/estado).
-
-    Ver _DECISION_A_ESTADO: tanto aprobar como rechazar hoy mapean al mismo
-    estado "decidido" del enum EstadoSiniestro, porque ese es el único estado
-    que el dominio de ms-siniestros modela como sucesor de "en_evaluacion".
-    Si la transición no es válida para el estado actual del siniestro (p.ej.
-    ya está "decidido" o más adelante en el flujo), ms-siniestros responde
-    409 (TransicionInvalida) y ese error se propaga tal cual vía los
-    exception handlers de main.py.
-    """
-    if body.decision not in _DECISION_A_ESTADO:
-        raise HTTPException(status_code=400, detail="Decision no permitida")
-    if body.decision == "rechazar" and not body.motivo:
-        raise HTTPException(status_code=400, detail="Motivo requerido")
-
-    try:
-        siniestro_id = UUID(body.siniestroId)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="siniestroId invalido") from exc
-
-    estado = _DECISION_A_ESTADO[body.decision]
-    actualizado = await cliente_siniestros.cambiar_estado(
-        siniestro_id=siniestro_id,
-        estado=estado,
-        origen="operador",
-    )
-    return {
-        "siniestroId": str(actualizado["id"]),
-        "decision": body.decision,
-        "motivo": body.motivo,
-        "estado": actualizado["estado"],
-    }
-
-
-def _poliza_salida(body: Ciclo, poliza: dict) -> dict:
-    # TODO: `ramo` no existe en la salida de ms-polizas (Poliza no tiene
-    # concepto de ramo, ver app/domain/modelos.py de ms-polizas) -- mismo
-    # faltante documentado en cliente.py (emitir()/detalle()/billetera()).
-    # Se usa el numero que ya conocía el canal (body.numero) en vez del que
-    # devuelve ms-polizas, porque hoy no hay garantía de que coincidan sin el
-    # endpoint de búsqueda por número (ver TODO en el modelo Ciclo).
-    return {
-        "numero": body.numero,
-        "ramo": "Protección de dispositivo",
+        "numero": numero,
+        "ramo": ramo,
+        "descripcion": descripcion,
+        "datosRiesgo": datos,
         "estado": poliza["estado"].lower(),
         "venceEn": poliza.get("fin_vigencia", ""),
+        "prima": poliza["prima"],
+        # HU-60: ms-polizas ya devuelve esto (PolizaSalida.coberturas), pero
+        # _poliza_salida nunca lo exponía al canal web -- sin esto, el
+        # back-office no puede precargar los valores actuales antes de
+        # modificarlos.
+        "coberturas": poliza.get("coberturas", []),
+        "renovable": poliza["renovable"],
+        "devolucionEstimada": poliza.get("devolucion_estimada"),
+        "canceladaEn": poliza.get("cancelada_en"),
+        "canceladaPor": poliza.get("cancelada_por"),
+        "motivoCancelacion": poliza.get("motivo_cancelacion"),
+        "siniestrosAbiertos": siniestros_abiertos,
     }
+
+
+async def _resolver_poliza_id(body: Ciclo, cliente_polizas: ClienteMsPolizas) -> UUID:
+    if body.polizaId is not None:
+        return body.polizaId
+    encontrada = await cliente_polizas.obtener_por_numero(body.numero)
+    return UUID(encontrada["id"])
+
+
+async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza: dict) -> dict:
+    oferta_id = poliza.get("oferta_id")
+    if not oferta_id:
+        return {}
+    try:
+        return await cliente_cotizacion.reconsultar_por_oferta(UUID(str(oferta_id)))
+    except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo, ValueError):
+        return {}
+
+
+@router.get("/polizas/{numero}")
+async def consultar_poliza(
+    numero: str,
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """Detalle de una póliza por número visible, para que el operador decida
+    si renovar o cancelar antes de ejecutar el comando (ver ciclo())."""
+    poliza = await cliente_polizas.obtener_por_numero(numero)
+    return _poliza_salida(numero, poliza, cotizacion=await _cotizacion_de_poliza(cliente_cotizacion, poliza))
 
 
 @router.post("/polizas/ciclo")
 async def ciclo(
     body: Ciclo,
+    operador: Operador,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
 ) -> dict:
     if body.verbo not in {"renovar", "modificar", "cancelar"}:
         raise HTTPException(status_code=400, detail="Verbo no permitido")
@@ -159,22 +124,22 @@ async def ciclo(
         raise HTTPException(status_code=400, detail="Motivo requerido")
     if body.verbo == "modificar" and not body.coberturas:
         raise HTTPException(status_code=400, detail="Coberturas requeridas")
-    if body.polizaId is None:
-        # Ver TODO en el modelo Ciclo: sin el endpoint de búsqueda por numero
-        # en ms-polizas no hay forma de resolver numero -> poliza_id. Se
-        # responde 501 explícito en vez de fallar silenciosamente o inventar
-        # un UUID -- el contrato de esta ruta cambió y debe ser visible.
-        raise HTTPException(status_code=501, detail="numero->poliza_id no implementado: falta polizaId")
+
+    poliza_id = await _resolver_poliza_id(body, cliente_polizas)
 
     if body.verbo == "renovar":
         nueva_fin_vigencia = body.nuevaFinVigencia or date.today() + timedelta(days=365)
-        poliza = await cliente_polizas.renovar(body.polizaId, nueva_fin_vigencia)
-    elif body.verbo == "modificar":
-        poliza = await cliente_polizas.modificar_coberturas(body.polizaId, body.coberturas or [])
-    else:
-        poliza = await cliente_polizas.cancelar(body.polizaId, body.motivo or "")
+        poliza = await cliente_polizas.renovar(poliza_id, nueva_fin_vigencia)
+        return _poliza_salida(body.numero, poliza)
+    if body.verbo == "modificar":
+        poliza = await cliente_polizas.modificar_coberturas(poliza_id, body.coberturas or [])
+        return _poliza_salida(body.numero, poliza)
 
-    return _poliza_salida(body, poliza)
+    # HU-61: siniestros abiertos es solo informativo -- se consulta pero no
+    # bloquea la cancelación (ver ClienteMsSiniestros.abiertos_por_poliza).
+    siniestros_abiertos = await cliente_siniestros.abiertos_por_poliza(poliza_id)
+    poliza = await cliente_polizas.cancelar(poliza_id, body.motivo or "", operador["sub"])
+    return _poliza_salida(body.numero, poliza, siniestros_abiertos)
 
 
 # TODO: depende de ms-siniestros/ms-parametrico (gestión de asistencias), que
@@ -183,7 +148,7 @@ async def ciclo(
 def asistencia(asistencia_id: str) -> dict:
     return {
         "asistenciaId": asistencia_id,
-        "prestadorId": "PR-1",
+        "prestadorId": "PRE-BOG-06",
         "poliza": "POL-88219-CO",
         "estado": "registrada",
     }

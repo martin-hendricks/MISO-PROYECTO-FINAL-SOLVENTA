@@ -97,6 +97,19 @@ class _RepoSolicitudes:
         filas.sort(key=lambda f: (f[0].creada_en, f[0].id), reverse=True)
         return deepcopy(filas[desplazamiento : desplazamiento + limite])
 
+    async def listar_por_usuario(self, usuario_id, vigentes_desde, desplazamiento, limite):
+        ofertas = {o.solicitud_id: o for o in self._uow.almacen.ofertas.values()}
+        filas = [
+            (s, ofertas[s.id])
+            for s in self._vista().values()
+            if s.usuario_id == usuario_id
+            and s.estado is EstadoSolicitud.COTIZADA
+            and s.id in ofertas
+            and ofertas[s.id].vence_en > vigentes_desde
+        ]
+        filas.sort(key=lambda f: (f[0].creada_en, f[0].id), reverse=True)
+        return deepcopy(filas[desplazamiento : desplazamiento + limite])
+
 
 class _RepoOfertas:
     def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
@@ -198,3 +211,20 @@ class SuscripcionesFalsas:
         return self._decisiones.setdefault(
             solicitud_id, DecisionSuscripcion(uuid4(), self.decision, "regla de suscripción")
         )
+
+
+class ConsentimientosFalsos:
+    def __init__(self, productos=(), vigentes=None) -> None:
+        self.productos = set(productos)
+        self.vigentes = vigentes
+        self.caida: Exception | None = None
+        self.consultas: list[UUID] = []
+
+    def requiere(self, producto):
+        return producto in self.productos
+
+    async def vigente(self, usuario_id):
+        self.consultas.append(usuario_id)
+        if self.caida is not None:
+            raise self.caida
+        return self.vigentes is None or usuario_id in self.vigentes

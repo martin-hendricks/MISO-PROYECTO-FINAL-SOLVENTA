@@ -16,6 +16,8 @@ describe('ConsentimientoView', () => {
     documento: '1012345678',
     correo: 'camila@correo.com',
     contrasena: 'secreto123',
+    ingresos_mensuales: '4500000.00',
+    gastos_mensuales: '1200000.00',
   };
   const MARCA = { habeasData: true, otorgadoEn: '2026-10-21T15:00:00+00:00', version: '2026-10' };
 

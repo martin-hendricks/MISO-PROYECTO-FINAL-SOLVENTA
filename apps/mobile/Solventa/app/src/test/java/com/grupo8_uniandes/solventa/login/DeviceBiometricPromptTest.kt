@@ -102,17 +102,21 @@ class DeviceBiometricPromptTest {
         callback.onAuthenticationSucceeded(success)
         assertEquals(listOf(DeviceUnlock.Accepted), results)
 
-        val failed = DeviceUnlockCallback(results::add)
+        var dismissed = 0
+        val failed = DeviceUnlockCallback(results::add) { dismissed += 1 }
         results.clear()
         failed.onAuthenticationFailed()
-        failed.onAuthenticationFailed()
+        failed.onAuthenticationError(BiometricPrompt.ERROR_CANCELED, "cancel")
         assertEquals(listOf(DeviceUnlock.Dismissed), results)
+        assertEquals(1, dismissed)
 
-        val error = DeviceUnlockCallback(results::add)
+        val error = DeviceUnlockCallback(results::add) { dismissed += 1 }
         results.clear()
-        error.onAuthenticationError(BiometricPrompt.ERROR_CANCELED, "cancel")
-        error.onAuthenticationError(BiometricPrompt.ERROR_CANCELED, "cancel")
+        dismissed = 0
+        error.onAuthenticationError(BiometricPrompt.ERROR_LOCKOUT, "lockout")
+        error.onAuthenticationError(BiometricPrompt.ERROR_LOCKOUT, "lockout")
         assertEquals(listOf(DeviceUnlock.Dismissed), results)
+        assertEquals(1, dismissed)
     }
 }
 

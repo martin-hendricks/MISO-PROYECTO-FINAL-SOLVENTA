@@ -1,8 +1,10 @@
 package com.grupo8_uniandes.solventa.profile
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,6 +14,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -23,11 +26,19 @@ class PerfilHubTest {
     @get:Rule
     val rule = createEmptyComposeRule()
 
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
+
     private lateinit var scenario: ActivityScenario<MainActivity>
 
     @Before
     fun openSignedInShell() {
-        val intent = Intent(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        val intent = Intent(context, MainActivity::class.java)
             .putExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL, true)
         scenario = ActivityScenario.launch(intent)
         rule.waitUntil(timeoutMillis = 30_000) {
@@ -74,8 +85,8 @@ class PerfilHubTest {
         rule.onAllNodesWithTag("action_volver").assertCountEquals(0)
         rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
         rule.waitUntil(timeoutMillis = 30_000) {
-            rule.onAllNodesWithTag("screen_onboarding").fetchSemanticsNodes().isNotEmpty()
+            rule.onAllNodesWithTag("screen_consentimiento").fetchSemanticsNodes().isNotEmpty()
         }
-        rule.onNodeWithTag("screen_onboarding").assertIsDisplayed()
+        rule.onNodeWithTag("screen_consentimiento").assertIsDisplayed()
     }
 }

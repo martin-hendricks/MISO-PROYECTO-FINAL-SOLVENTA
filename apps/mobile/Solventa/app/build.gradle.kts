@@ -22,7 +22,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BFF_BASE_URL", "\"\"")
+        buildConfigField("String", "MAPS_API_KEY", mapsApiKey().asBuildConfigString())
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey()
     }
 
     buildTypes {
@@ -68,6 +70,40 @@ android {
     }
 }
 
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.google.guava:listenablefuture"))
+            .using(module("com.google.guava:listenablefuture:1.0"))
+            .because("Guava 31 asks for the empty 9999 jar, which breaks the strict 1.0 resolution used by Espresso")
+    }
+}
+
+// Tests must not download these jars themselves. Maven Central answers 429 when
+// every Robolectric class fetches android-all-instrumented during the run.
+// The suite uses SDK 35 (default), 33, and 28.
+val robolectricSdkDir = layout.buildDirectory.dir("robolectric-deps")
+val robolectricSdkJars = listOf(
+    libs.robolectric.instrumented.sdk35,
+    libs.robolectric.instrumented.sdk33,
+    libs.robolectric.instrumented.sdk28,
+).mapIndexed { index, dependency ->
+    // One configuration per jar: Gradle keeps a single version of a module.
+    val sdk = configurations.resolvable("robolectricSdk$index") {
+        isTransitive = false
+    }
+    dependencies.add(sdk.name, dependency)
+    sdk
+}
+val installRobolectricSdk = tasks.register<Sync>("installRobolectricSdk") {
+    robolectricSdkJars.forEach { from(it) }
+    into(robolectricSdkDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(installRobolectricSdk)
+    systemProperty("robolectric.dependency.dir", robolectricSdkDir.get().asFile.absolutePath)
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -86,7 +122,17 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.retrofit)
     implementation(libs.okhttp)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.osmdroid.android)
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
+    implementation(libs.maps.compose.utils)
     implementation(libs.retrofit.kotlinx.serialization)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.koin.test)
@@ -97,6 +143,9 @@ dependencies {
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4.accessibility) {
+        exclude(group = "com.google.guava", module = "listenablefuture")
+    }
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.navigation.testing)
     androidTestImplementation(libs.androidx.junit)
@@ -114,6 +163,7 @@ val unitTestCoverageExcludedSources = setOf(
     "IdiomaRegionSheet.kt",
     "PerfilScreen.kt",
     "SolventaApp.kt",
+    "FrontCameraPreview.kt",
 )
 
 val filterDebugUnitTestCoverageReport = tasks.register<ExcludeJacocoSources>("filterDebugUnitTestCoverageReport") {
@@ -127,6 +177,16 @@ tasks.matching { it.name == "createDebugUnitTestCoverageReport" }.configureEach 
 }
 
 // Same order as BffAddress.resolve. Debug never reads this file: its address field stays empty.
+private fun Project.mapsApiKey(): String {
+    val fromGradle = (findProperty("mapsApiKey") as String?).orEmpty().trim()
+    if (fromGradle.isNotBlank()) return fromGradle
+    val file = rootProject.file("local.properties")
+    if (!file.exists()) return ""
+    val properties = Properties()
+    file.inputStream().use(properties::load)
+    return properties.getProperty("maps.apiKey").orEmpty().trim()
+}
+
 private fun Project.remoteBffAddress(): String {
     val fromGradle = (findProperty("bffBaseUrl") as String?).orEmpty().trim()
     if (fromGradle.isNotBlank()) return fromGradle
@@ -139,3 +199,7 @@ private fun Project.remoteBffAddress(): String {
 
 private fun String.asBuildConfigString(): String =
     "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

@@ -35,9 +35,9 @@ export class CotizacionPage {
       .getByTestId('cotizacion-ramo')
       .locator('option')
       .evaluateAll((options) =>
-        (options as HTMLOptionElement[]).map((o) => ({
-          label: o.textContent!.replace(/\s+/g, ' ').trim(),
-          disabled: o.disabled,
+        (options as HTMLOptionElement[]).map((option) => ({
+          label: option.textContent!.replace(/\s+/g, ' ').trim(),
+          disabled: option.disabled,
         })),
       );
   }
@@ -58,8 +58,13 @@ export class CotizacionPage {
   }
 
   async fillClient(nombre: string, documento: string): Promise<void> {
-    await this.page.getByTestId('cliente-nombre').fill(nombre);
-    await this.page.getByTestId('cliente-documento').fill(documento);
+    await this.page.getByTestId('cliente-busqueda').fill(documento);
+    await this.page.getByTestId(`cliente-opcion-${documento}`).click();
+    await this.page.getByTestId('cliente-nombre').filter({ hasText: nombre }).waitFor();
+  }
+
+  async text(testId: string): Promise<string> {
+    return (await this.page.getByTestId(testId).textContent())!.trim();
   }
 
   async fillSoat(cilindraje: string): Promise<void> {
@@ -68,6 +73,17 @@ export class CotizacionPage {
     await this.page.getByTestId('riesgo-cilindraje_cc').fill(cilindraje);
     await this.page.getByTestId('riesgo-modelo_anio').fill('2022');
     await this.page.getByTestId('riesgo-ciudad_circulacion').selectOption('cali');
+  }
+
+  /** Mortgage life (HU-58): its fields render once the `Vida hipotecario` catalog answers. */
+  async fillMortgage(valor = '180000000', plazoMeses = '240'): Promise<void> {
+    await this.page.getByTestId('riesgo-valor').fill(valor);
+    await this.page.getByTestId('riesgo-plazoMeses').fill(plazoMeses);
+    await this.page.locator('.hint', { hasText: 'Entre 6 y 360' }).waitFor({ state: 'visible' });
+  }
+
+  async consentProfiling(checked = true): Promise<void> {
+    await this.page.getByTestId('asesor-consentimiento').setChecked(checked);
   }
 
   async typeEngine(cilindraje: string): Promise<void> {
@@ -125,6 +141,24 @@ export class CotizacionPage {
 
   async acceptHref(): Promise<string | null> {
     return this.page.getByTestId('oferta-aceptar').getAttribute('href');
+  }
+
+  async openCard(cotizacionId: string): Promise<void> {
+    await this.page.goto(`/confirmacion-tarjeta?cotizacion=${cotizacionId}`);
+    await this.page.getByTestId('confirmacion-tarjeta').waitFor({ state: 'visible' });
+  }
+
+  async fillCard(): Promise<void> {
+    await this.page.getByTestId('confirmacion-tarjeta').waitFor({ state: 'visible' });
+    await this.page.getByTestId('tarjeta-titular').fill('Camila Restrepo');
+    await this.page.getByTestId('tarjeta-numero').fill('4242424242424242');
+    await this.page.getByTestId('tarjeta-mes').fill('8');
+    await this.page.getByTestId('tarjeta-anio').fill('28');
+    await this.page.getByTestId('tarjeta-codigo').fill('123');
+  }
+
+  async confirmCard(): Promise<void> {
+    await this.page.getByTestId('tarjeta-confirmar').click();
   }
 
   async expectOfferPath(cotizacionId: string): Promise<void> {

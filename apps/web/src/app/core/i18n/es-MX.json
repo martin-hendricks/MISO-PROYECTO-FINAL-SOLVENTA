@@ -9,37 +9,66 @@
       "perfil": "Perfil",
       "label": "Navegación principal",
       "open": "Abrir menú",
-      "close": "Cerrar menú"
+      "close": "Cerrar menú",
+      "billetera": "Billetera"
     },
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "skip": "Saltar al contenido"
+  },
+  "idiomaRegion": {
+    "title": "Idioma y región",
+    "hint": "Elige tu región para ver moneda y fecha en el formato correcto.",
+    "continue": "Continuar",
+    "done": "Listo",
+    "preview": {
+      "premium": "Prima de ejemplo",
+      "date": "Fecha de ejemplo"
+    },
+    "locale": {
+      "es-CO": "Español · Colombia (COP)",
+      "es-MX": "Español · México (MXN)",
+      "es-CL": "Español · Chile (CLP)",
+      "es-PE": "Español · Perú (PEN)"
+    }
   },
   "inicio": {
-    "title": "Hola",
-    "subtitle": "Resumen de tu cuenta",
+    "title": "Inicio",
+    "subtitle": "Tus cotizaciones por aceptar, pólizas y siniestros · México · MXN",
     "newQuote": "Nueva cotización",
     "loading": "Cargando tu inicio…",
     "offer": {
-      "label": "Oferta vigente",
-      "accept": "Aceptar oferta"
+      "pending": "{{ramo}} · por aceptar",
+      "accept": "Aceptar y emitir",
+      "detail": "Ver detalle",
+      "readyTitle": "Paso 2 de 4 · Cotización lista: acéptala para emitir",
+      "readyBody": "{{ramo}} · prima neta y gastos de expedición incluidos.",
+      "vigencia": "Vigencia"
     },
     "policy": {
-      "label": "Póliza activa",
+      "label": "Póliza vigente",
       "link": "Ver póliza"
     },
     "claim": {
       "label": "Siniestro en curso",
-      "body": "Aviso #{{id}}",
-      "link": "Ver siniestro"
+      "body": "{{id}}",
+      "next": "Siguiente paso",
+      "nextBody": "Adjunta evidencia de {{id}} para continuar la evaluación.",
+      "link": "Ir a siniestros"
     },
     "vidaCrediticia": {
-      "label": "Vida Crediticia",
-      "body": "Originación hipotecaria disponible.",
-      "link": "Ver oferta"
+      "label": "Vida hipotecario",
+      "body": "Un solo flujo: consentimiento (paso 1 de 3) → oferta → emisión.",
+      "estado": "Disponible",
+      "link": "Continuar Vida hipotecario"
     },
     "estado": {
       "oferta_vigente": "Oferta vigente",
       "vigente": "Vigente",
-      "en_evaluacion": "En evaluación"
+      "recibido": "Recibido",
+      "en_evaluacion": "En evaluación",
+      "decidido": "Decidido",
+      "enrutado": "Enrutado",
+      "pagado": "Pagado"
     },
     "empty": {
       "title": "Aún no tienes productos",
@@ -56,30 +85,94 @@
     "poliza": "Detalle de póliza",
     "siniestro": "Detalle de siniestro",
     "siniestros": "Siniestros",
-    "perfil": "Perfil",
-    "vidaCrediticia": "Vida Crediticia",
     "pending": {
       "title": "Sección en preparación",
       "body": "Pronto podrás continuar desde aquí.",
       "home": "Volver al inicio"
     }
   },
+  "perfil": {
+    "title": "Perfil",
+    "entendido": "Entendido",
+    "region": {
+      "es-CO": "Español · Colombia",
+      "es-MX": "Español · México",
+      "es-CL": "Español · Chile",
+      "es-PE": "Español · Perú"
+    },
+    "dispositivo": {
+      "title": "Dispositivo",
+      "texto": "Cámara, fotos y GPS se gestionan en la app Android. En web usas carga de archivos y geolocalización del navegador cuando el siniestro lo pide."
+    },
+    "cerrarSesion": {
+      "boton": "Cerrar sesión",
+      "title": "¿Cerrar sesión?",
+      "advertencia": "Tendrás que ingresar de nuevo para consultar tus pólizas y siniestros."
+    }
+  },
+  "consentimientoDatos": {
+    "title": "Consentimiento de datos",
+    "otorgado": "Otorgado el {{fecha}}",
+    "revocado": "Revocado el {{fecha}}",
+    "sin": "Sin consentimiento vigente",
+    "info": "No tienes un consentimiento de datos vigente. Desde Perfil no se puede volver a otorgar.",
+    "error": "No pudimos revocar el consentimiento. Intenta de nuevo en unos minutos.",
+    "dialog": {
+      "title": "Revocar el consentimiento de datos",
+      "advertencia": "Solventa dejará de tratar tus datos personales bajo habeas data. Desde Perfil no podrás volver a otorgarlo.",
+      "revocar": "Revocar"
+    }
+  },
+  "consentimientoPerfil": {
+    "title": "Consentimiento Vida Crediticia",
+    "otorgado": "Otorgado el {{fecha}}",
+    "revocado": "Revocado el {{fecha}}",
+    "sin": "Sin originación activa",
+    "info": "No tienes una autorización de perfilamiento vigente. Se solicita al cotizar Vida Crediticia para un crédito hipotecario.",
+    "error": "No pudimos revocar la autorización. Intenta de nuevo en unos minutos.",
+    "dialog": {
+      "title": "Revocar la autorización de perfilamiento",
+      "advertencia": "Solventa dejará de consultar tus datos de Open Finance y Open Data para calcular ofertas de vida hipotecario. Las ofertas que no hayas aceptado ya no podrán emitirse.",
+      "revocar": "Revocar"
+    }
+  },
   "polizas": {
     "lista": {
       "title": "Pólizas",
-      "subtitle": "Billetera de coberturas vigentes y por vencer.",
+      "subtitle": "Tus coberturas vigentes y por vencer.",
       "loading": "Cargando tus pólizas…",
-      "error": { "body": "No pudimos cargar tus pólizas.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos cargar tus pólizas.",
+        "retry": "Reintentar"
+      },
       "empty": {
         "title": "Aún no tienes pólizas",
         "body": "Cuando emitas una póliza la verás aquí."
       }
     },
+    "avisos": {
+      "title": "Avisos de vencimiento",
+      "subtitle": "Pólizas vigentes que vencen pronto.",
+      "loading": "Cargando tus avisos…",
+      "error": {
+        "body": "No pudimos cargar tus avisos.",
+        "retry": "Reintentar"
+      },
+      "empty": {
+        "title": "No tienes avisos",
+        "body": "Ninguna de tus pólizas vence pronto."
+      },
+      "venceEl": "Vence el",
+      "verPoliza": "Ver póliza"
+    },
     "detalle": {
       "back": "Volver",
       "title": "Póliza {{producto}}",
       "loading": "Cargando la póliza…",
-      "error": { "body": "No pudimos cargar la póliza.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos cargar la póliza.",
+        "retry": "Reintentar"
+      },
       "notFound": {
         "title": "No encontramos esta póliza",
         "body": "Revisa el número o vuelve a tu lista de pólizas.",
@@ -97,7 +190,10 @@
       "estado": "Estado",
       "prima": "Prima"
     },
-    "estado": { "VIGENTE": "Vigente", "CANCELADA": "Cancelada" }
+    "estado": {
+      "VIGENTE": "Vigente",
+      "CANCELADA": "Cancelada"
+    }
   },
   "emision": {
     "irInicio": "Ir al inicio",
@@ -108,25 +204,83 @@
     },
     "emitida": {
       "title": "Póliza emitida",
-      "subtitle": "{{producto}} ya está en tu billetera.",
-      "verPoliza": "Ver mi póliza"
+      "subtitle": "{{producto}} ya está en tus pólizas.",
+      "verPoliza": "Ver mi póliza",
+      "renovacion": "Pago de renovación automática",
+      "renovacionAyuda": "Apagado. Renueva la prima de esta póliza. No cobra ahora."
     },
     "rechazada": {
       "title": "No pudimos emitir",
       "subtitle": "La suscripción rechazó esta oferta. Puedes cotizar de nuevo.",
       "motivo": "Motivo"
     },
-    "error": { "body": "No pudimos completar la emisión.", "retry": "Reintentar" },
+    "error": {
+      "title": "No pudimos emitir tu póliza",
+      "body": "No pudimos completar la emisión.",
+      "retry": "Reintentar"
+    },
+    "expired": {
+      "title": "Oferta vencida",
+      "body": "La oferta venció.",
+      "action": "Nueva cotización"
+    },
+    "revoked": {
+      "title": "Autorización revocada",
+      "body": "Revocaste la autorización para usar tus datos en el perfilamiento. Vuelve a cotizar para continuar.",
+      "action": "Nueva cotización"
+    },
     "invalid": {
       "title": "No hay una oferta para emitir",
       "body": "Vuelve a la oferta y acéptala de nuevo."
     }
   },
+  "tarjeta": {
+    "title": "Confirma el medio de pago",
+    "subtitle": "Prima de solo lectura. El número, el vencimiento y el código se validan en este dispositivo y se descartan al confirmar.",
+    "tarjeta": "Tarjeta",
+    "titular": "Titular",
+    "titularHint": "Como aparece en la tarjeta",
+    "numero": "Número de tarjeta",
+    "numeroHint": {
+      "default": "16 dígitos",
+      "amex": "15 dígitos",
+      "diners": "14 dígitos"
+    },
+    "vencimiento": "Vencimiento",
+    "mes": "Mes",
+    "anio": "Año",
+    "digitos": "2 dígitos",
+    "codigo": "Código de seguridad",
+    "codigoHint": "3 o 4 dígitos",
+    "placeholder": {
+      "titular": "Camila Restrepo",
+      "numero": "4242 4242 4242 4242",
+      "mes": "08",
+      "anio": "28",
+      "codigo": "123"
+    },
+    "privacidad": "Formato validado aquí. Estos datos no se envían a Solventa ni se guardan.",
+    "primaLabel": "Prima total · solo lectura",
+    "monedaInicio": "Moneda de inicio",
+    "confirmar": "Confirmar pago",
+    "cancelar": "Volver a la oferta",
+    "volver": "← Volver",
+    "footerLinks": "Privacidad   ·   Términos   ·   Accesibilidad"
+  },
+  "parametrico": {
+    "title": "Pago automático realizado",
+    "subtitle": "Este depósito corresponde al siniestro paramétrico, no a la prima.",
+    "poliza": "Póliza relacionada",
+    "explicacion": "Activar la renovación no repite el pago ni cobra la prima.",
+    "renovacionAyuda": "Apagado. Opta esa póliza a renovar su prima.",
+    "volver": "Volver a siniestros",
+    "verEnBilletera": "Ver en billetera"
+  },
   "login": {
     "customer": {
       "claim": "Tu seguro, en un solo lugar.",
       "body": "Cotiza, emite y da aviso de siniestro desde el navegador. Tus pólizas, tus avisos y tus pagos automáticos en un solo lugar.",
-      "hint": "Correo y contraseña. Sin KYC ni biometría en web."
+      "hint": "Correo y contraseña."
     },
     "backoffice": {
       "claim": "Portal de asesor y operador.",
@@ -161,14 +315,19 @@
       "apellidos": "Apellidos",
       "documento": "Documento",
       "correo": "Correo",
-      "contrasena": "Contraseña"
+      "contrasena": "Contraseña",
+      "ingresos": "Ingresos mensuales",
+      "gastos": "Gastos mensuales",
+      "ingresosHint": "Debe ser mayor que cero.",
+      "gastosHint": "Puede ser cero."
     },
     "submit": "Registrarme",
     "haveAccount": "Ya tengo cuenta",
     "error": {
       "required": "Completa este campo.",
       "format": "Escribe un correo válido.",
-      "length": "Usa al menos 8 caracteres."
+      "length": "Usa al menos 8 caracteres.",
+      "amount": "El ingreso mensual debe ser mayor que cero."
     }
   },
   "consentimiento": {
@@ -189,9 +348,14 @@
     "nav": {
       "label": "Secciones del back-office",
       "clientes": "Clientes",
+      "socios": "Socios",
       "cotizaciones": "Cotizaciones",
       "polizas": "Pólizas",
-      "avisos": "Avisos"
+      "avisos": "Avisos",
+      "reportes": "Reportes",
+      "metricas": "Métricas",
+      "notificaciones": "Notificaciones",
+      "prestadores": "Prestadores"
     },
     "role": {
       "label": "Rol:",
@@ -199,6 +363,131 @@
       "operador": "Operador"
     },
     "signOut": "Cerrar sesión",
+    "confirmDialog": {
+      "motivo": "Motivo",
+      "cancelar": "Cancelar",
+      "confirmar": "Confirmar"
+    },
+    "prestadores": {
+      "title": "Prestadores",
+      "subtitle": "Red de atención por ramo. {{conteos}}",
+      "nuevo": "Nuevo prestador",
+      "loading": "Cargando prestadores…",
+      "reintentar": "Reintentar",
+      "quitarFiltros": "Quitar filtros",
+      "inactivar": "Inactivar",
+      "reactivar": "Reactivar",
+      "inactivarTitulo": "Inactivar prestador",
+      "inactivarCuerpo": "Inactivar deja de mostrar {{nombre}} en el mapa del cliente. Las asistencias ya pedidas conservan el nombre.",
+      "volver": "Volver a prestadores",
+      "filtro": {
+        "ramo": "Ramo",
+        "ciudad": "Ciudad",
+        "estado": "Estado",
+        "todos": "Todos",
+        "todas": "Todas",
+        "pais": "País"
+      },
+      "column": {
+        "nombre": "Nombre",
+        "tipo": "Tipo",
+        "ramo": "Ramo",
+        "barrio": "Barrio",
+        "ciudad": "Ciudad",
+        "estado": "Estado",
+        "acciones": "Acciones"
+      },
+      "estado": {
+        "activo": "Activo",
+        "inactivo": "Inactivo"
+      },
+      "vacio": {
+        "title": "No hay prestadores con ese filtro.",
+        "body": "Prueba con otro ramo, otra ciudad u otro país."
+      },
+      "error": {
+        "carga": "No pudimos cargar los prestadores.",
+        "ramo": "Elige al menos un ramo.",
+        "prestador_sin_ramo": "Elige al menos un ramo.",
+        "ramo_desconocido": "Ese ramo no está en el catálogo.",
+        "coordenada_fuera_de_rango": "La coordenada está fuera de rango.",
+        "generico": "No pudimos guardar el prestador.",
+        "ciudad_desconocida": "Esa ciudad no está en el catálogo de ese país.",
+        "pais_desconocido": "Ese país no está en el catálogo."
+      },
+      "form": {
+        "title": "Prestador",
+        "subtitle": "Alta y edición. El pin del mapa guarda la coordenada.",
+        "nombre": "Nombre",
+        "barrio": "Barrio",
+        "tipo": "Tipo",
+        "telefono": "Teléfono",
+        "direccion": "Dirección",
+        "horario": "Horario",
+        "ciudad": "Ciudad",
+        "eligeTipo": "Elige un tipo",
+        "eligeCiudad": "Elige una ciudad",
+        "ramos": "Ramos",
+        "ramosAyuda": "Al menos un ramo. Un local puede atender varios.",
+        "pin": "Arrastra el pin para fijar lat y lng",
+        "lat": "Latitud",
+        "lng": "Longitud",
+        "guardar": "Guardar",
+        "notFound": "No encontramos ese prestador.",
+        "pais": "País"
+      }
+    },
+    "polizas": {
+      "title": "Pólizas",
+      "buscar": {
+        "label": "Número de póliza",
+        "action": "Buscar"
+      },
+      "loading": "Consultando la póliza…",
+      "notFound": {
+        "title": "No encontramos esa póliza",
+        "body": "Verifica el número e intenta de nuevo."
+      },
+      "error": {
+        "body": "No pudimos consultar la póliza.",
+        "retry": "Reintentar"
+      },
+      "estado": {
+        "vigente": "Vigente",
+        "cancelada": "Cancelada"
+      },
+      "venceEn": "Vence en",
+      "prima": "Prima",
+      "siniestrosAbiertos": "Siniestros abiertos",
+      "renovar": "Renovar",
+      "acciones": "Acciones de la póliza",
+      "noRenovable": "Esta póliza no se puede renovar. Emite una póliza nueva desde Cotizaciones.",
+      "cancelar": "Cancelar póliza",
+      "confirmCancelar": {
+        "title": "Cancelar póliza",
+        "advertencia": "Esta acción es irreversible y no se puede repetir.",
+        "confirmar": "Cancelar póliza"
+      },
+      "cancelacionPrevia": {
+        "title": "Registro de cancelación",
+        "fecha": "Fecha",
+        "motivo": "Motivo",
+        "operador": "Operador",
+        "devolucion": "Devolución estimada"
+      },
+      "coberturas": {
+        "title": "Coberturas",
+        "empty": "Esta póliza no tiene coberturas registradas.",
+        "modificar": "Modificar coberturas",
+        "nombre": "Nombre",
+        "suma": "Suma asegurada",
+        "deducible": "Deducible",
+        "agregar": "Agregar cobertura",
+        "quitar": "Quitar",
+        "guardar": "Guardar cambios",
+        "acciones": "Acciones de coberturas"
+      }
+    },
     "emision": {
       "title": "Suscripción y emisión",
       "back": "Cotización {{cotizacion}}",
@@ -241,46 +530,123 @@
         "cotizarOtro": "Cotizar otro producto",
         "volverCartera": "Volver a la cartera"
       },
-      "error": { "body": "No pudimos completar este paso.", "retry": "Reintentar" },
+      "error": {
+        "body": "No pudimos completar este paso.",
+        "retry": "Reintentar"
+      },
       "invalid": {
         "title": "Falta la oferta o el cliente",
         "body": "Abre la emisión desde la cotización del cliente."
       }
     },
-    "clientes": {
-      "title": "Clientes",
-      "new": "Nuevo cliente",
-      "kpi": {
-        "active": { "label": "Clientes activos", "hint": "web y móvil" },
-        "web": { "label": "Canal web", "hint": "portal web" },
-        "android": { "label": "Canal Android", "hint": "app Android" },
-        "pendingConsent": { "label": "Consentimiento pendiente", "hint": "perfil hipotecario" }
-      },
+    "socios": {
+      "title": "Socios",
+      "new": "Nuevo socio",
+      "rotate": "Rotar clave",
+      "revoke": "Revocar socio",
+      "revokeCredential": "Revocar",
+      "revokeTitle": "Revocar socio",
+      "revokeWarning": "El socio y todas sus claves dejan de funcionar. No se puede deshacer.",
+      "revokeCredentialTitle": "Revocar clave",
+      "revokeCredentialWarning": "Las integraciones que usen esta clave dejan de funcionar.",
       "column": {
-        "cliente": "Cliente",
-        "documento": "Documento",
-        "canal": "Canal",
+        "nombre": "Socio",
+        "alcances": "Alcances",
         "estado": "Estado",
-        "consentimiento": "Consentimiento",
+        "creadoEn": "Creado",
+        "credenciales": "Claves",
         "acciones": "Acciones"
-      },
-      "cotizar": "Cotizar",
-      "canal": {
-        "web": "Web",
-        "android": "Android"
       },
       "estado": {
         "activo": "Activo",
-        "inactivo": "Inactivo"
-      },
-      "consentimiento": {
-        "habeas_data": "Habeas data",
-        "hipotecario_pendiente": "Hipotecario pendiente",
         "revocado": "Revocado"
+      },
+      "credencial": {
+        "vigente": "Vigente",
+        "revocada": "Revocada el"
+      },
+      "alcance": {
+        "catalogo:leer": "Consultar el catálogo",
+        "originaciones:escribir": "Crear originaciones",
+        "cotizaciones:escribir": "Crear cotizaciones",
+        "cotizaciones:leer": "Consultar cotizaciones"
+      },
+      "form": {
+        "create": "Nuevo socio",
+        "nombre": "Nombre",
+        "alcances": "Alcances",
+        "save": "Crear socio",
+        "cancel": "Cancelar"
+      },
+      "clave": {
+        "title": "Clave de API",
+        "warning": "Copia esta clave ahora. No se volverá a mostrar.",
+        "copy": "Copiar",
+        "copied": "Copiada",
+        "close": "Ya la guardé"
+      },
+      "loading": "Cargando socios…",
+      "empty": {
+        "title": "Aún no hay socios",
+        "body": "Los socios que registres aparecerán aquí."
+      },
+      "error": {
+        "body": "No pudimos cargar los socios.",
+        "retry": "Reintentar"
+      }
+    },
+    "clientes": {
+      "title": "Clientes",
+      "new": "Nuevo cliente",
+      "search": "Buscar por nombre, correo o documento",
+      "edit": "Editar",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "deactivateTitle": "Desactivar cliente",
+      "deactivateWarning": "La cuenta deja de entrar y sus dispositivos dejan de recibir avisos.",
+      "notFound": "No encontramos ese cliente.",
+      "column": {
+        "cliente": "Cliente",
+        "documento": "Documento",
+        "email": "Correo",
+        "estado": "Estado",
+        "push": "Push",
+        "acciones": "Acciones"
+      },
+      "filter": {
+        "status": "Estado",
+        "all": "Todos"
+      },
+      "push": {
+        "si": "Sí",
+        "no": "No",
+        "desconocido": "Desconocido"
+      },
+      "form": {
+        "create": "Nuevo cliente",
+        "edit": "Editar cliente",
+        "nombre": "Nombre",
+        "apellidos": "Apellidos",
+        "email": "Correo",
+        "documento": "Documento",
+        "tipoDocumento": "Tipo de documento",
+        "password": "Contraseña",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+      },
+      "page": {
+        "prev": "Anterior",
+        "next": "Siguiente",
+        "label": "Paginación"
+      },
+      "cotizar": "Cotizar",
+      "estado": {
+        "ACTIVO": "Activo",
+        "INACTIVO": "Inactivo"
       },
       "loading": "Cargando clientes…",
       "empty": {
-        "title": "Aún no tienes clientes",
+        "title": "Aún no hay clientes",
         "body": "Los clientes que registres aparecerán aquí."
       },
       "error": {
@@ -288,25 +654,41 @@
         "retry": "Reintentar"
       }
     },
+    "notificaciones": {
+      "title": "Notificaciones",
+      "subtitle": "Escribe un aviso para quien tiene la app activa.",
+      "titulo": "Título",
+      "cuerpo": "Mensaje",
+      "audiencia": "Audiencia",
+      "todos": "Todas las personas con dispositivo",
+      "elegidos": "Personas elegidas",
+      "poliza": "Póliza (opcional)",
+      "preview": "Vista previa",
+      "enviar": "Enviar",
+      "historial": "Historial",
+      "error": "No pudimos cargar las notificaciones.",
+      "retry": "Reintentar",
+      "sendError": "No pudimos enviar el aviso.",
+      "enviadas": "Enviadas",
+      "fallidas": "Fallidas",
+      "sinDispositivo": "Sin dispositivo"
+    },
     "cotizacion": {
       "title": "Nueva cotización",
       "nueva": "Nueva cotización",
       "cliente": "Datos del cliente",
+      "clienteBuscar": "Buscar cliente",
+      "clienteBuscarPlaceholder": "Nombre o número de documento",
+      "clienteSinResultados": "No hay clientes activos con ese nombre o documento. Regístralo primero en Clientes.",
+      "clienteCambiar": "Cambiar cliente",
       "campo": {
         "nombre": "Nombre",
         "documento": "Documento",
         "vigencia": "Vigencia",
-        "placa": "Placa"
+        "placa": "Placa",
+        "consentimiento": "El cliente autoriza a Solventa a consultar su información crediticia para personalizar la oferta (consentimiento de perfilamiento)."
       },
-      "vigencia": "1 año",
       "error": {
-        "nombre": {
-          "required": "Campo obligatorio"
-        },
-        "documento": {
-          "required": "Campo obligatorio",
-          "format": "Solo números, entre 5 y 12 dígitos"
-        },
         "placa": {
           "required": "Campo obligatorio",
           "format": "Formato ABC12D"
@@ -319,7 +701,9 @@
         "id": "Cotización",
         "calculando": "Calculando la prima…",
         "sinOferta": "Sin oferta",
-        "sinOfertaBody": "Completa los datos y calcula la prima."
+        "sinOfertaBody": "Completa los datos y calcula la prima.",
+        "factores": "Factores del perfil",
+        "degradada": "El perfil no respondió a tiempo: la prima usa valores de respaldo."
       }
     },
     "cotizaciones": {
@@ -328,6 +712,7 @@
       "column": {
         "cliente": "Cliente",
         "ramo": "Ramo",
+        "descripcion": "Descripción",
         "prima": "Prima",
         "estado": "Estado",
         "creadaEn": "Creada",
@@ -342,6 +727,7 @@
       "continuar": "Continuar emisión",
       "anterior": "Anterior",
       "siguiente": "Siguiente",
+      "paginacion": "Paginación de cotizaciones",
       "aviso": {
         "polizasNoDisponible": "No se pudo verificar el estado de algunas cotizaciones aceptadas"
       },
@@ -355,11 +741,138 @@
         "retry": "Reintentar"
       }
     },
-    "polizas": {
-      "title": "Pólizas"
-    },
     "avisos": {
-      "title": "Avisos de siniestro"
+      "title": "Avisos de siniestro",
+      "subtitle": "Cola de revisión del operador. Los casos se ordenan por antigüedad del aviso.",
+      "filtrar": "Filtrar avisos por estado",
+      "filtro": {
+        "pendientes": "Pendientes",
+        "aprobados": "Aprobados",
+        "rechazados": "Rechazados",
+        "todos": "Todos"
+      },
+      "loading": "Cargando la cola…",
+      "error": "No pudimos cargar la cola de avisos.",
+      "actualizar": "Actualizar",
+      "vacia": {
+        "title": "Cola al día",
+        "body": "No hay avisos pendientes de revisión."
+      },
+      "column": {
+        "aviso": "Aviso",
+        "cliente": "Cliente",
+        "poliza": "Póliza",
+        "recibido": "Recibido",
+        "estado": "Estado"
+      },
+      "estado": {
+        "en_revision": "En revisión",
+        "aprobado": "Aprobada",
+        "rechazado": "Rechazada",
+        "enrutado": "Con perito",
+        "pagado": "Pagada",
+        "recibido": "Recibida",
+        "en_evaluacion": "En evaluación"
+      },
+      "caso": {
+        "loading": "Cargando el caso…",
+        "error": "No pudimos cargar el caso."
+      },
+      "detalle": {
+        "ocurrencia": "Ocurrencia",
+        "ubicacion": "Ubicación",
+        "sinUbicacion": "Sin geoetiqueta",
+        "monto": "Monto estimado",
+        "descripcion": "Descripción",
+        "porQue": "Por qué está en revisión:",
+        "evidencia": "Evidencia adjunta",
+        "auditoria": "Auditoría de decisiones",
+        "beneficiario": "Beneficiario"
+      },
+      "auditoria": {
+        "aprobado": "Aprobado",
+        "rechazado": "Rechazado",
+        "revision": "Enviado a revisión",
+        "enrutado": "Enrutado a perito",
+        "motor": "Motor de reglas"
+      },
+      "aprobar": "Aprobar",
+      "rechazar": "Rechazar",
+      "perito": "Enrutar a perito",
+      "pagar": "Pagar siniestro",
+      "verPago": "Ver pago",
+      "errorAccion": "No se pudo completar la acción. Intenta de nuevo.",
+      "dialogo": {
+        "aprobar": {
+          "title": "Aprobar aviso {{aviso}}",
+          "advertencia": "La decisión queda registrada con tu usuario y se notifica al cliente. No se puede deshacer.",
+          "cta": "Aprobar aviso"
+        },
+        "rechazar": {
+          "title": "Rechazar aviso {{aviso}}",
+          "advertencia": "El cliente recibe el motivo. Esta acción no se puede deshacer.",
+          "cta": "Rechazar aviso"
+        },
+        "perito": {
+          "title": "Enrutar aviso {{aviso}} a perito",
+          "advertencia": "El caso sale de la cola y queda en estado Con perito.",
+          "cta": "Enrutar a perito"
+        }
+      },
+      "pago": {
+        "volver": "Aviso {{aviso}}",
+        "title": "Pago de siniestro de bajo monto",
+        "subtitle": "Pago automático para montos bajo el umbral. No requiere autorización adicional.",
+        "confirmacion": "Confirmación de pago",
+        "monto": "Monto a pagar",
+        "umbral": "Umbral automático",
+        "clave": "Clave idempotencia",
+        "comprobante": "Comprobante",
+        "confirmar": "Confirmar pago",
+        "yaRealizado": "Pago ya realizado",
+        "reintento": "Reintento: se devolvió el mismo comprobante, sin un segundo desembolso.",
+        "volverAviso": "Volver al aviso",
+        "trazabilidad": "Trazabilidad",
+        "pendiente": "Pendiente de desembolso",
+        "intento": {
+          "ejecutado": "Desembolso ejecutado",
+          "reintento_idempotente": "Reintento idempotente"
+        }
+      }
+    },
+    "reportes": {
+      "title": "Reportes",
+      "subtitle": "Extractos internos para el regulador y la reaseguradora. El contenido lo define un adaptador interno, no el formato real (SFC/ACORD).",
+      "generar": "Generar",
+      "descargar": "Descargar",
+      "error": "No pudimos generar el reporte.",
+      "regulador": {
+        "title": "Reporte al regulador",
+        "body": "Extracto interno de pólizas y siniestros de los últimos 30 días."
+      },
+      "reaseguradora": {
+        "title": "Extracto para la reaseguradora",
+        "body": "Cartera y siniestralidad de las pólizas canceladas en los últimos 30 días."
+      }
+    },
+    "metricas": {
+      "title": "Métricas",
+      "subtitle": "Conteos agregados de pólizas emitidas, renovadas, modificadas, canceladas y por vencer, de los últimos 30 días.",
+      "cargando": "Cargando métricas…",
+      "vacio": "No hay eventos registrados en este rango.",
+      "error": "No pudimos cargar las métricas.",
+      "columna": {
+        "tipo": "Tipo",
+        "fecha": "Fecha",
+        "cantidad": "Cantidad"
+      },
+      "tipo": {
+        "PolizaEmitida": "Emitidas",
+        "PolizaRenovada": "Renovadas",
+        "PolizaModificada": "Modificadas",
+        "PolizaCancelada": "Canceladas",
+        "PolizaPorVencer": "Por vencer"
+      }
     },
     "pending": {
       "title": "Sección en preparación",
@@ -370,6 +883,59 @@
       "title": "No tienes permiso para ver esta sección",
       "body": "Tu rol actual es {{current}}. Esta sección es exclusiva del rol {{required}}. Solicita el cambio de rol al administrador.",
       "home": "Volver al inicio"
+    }
+  },
+  "vidaCrediticia": {
+    "volver": "Volver",
+    "consentimiento": {
+      "title": "Consentimiento Vida Crediticia",
+      "subtitle": "Originación hipotecaria. Este grant no se abre desde Perfil.",
+      "texto": "Autorizas a Solventa a consultar información crediticia para personalizar la oferta de vida asociada a tu crédito hipotecario.",
+      "credito": "Datos del crédito",
+      "autorizar": "Autorizar",
+      "autorizando": "Calculando tu oferta…",
+      "ahoraNo": "Ahora no"
+    },
+    "etapas": {
+      "title": "Estamos armando tu oferta",
+      "openFinance": "Consultando Open Finance",
+      "openData": "Consultando Open Data",
+      "riesgo": "Calculando tu riesgo individualizado",
+      "oferta": "Generando tu oferta de vida hipotecario"
+    },
+    "oferta": {
+      "title": "Oferta Crédito Hipotecario",
+      "subtitle": "Prima personalizada con factores explicables.",
+      "factores": "Factores",
+      "montoCredito": "Monto del crédito",
+      "plazo": "Plazo",
+      "plazoValor": "{{meses}} meses",
+      "prima": "Prima",
+      "aceptar": "Aceptar y emitir",
+      "degradada": "No pudimos consultar todos tus datos a tiempo: la prima usa valores de respaldo. Puedes aceptarla igual.",
+      "sinFactores": "Sin factores de perfil disponibles.",
+      "analizados": "Para calcular tu prima analizamos {{factores}}.",
+      "ajusteCompetitivo": "Tu prima se ajustó al precio de mercado."
+    },
+    "factor": {
+      "nivel_ingresos_estimado": "Nivel de ingresos estimado",
+      "score_comportamiento": "Comportamiento de pago",
+      "zona_riesgo": "Zona de riesgo",
+      "antiguedad_documento": "Antigüedad del documento",
+      "ajuste_competitivo": "Ajustada al precio de mercado"
+    },
+    "analizado": {
+      "nivel_ingresos_estimado": "tu nivel de ingresos estimado",
+      "score_comportamiento": "tu comportamiento de pago",
+      "zona_riesgo": "la zona de riesgo",
+      "antiguedad_documento": "la antigüedad de tu documento"
+    },
+    "impacto": {
+      "reduce_prima": "Reduce la prima",
+      "aumenta_prima": "Aumenta la prima"
+    },
+    "error": {
+      "servicio": "No pudimos calcular tu oferta. Intenta de nuevo en unos minutos."
     }
   },
   "cotizacion": {
@@ -391,9 +957,19 @@
       "referencia": "Referencia",
       "umbral": "Umbral",
       "valor": "Valor del crédito",
+      "valorCredito": "Valor del crédito",
       "plazoMeses": "Plazo (meses)",
       "cuota": "Cuota",
       "destino": "Destino",
+      "descripcion": {
+        "dispositivo": "Cubre robo, daño accidental y reposición del equipo asegurado.",
+        "soat": "Cubre la atención de víctimas de un accidente de tránsito en motocicleta.",
+        "vida": "Cubre a la persona asegurada según la suma y la edad declaradas.",
+        "clima": "Cubre un evento climático o de vuelo cuando se supera el umbral.",
+        "hipotecario": "Cubre el saldo del crédito hipotecario durante el plazo pactado.",
+        "pagos": "Cubre las cuotas del plan de pagos durante el plazo declarado.",
+        "viaje": "Cubre el viaje según el destino y la duración declarados."
+      },
       "duracion": "Duración (días)"
     },
     "error": {
@@ -406,10 +982,44 @@
       "option": "Elige una de las opciones"
     },
     "nueva": {
-      "title": "Nueva cotización",
-      "subtitle": "Elige el ramo y completa los datos del riesgo; el precio lo calcula Solventa.",
+      "title": "Nueva cotización · paso 1 de 4",
+      "volver": "Volver",
       "cotizar": "Cotizar",
-      "cancelar": "Cancelar"
+      "recibiras": "Qué recibirás",
+      "picker": {
+        "dispositivo": "Dispositivo",
+        "soat": "SOAT motocicleta",
+        "vida": "Vida",
+        "clima": "Clima y vuelos",
+        "hipotecario": "Hipotecario",
+        "pagos": "Pagos",
+        "viaje": "Viaje"
+      },
+      "leyenda": {
+        "dispositivo": "Datos del riesgo",
+        "soat": "Datos del riesgo",
+        "vida": "Datos del riesgo · vida",
+        "clima": "Datos del riesgo · clima y vuelos",
+        "hipotecario": "Datos del riesgo · hipotecario",
+        "pagos": "Datos del riesgo · pagos",
+        "viaje": "Datos del riesgo · viaje"
+      },
+      "subtitulo": {
+        "dispositivo": "Cubre robo, pantalla y hurto calificado. Pedimos valor, marca y ciudad del equipo. La prima es el precio del seguro, calculada sobre ese valor; no es el valor del dispositivo.",
+        "vida": "Amparo de vida por una suma fija. Pedimos suma asegurada y edad. La prima depende de esos datos, no de un bien.",
+        "clima": "Si el retraso o el clima supera el umbral, Solventa paga solo. No reportas siniestro ni el valor de un aparato.",
+        "hipotecario": "Protección de pagos ligada al crédito de vivienda. El siguiente paso es autorizar el perfilamiento. No uses el formulario de dispositivo.",
+        "pagos": "Cubre las cuotas de un crédito si no puedes pagarlas. Pedimos cuota y plazo, no datos de un celular.",
+        "viaje": "Cubre imprevistos del trayecto. Pedimos destino y duración, no el valor de un dispositivo. La prima es el precio del seguro."
+      },
+      "recibirasCuerpo": {
+        "dispositivo": "¿Qué es la prima? El precio de tu póliza. En este ramo se calcula con el valor del dispositivo. En vida o viaje usa otros datos de riesgo.",
+        "vida": "La prima es el precio del amparo. No se pide valor de un dispositivo.",
+        "clima": "La prima cubre el evento automático. El valor del dispositivo no aplica.",
+        "hipotecario": "Al cotizar pasarás al consentimiento de perfilamiento. La prima saldrá de ese perfil, no del valor de un dispositivo.",
+        "pagos": "La prima se calcula sobre la cuota y el plazo.",
+        "viaje": "La prima se calcula con destino y duración, no con el valor de un aparato."
+      }
     },
     "oferta": {
       "title": "Tu oferta",
@@ -420,7 +1030,6 @@
       "primaNeta": "Prima neta",
       "expedicion": "Expedición",
       "vigencia": "Vigencia",
-      "vigenciaValor": "1 año",
       "aceptar": "Aceptar",
       "vencida": "Esta oferta venció. Su precio no cambia, pero ya no se puede aceptar.",
       "nueva": "Cotizar de nuevo",
@@ -445,5 +1054,222 @@
     "selecciona": "Selecciona una opción",
     "si": "Sí",
     "no": "No"
+  },
+  "siniestros": {
+    "volver": "Volver",
+    "reintentar": "Reintentar",
+    "estado": {
+      "recibido": "Recibido",
+      "en_evaluacion": "En evaluación",
+      "decidido": "Decidido",
+      "aprobado": "Aprobado",
+      "rechazado": "Rechazado",
+      "enrutado": "Con perito",
+      "pagado": "Pagado"
+    },
+    "column": {
+      "aviso": "Aviso",
+      "ramo": "Ramo",
+      "fecha": "Fecha",
+      "estado": "Estado",
+      "reserva": "Reserva"
+    },
+    "lista": {
+      "title": "Siniestros",
+      "subtitle": "Avisos en evaluación, pagados y cerrados. Cada fila muestra ramo y estado.",
+      "reportar": "Reportar siniestro",
+      "prestadores": "Prestadores",
+      "loading": "Cargando tus siniestros…",
+      "error": "No pudimos cargar tus siniestros.",
+      "empty": {
+        "title": "No tienes siniestros",
+        "body": "Cuando reportes un siniestro lo verás aquí con su estado."
+      }
+    },
+    "reportar": {
+      "title": "Reportar siniestro",
+      "subtitle": "Completa el aviso. Los datos y la evidencia dependen del ramo de la póliza que elijas.",
+      "cargandoPolizas": "Cargando tus pólizas…",
+      "errorPolizas": "No pudimos cargar tus pólizas.",
+      "sinPolizas": {
+        "title": "No tienes pólizas vigentes",
+        "body": "Para reportar un siniestro necesitas una póliza vigente."
+      },
+      "poliza": "Póliza y ramo",
+      "elegirPoliza": "Elige una póliza",
+      "fecha": "Fecha del evento",
+      "descripcion": "Descripción",
+      "error": {
+        "poliza": "Selecciona una póliza.",
+        "fecha": "Elige una fecha válida que no sea futura.",
+        "descripcion": "Describe lo que ocurrió."
+      },
+      "completa": "Elige la póliza, una fecha que no sea futura y describe lo ocurrido.",
+      "continuar": "Continuar a evidencia",
+      "queAdjuntar": {
+        "title": "Qué adjuntar en este ramo",
+        "body": "En web no usamos la cámara del sistema. Sube el certificado o el soporte en PNG, JPG o PDF. En Protección de dispositivo se pide la foto del daño."
+      }
+    },
+    "evidencia": {
+      "title": "Evidencia del siniestro",
+      "subtitle": "Arrastra un archivo o selecciónalo. La ubicación del navegador es opcional.",
+      "suelta": "Suelta el archivo aquí o elige desde tu equipo",
+      "formatos": "PNG, JPG o PDF · máx. 10 MB",
+      "elegir": "Elegir archivo",
+      "error": {
+        "tipo": "El archivo debe ser PNG, JPG o PDF.",
+        "tamano": "El archivo supera los 10 MB."
+      },
+      "ubicacion": {
+        "pendiente": "Ubicación del navegador: pendiente · no es un diálogo de Android.",
+        "solicitando": "Solicitando la ubicación al navegador…",
+        "guardada": "Ubicación guardada.",
+        "bloqueada": "Ubicación bloqueada: el aviso sigue sin geoetiqueta."
+      },
+      "usarUbicacion": "Usar ubicación del navegador",
+      "enviar": "Enviar aviso",
+      "enviando": "Enviando…",
+      "errorEnvio": "No pudimos enviar el aviso. Intenta de nuevo: no se duplicará."
+    },
+    "confirmacion": {
+      "title": "Aviso recibido",
+      "body": "Lo estamos evaluando. Verás el nuevo estado en Mis siniestros.",
+      "misSiniestros": "Ver mis siniestros",
+      "inicio": "Ir a inicio"
+    },
+    "detalle": {
+      "loading": "Cargando el siniestro…",
+      "error": "No pudimos cargar el siniestro.",
+      "notFound": "No encontramos este siniestro",
+      "motivo": "Motivo del rechazo:",
+      "poliza": "Póliza",
+      "fecha": "Fecha del evento",
+      "descripcion": "Descripción",
+      "ubicacion": "Ubicación",
+      "sinUbicacion": "Sin geoetiqueta",
+      "pago": "Pago realizado",
+      "evidencia": "Evidencia adjunta",
+      "sinEvidencia": "Sin evidencia",
+      "historial": "Historial del caso",
+      "verEnBilletera": "Ver en billetera",
+      "prestadores": "Prestadores cerca del siniestro"
+    }
+  },
+  "billetera": {
+    "title": "Billetera",
+    "subtitle": "Dinero ya depositado por siniestros pagados.",
+    "loading": "Cargando depósitos…",
+    "recibido": "RECIBIDO",
+    "count": "{{n}} depósitos",
+    "inicioLink": "Ver billetera",
+    "column": {
+      "aviso": "Aviso",
+      "ramo": "Ramo",
+      "tipo": "Tipo",
+      "monto": "Monto",
+      "comprobante": "Comprobante",
+      "fecha": "Fecha"
+    },
+    "tipo": {
+      "asistido": "Asistido",
+      "pago_automatico": "Pago automático"
+    },
+    "chip": {
+      "grupo": "Filtrar depósitos",
+      "todos": "Todos",
+      "asistido": "Asistido",
+      "otras": "Otras monedas",
+      "pago_automatico": "Pago automático"
+    },
+    "empty": "Cuando Solventa pague un siniestro, el depósito aparece aquí.",
+    "verSiniestros": "Ver siniestros",
+    "error": "No pudimos cargar tu billetera.",
+    "reintentar": "Reintentar",
+    "atras": "← Volver",
+    "volver": "Volver a billetera",
+    "verSiniestro": "Ver siniestro",
+    "detalle": {
+      "title": "Depósito",
+      "lead": "Solventa ya depositó este monto. El comprobante no cambia si el pago se reintenta.",
+      "ramo": "Ramo y evento",
+      "evento": "Evento",
+      "poliza": "Póliza relacionada",
+      "monto": "Monto depositado",
+      "comprobante": "Comprobante",
+      "estado": "Estado",
+      "depositado": "Depositado",
+      "estadoValor": "Depositado · {{tipo}}",
+      "notFound": "No encontramos ese depósito."
+    }
+  },
+  "prestadores": {
+    "title": "Prestadores",
+    "loading": "Cargando prestadores…",
+    "error": "No pudimos cargar los prestadores.",
+    "reintentar": "Reintentar",
+    "vacio": "No hay prestadores en esta zona.",
+    "usarUbicacion": "Usar mi ubicación",
+    "verSiniestro": "Ver cerca de un siniestro",
+    "masCercanos": "Más cercanos",
+    "comoLlegar": "Cómo llegar",
+    "bloqueado": "El navegador bloqueó la ubicación. Elige una ciudad: la lista no promete estar cerca de ti.",
+    "distancia": "A {{km}} km",
+    "distanciaEvento": "A {{km}} km del evento",
+    "subtitle": {
+      "cerca": "Cerca de ti · {{lugar}}.",
+      "cercaSola": "Cerca de ti.",
+      "enCiudad": "Prestadores en {{ciudad}}.",
+      "zona": "Prestadores en la zona del mapa."
+    },
+    "chip": {
+      "todos": "Todos",
+      "grupo": "Ramo"
+    },
+    "ramo": {
+      "proteccion-dispositivo": "Protección de dispositivo",
+      "soat-motocicleta": "SOAT motocicleta",
+      "microseguro-de-vida": "Microseguro de vida",
+      "clima-y-vuelos": "Clima y vuelos",
+      "vida-hipotecario": "Vida hipotecario",
+      "pagos": "Pagos",
+      "viaje": "Viaje",
+      "vida-crediticia": "Vida crediticia"
+    },
+    "tipo": {
+      "servicio-tecnico": "Servicio técnico",
+      "taller-motos": "Taller de motos",
+      "ips-urgencias": "IPS de urgencias",
+      "grua": "Grúa",
+      "asistencia-viajero": "Asistencia al viajero",
+      "punto-aeropuerto": "Punto de aeropuerto",
+      "ips-examenes": "IPS de exámenes",
+      "funeraria": "Funeraria",
+      "centro-atencion": "Centro de atención"
+    },
+    "claim": {
+      "subtitle": "Prestadores cerca de donde registraste el evento. El ramo queda fijo.",
+      "pin": "Tu siniestro",
+      "sinGeo": "Este siniestro no tiene ubicación. Usa tu ubicación para ver prestadores cerca de ti.",
+      "notFound": "No encontramos este siniestro."
+    },
+    "truncado": "Acerca el mapa para ver todos los prestadores.",
+    "miUbicacion": "Mi ubicación",
+    "ciudades": "Ciudades",
+    "grupo": "{{n}} prestadores, toca para acercar",
+    "marcador": "{{nombre}}, {{tipo}}",
+    "vacioPais": "Aún no hay prestadores en {{pais}}.",
+    "pais": {
+      "CO": "Colombia",
+      "MX": "México",
+      "CL": "Chile",
+      "PE": "Perú"
+    },
+    "tarjeta": {
+      "cerrar": "Cerrar ficha",
+      "llamar": "Llamar",
+      "varios": "{{n}} prestadores en este punto"
+    },
+    "nuevaPestana": "se abre en una pestaña nueva"
   }
 }

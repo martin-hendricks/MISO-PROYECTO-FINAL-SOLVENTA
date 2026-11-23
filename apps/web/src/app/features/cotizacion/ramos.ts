@@ -54,29 +54,38 @@ export const RAMOS: readonly Ramo[] = [
   {
     id: 'vida',
     ramo: 'Microseguro de vida',
-    disponible: false,
+    disponible: true,
     campos: [moneda('sumaAsegurada'), numero('edad')],
   },
   {
     id: 'clima',
     ramo: 'Clima y vuelos',
-    disponible: false,
+    disponible: true,
     campos: [texto('evento'), texto('referencia'), numero('umbral')],
   },
   {
     id: 'hipotecario',
     ramo: 'Vida hipotecario',
-    disponible: false,
+    disponible: true,
     campos: [moneda('valor'), numero('plazoMeses')],
   },
   {
     id: 'pagos',
     ramo: 'Pagos',
-    disponible: false,
+    disponible: true,
     campos: [moneda('cuota'), numero('plazoMeses')],
   },
-  { id: 'viaje', ramo: 'Viaje', disponible: false, campos: [texto('destino'), numero('duracion')] },
+  { id: 'viaje', ramo: 'Viaje', disponible: true, campos: [texto('destino'), numero('duracion')] },
 ];
+
+/**
+ * The advisor also quotes mortgage life (HU-58): it is profiled, so it needs
+ * the customer's consent and goes through its own endpoint. The customer
+ * reaches it from Inicio instead (HU-105), never from Nueva cotización.
+ */
+export const RAMOS_ASESOR: readonly Ramo[] = RAMOS.map((ramo) =>
+  ramo.id === 'hipotecario' ? { ...ramo, disponible: true } : ramo,
+);
 
 export const RAMO_INICIAL: Ramo = RAMOS[0];
 

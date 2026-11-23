@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -23,7 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.grupo8_uniandes.solventa.R
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteLine
+import com.grupo8_uniandes.solventa.domain.bff.offer.deviceBrands
 import com.grupo8_uniandes.solventa.domain.region.Region
 import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
 import com.grupo8_uniandes.solventa.quote.QuoteUiState
@@ -54,6 +58,7 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTypography
 
 private val quoteMenu = listOf(
+    QuoteLine.Soat,
     QuoteLine.Device,
     QuoteLine.Travel,
     QuoteLine.Life,
@@ -69,6 +74,7 @@ fun CotizacionScreen(
     onLine: (QuoteLine) -> Unit,
     onValueChange: (String) -> Unit,
     onBrandChange: (String) -> Unit,
+    onModelChange: (String) -> Unit,
     onAge: (Boolean) -> Unit,
     onText: (QuoteInput, String) -> Unit,
     onCotizar: () -> Unit,
@@ -100,14 +106,19 @@ fun CotizacionScreen(
                 externalLabel = true,
                 testTag = "field_device_value",
             )
+            BrandSelect(
+                brand = state.brand,
+                gap = state.gap == QuoteInput.Brand,
+                onBrand = onBrandChange,
+            )
             SolventaTextField(
-                value = state.brand,
-                onValueChange = onBrandChange,
-                label = stringResource(R.string.field_brand_model),
-                helper = if (state.gap == QuoteInput.Brand) required else "",
-                state = if (state.gap == QuoteInput.Brand) SolventaFieldState.Error else SolventaFieldState.Default,
+                value = state.model,
+                onValueChange = onModelChange,
+                label = stringResource(R.string.field_model),
+                helper = if (state.gap == QuoteInput.Model) required else "",
+                state = if (state.gap == QuoteInput.Model) SolventaFieldState.Error else SolventaFieldState.Default,
                 externalLabel = true,
-                testTag = "field_brand_model",
+                testTag = "field_model",
             )
             DeviceAge(olderThan12Months = state.olderThan12Months, onAge = onAge)
             if (state.gap == QuoteInput.Age) {
@@ -119,7 +130,9 @@ fun CotizacionScreen(
             }
         } else {
             state.line.fields().forEach { field ->
-                val numeric = field != QuoteInput.Destination && field != QuoteInput.Event
+                val numeric = field != QuoteInput.Destination &&
+                    field != QuoteInput.Event &&
+                    field != QuoteInput.City
                 val money = field.isMoney()
                 val raw = state.textOf(field)
                 SolventaTextField(
@@ -152,6 +165,15 @@ fun CotizacionScreen(
                 text = stringResource(R.string.quote_progress),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.testTag("quote_progress"),
+            )
+        }
+        val explanation = state.explanation
+        if (explanation != null) {
+            Text(
+                text = explanation,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("quote_explanation"),
             )
         }
         if (state.failed) {
@@ -199,12 +221,12 @@ private fun InsuranceTypeSelect(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(SolventaSpacing.minTouch)
+                .heightIn(min = SolventaSpacing.minTouch)
                 .clip(fieldShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .border(1.dp, MaterialTheme.colorScheme.outline, fieldShape)
                 .clickable { onMenu(!state.menuOpen) }
-                .semantics { role = Role.DropdownList }
+                .semantics(mergeDescendants = true) { role = Role.DropdownList }
                 .testTag("quote_line")
                 .padding(SolventaSpacing.s12),
             verticalAlignment = Alignment.CenterVertically,
@@ -250,7 +272,7 @@ private fun InsuranceTypeSelect(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .heightIn(min = SolventaSpacing.minTouch)
                             .background(
                                 if (selected) {
                                     MaterialTheme.colorScheme.secondaryContainer
@@ -266,6 +288,136 @@ private fun InsuranceTypeSelect(
                     ) {
                         Text(
                             text = stringResource(line.label()),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val brandLabels = mapOf(
+    "samsung" to R.string.brand_samsung,
+    "apple" to R.string.brand_apple,
+    "xiaomi" to R.string.brand_xiaomi,
+    "motorola" to R.string.brand_motorola,
+)
+
+@Composable
+private fun BrandSelect(
+    brand: String,
+    gap: Boolean,
+    onBrand: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val fieldShape = RoundedCornerShape(4.dp)
+    val menuShape = RoundedCornerShape(8.dp)
+    val borderColor = if (gap) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.outline
+    }
+    val closed = if (brand in deviceBrands) {
+        stringResource(brandLabels.getValue(brand))
+    } else {
+        stringResource(R.string.field_brand_placeholder)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
+    ) {
+        Text(
+            text = stringResource(R.string.field_brand),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SolventaSpacing.minTouch)
+                .clip(fieldShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                .border(1.dp, borderColor, fieldShape)
+                .clickable { open = !open }
+                .semantics(mergeDescendants = true) { role = Role.DropdownList }
+                .testTag("field_brand")
+                .padding(SolventaSpacing.s12),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
+        ) {
+            Text(
+                text = closed,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (brand in deviceBrands) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (gap) {
+            Text(
+                text = stringResource(R.string.field_required),
+                style = TextStyle(
+                    fontFamily = HankenGrotesk,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                ),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        if (open) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(menuShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, menuShape)
+                    .testTag("field_brand_menu"),
+            ) {
+                deviceBrands.forEach { slug ->
+                    val selected = slug == brand
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SolventaSpacing.minTouch)
+                            .background(
+                                if (selected) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLowest
+                                },
+                            )
+                            .clickable {
+                                onBrand(slug)
+                                open = false
+                            }
+                            .padding(horizontal = SolventaSpacing.s12)
+                            .testTag("brand_option_$slug"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
+                    ) {
+                        Text(
+                            text = stringResource(brandLabels.getValue(slug)),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
@@ -330,7 +482,10 @@ private fun QuoteInput.label(currency: String): String = when (this) {
     QuoteInput.Term -> stringResource(R.string.field_term)
     QuoteInput.CreditValue -> stringResource(R.string.field_credit_value, currency)
     QuoteInput.CreditTerm -> stringResource(R.string.field_credit_term)
-    QuoteInput.Reference, QuoteInput.Value, QuoteInput.Brand, QuoteInput.Age ->
+    QuoteInput.Displacement -> stringResource(R.string.field_displacement)
+    QuoteInput.ModelYear -> stringResource(R.string.field_model_year)
+    QuoteInput.City -> stringResource(R.string.field_city)
+    QuoteInput.Reference, QuoteInput.Value, QuoteInput.Brand, QuoteInput.Model, QuoteInput.Age ->
         stringResource(R.string.field_required)
 }
 
@@ -340,6 +495,7 @@ private fun QuoteInput.isMoney(): Boolean = this == QuoteInput.Value ||
     this == QuoteInput.Installment
 
 private fun QuoteLine.label(): Int = when (this) {
+    QuoteLine.Soat -> R.string.line_soat
     QuoteLine.Device -> R.string.line_device
     QuoteLine.Life -> R.string.line_life
     QuoteLine.Climate -> R.string.line_climate
@@ -349,6 +505,7 @@ private fun QuoteLine.label(): Int = when (this) {
 }
 
 private fun QuoteLine.hint(): Int = when (this) {
+    QuoteLine.Soat -> R.string.hint_line_soat
     QuoteLine.Device -> R.string.hint_line_device
     QuoteLine.Life -> R.string.hint_line_life
     QuoteLine.Climate -> R.string.hint_line_climate
@@ -358,6 +515,7 @@ private fun QuoteLine.hint(): Int = when (this) {
 }
 
 private fun QuoteLine.optionTag(): String = when (this) {
+    QuoteLine.Soat -> "quote_option_soat"
     QuoteLine.Device -> "quote_option_device"
     QuoteLine.Life -> "quote_option_life"
     QuoteLine.Climate -> "quote_option_climate"
@@ -367,6 +525,7 @@ private fun QuoteLine.optionTag(): String = when (this) {
 }
 
 private fun QuoteLine.fields(): List<QuoteInput> = when (this) {
+    QuoteLine.Soat -> listOf(QuoteInput.Displacement, QuoteInput.ModelYear, QuoteInput.City)
     QuoteLine.Device -> emptyList()
     QuoteLine.Life -> listOf(QuoteInput.SumInsured, QuoteInput.AgeYears)
     QuoteLine.Climate -> listOf(QuoteInput.Event, QuoteInput.Threshold)
@@ -378,6 +537,9 @@ private fun QuoteLine.fields(): List<QuoteInput> = when (this) {
 private fun QuoteInput.tag(): String = when (this) {
     QuoteInput.Destination -> "field_destination"
     QuoteInput.Duration -> "field_duration"
+    QuoteInput.Displacement -> "field_displacement"
+    QuoteInput.ModelYear -> "field_model_year"
+    QuoteInput.City -> "field_city"
     QuoteInput.SumInsured -> "field_sum_insured"
     QuoteInput.AgeYears -> "field_age_years"
     QuoteInput.Event -> "field_event"
@@ -388,13 +550,17 @@ private fun QuoteInput.tag(): String = when (this) {
     QuoteInput.CreditValue -> "field_credit_value"
     QuoteInput.CreditTerm -> "field_credit_term"
     QuoteInput.Value -> "field_device_value"
-    QuoteInput.Brand -> "field_brand_model"
+    QuoteInput.Brand -> "field_brand"
+    QuoteInput.Model -> "field_model"
     QuoteInput.Age -> "field_older_than_12"
 }
 
 private fun QuoteUiState.textOf(field: QuoteInput): String = when (field) {
     QuoteInput.Destination -> destination
     QuoteInput.Duration -> duration
+    QuoteInput.Displacement -> displacement
+    QuoteInput.ModelYear -> modelYear
+    QuoteInput.City -> city
     QuoteInput.SumInsured -> sumInsured
     QuoteInput.AgeYears -> ageYears
     QuoteInput.Event -> event
@@ -406,5 +572,6 @@ private fun QuoteUiState.textOf(field: QuoteInput): String = when (field) {
     QuoteInput.CreditTerm -> creditTerm
     QuoteInput.Value -> value
     QuoteInput.Brand -> brand
+    QuoteInput.Model -> model
     QuoteInput.Age -> ""
 }

@@ -1,11 +1,15 @@
 import os
-from uuid import uuid4
+from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import text
 
-from app.application import casos_uso
+from app.application import casos_uso, casos_uso_socios
 from app.config import Settings
-from app.domain.errores import CredencialesInvalidas, CuentaDuplicada
+from app.domain.errores import CredencialesInvalidas, CuentaDuplicada, NoEncontrado
+from app.domain.socios import huella_de
+from app.infrastructure.kyc import VerificadorKYCStub
 from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
 
 pytestmark = [
@@ -21,11 +25,25 @@ async def uow():
     await motor.dispose()
 
 
+async def _alta(uow, **extra):
+    return await casos_uso.crear_usuario(
+        uow,
+        VerificadorKYCStub(),
+        tipo_documento="CC",
+        numero_documento=extra.get("documento", str(uuid4().int)[:12]),
+        email=extra.get("email", f"{uuid4()}@correo.com"),
+        password_plano="clave-secreta-123",
+        nombre=extra.get("nombre", "Ana"),
+        apellidos=extra.get("apellidos", "Lopez"),
+    )
+
+
 async def test_alta_y_autenticacion_contra_postgres_real(uow):
     email = f"{uuid4()}@correo.com"
 
     creado = await casos_uso.crear_usuario(
         uow,
+        VerificadorKYCStub(),
         tipo_documento="CC",
         numero_documento=str(uuid4().int)[:10],
         email=email,
@@ -43,6 +61,7 @@ async def test_email_duplicado_contra_postgres_real_es_cuenta_duplicada(uow):
     email = f"{uuid4()}@correo.com"
     await casos_uso.crear_usuario(
         uow,
+        VerificadorKYCStub(),
         tipo_documento="CC",
         numero_documento=str(uuid4().int)[:10],
         email=email,
@@ -52,8 +71,82 @@ async def test_email_duplicado_contra_postgres_real_es_cuenta_duplicada(uow):
     with pytest.raises(CuentaDuplicada):
         await casos_uso.crear_usuario(
             uow,
+            VerificadorKYCStub(),
             tipo_documento="CC",
             numero_documento=str(uuid4().int)[:10],
             email=email,
             password_plano="otra-clave",
         )
+
+
+async def test_listar_clientes_filtra_por_ilike_ordena_y_respeta_ids(uow):
+    marca = uuid4().hex[:10]
+    ana = await _alta(uow, nombre="Ana", apellidos=f"Mendez{marca}", email=f"ana-{marca}@correo.com", documento=f"1{marca}")
+    ana_2 = await _alta(uow, nombre="Ana", apellidos=f"Mendez{marca}", email=f"ana2-{marca}@correo.com", documento=f"2{marca}")
+    bea = await _alta(uow, nombre="Bea", apellidos=f"Mendez{marca}", email=f"bea-{marca}@correo.com", documento=f"3{marca}")
+    zulu = await _alta(uow, nombre=f"Nom{marca}", apellidos=f"Zulu{marca}", email=f"zulu-{marca}@correo.com", documento=f"4{marca}")
+    operador = await _alta(
+        uow, nombre="Ops", apellidos=f"Mendez{marca}", email=f"ops-{marca}@correo.com", documento=f"5{marca}"
+    )
+    motor = crear_motor(Settings())
+    try:
+        async with motor.begin() as conn:
+            await conn.execute(
+                text("UPDATE ms_identidad.usuario SET rol = 'operador' WHERE usuario_id = :id"),
+                {"id": operador.id},
+            )
+    finally:
+        await motor.dispose()
+
+    async with uow() as tx:
+        por_apellido, _ = await tx.usuarios.listar_clientes(None, marca.upper(), None, 1)
+        por_nombre, _ = await tx.usuarios.listar_clientes(None, f"nom{marca}", None, 1)
+        por_correo, _ = await tx.usuarios.listar_clientes(None, f"BEA-{marca}", None, 1)
+        por_documento, _ = await tx.usuarios.listar_clientes(None, f"3{marca}", None, 1)
+        por_ids, hay_mas = await tx.usuarios.listar_clientes(None, None, [zulu.id, ana.id], 1)
+
+    assert [usuario.id for usuario in por_apellido] == [
+        usuario.id for usuario in sorted((ana, ana_2, bea, zulu), key=lambda usuario: (usuario.apellidos, usuario.nombre, usuario.id))
+    ]
+    assert [usuario.id for usuario in por_nombre] == [zulu.id]
+    assert [usuario.id for usuario in por_correo] == [bea.id]
+    assert [usuario.id for usuario in por_documento] == [bea.id]
+    assert {usuario.id for usuario in por_ids} == {zulu.id, ana.id}
+    assert hay_mas is False
+    assert operador.id not in {usuario.id for usuario in por_apellido}
+
+
+async def test_socio_rota_y_revoca_contra_postgres_real(uow):
+    socio, credencial, clave = await casos_uso_socios.crear_socio(uow, "Aliado SQL", frozenset({"catalogo:leer"}))
+    _, clave_nueva = await casos_uso_socios.emitir_credencial(uow, socio.socio_id)
+    await casos_uso_socios.revocar_credencial(uow, socio.socio_id, credencial.credencial_id)
+
+    resuelto = await casos_uso_socios.resolver_por_huella(uow, huella_de(clave_nueva))
+    assert resuelto.socio_id == socio.socio_id
+    assert resuelto.alcances == frozenset({"catalogo:leer"})
+    with pytest.raises(NoEncontrado):
+        await casos_uso_socios.resolver_por_huella(uow, huella_de(clave))
+
+    await casos_uso_socios.revocar_socio(uow, socio.socio_id)
+    with pytest.raises(NoEncontrado):
+        await casos_uso_socios.resolver_por_huella(uow, huella_de(clave_nueva))
+
+
+async def test_el_socio_por_defecto_resuelve_con_su_clave_y_la_siembra_es_repetible(uow):
+    siembra = (Path(__file__).resolve().parents[1] / "db" / "08_ms_identidad_socio_default.sql").read_text(
+        encoding="utf-8"
+    )
+    motor = crear_motor(Settings())
+    try:
+        for _ in range(2):
+            async with motor.begin() as conn:
+                for sentencia in filter(str.strip, siembra.split(";")):
+                    await conn.exec_driver_sql(sentencia)
+    finally:
+        await motor.dispose()
+
+    resuelto = await casos_uso_socios.resolver_por_huella(uow, huella_de("solventa123"))
+    assert resuelto.socio_id == UUID("1ebbe2fc-d8b1-4046-af76-b92bacec52ff")
+    assert resuelto.alcances == frozenset(
+        {"catalogo:leer", "originaciones:escribir", "cotizaciones:escribir", "cotizaciones:leer"}
+    )

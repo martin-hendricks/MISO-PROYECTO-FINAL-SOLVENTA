@@ -1,45 +1,33 @@
 import { Cliente } from './clientes.gateway';
 
-/** Same portfolio the `bff-web` stub answers. For specs only. */
 export const CLIENTES: Cliente[] = [
   {
-    clienteId: 'CLI-18',
-    nombre: 'Andrés Gómez',
+    usuarioId: '11111111-1111-4111-8111-111111111111',
+    nombre: 'Andrés',
+    apellidos: 'Gómez',
+    email: 'andres@correo.com',
     documento: '1020334556',
-    canal: 'web',
-    estado: 'activo',
-    consentimiento: 'habeas_data',
+    estado: 'ACTIVO',
+    dispositivosActivos: 1,
   },
   {
-    clienteId: 'CLI-19',
-    nombre: 'Laura Peña',
+    usuarioId: '22222222-2222-4222-8222-222222222222',
+    nombre: 'Laura',
+    apellidos: 'Peña',
+    email: 'laura@correo.com',
     documento: '52448901',
-    canal: 'android',
-    estado: 'activo',
-    consentimiento: 'habeas_data',
+    estado: 'ACTIVO',
+    dispositivosActivos: 0,
   },
   {
-    clienteId: 'CLI-20',
-    nombre: 'Ricardo Salas',
+    usuarioId: '33333333-3333-4333-8333-333333333333',
+    nombre: 'Ricardo',
+    apellidos: 'Salas',
+    email: 'ricardo@correo.com',
     documento: '80112334',
-    canal: 'web',
-    estado: 'activo',
-    consentimiento: 'hipotecario_pendiente',
-  },
-  {
-    clienteId: 'CLI-21',
-    nombre: 'Marcela Ruiz',
-    documento: '41778220',
-    canal: 'android',
-    estado: 'activo',
-    consentimiento: 'habeas_data',
-  },
-  {
-    clienteId: 'CLI-22',
-    nombre: 'Julián Torres',
-    documento: '79330114',
-    canal: 'web',
-    estado: 'inactivo',
-    consentimiento: 'revocado',
+    estado: 'INACTIVO',
+    dispositivosActivos: null,
   },
 ];
+
+export const PAGINA = { clientes: CLIENTES, pagina: 1, hayMas: false };

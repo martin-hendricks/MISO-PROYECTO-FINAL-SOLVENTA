@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -85,5 +87,19 @@ class IdiomaRegionScreenTest {
 
         rule.onNodeWithTag("screen_idioma_region").assertIsDisplayed()
         rule.onAllNodesWithTag("region_es_PE").assertCountEquals(2)
+    }
+
+    @Test
+    fun givenARegionRow_whenSelected_thenItIsARadioAndOnlyOneIsSelected() {
+        rule.setContent {
+            SolventaTheme {
+                IdiomaRegionScreen(draft = Region.Mexico, onSelect = {}, onContinue = {})
+            }
+        }
+        val mexico = rule.onNodeWithTag("region_es_MX").fetchSemanticsNode()
+        assertEquals(Role.RadioButton, mexico.config[SemanticsProperties.Role])
+        assertEquals(true, mexico.config[SemanticsProperties.Selected])
+        val colombia = rule.onNodeWithTag("region_es_CO").fetchSemanticsNode()
+        assertEquals(false, colombia.config[SemanticsProperties.Selected])
     }
 }

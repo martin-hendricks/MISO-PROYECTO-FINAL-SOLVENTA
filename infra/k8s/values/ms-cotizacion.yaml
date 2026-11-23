@@ -5,8 +5,9 @@
 # sostenido 30 min). Corre en el Node Group A (c6i.xlarge, taint dedicado) junto
 # con ms-perfilamiento. Recursos generosos y HPA agresivo por CPU para poder
 # escalar horizontalmente dentro de la ventana de <= 60 s de EC-ESC-02.
-# Depende de CacheOF (Redis) para no golpear a Open Finance en cada cotización
-# y del secreto de credenciales de open_finance.
+# Hoy NO usa Redis: el perfil de riesgo lo pide por HTTP a ms-perfilamiento (timeout +
+# valor de respaldo) y es ese servicio quien tiene CacheOF/CacheOD. Si cotización llega a
+# cachear el factor, se agregan aquí el host y el token desde solventa-minimo-redis-cache.
 
 nombre: ms-cotizacion
 
@@ -29,7 +30,7 @@ grupoEscalado: "a"
 # nunca Ready (confirmado en el cluster: Uvicorn escuchando en :8000
 # mientras Service/probes golpeaban :8080).
 puerto: 8000
-puertoMetricas: 9090
+puertoMetricas: 8000
 
 # Diseño original: 1000m/2Gi requests, 2000m/4Gi limits (c6i.xlarge, 4
 # vCPU/8GB). t3.small del ambiente mínimo/demo solo tiene 2 vCPU/2GB TOTALES
@@ -100,11 +101,13 @@ externalSecrets:
       nombreLocal: ms-cotizacion-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-cotizacion-token
 
 serviceAccount:
   crear: true
   nombre: ms-cotizacion
-  roleArn: ""  # No requiere IRSA: solo consume Redis (CacheOF) y el secreto vía External Secrets
+  roleArn: ""  # No requiere IRSA: solo consume el secreto vía External Secrets
 
 # Deshabilitado con replicas: 1: un PDB con minAvailable >= 1 bloquearía
 # CUALQUIER operación de drenado (rollout, actualización de nodo), porque
@@ -126,12 +129,13 @@ variablesEntorno:
   # tras agotarse el timeout de dependencias (2 s).
   - nombre: MS_SUSCRIPCION_URL
     valor: "http://ms-suscripcion.solventa.svc.cluster.local:8080"
-  - nombre: REDIS_CACHE_OF_HOST
-    valor: "cache-of.solventa.internal"  # TODO: reemplazar por el output real de elasticache al integrar
-  - nombre: REDIS_CACHE_OF_TTL_SECONDS
-    valor: "300"
   - nombre: NODE_GROUP
     valor: "a"
+  # HU-162: IPerfilRiesgo real para vida-hipotecario. ms-perfilamiento escucha en
+  # :8080 (apps/backend/ms-perfilamiento/Dockerfile) y el Service publica el
+  # mismo puerto (`puerto` en values/ms-perfilamiento.yaml).
+  - nombre: MS_PERFILAMIENTO_URL
+    valor: "http://ms-perfilamiento.solventa.svc.cluster.local:8080"
 
 variablesEntornoSecreto:
   - nombre: DATABASE_URL

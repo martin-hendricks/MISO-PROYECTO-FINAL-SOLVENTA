@@ -2,13 +2,16 @@
   <div class="page-head">
     <div>
       <h1>{{ 'inicio.title' | translate }}</h1>
-      <p class="subtitle">{{ 'inicio.subtitle' | translate }} · {{ 'shell.market' | translate }}</p>
+      <p class="subtitle">{{ 'inicio.subtitle' | translate }}</p>
+      @if (vm.deposits() > 0) {
+        <a class="text" routerLink="/billetera" data-testid="inicio-billetera">{{
+          'billetera.inicioLink' | translate
+        }}</a>
+      }
     </div>
-    @if (!vm.panel().offer && vm.status() !== 'loading') {
-      <a class="filled" routerLink="/cotizacion" data-testid="inicio-new-quote">
-        {{ 'inicio.newQuote' | translate }}
-      </a>
-    }
+    <a class="filled" routerLink="/cotizacion" data-testid="inicio-new-quote">
+      {{ 'inicio.newQuote' | translate }}
+    </a>
   </div>
 
   @switch (vm.status()) {
@@ -32,30 +35,12 @@
       </div>
     }
     @default {
-      <div class="cards">
-        @if (vm.panel().offer; as offer) {
-          <article class="card" data-testid="inicio-offer">
-            <p class="card-label">{{ 'inicio.offer.label' | translate }}</p>
-            <p class="card-body">{{ offer.ramo }}</p>
-            <p class="card-face">{{ 'inicio.estado.' + offer.estado | translate }}</p>
-            <div class="actions">
-              <a
-                class="filled"
-                routerLink="/emision"
-                [queryParams]="{ cotizacion: offer.cotizacionId }"
-                data-testid="inicio-accept"
-              >
-                {{ 'inicio.offer.accept' | translate }}
-              </a>
-              <a class="outlined" routerLink="/cotizacion" data-testid="inicio-new-quote">
-                {{ 'inicio.newQuote' | translate }}
-              </a>
-            </div>
-          </article>
-        }
-        @if (vm.panel().policy; as policy) {
-          <article class="card" data-testid="inicio-policy">
-            <p class="card-label">{{ 'inicio.policy.label' | translate }}</p>
+      @if (vm.panel().policy; as policy) {
+        <div class="summary">
+          <article class="card" aria-labelledby="inicio-policy-label" data-testid="inicio-policy">
+            <p class="card-label" id="inicio-policy-label">
+              {{ 'inicio.policy.label' | translate }}
+            </p>
             <p class="card-body">{{ policy.ramo }} · {{ policy.numero }}</p>
             <p class="card-face">{{ 'inicio.estado.' + policy.estado | translate }}</p>
             <div class="actions">
@@ -68,37 +53,87 @@
               </a>
             </div>
           </article>
-        }
-        @if (vm.panel().claim; as claim) {
-          <article class="card" data-testid="inicio-claim">
-            <p class="card-label">{{ 'inicio.claim.label' | translate }}</p>
-            <p class="card-body">
-              {{ 'inicio.claim.body' | translate: { id: claim.siniestroId } }}
-            </p>
-            <p class="card-face">{{ 'inicio.estado.' + claim.estado | translate }}</p>
-            <div class="actions">
-              <a
-                class="outlined"
-                [routerLink]="['/siniestros', claim.siniestroId]"
-                data-testid="inicio-claim-link"
-              >
-                {{ 'inicio.claim.link' | translate }}
-              </a>
+        </div>
+      }
+      @if (vm.panel().offer || vm.panel().vidaCrediticia || vm.panel().claim) {
+        <div class="detail">
+          @if (vm.panel().offer; as offer) {
+            <article class="panel" aria-labelledby="inicio-offer-title" data-testid="inicio-offer">
+              <h2 id="inicio-offer-title">{{ 'inicio.offer.readyTitle' | translate }}</h2>
+              <p class="lead">
+                {{ 'inicio.offer.readyBody' | translate: { ramo: offer.ramo } }}
+              </p>
+              <p class="row">
+                <span>{{ 'inicio.offer.vigencia' | translate }}</span>
+                <span class="value">{{ offer.venceEn | svDateTime }}</span>
+              </p>
+              <div class="actions">
+                <a
+                  class="filled"
+                  routerLink="/confirmacion-tarjeta"
+                  [queryParams]="{ cotizacion: offer.cotizacionId, prima: offer.prima, moneda: offer.moneda }"
+                  data-testid="inicio-accept"
+                >
+                  {{ 'inicio.offer.accept' | translate }}
+                </a>
+                <a
+                  class="outlined"
+                  [routerLink]="['/cotizaciones', offer.cotizacionId]"
+                  data-testid="inicio-offer-detail"
+                >
+                  {{ 'inicio.offer.detail' | translate }}
+                </a>
+              </div>
+            </article>
+          }
+          @if (vm.panel().vidaCrediticia || vm.panel().claim) {
+            <div class="side">
+              @if (vm.panel().vidaCrediticia) {
+                <article
+                  class="panel"
+                  aria-labelledby="inicio-vida-title"
+                  data-testid="inicio-vida-crediticia"
+                >
+                  <h2 id="inicio-vida-title">{{ 'inicio.vidaCrediticia.label' | translate }}</h2>
+                  <p class="lead">{{ 'inicio.vidaCrediticia.body' | translate }}</p>
+                  <p class="face">{{ 'inicio.vidaCrediticia.estado' | translate }}</p>
+                  <div class="actions">
+                    <a
+                      class="outlined"
+                      routerLink="/vida-crediticia"
+                      data-testid="inicio-vida-link"
+                    >
+                      {{ 'inicio.vidaCrediticia.link' | translate }}
+                    </a>
+                  </div>
+                </article>
+              }
+              @if (vm.panel().claim; as claim) {
+                <article
+                  class="panel next"
+                  aria-labelledby="inicio-claim-title"
+                  data-testid="inicio-claim"
+                >
+                  <h2 id="inicio-claim-title">{{ 'inicio.claim.next' | translate }}</h2>
+                  <p class="face">{{ 'inicio.estado.' + claim.estado | translate }}</p>
+                  <p class="lead">
+                    {{ 'inicio.claim.nextBody' | translate: { id: claim.siniestroId } }}
+                  </p>
+                  <div class="actions">
+                    <a
+                      class="outlined"
+                      [routerLink]="['/siniestros', claim.siniestroId]"
+                      data-testid="inicio-claim-link"
+                    >
+                      {{ 'inicio.claim.link' | translate }}
+                    </a>
+                  </div>
+                </article>
+              }
             </div>
-          </article>
-        }
-        @if (vm.panel().vidaCrediticia) {
-          <article class="card" data-testid="inicio-vida-crediticia">
-            <p class="card-label">{{ 'inicio.vidaCrediticia.label' | translate }}</p>
-            <p class="card-body">{{ 'inicio.vidaCrediticia.body' | translate }}</p>
-            <div class="actions">
-              <a class="outlined" routerLink="/vida-crediticia" data-testid="inicio-vida-link">
-                {{ 'inicio.vidaCrediticia.link' | translate }}
-              </a>
-            </div>
-          </article>
-        }
-      </div>
+          }
+        </div>
+      }
     }
   }
 </section>

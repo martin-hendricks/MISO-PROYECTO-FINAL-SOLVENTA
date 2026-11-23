@@ -41,13 +41,14 @@ describe('VerOfertaView', () => {
     expect(element('oferta-loading')).not.toBeNull();
     const request = http.expectOne(URL);
     expect(request.request.method).toBe('GET');
-    request.flush(VIGENTE);
+    request.flush({ ...VIGENTE, descripcion: 'Cubre robo del equipo.' });
     fixture.detectChanges();
 
+    expect(element('oferta-descripcion')?.textContent).toContain('Cubre robo');
     expect(element('oferta-prima')?.textContent).toContain('128.500');
     expect(element('oferta-moneda')?.textContent).toContain('COP');
     expect(element('oferta-vence')?.textContent).toContain('2999');
-    expect(element('oferta-vigencia')?.textContent).toContain('1 año');
+    expect(element('oferta-vigencia')?.textContent).toContain('2999');
     expect(element('oferta-prima-neta')).toBeNull();
     expect(element('oferta-expedicion')).toBeNull();
   });
@@ -68,7 +69,9 @@ describe('VerOfertaView', () => {
     http.expectOne(URL).flush(VIGENTE);
     fixture.detectChanges();
 
-    expect(element('oferta-aceptar')?.getAttribute('href')).toBe('/emision?cotizacion=COT-4471');
+    expect(element('oferta-aceptar')?.getAttribute('href')).toBe(
+      '/confirmacion-tarjeta?cotizacion=COT-4471&prima=128500&moneda=COP',
+    );
   });
 
   it('keeps the original price of an expired offer and does not let it be accepted', () => {

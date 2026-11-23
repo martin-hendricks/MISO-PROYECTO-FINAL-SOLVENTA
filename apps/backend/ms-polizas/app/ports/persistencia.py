@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from typing import Protocol
 from uuid import UUID
 
@@ -28,6 +29,14 @@ class RepositorioPolizas(Protocol):
 
     async def actualizar(self, poliza: Poliza) -> None: ...
 
+    async def listar_por_vencer(
+        self, hoy: date, hasta: date, usuario_id: UUID | None = None
+    ) -> list[Poliza]: ...
+
+    async def listar_emitidas_entre(self, desde: date, hasta: date) -> list[Poliza]: ...
+
+    async def listar_canceladas_entre(self, desde: date, hasta: date) -> list[Poliza]: ...
+
 
 class RepositorioFirmas(Protocol):
     async def agregar(self, constancia: ConstanciaFirma) -> None: ...
@@ -37,6 +46,13 @@ class RepositorioFirmas(Protocol):
 
 class Outbox(Protocol):
     async def agregar(self, evento: EventoDominio) -> None: ...
+
+    async def existe_para_agregado(self, tipo: str, agregado_id: UUID) -> bool:
+        """HU-67: idempotencia del job de avisos de vencimiento -- evita
+        generar un "PolizaPorVencer" nuevo en cada corrida mientras la misma
+        póliza siga dentro de la ventana (correría a diario sobre la misma
+        póliza por hasta `dias` días seguidos sin esto)."""
+        ...
 
 
 class UnidadDeTrabajo(Protocol):

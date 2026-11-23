@@ -7,6 +7,8 @@ import kotlinx.coroutines.launch
 import com.grupo8_uniandes.solventa.domain.registration.AccountDraft
 import com.grupo8_uniandes.solventa.domain.registration.EmailAddress
 import com.grupo8_uniandes.solventa.domain.registration.EmailStatus
+import com.grupo8_uniandes.solventa.domain.registration.MonthlyAmounts
+import com.grupo8_uniandes.solventa.domain.registration.PasswordLength
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.registration.documentTypes
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,11 +30,17 @@ data class OnboardingUiState(
     val documentNumber: String = "",
     val password: String = "",
     val passwordConfirm: String = "",
+    val monthlyIncome: String = "",
+    val monthlySpending: String = "",
+    val passwordMinMet: Boolean = false,
+    val passwordMaxMet: Boolean = false,
     val hasPhoto: Boolean = false,
     val emailError: Boolean = false,
     val continuarEnabled: Boolean = false,
     val awaitingPhoto: Boolean = false,
     val unavailable: Boolean = false,
+    val habeasData: Boolean = false,
+    val showDataTreatment: Boolean = true,
     val effect: OnboardingEffect? = null,
 )
 
@@ -40,11 +48,19 @@ class OnboardingViewModel(
     private val registerAccount: RegisterAccount,
     private val region: Region = Region.Colombia,
     private val openRemoteSession: (suspend (String, String) -> Boolean)? = null,
+    private val registerRemote: (suspend (AccountDraft, Boolean) -> Boolean)? = null,
+    priorHabeasData: Boolean? = null,
 ) : ViewModel() {
     private var photo: ByteArray? = null
     private var submitting = false
     private val _state = MutableStateFlow(
-        OnboardingUiState(documentTypeOptions = documentTypes(region)),
+        present(
+            OnboardingUiState(
+                documentTypeOptions = documentTypes(region),
+                habeasData = priorHabeasData == true,
+                showDataTreatment = priorHabeasData == null,
+            ),
+        ),
     )
     val state: StateFlow<OnboardingUiState> = _state.asStateFlow()
 
@@ -62,6 +78,10 @@ class OnboardingViewModel(
 
     fun onPasswordConfirm(value: String) = edit { it.copy(passwordConfirm = value) }
 
+    fun onIncome(value: String) = edit { it.copy(monthlyIncome = value) }
+
+    fun onSpending(value: String) = edit { it.copy(monthlySpending = value) }
+
     fun attachPhoto(bytes: ByteArray) {
         photo = bytes.copyOf()
         edit { it }
@@ -72,10 +92,16 @@ class OnboardingViewModel(
         edit { it }
     }
 
+    fun onHabeasData(value: Boolean) {
+        if (!_state.value.showDataTreatment) return
+        edit { it.copy(habeasData = value) }
+    }
+
     fun continuar() {
         val current = _state.value
         if (!current.continuarEnabled || submitting) return
-        val saved = registerAccount.submit(current.toDraft(photo), region)
+        val draft = current.toDraft(photo)
+        val saved = registerAccount.submit(draft, region)
         if (!saved) return
         val opener = openRemoteSession
         if (opener == null) {
@@ -85,7 +111,12 @@ class OnboardingViewModel(
         submitting = true
         viewModelScope.launch {
             val opened = try {
-                opener(current.email.trim(), current.password.trim())
+                val registered = registerRemote?.invoke(draft, current.habeasData) ?: true
+                if (!registered) {
+                    false
+                } else {
+                    opener(current.email.trim(), current.password.trim())
+                }
             } catch (_: Exception) {
                 false
             }
@@ -123,16 +154,22 @@ class OnboardingViewModel(
             draft.email,
             draft.documentNumber,
         ).all { it.trim().isNotEmpty() }
-        val passwordReady = passwordText.isNotEmpty() && passwordText == confirmText
+        val passwordMinMet = PasswordLength.meetsMinimum(passwordText)
+        val passwordMaxMet = PasswordLength.meetsMaximum(passwordText)
+        val passwordReady = PasswordLength.accepted(passwordText) && passwordText == confirmText
         val typeReady = draft.documentType.trim() in documentTypes(region)
+        val amountsReady = MonthlyAmounts.pair(draft.monthlyIncome, draft.monthlySpending) != null
         val detailsReady = textsReady &&
             passwordReady &&
             typeReady &&
+            amountsReady &&
             emailStatus == EmailStatus.Valid
         return draft.copy(
             hasPhoto = photoReady,
             emailError = emailStatus == EmailStatus.Invalid,
-            continuarEnabled = detailsReady && photoReady,
+            passwordMinMet = passwordMinMet,
+            passwordMaxMet = passwordMaxMet,
+            continuarEnabled = detailsReady && photoReady && draft.habeasData,
             awaitingPhoto = detailsReady && !photoReady,
         )
     }
@@ -145,5 +182,7 @@ class OnboardingViewModel(
         documentNumber = documentNumber,
         password = password,
         documentPhoto = photo,
+        monthlyIncome = MonthlyAmounts.income(monthlyIncome).orEmpty(),
+        monthlySpending = MonthlyAmounts.spending(monthlySpending).orEmpty(),
     )
 }

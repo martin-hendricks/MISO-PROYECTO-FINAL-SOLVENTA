@@ -232,6 +232,20 @@ resource "aws_security_group_rule" "msk_ingress_tls_from_eks_nodes" {
   source_security_group_id = aws_security_group.eks_nodes.id
 }
 
+# 9098 es el listener SASL/IAM, el único que publica el clúster
+# (BootstrapBrokerStringSaslIam). Sin esta regla el pod abre el socket y se
+# queda esperando: aiokafka solo reporta `Unable connect to "b-1...:9098"` y el
+# consumidor nunca arranca, aunque IRSA ya tenga kafka-cluster:Connect.
+resource "aws_security_group_rule" "msk_ingress_sasl_iam_from_eks_nodes" {
+  type                     = "ingress"
+  description              = "Kafka SASL/IAM broker from EKS nodes only"
+  security_group_id        = aws_security_group.msk.id
+  from_port                = 9098
+  to_port                  = 9098
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.eks_nodes.id
+}
+
 resource "aws_security_group_rule" "msk_ingress_zookeeper_from_eks_nodes" {
   type                     = "ingress"
   description              = "Zookeeper from EKS nodes only"

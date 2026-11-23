@@ -1,0 +1,27 @@
+<div class="scrim">
+  <div
+    class="dialog"
+    role="dialog"
+    aria-modal="true"
+    data-testid="perfil-dialog"
+    [attr.aria-label]="titulo()"
+    cdkTrapFocus
+    cdkTrapFocusAutoCapture
+  >
+    @if (texto(); as texto) {
+      <h2>{{ titulo() }}</h2>
+      <p class="texto">{{ texto }}</p>
+      <div class="acciones">
+        <button
+          type="button"
+          class="filled"
+          data-testid="perfil-dialog-entendido"
+          (click)="cerrar.emit()"
+        >
+          {{ 'perfil.entendido' | translate }}
+        </button>
+      </div>
+    }
+    <ng-content />
+  </div>
+</div>

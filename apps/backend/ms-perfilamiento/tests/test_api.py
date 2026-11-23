@@ -60,6 +60,10 @@ def test_solicitar_oferta_con_consentimiento_devuelve_precio_y_factores(client):
     assert len(cuerpo["factores"]) == 4
     assert all({"factor", "impacto", "peso"} <= f.keys() for f in cuerpo["factores"])
     assert len(cuerpo["snapshot_atributos"]) == 4
+    assert {(a["origen"], a["estado"], a["modo"], a["causa"]) for a in cuerpo["snapshot_atributos"]} == {
+        ("open_finance", "exito", "LIVE", None),
+        ("open_data", "exito", "LIVE", None),
+    }
 
 
 def test_solicitar_oferta_reintento_misma_clave_devuelve_200_mismo_id(client):
@@ -93,3 +97,37 @@ def test_health_ready_sin_base_de_datos_devuelve_503(client):
 
     assert respuesta.status_code == 503
     assert respuesta.json() == {"status": "unavailable"}
+
+
+def test_ultima_oferta_devuelve_factor_ajuste_de_la_oferta_solicitada(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+    solicitada = client.post("/v1/ofertas-hipotecario", json={"cliente_id": "cliente-1"}, headers=CLAVE).json()
+
+    respuesta = client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == solicitada["id"]
+    assert cuerpo["factor_ajuste"] == solicitada["factor_ajuste"]
+
+
+def test_ultima_oferta_sin_consentimiento_es_403(client):
+    respuesta = client.get("/v1/ofertas-hipotecario/clientes/cliente-sin-consentimiento/ultima")
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "consentimiento_no_otorgado"
+
+
+def test_ultima_oferta_inexistente_es_404(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+    assert client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima").status_code == 404
+
+
+def test_la_oferta_nunca_supera_la_referencia_de_mercado(client):
+    client.post("/v1/consentimientos", json={"cliente_id": "cliente-1"})
+
+    cuerpo = client.post("/v1/ofertas-hipotecario", json={"cliente_id": "cliente-1"}, headers=CLAVE).json()
+    ultima = client.get("/v1/ofertas-hipotecario/clientes/cliente-1/ultima").json()
+
+    assert float(cuerpo["factor_ajuste"]) <= 1.10
+    assert float(cuerpo["precio"]) <= 55000
+    assert ultima["factor_ajuste"] == cuerpo["factor_ajuste"]

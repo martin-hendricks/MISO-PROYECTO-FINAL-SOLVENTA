@@ -36,7 +36,7 @@ fun SolventaBottomBar(
                         modifier = Modifier.testTag("icon_${destination.name}"),
                     )
                 },
-                label = { Text(label) },
+                label = { Text(label, style = MaterialTheme.typography.labelMedium) },
                 alwaysShowLabel = true,
                 modifier = Modifier.testTag("tab_${destination.name}"),
                 colors = NavigationBarItemDefaults.colors(

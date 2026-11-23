@@ -19,6 +19,7 @@ data class QuoteUiState(
     val menuOpen: Boolean = false,
     val value: String = "",
     val brand: String = "",
+    val model: String = "",
     val olderThan12Months: Boolean? = null,
     val sumInsured: String = "",
     val ageYears: String = "",
@@ -31,9 +32,13 @@ data class QuoteUiState(
     val term: String = "",
     val destination: String = "",
     val duration: String = "",
+    val displacement: String = "",
+    val modelYear: String = "",
+    val city: String = "",
     val gap: QuoteInput? = null,
     val pending: Boolean = false,
     val failed: Boolean = false,
+    val explanation: String? = null,
     val readyId: String? = null,
     val contextId: String = "",
 )
@@ -58,11 +63,14 @@ class QuoteViewModel(
 
     fun onBrand(brand: String) = onText(QuoteInput.Brand, brand)
 
+    fun onModel(model: String) = onText(QuoteInput.Model, model)
+
     fun onText(input: QuoteInput, text: String) {
         _state.update { state ->
             val updated = when (input) {
                 QuoteInput.Value -> state.copy(value = text)
                 QuoteInput.Brand -> state.copy(brand = text)
+                QuoteInput.Model -> state.copy(model = text)
                 QuoteInput.SumInsured -> state.copy(sumInsured = text)
                 QuoteInput.AgeYears -> state.copy(ageYears = text)
                 QuoteInput.Event -> state.copy(event = text)
@@ -74,14 +82,17 @@ class QuoteViewModel(
                 QuoteInput.Term -> state.copy(term = text)
                 QuoteInput.Destination -> state.copy(destination = text)
                 QuoteInput.Duration -> state.copy(duration = text)
+                QuoteInput.Displacement -> state.copy(displacement = text)
+                QuoteInput.ModelYear -> state.copy(modelYear = text)
+                QuoteInput.City -> state.copy(city = text)
                 QuoteInput.Age -> state
             }
-            updated.copy(gap = null, failed = false)
+            updated.copy(gap = null, failed = false, explanation = null)
         }
     }
 
     fun onAge(olderThan12Months: Boolean) {
-        _state.update { it.copy(olderThan12Months = olderThan12Months, gap = null, failed = false) }
+        _state.update { it.copy(olderThan12Months = olderThan12Months, gap = null, failed = false, explanation = null) }
     }
 
     fun cotizar() {
@@ -95,6 +106,7 @@ class QuoteViewModel(
         val answers = QuoteAnswers(
             value = current.value,
             brand = current.brand,
+            model = current.model,
             olderThan12Months = current.olderThan12Months,
             sumInsured = current.sumInsured,
             ageYears = current.ageYears,
@@ -107,21 +119,27 @@ class QuoteViewModel(
             term = current.term,
             destination = current.destination,
             duration = current.duration,
+            displacement = current.displacement,
+            modelYear = current.modelYear,
+            city = current.city,
         )
-        _state.update { it.copy(pending = true, failed = false, gap = null, readyId = null) }
+        _state.update { it.copy(pending = true, failed = false, gap = null, explanation = null, readyId = null) }
         when (val attempt = request.submit(current.line, answers)) {
             is QuoteAttempt.Gap -> _state.update {
-                it.copy(gap = attempt.field, pending = false, failed = false, readyId = null)
+                it.copy(gap = attempt.field, pending = false, failed = false, explanation = null, readyId = null)
+            }
+            is QuoteAttempt.Refused -> _state.update {
+                it.copy(gap = null, pending = false, failed = false, explanation = attempt.detail, readyId = null)
             }
             is QuoteAttempt.Answer -> when (val answer = attempt.answer) {
                 StandInAnswer.Pending -> _state.update {
-                    it.copy(pending = true, failed = false, gap = null, readyId = null)
+                    it.copy(pending = true, failed = false, gap = null, explanation = null, readyId = null)
                 }
-                StandInAnswer.Failed -> _state.update {
-                    it.copy(pending = false, failed = true, gap = null, readyId = null)
+                StandInAnswer.Failed, is StandInAnswer.Rejected -> _state.update {
+                    it.copy(pending = false, failed = true, gap = null, explanation = null, readyId = null)
                 }
                 is StandInAnswer.Ready -> _state.update {
-                    it.copy(pending = false, failed = false, gap = null, readyId = answer.value.cotizacionId)
+                    it.copy(pending = false, failed = false, gap = null, explanation = null, readyId = answer.value.cotizacionId)
                 }
             }
         }

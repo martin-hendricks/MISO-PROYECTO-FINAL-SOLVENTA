@@ -1,0 +1,48 @@
+.subtitle {
+  margin-bottom: 24px;
+}
+
+.columnas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.filas,
+.lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lateral {
+  align-items: flex-start;
+}
+
+.tarjeta {
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  background: var(--sv-surface-container-lowest);
+}
+
+.tarjeta h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.tarjeta p {
+  margin: 0;
+  color: var(--sv-on-surface-variant);
+  font-size: 0.875rem;
+  line-height: 20px;
+}
+
+@media (max-width: 900px) {
+  .columnas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -35,8 +35,57 @@ class OnboardingViewModelTest {
         assertEquals("", state.passwordConfirm)
         assertFalse(state.hasPhoto)
         assertFalse(state.emailError)
+        assertFalse(state.habeasData)
+        assertTrue(state.showDataTreatment)
         assertFalse(state.continuarEnabled)
         assertNull(state.effect)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenConsentAlreadyGranted_whenContinuar_thenTheStoredChoiceIsSent() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var sent: Boolean? = null
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ -> true },
+                registerRemote = { _, granted ->
+                    sent = granted
+                    true
+                },
+                priorHabeasData = true,
+            )
+            fill(remote, includeHabeas = false)
+            remote.attachPhoto(byteArrayOf(1))
+
+            assertFalse(remote.state.value.showDataTreatment)
+            assertTrue(remote.state.value.habeasData)
+            assertTrue(remote.state.value.continuarEnabled)
+            remote.onHabeasData(false)
+            assertTrue(remote.state.value.habeasData)
+            remote.continuar()
+            assertEquals(true, sent)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
+    fun givenEveryFieldAndPhoto_whenHabeasDataIsOff_thenContinuarStaysDisabled() {
+        viewModel.onGivenName("Camila")
+        viewModel.onSurnames("Restrepo")
+        viewModel.onEmail("camila@correo.com")
+        viewModel.onDocumentType("CC")
+        viewModel.onDocumentNumber("1023456789")
+        viewModel.onPassword("secret12")
+        viewModel.onPasswordConfirm("secret12")
+        viewModel.attachPhoto(byteArrayOf(7, 8))
+
+        assertFalse(viewModel.state.value.habeasData)
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertNull(viewModel.state.value.effect)
     }
 
     @Test
@@ -125,10 +174,12 @@ class OnboardingViewModelTest {
     fun givenMatchingPassword_whenConfirmed_thenContinuarEnablesUntilTheyDiffer() {
         fillValid()
         viewModel.attachPhoto(byteArrayOf(1))
-        viewModel.onPassword("secret")
-        viewModel.onPasswordConfirm("secret")
+        viewModel.onPassword("secret123")
+        viewModel.onPasswordConfirm("secret123")
 
         assertTrue(viewModel.state.value.continuarEnabled)
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
 
         viewModel.onPassword("secret12")
         viewModel.onPasswordConfirm("secret13")
@@ -136,6 +187,36 @@ class OnboardingViewModelTest {
         assertFalse(viewModel.state.value.continuarEnabled)
         viewModel.continuar()
         assertTrue(register.drafts.isEmpty())
+    }
+
+    @Test
+    fun givenAShortOrLongPassword_whenTyped_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+
+        viewModel.onPassword("qwerty1")
+        viewModel.onPasswordConfirm("qwerty1")
+
+        assertFalse(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
+        assertFalse(viewModel.state.value.continuarEnabled)
+
+        val tooLong = "a".repeat(73)
+        viewModel.onPassword(tooLong)
+        viewModel.onPasswordConfirm(tooLong)
+
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertFalse(viewModel.state.value.passwordMaxMet)
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertTrue(register.drafts.isEmpty())
+
+        viewModel.onPassword("secret12")
+        viewModel.onPasswordConfirm("secret12")
+
+        assertTrue(viewModel.state.value.passwordMinMet)
+        assertTrue(viewModel.state.value.passwordMaxMet)
+        assertTrue(viewModel.state.value.continuarEnabled)
     }
 
     @Test
@@ -238,6 +319,84 @@ class OnboardingViewModelTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
+    fun givenARemoteSession_whenIngresoThrows_thenTheUnavailableBannerStays() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val remote = OnboardingViewModel(register, openRemoteSession = { _, _ -> error("bff") })
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertNull(remote.state.value.effect)
+            assertTrue(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenRegistroSucceeds_thenIngresoFollows() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val order = mutableListOf<String>()
+            var recorded: AccountDraft? = null
+            var habeasData = false
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ ->
+                    order += "ingreso"
+                    true
+                },
+                registerRemote = { draft, granted ->
+                    order += "registro"
+                    recorded = draft
+                    habeasData = granted
+                    true
+                },
+            )
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertEquals(listOf("registro", "ingreso"), order)
+            assertTrue(habeasData)
+            assertEquals("CC", recorded?.documentType)
+            assertEquals("1023456789", recorded?.documentNumber)
+            assertEquals("camila@correo.com", recorded?.email)
+            assertEquals("secret12", recorded?.password)
+            assertEquals(OnboardingEffect.ContinueToLiveness, remote.state.value.effect)
+            assertFalse(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun givenARemoteSession_whenRegistroFails_thenIngresoIsNotCalled() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            var ingreso = false
+            val remote = OnboardingViewModel(
+                register,
+                openRemoteSession = { _, _ ->
+                    ingreso = true
+                    true
+                },
+                registerRemote = { _, _ -> false },
+            )
+            fill(remote)
+            remote.attachPhoto(byteArrayOf(1))
+            remote.continuar()
+            assertFalse(ingreso)
+            assertNull(remote.state.value.effect)
+            assertTrue(remote.state.value.unavailable)
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
     fun givenARemoteSessionInFlight_whenContinuarAgain_thenItSubmitsOnce() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         try {
@@ -258,11 +417,56 @@ class OnboardingViewModelTest {
         }
     }
 
+    @Test
+    fun givenPriorDataTreatment_whenTheFormOpens_thenThatChoiceStaysAndTheControlIsClosed() {
+        val granted = OnboardingViewModel(register, priorHabeasData = true)
+        assertTrue(granted.state.value.habeasData)
+        assertFalse(granted.state.value.showDataTreatment)
+        granted.onHabeasData(false)
+        assertTrue(granted.state.value.habeasData)
+
+        fill(granted)
+        granted.attachPhoto(byteArrayOf(7, 8))
+        assertTrue(granted.state.value.continuarEnabled)
+
+        val revoked = OnboardingViewModel(register, priorHabeasData = false)
+        assertFalse(revoked.state.value.habeasData)
+        assertFalse(revoked.state.value.showDataTreatment)
+        revoked.onHabeasData(true)
+        assertFalse(revoked.state.value.habeasData)
+        fill(revoked)
+        revoked.attachPhoto(byteArrayOf(7, 8))
+        assertFalse(revoked.state.value.continuarEnabled)
+    }
+
+    @Test
+    fun givenWholeCopAmounts_whenTheOtherFieldsAreReady_thenContinuarSendsTwoFractionDigits() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onIncome("4.500.000")
+        viewModel.onSpending("0")
+        assertTrue(viewModel.state.value.continuarEnabled)
+        viewModel.continuar()
+        assertEquals("4500000.00", register.drafts.single().monthlyIncome)
+        assertEquals("0.00", register.drafts.single().monthlySpending)
+    }
+
+    @Test
+    fun givenIncomeZero_whenTheOtherFieldsAreReady_thenContinuarStaysDisabled() {
+        fillValid()
+        viewModel.attachPhoto(byteArrayOf(1))
+        viewModel.onIncome("0.00")
+        assertFalse(viewModel.state.value.continuarEnabled)
+        viewModel.onIncome("1.00")
+        viewModel.onSpending("0.00")
+        assertTrue(viewModel.state.value.continuarEnabled)
+    }
+
     private fun fillValid() {
         fill(viewModel)
     }
 
-    private fun fill(target: OnboardingViewModel) {
+    private fun fill(target: OnboardingViewModel, includeHabeas: Boolean = true) {
         target.onGivenName("Camila")
         target.onSurnames("Restrepo")
         target.onEmail("camila@correo.com")
@@ -270,6 +474,9 @@ class OnboardingViewModelTest {
         target.onDocumentNumber("1023456789")
         target.onPassword("secret12")
         target.onPasswordConfirm("secret12")
+        target.onIncome("4500000.00")
+        target.onSpending("1200000.00")
+        if (includeHabeas) target.onHabeasData(true)
     }
 }
 

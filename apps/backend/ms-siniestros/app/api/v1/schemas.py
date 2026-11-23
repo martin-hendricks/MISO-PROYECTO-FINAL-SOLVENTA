@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -14,6 +14,15 @@ class EventoParametricoEntrada(BaseModel):
     umbral: Decimal = Field(max_digits=18, decimal_places=4)
     poliza_vigente: bool = True
     monto_pago: Decimal = Field(max_digits=14, decimal_places=2, gt=0)
+    # HU-61 (back-office): si el origen del evento conoce la póliza, se liga
+    # aquí para poder consultar luego "siniestros abiertos de esta póliza"
+    # (ver GET /v1/siniestros/abiertos). Opcional: el stub de ingesta no
+    # siempre la conoce.
+    poliza_id: UUID | None = None
+    usuario_id: UUID | None = None
+    ramo: str | None = Field(default=None, max_length=60)
+    poliza_numero: str | None = Field(default=None, max_length=60)
+    descripcion: str | None = Field(default=None, max_length=200)
 
 
 class TransicionSalida(BaseModel):
@@ -22,15 +31,41 @@ class TransicionSalida(BaseModel):
     origen: str
 
 
+class GeoSalida(BaseModel):
+    lat: Decimal
+    lng: Decimal
+    precision_m: Decimal | None = None
+
+
 class SiniestroSalida(BaseModel):
     id: UUID
-    evento_id: str
+    evento_id: str | None = None
     estado: str
     creado_en: datetime
     historial: list[TransicionSalida]
+    poliza_id: UUID | None = None
+    # HU-157: campos del siniestro asistido (None en los paramétricos).
+    numero: str | None = None
+    tipo: str = "parametrico"
+    usuario_id: UUID | None = None
+    canal: str | None = None
+    ramo: str | None = None
+    poliza_numero: str | None = None
+    fecha_hecho: date | None = None
+    descripcion: str | None = None
+    lugar: str | None = None
+    geo: GeoSalida | None = None
+    reserva: Decimal | None = None
+    umbral_automatico: Decimal | None = None
+    resultado: str | None = None
+    requiere_revision: bool = False
+    motivo_revision: str | None = None
+    moneda: str = "COP"
 
     @classmethod
     def desde(cls, siniestro: Siniestro) -> "SiniestroSalida":
+        poliza = siniestro.poliza
+        geo = siniestro.geo
         return cls(
             id=siniestro.id,
             evento_id=siniestro.evento_id,
@@ -40,6 +75,23 @@ class SiniestroSalida(BaseModel):
                 TransicionSalida(estado=t.estado.value, ocurrido_en=t.ocurrido_en, origen=t.origen)
                 for t in siniestro.historial
             ],
+            poliza_id=siniestro.poliza_id,
+            numero=siniestro.numero,
+            tipo=siniestro.tipo.value,
+            usuario_id=siniestro.usuario_id,
+            canal=siniestro.canal,
+            ramo=poliza.ramo if poliza else None,
+            poliza_numero=poliza.numero if poliza else None,
+            fecha_hecho=siniestro.fecha_hecho,
+            descripcion=siniestro.descripcion,
+            lugar=siniestro.lugar,
+            geo=GeoSalida(lat=geo.lat, lng=geo.lng, precision_m=geo.precision_m) if geo else None,
+            reserva=siniestro.reserva,
+            umbral_automatico=siniestro.umbral_automatico,
+            resultado=siniestro.resultado.value if siniestro.resultado else None,
+            requiere_revision=siniestro.requiere_revision,
+            motivo_revision=siniestro.motivo_revision,
+            moneda=siniestro.moneda or "COP",
         )
 
 
@@ -58,6 +110,8 @@ class PagoSalida(BaseModel):
     siniestro_id: UUID
     monto: Decimal
     pagado_en: datetime
+    comprobante: str
+    comprobante: str
 
 
 class ResultadoIngestaSalida(BaseModel):
@@ -85,6 +139,7 @@ class ResultadoIngestaSalida(BaseModel):
                     siniestro_id=resultado.pago.siniestro_id,
                     monto=resultado.pago.monto,
                     pagado_en=resultado.pago.pagado_en,
+                    comprobante=resultado.pago.comprobante,
                 )
                 if resultado.pago is not None
                 else None
@@ -96,6 +151,11 @@ class ResultadoIngestaSalida(BaseModel):
 class CambiarEstadoEntrada(BaseModel):
     estado: EstadoSiniestro
     origen: str = Field(min_length=1, max_length=120)
+
+
+class SiniestrosAbiertosSalida(BaseModel):
+    abiertos: int
+    siniestros: list[SiniestroSalida]
 
 
 class ErrorSalida(BaseModel):

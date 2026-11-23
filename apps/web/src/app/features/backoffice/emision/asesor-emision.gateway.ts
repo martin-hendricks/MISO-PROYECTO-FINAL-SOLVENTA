@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api/api-base-url';
+import { LocaleService } from '../../../core/i18n/locale.service';
 
 export interface Paso {
   paso: 'COTIZAR' | 'OFERTA' | 'EMISION' | 'POLIZA';
@@ -39,7 +40,14 @@ export interface EmisionAsesor {
   resultado: 'EMITIDA';
   pasos: Paso[];
   firma: { firmadaEn: string; hash: string };
-  poliza: { numero: string; expedidaEn: string; inicioVigencia: string; finVigencia: string };
+  poliza: {
+    numero: string;
+    expedidaEn: string;
+    inicioVigencia: string;
+    finVigencia: string;
+    moneda?: string;
+    monedaInicio?: string;
+  };
 }
 
 /** The core refused to issue (HU-17 failed signature): a business answer, not an HTTP error. */
@@ -61,6 +69,7 @@ export interface AceptacionAsesor {
 export class AsesorEmisionGateway {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly locale = inject(LocaleService);
 
   decide(aceptacion: AceptacionAsesor): Observable<SolicitudEmision> {
     return this.http.post<SolicitudEmision>(`${this.baseUrl}/asesor/emisiones`, aceptacion);
@@ -70,7 +79,7 @@ export class AsesorEmisionGateway {
   issue(solicitudId: string): Observable<ResultadoEmisionAsesor> {
     return this.http.post<ResultadoEmisionAsesor>(
       `${this.baseUrl}/asesor/emisiones/${encodeURIComponent(solicitudId)}/poliza`,
-      {},
+      { monedaInicio: this.locale.monedaInicio() },
     );
   }
 }

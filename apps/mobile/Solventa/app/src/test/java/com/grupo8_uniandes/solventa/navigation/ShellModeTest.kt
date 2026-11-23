@@ -8,10 +8,10 @@ class ShellModeTest {
     @Test
     fun destinationsStayInOrder() {
         assertEquals(
-            listOf(Destination.Inicio, Destination.Polizas, Destination.Siniestros, Destination.Perfil),
+            listOf(Destination.Inicio, Destination.Polizas, Destination.Siniestros, Destination.Billetera, Destination.Perfil),
             Destination.entries.toList(),
         )
-        assertEquals(listOf(0, 1, 2, 3), Destination.entries.map { it.order })
+        assertEquals(listOf(0, 1, 2, 3, 4), Destination.entries.map { it.order })
     }
 
     @Test
@@ -28,6 +28,8 @@ class ShellModeTest {
         assertEquals(Destination.Polizas, selectedDestination(PolizasRoute))
         assertEquals(ShellMode.Root, shellMode(SiniestrosRoute, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(SiniestrosRoute))
+        assertEquals(ShellMode.Root, shellMode(MapaPrestadoresRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(MapaPrestadoresRoute))
         assertEquals(ShellMode.Root, shellMode(PerfilRoute, signedIn = true))
         assertEquals(Destination.Perfil, selectedDestination(PerfilRoute))
     }
@@ -39,12 +41,33 @@ class ShellModeTest {
         val offer = VerOfertaRoute(cotizacionId = "COT-1042")
         assertEquals(ShellMode.Nested, shellMode(offer, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(offer))
+        assertEquals(ShellMode.Nested, shellMode(OfertaHipotecarioRoute, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(OfertaHipotecarioRoute))
         val detail = PolizaDetalleRoute(policyId = "SOL-0001")
         assertEquals(ShellMode.Nested, shellMode(detail, signedIn = true))
         assertEquals(Destination.Polizas, selectedDestination(detail))
         val claim = SiniestroDetalleRoute(claimId = "CLM-1")
         assertEquals(ShellMode.Nested, shellMode(claim, signedIn = true))
         assertEquals(Destination.Siniestros, selectedDestination(claim))
+        assertEquals(ShellMode.Nested, shellMode(AsistenciaSitioRoute("PRE-BOG-06"), signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(AsistenciaSitioRoute("PRE-BOG-06")))
+        assertEquals(ShellMode.Nested, shellMode(AvisoSiniestroRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(AvisoSiniestroRoute))
+        assertEquals(ShellMode.Nested, shellMode(ParametricoRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(ParametricoRoute))
+        assertEquals(ShellMode.Nested, shellMode(AvisoVencimientoRoute, signedIn = true))
+        assertEquals(Destination.Polizas, selectedDestination(AvisoVencimientoRoute))
+        assertEquals(ShellMode.Nested, shellMode(AvisoRenovacionRoute, signedIn = true))
+        assertEquals(Destination.Polizas, selectedDestination(AvisoRenovacionRoute))
+        assertEquals(ShellMode.Root, shellMode(MapaPrestadoresRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(MapaPrestadoresRoute))
+        assertEquals(ShellMode.Nested, shellMode(AsistenciaSitioRoute("PRE-BOG-06"), signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(AsistenciaSitioRoute("PRE-BOG-06")))
+        assertEquals(ShellMode.Nested, shellMode(EvidenciaAvisoRoute, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(EvidenciaAvisoRoute))
+        val sent = ConfirmacionAvisoRoute(siniestroId = "SIN-441")
+        assertEquals(ShellMode.Nested, shellMode(sent, signedIn = true))
+        assertEquals(Destination.Siniestros, selectedDestination(sent))
     }
 
     @Test
@@ -53,11 +76,15 @@ class ShellModeTest {
         assertEquals("", EmisionEnCursoRoute().offerId)
         assertEquals(SiniestroDetalleRoute("CLM-1"), SiniestroDetalleRoute("CLM-1").copy(claimId = "CLM-1"))
         assertEquals(ShellMode.Issuance, shellMode(EmisionEnCursoRoute(), signedIn = true))
-        assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute, signedIn = true))
+        assertEquals(ShellMode.Issuance, shellMode(PolizaEmitidaRoute(), signedIn = true))
         assertNull(selectedDestination(EmisionEnCursoRoute()))
-        assertNull(selectedDestination(PolizaEmitidaRoute))
+        assertNull(selectedDestination(PolizaEmitidaRoute()))
         assertEquals(ShellMode.Nested, shellMode(SuscripcionRechazadaRoute, signedIn = true))
         assertEquals(Destination.Inicio, selectedDestination(SuscripcionRechazadaRoute))
+        assertEquals(ShellMode.Nested, shellMode(ConfirmacionTarjetaRoute("Q-1"), signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(ConfirmacionTarjetaRoute("Q-1")))
+        assertEquals(ShellMode.Nested, shellMode(ConsentimientoRevocadoRoute, signedIn = true))
+        assertEquals(Destination.Inicio, selectedDestination(ConsentimientoRevocadoRoute))
     }
 
     @Test
@@ -67,6 +94,10 @@ class ShellModeTest {
         assertEquals(InicioRoute, Destination.Inicio.rootRoute())
         assertEquals(PolizasRoute, Destination.Polizas.rootRoute())
         assertEquals(SiniestrosRoute, Destination.Siniestros.rootRoute())
+        assertEquals(BilleteraRoute, Destination.Billetera.rootRoute())
+        assertEquals(ShellMode.Root, shellMode(BilleteraRoute, signedIn = true))
+        assertEquals(Destination.Billetera, selectedDestination(BilleteraRoute))
+        assertEquals(Destination.Billetera, selectedDestination(DepositoRoute("dep-1")))
         assertEquals(PerfilRoute, Destination.Perfil.rootRoute())
         assertEquals("SOL-0001", PolizaDetalleRoute().policyId)
     }

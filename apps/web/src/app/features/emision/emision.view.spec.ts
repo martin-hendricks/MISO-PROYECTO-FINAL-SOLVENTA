@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
+import { POLIZAS } from '../polizas/polizas.testing';
 import { EMITIDA, MOTIVO, RECHAZADA } from './emision.testing';
 import { EmisionView } from './emision.view';
 
@@ -41,7 +42,7 @@ describe('EmisionView', () => {
 
     const request = http.expectOne(URL);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042' });
+    expect(request.request.body).toEqual({ cotizacionId: 'COT-0042', monedaInicio: 'COP' });
     expect(element('emision-progreso')).not.toBeNull();
     expect(element('emision-progreso')?.querySelector('[role="progressbar"]')).not.toBeNull();
     request.flush(EMITIDA);
@@ -82,11 +83,43 @@ describe('EmisionView', () => {
     expect(element('poliza-emitida')).toBeNull();
   });
 
+  it('offers a new quotation when the offer expires during acceptance', () => {
+    const { fixture, http, element } = render();
+
+    http.expectOne(URL).flush({ codigo: 'oferta_vencida' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(element('emision-expired')?.textContent).toContain('La oferta venció.');
+    expect(element('emision-expired')?.querySelector('h1')?.textContent).toContain('Oferta vencida');
+    expect(element('emision-new-quote')?.getAttribute('href')).toBe('/cotizacion');
+  });
+
+  it('offers a new quotation when the profiling consent was revoked', () => {
+    const { fixture, http, element } = render();
+
+    http
+      .expectOne(URL)
+      .flush({ codigo: 'consentimiento_revocado' }, { status: 422, statusText: 'Unprocessable Entity' });
+    fixture.detectChanges();
+
+    expect(element('emision-revoked')?.textContent).toContain(
+      'Revocaste la autorización para usar tus datos en el perfilamiento.',
+    );
+    expect(element('emision-revoked-new-quote')?.getAttribute('href')).toBe('/cotizacion');
+    expect(element('emision-revoked')?.querySelector('h1')?.textContent).toContain(
+      'Autorización revocada',
+    );
+    expect(element('emision-retry')).toBeNull();
+  });
+
   it('offers to retry in the same view when the request fails', () => {
     const { fixture, http, element } = render();
     http.expectOne(URL).error(new ProgressEvent('error'));
     fixture.detectChanges();
 
+    expect(element('emision-error')?.querySelector('h1')?.textContent).toContain(
+      'No pudimos emitir tu póliza',
+    );
     element('emision-retry')!.click();
     http.expectOne(URL).flush(EMITIDA);
     fixture.detectChanges();
@@ -104,11 +137,54 @@ describe('EmisionView', () => {
     http.expectOne(URL).flush(EMITIDA);
   });
 
+  it('shows an optional payment reference and saves renewal only after the customer chooses it', () => {
+    const { fixture, http, element } = render();
+    http.expectOne(URL).flush({
+      resultado: 'EMITIDA',
+      poliza: { ...POLIZAS[0], referenciaPago: 'PAY-44218' },
+    });
+    fixture.detectChanges();
+
+    expect(element('referencia-pago')?.textContent).toContain('PAY-44218');
+    expect(element('renovacion-automatica')).not.toBeNull();
+    expect(element('renovacion-ayuda')?.textContent).toContain(
+      'Apagado. Renueva la prima de esta póliza. No cobra ahora.',
+    );
+    const checkbox = element('renovacion-automatica') as HTMLInputElement;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    const preference = http.expectOne('/web/cliente/polizas/POL-2026-00088421/preferencias');
+    expect(preference.request.body).toEqual({ renovacionAutomatica: true });
+    preference.flush({ numero: 'POL-2026-00088421', renovacionAutomatica: true });
+    fixture.detectChanges();
+    expect(element('renovacion-ayuda')).toBeNull();
+  });
+
   it('does not call the BFF without an offer to accept', () => {
     const { http, element } = render({});
 
     http.expectNone(URL);
     expect(element('emision-invalid')).not.toBeNull();
     expect(element('emision-invalid')?.querySelector('a')?.getAttribute('href')).toBe('/');
+    expect(element('emision-invalid')?.querySelector('h1')).not.toBeNull();
+  });
+
+  it('wraps the content in the single main landmark, since it lives outside the shell', () => {
+    const { http, host } = render();
+
+    expect(host.querySelectorAll('main').length).toBe(1);
+    expect(host.querySelector('main [data-testid="emision"]')).not.toBeNull();
+    expect(host.querySelector('header')?.closest('main')).toBeNull();
+    http.expectOne(URL).flush(EMITIDA);
+  });
+
+  it('keeps one level-1 heading in the progress and issued states', () => {
+    const { fixture, http, host } = render();
+    expect(host.querySelectorAll('h1').length).toBe(1);
+
+    http.expectOne(URL).flush(EMITIDA);
+    fixture.detectChanges();
+
+    expect(host.querySelectorAll('h1').length).toBe(1);
   });
 });

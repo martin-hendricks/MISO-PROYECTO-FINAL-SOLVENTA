@@ -19,3 +19,7 @@ def obtener_adaptador_open_data(request: Request) -> AdaptadorOpenData:
 
 def obtener_config(request: Request) -> Settings:
     return request.app.state.config
+
+
+def obtener_cache_fuentes(request: Request):
+    return request.app.state.cache_fuentes

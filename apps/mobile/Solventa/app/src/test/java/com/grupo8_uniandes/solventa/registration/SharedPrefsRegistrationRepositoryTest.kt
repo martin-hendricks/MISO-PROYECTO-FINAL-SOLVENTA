@@ -69,15 +69,23 @@ class SharedPrefsRegistrationRepositoryTest {
         assertEquals("1023456789", prefs.getString(KeyDocumentNumber, null))
         assertEquals("secret", prefs.getString(KeyPassword, null))
         assertTrue(prefs.getBoolean(KeyRegistrationCompleted, false))
+        assertFalse(repository.biometricUnlockEnabled())
+        assertNull(repository.biometricLogin())
+        repository.rememberBiometricLogin("camila@correo.com", "secret")
+        repository.setBiometricUnlock(true)
         assertTrue(repository.biometricUnlockEnabled())
+        assertTrue(repository.biometricPromptOffered())
+        assertEquals(BiometricLogin("camila@correo.com", "secret"), repository.biometricLogin())
         repository.setBiometricUnlock(false)
         assertFalse(repository.biometricUnlockEnabled())
         assertFalse(repository.biometricPromptOffered())
+        assertNull(repository.biometricLogin())
 
         repository.save(registration(byteArrayOf(9, 9)))
         assertTrue(byteArrayOf(9, 9).contentEquals(repository.read()?.documentPhoto))
         assertEquals("camila@correo.com", repository.read()?.email)
-        assertTrue(repository.biometricPromptOffered())
+        assertFalse(repository.biometricUnlockEnabled())
+        assertNull(repository.biometricLogin())
         repository.setBiometricUnlock(false)
         repository.update(
             registration(byteArrayOf(9, 9)).let {
@@ -96,7 +104,7 @@ class SharedPrefsRegistrationRepositoryTest {
         assertFalse(repository.biometricUnlockEnabled())
         repository.completeLiveness()
         assertTrue(repository.livenessCompleted())
-        assertEquals(BiometricLogin("camila@correo.com", "secret"), repository.biometricLogin())
+        assertNull(repository.biometricLogin())
         repository.rememberBiometricLogin("  otra@correo.com  ", "otra")
         assertEquals(BiometricLogin("otra@correo.com", "otra"), repository.biometricLogin())
         repository.rememberBiometricLogin(" ", "")
@@ -131,7 +139,7 @@ class SharedPrefsRegistrationRepositoryTest {
     }
 
     @Test
-    fun givenAccountWithoutBiometricKeys_whenLoginIsRead_thenTheAccountPairIsUsed() {
+    fun givenAccountWithoutBiometricKeys_whenLoginIsRead_thenNothingIsStored() {
         val photo = File(context.filesDir, "registration/document.jpg")
         photo.parentFile?.mkdirs()
         photo.writeBytes(byteArrayOf(4))
@@ -141,7 +149,7 @@ class SharedPrefsRegistrationRepositoryTest {
             .putString(KeyPassword, "secret")
             .commit()
 
-        assertEquals(BiometricLogin("camila@correo.com", "secret"), repository.biometricLogin())
+        assertNull(repository.biometricLogin())
 
         prefs().edit().putString(KeyPassword, "").commit()
         assertNull(repository.biometricLogin())

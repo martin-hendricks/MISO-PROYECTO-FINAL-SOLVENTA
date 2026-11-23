@@ -34,10 +34,22 @@ locals {
   # tópicos que toca, de modo que la política no conceda acceso al clúster MSK
   # entero.
   msk_consumers = {
+    # ms-parametrico (:ApiTelemetria) es productor puro de TopicoTelemetria y su
+    # dueño: lo crea una sola vez (Job crear-topico-telemetria) y no consume, así
+    # que no declara grupo. El consumidor es ms-siniestros (decisión D5, opción B).
     "ms-parametrico" = {
       service_account = "ms-parametrico"
       topics          = ["TopicoTelemetria"]
-      consumer_groups = ["ms-parametrico"]
+      consumer_groups = []
+      crear_topicos   = true
+    }
+    # ms-siniestros (:MotorParametrico) consume TopicoTelemetria. Ya tiene rol por
+    # la evidencia en S3: all_components une ambos mapas por la misma clave, así
+    # que es un único rol con las dos políticas adjuntas.
+    "ms-siniestros" = {
+      service_account = "ms-siniestros"
+      topics          = ["TopicoTelemetria"]
+      consumer_groups = ["ms-siniestros-telemetria"]
     }
     "ms-pagos" = {
       service_account = "ms-pagos"
@@ -54,12 +66,34 @@ locals {
       topics          = ["BusEventos"]
       consumer_groups = ["notificaciones"]
     }
+    # outbox-relay es productor puro (publica eventos de ms_cotizacion,
+    # ms_suscripcion, ms_pagos, ms_perfilamiento, ms_polizas, ms_siniestros
+    # y ms_identidad hacia BusEventos vía PublicadorMSK), nunca consume. El
+    # grupo existe solo porque la política de consumidores se arma por
+    # entrada; el relay no hace JoinGroup. MSK corre con
+    # auto.create.topics.enable=false, así que BusEventos debe crearse
+    # explícitamente antes del primer publish. Solo este componente recibe
+    # CreateTopic/AlterTopic (operación de bootstrap, no de runtime).
+    "outbox-relay" = {
+      service_account = "outbox-relay"
+      topics          = ["BusEventos"]
+      consumer_groups = ["outbox-relay"]
+      crear_topicos   = true
+    }
   }
 
-  # Unión de ambos conjuntos: todo componente que necesita un rol.
+  # Componentes que envían correo con Amazon SES.
+  ses_senders = {
+    "notificaciones" = {
+      service_account = "notificaciones"
+    }
+  }
+
+  # Unión de los conjuntos: todo componente que necesita un rol.
   all_components = merge(
     { for k, v in local.s3_consumers : k => v.service_account },
     { for k, v in local.msk_consumers : k => v.service_account },
+    { for k, v in local.ses_senders : k => v.service_account },
   )
 }
 
@@ -200,9 +234,16 @@ data "aws_iam_policy_document" "msk" {
   for_each = local.msk_consumers
 
   statement {
-    sid       = "ClusterConnect"
-    effect    = "Allow"
-    actions   = ["kafka-cluster:Connect", "kafka-cluster:DescribeCluster"]
+    sid    = "ClusterConnect"
+    effect = "Allow"
+    # WriteDataIdempotently es a nivel de CLUSTER (no de tópico) y lo exige el
+    # InitProducerIdRequest de cualquier AIOKafkaProducer con
+    # enable_idempotence=True (ms-parametrico, outbox-relay): sin este permiso
+    # el productor recibe ClusterAuthorizationFailedError (Kafka error 31) al
+    # arrancar -- confirmado en el cluster real (kubectl logs ms-parametrico,
+    # CrashLoopBackOff). Se otorga a todos los consumers/producers de este
+    # for_each: es inofensivo para los que solo consumen.
+    actions   = ["kafka-cluster:Connect", "kafka-cluster:DescribeCluster", "kafka-cluster:WriteDataIdempotently"]
     resources = [var.msk_cluster_arn]
   }
 
@@ -221,18 +262,43 @@ data "aws_iam_policy_document" "msk" {
     ]
   }
 
-  statement {
-    sid    = "ConsumerGroupAccess"
-    effect = "Allow"
+  # Crear el tópico es bootstrap, no runtime: solo lo declara el componente que
+  # provisiona el bus (outbox-relay, con crear_topicos = true). Con
+  # auto.create.topics.enable=false, sin esto el primer publish falla con
+  # UNKNOWN_TOPIC_OR_PARTITION.
+  dynamic "statement" {
+    for_each = lookup(each.value, "crear_topicos", false) ? [1] : []
+    content {
+      sid    = "TopicProvisioning"
+      effect = "Allow"
 
-    actions = [
-      "kafka-cluster:AlterGroup",
-      "kafka-cluster:DescribeGroup",
-    ]
+      actions = [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:AlterTopic",
+        "kafka-cluster:DescribeTopic",
+      ]
 
-    resources = [
-      for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
-    ]
+      resources = [
+        for t in each.value.topics : "${local.msk_topic_arn_prefix}/${t}"
+      ]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(each.value.consumer_groups) > 0 ? [1] : []
+    content {
+      sid    = "ConsumerGroupAccess"
+      effect = "Allow"
+
+      actions = [
+        "kafka-cluster:AlterGroup",
+        "kafka-cluster:DescribeGroup",
+      ]
+
+      resources = [
+        for g in each.value.consumer_groups : "${local.msk_group_arn_prefix}/${g}"
+      ]
+    }
   }
 
   # Los datos en reposo de MSK están cifrados con CMK.
@@ -259,4 +325,49 @@ resource "aws_iam_role_policy_attachment" "msk" {
 
   role       = aws_iam_role.this[each.key].name
   policy_arn = aws_iam_policy.msk[each.key].arn
+}
+
+# ---------------------------------------------------------------------------
+# SES — envío de correo (canal de correo de notificaciones)
+# ---------------------------------------------------------------------------
+# Solo SendEmail, y solo desde identidades verificadas de esta cuenta y región:
+# el rol no puede crear identidades ni leer la configuración de la cuenta. El
+# remitente concreto lo fija la aplicación (EMAIL_REMITENTE).
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
+data "aws_iam_policy_document" "ses" {
+  for_each = local.ses_senders
+
+  statement {
+    sid    = "SendEmail"
+    effect = "Allow"
+
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+
+    resources = length(var.ses_identity_arns) > 0 ? var.ses_identity_arns : [
+      "arn:aws:ses:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:identity/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "ses" {
+  for_each = local.ses_senders
+
+  name        = "${var.project_name}-${var.environment}-${each.key}-ses"
+  description = "Send email through Amazon SES for ${each.key}."
+  policy      = data.aws_iam_policy_document.ses[each.key].json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ses" {
+  for_each = local.ses_senders
+
+  role       = aws_iam_role.this[each.key].name
+  policy_arn = aws_iam_policy.ses[each.key].arn
 }

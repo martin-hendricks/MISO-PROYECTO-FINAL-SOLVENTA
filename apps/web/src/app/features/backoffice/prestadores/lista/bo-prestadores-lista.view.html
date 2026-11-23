@@ -1,0 +1,209 @@
+<section
+  data-testid="section-prestadores"
+  [attr.data-state]="allowed ? vm.status() : 'no-permission'"
+>
+  @if (!allowed) {
+    <h1>{{ 'backoffice.prestadores.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <div class="page-head">
+      <div>
+        <h1>{{ 'backoffice.prestadores.title' | translate }}</h1>
+        <p class="subtitle" data-testid="prestadores-conteos">
+          {{ 'backoffice.prestadores.subtitle' | translate: { conteos: vm.resumenConteos() } }}
+        </p>
+      </div>
+      @if (vm.canWrite) {
+        <a class="filled" routerLink="/cms/prestadores/nuevo" data-testid="prestadores-nuevo">
+          {{ 'backoffice.prestadores.nuevo' | translate }}
+        </a>
+      }
+    </div>
+
+    <div class="filtros">
+      <label>
+        {{ 'backoffice.prestadores.filtro.pais' | translate }}
+        <select
+          data-testid="filtro-pais"
+          [value]="vm.pais()"
+          (change)="vm.filtrarPais($any($event.target).value)"
+        >
+          @for (pais of paises; track pais) {
+            <option [value]="pais" [selected]="vm.pais() === pais">
+              {{ 'prestadores.pais.' + pais | translate }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.filtro.ramo' | translate }}
+        <select
+          data-testid="filtro-ramo"
+          [value]="vm.ramo()"
+          (change)="vm.filtrarRamo($any($event.target).value)"
+        >
+          <option value="">{{ 'backoffice.prestadores.filtro.todos' | translate }}</option>
+          @for (ramo of ramos; track ramo) {
+            <option [value]="ramo">{{ 'prestadores.ramo.' + ramo | translate }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.filtro.ciudad' | translate }}
+        <select
+          data-testid="filtro-ciudad"
+          [value]="vm.ciudad()"
+          (change)="vm.filtrarCiudad($any($event.target).value)"
+        >
+          <option value="">{{ 'backoffice.prestadores.filtro.todas' | translate }}</option>
+          @for (ciudad of vm.ciudades(); track ciudad.nombre) {
+            <option [value]="ciudad.nombre" [selected]="vm.ciudad() === ciudad.nombre">
+              {{ ciudad.nombre }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.filtro.estado' | translate }}
+        <select
+          data-testid="filtro-estado"
+          [value]="vm.estado()"
+          (change)="vm.filtrarEstado($any($event.target).value)"
+        >
+          <option value="">{{ 'backoffice.prestadores.filtro.todos' | translate }}</option>
+          <option value="activo">{{ 'backoffice.prestadores.estado.activo' | translate }}</option>
+          <option value="inactivo">{{ 'backoffice.prestadores.estado.inactivo' | translate }}</option>
+        </select>
+      </label>
+    </div>
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="prestadores-loading">
+          {{ 'backoffice.prestadores.loading' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="prestadores-error">
+          <p>{{ 'backoffice.prestadores.error.carga' | translate }}</p>
+          <button type="button" class="outlined" data-testid="prestadores-reintentar" (click)="vm.cargar()">
+            {{ 'backoffice.prestadores.reintentar' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <div class="empty-state" data-testid="prestadores-vacio">
+          <h2>{{ 'backoffice.prestadores.vacio.title' | translate }}</h2>
+          <p data-testid="prestadores-vacio-detalle">
+            {{ 'backoffice.prestadores.vacio.body' | translate }}
+          </p>
+          <button type="button" class="outlined" data-testid="prestadores-quitar-filtros" (click)="vm.quitarFiltros()">
+            {{ 'backoffice.prestadores.quitarFiltros' | translate }}
+          </button>
+        </div>
+      }
+      @default {
+        <div class="table-scroll">
+          <table data-testid="prestadores-table">
+            <caption class="visually-hidden">
+              {{ 'backoffice.prestadores.title' | translate }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ 'backoffice.prestadores.column.nombre' | translate }}</th>
+                <th scope="col">{{ 'backoffice.prestadores.column.tipo' | translate }}</th>
+                <th scope="col">{{ 'backoffice.prestadores.column.ramo' | translate }}</th>
+                <th scope="col">{{ 'backoffice.prestadores.column.barrio' | translate }}</th>
+                <th scope="col">{{ 'backoffice.prestadores.column.ciudad' | translate }}</th>
+                <th scope="col">{{ 'backoffice.prestadores.column.estado' | translate }}</th>
+                @if (vm.canWrite) {
+                  <th scope="col">{{ 'backoffice.prestadores.column.acciones' | translate }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (prestador of vm.prestadores(); track prestador.id) {
+                <tr [attr.data-testid]="'bo-prestador-' + prestador.id">
+                  <th scope="row">
+                    @if (vm.canWrite) {
+                      <a
+                        [routerLink]="['/cms/prestadores', prestador.id]"
+                        [attr.data-testid]="'editar-' + prestador.id"
+                      >{{ prestador.nombre }}</a>
+                    } @else {
+                      {{ prestador.nombre }}
+                    }
+                  </th>
+                  <td>{{ 'prestadores.tipo.' + prestador.tipo | translate }}</td>
+                  <td>
+                    @for (ramo of prestador.ramos; track ramo) {
+                      <span>{{ 'prestadores.ramo.' + ramo | translate }}</span>
+                    }
+                  </td>
+                  <td>{{ prestador.barrio }}</td>
+                  <td>{{ prestador.ciudad }}</td>
+                  <td>
+                    <span class="badge" [attr.data-estado]="prestador.estado">
+                      {{ 'backoffice.prestadores.estado.' + prestador.estado | translate }}
+                    </span>
+                  </td>
+                  @if (vm.canWrite) {
+                    <td>
+                      @if (prestador.estado === 'activo') {
+                        <button
+                          type="button"
+                          class="text"
+                          [attr.data-testid]="'inactivar-' + prestador.id"
+                          (click)="vm.pedirInactivar(prestador)"
+                        >
+                          {{ 'backoffice.prestadores.inactivar' | translate }}
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="text"
+                          [attr.data-testid]="'reactivar-' + prestador.id"
+                          (click)="vm.reactivar(prestador)"
+                        >
+                          {{ 'backoffice.prestadores.reactivar' | translate }}
+                        </button>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+
+    @if (vm.status() === 'ready' || vm.status() === 'empty') {
+      @if (mapa() === 'disponible') {
+        <sv-mapa-prestadores
+          data-testid="prestadores-mapa"
+          [disponible]="true"
+          [prestadores]="vm.prestadores()"
+          [centro]="vm.centroMapa()"
+        />
+      } @else {
+        <ul data-testid="prestadores-mapa-lista">
+          @for (prestador of vm.prestadores(); track prestador.id) {
+            <li [attr.data-testid]="'pin-' + prestador.id">{{ prestador.nombre }}</li>
+          }
+        </ul>
+      }
+    }
+
+    @if (vm.confirmando(); as prestador) {
+      <sv-confirm-dialog
+        [titulo]="'backoffice.prestadores.inactivarTitulo' | translate"
+        [advertencia]="'backoffice.prestadores.inactivarCuerpo' | translate: { nombre: prestador.nombre }"
+        confirmarTexto="backoffice.prestadores.inactivar"
+        (cancelar)="vm.cancelarConfirmacion()"
+        (confirmar)="vm.confirmarInactivar()"
+      />
+    }
+  }
+</section>

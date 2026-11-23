@@ -16,11 +16,11 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 3
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   # Bajado de 512Mi/1Gi: con la cuota real de vCPU de la cuenta (16, ver
@@ -51,7 +51,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 3
+  minReplicas: 1
   maxReplicas: 10
   targetCPU: 65
   targetMemory: 75
@@ -80,6 +80,8 @@ externalSecrets:
       nombreLocal: ms-polizas-db
       claves:
         - database_url
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-polizas-token
 
 serviceAccount:
   crear: true
@@ -116,3 +118,17 @@ variablesEntornoSecreto:
   - nombre: DATABASE_URL_READ
     nombreSecreto: ms-polizas-db
     claveSecreto: database_url
+
+# HU-67: job diario que genera el evento PolizaPorVencer para las pólizas
+# que entran en la ventana de aviso (app/jobs/avisos_vencimiento.py, ya
+# construido e idempotente por evento -- ver generar_avisos_vencimiento en
+# app/application/casos_uso.py). Mismo release de Helm que el Deployment
+# (un solo `helm upgrade --install ms-polizas` en .github/workflows/
+# deploy.yml instala ambos recursos), así que reusa automáticamente la
+# misma imagen/secretos/ServiceAccount del Deployment de arriba.
+cronJob:
+  habilitado: true
+  # 06:00 UTC = 01:00 America/Bogota -- fuera de horario pico, antes de que
+  # el operador empiece su jornada a revisar vencimientos del día.
+  horario: "0 6 * * *"
+  comando: ["python", "-m", "app.jobs.avisos_vencimiento"]

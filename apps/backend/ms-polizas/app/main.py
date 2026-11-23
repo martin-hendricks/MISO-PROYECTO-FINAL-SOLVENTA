@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import httpx
@@ -16,6 +17,7 @@ from app.domain.errores import (
 )
 from app.infrastructure.firma import FirmaStub
 from app.infrastructure.precondiciones import CobrosHTTP, SuscripcionesHTTP
+from app.infrastructure.reportes_stub import ReportesStub
 from app.infrastructure.sql import (
     crear_motor,
     crear_motor_lectura,
@@ -45,9 +47,13 @@ def crear_app(config: Settings | None = None) -> FastAPI:
         app.state.motor = motor
         app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
         app.state.fabrica_uow_lectura = fabrica_unidad_de_trabajo_lectura(motor_lectura)
-        app.state.suscripciones = SuscripcionesHTTP(http_suscripcion)
-        app.state.cobros = CobrosHTTP(http_pagos)
+        # ms-suscripcion y ms-pagos ya exigen autenticacion (rol "servicio"
+        # para estas llamadas service-to-service, ver token_servicio.py).
+        secreto = os.environ.get("SOLVENTA_TOKEN_SECRET", "")
+        app.state.suscripciones = SuscripcionesHTTP(http_suscripcion, secreto)
+        app.state.cobros = CobrosHTTP(http_pagos, secreto)
         app.state.firma = FirmaStub(config.firma_stub_resultado)
+        app.state.reportes = ReportesStub()
         yield
         await http_suscripcion.aclose()
         await http_pagos.aclose()
@@ -57,6 +63,7 @@ def crear_app(config: Settings | None = None) -> FastAPI:
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
     instrumentar(app)
     app.include_router(rutas.router)
+    app.include_router(rutas.router_reportes)
 
     @app.exception_handler(ErrorDominio)
     async def error_dominio(_: Request, exc: ErrorDominio):

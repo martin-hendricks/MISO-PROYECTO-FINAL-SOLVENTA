@@ -1,10 +1,11 @@
 package com.grupo8_uniandes.solventa.home
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
 import com.grupo8_uniandes.solventa.ui.shell.EmisionEnCursoScreen
 import com.grupo8_uniandes.solventa.ui.shell.SignedInShell
@@ -28,15 +30,17 @@ import org.robolectric.annotation.Config
 @Config(qualifiers = "w480dp-h2000dp")
 class InicioNavigationTest {
     @get:Rule
-    val rule = createComposeRule()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun givenOffer_whenAccepted_thenIssuanceShowsThatId() {
         show(HomePanel(offerId = "Q-42"))
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onNodeWithTag("emision_body").assertIsDisplayed()
+        rule.confirmReviewCard()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onAllNodesWithText("Q-42").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_emision").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
     }
 
@@ -52,7 +56,7 @@ class InicioNavigationTest {
     fun givenNoOfferIdArgument_whenIssuing_thenTheIdStaysHidden() {
         rule.setContent {
             SolventaTheme {
-                EmisionEnCursoScreen(onFinished = {})
+                EmisionEnCursoScreen()
             }
         }
         rule.onNodeWithTag("screen_emision").assertIsDisplayed()
@@ -73,11 +77,17 @@ class InicioNavigationTest {
         show(HomePanel())
         rule.onNodeWithTag("action_new_quote").performClick()
         rule.onNodeWithTag("field_device_value").performTextInput("2400000")
-        rule.onNodeWithTag("field_brand_model").performTextInput("Pixel")
+        rule.onNodeWithTag("field_brand").performClick()
+        rule.onNodeWithTag("brand_option_apple").performClick()
+        rule.onNodeWithTag("field_model").performTextInput("iPhone 15")
         rule.onNodeWithTag("answer_no").performClick()
         rule.onNodeWithTag("action_quote").performClick()
         rule.onNodeWithTag("screen_ver_oferta").assertIsDisplayed()
         rule.onNodeWithText("Prima $89.000 COP").assertIsDisplayed()
+        rule.onNodeWithTag("action_not_now").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_cotizacion").assertCountEquals(0)
+        rule.onAllNodesWithTag("screen_ver_oferta").assertCountEquals(0)
     }
 
     @Test
@@ -94,9 +104,9 @@ class InicioNavigationTest {
         show(HomePanel(policyId = "POL-9"))
         rule.onNodeWithTag("home_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-9")
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-9")
+        rule.onNodeWithText("Avisos de vencimiento").performClick()
+        rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
 
@@ -110,7 +120,9 @@ class InicioNavigationTest {
         rule.onNodeWithText("Reportar siniestro").assertIsDisplayed()
         rule.onNodeWithTag("solventa_floating_action").performClick()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
-        rule.onAllNodesWithTag("solventa_floating_action").assertCountEquals(0)
+        rule.onNodeWithTag("solventa_floating_action").performClick()
+        rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_siniestro_detalle").assertCountEquals(0)
     }
 
     @Test
@@ -119,7 +131,8 @@ class InicioNavigationTest {
         rule.onNodeWithTag("home_claim").performClick()
         rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
         rule.onNodeWithText("CLM-9").assertIsDisplayed()
-        rule.onNodeWithTag("action_siniestro_volver").performClick()
+        rule.onAllNodesWithTag("action_siniestro_volver").assertCountEquals(0)
+        rule.activity.onBackPressedDispatcher.onBackPressed()
         rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }

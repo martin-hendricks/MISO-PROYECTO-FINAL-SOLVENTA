@@ -293,8 +293,8 @@ variable "node_group_a_desired_size" {
 
 variable "node_group_a_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min)."
-  default     = 6
+  description = "Nodos máximos del Grupo A. Es el techo que sostiene el pico de EC-ESC-01 (50.000 cot/min). Subido de 2 a 3 (ver terraform.tfvars) al mover analitica aquí desde Grupo B -- el presupuesto real de la cuenta (16 vCPU on-demand, L-1216C47A) sigue en 8 nodos t3.small TOTALES entre ambos grupos, así que node_group_b_max_size baja de 6 a 5 en la misma proporción."
+  default     = 3
 }
 
 variable "node_group_b_instance_types" {
@@ -317,8 +317,8 @@ variable "node_group_b_desired_size" {
 
 variable "node_group_b_max_size" {
   type        = number
-  description = "Nodos máximos del Grupo B."
-  default     = 6
+  description = "Nodos máximos del Grupo B. Un intento previo de subir esto de 6 a 8 (sin tocar Grupo A) se revirtió: excedía la cuota real de la cuenta (16 vCPU on-demand = 8 nodos t3.small TOTALES entre ambos grupos). En vez de subir la cuota, se movió analitica a Grupo A (menos demanda síncrona de negocio ahí) y este valor bajó de 6 a 5 mientras node_group_a_max_size sube de 2 a 3 -- mismo total de 8."
+  default     = 5
 }
 
 variable "enable_external_secrets" {
@@ -385,8 +385,18 @@ variable "alb_routes" {
   # socios externos -- no es parte del canal web.
   default = {
     api-socios = {
-      port     = 8080
-      paths    = ["/v1/catalogo"]
+      port = 8080
+      # La API de socios externos completa. Antes solo estaba /v1/catalogo y las otras dos rutas
+      # (cotizaciones y originaciones hipotecarias) caian al target group por defecto, vacio, y el
+      # ALB respondia 503. Todas exigen API key de socio y un alcance por ruta
+      # (apps/backend/api-socios/app/seguridad.py). Se agregan DESPUES de /v1/catalogo: la prioridad
+      # es route.priority + la posicion del path (modules/alb/main.tf), asi que quedan con la 11 y la 12
+      # y la regla que ya existe (10) no cambia.
+      paths = [
+        "/v1/catalogo",
+        "/v1/cotizaciones",
+        "/v1/originaciones-hipotecarias",
+      ]
       priority = 10
     }
     bff-web = {
@@ -399,6 +409,11 @@ variable "alb_routes" {
         "/v1/cliente",
         "/v1/asesor",
         "/v1/operador",
+        # Back-office de socios y perfil del back-office (bff_web/routers/backoffice_socios.py y
+        # perfil_backoffice.py), con JWT de rol operador o asesor. Sin esta regla la pantalla de socios
+        # recibia el 503 del ALB. Va al FINAL de la lista a proposito: asi le toca la prioridad 35 y las
+        # cinco reglas que ya existen (30 a 34) no cambian.
+        "/v1/backoffice",
       ]
       priority = 30
     }
@@ -418,10 +433,44 @@ variable "alb_routes" {
         "/bff-movil/v1/sesion",
         "/bff-movil/v1/registro",
         "/bff-movil/v1/cliente",
+        # Swagger propio bajo /bff-movil/v1 (apps/backend/bff-movil/app/main.py,
+        # docs_bff_movil/openapi_bff_movil) -- el ALB no recorta el prefijo, así
+        # que el /docs y /openapi.json que FastAPI monta en la raíz nunca son
+        # alcanzables vía el API Gateway sin esta entrada.
+        "/bff-movil/v1/docs",
+        "/bff-movil/v1/openapi.json",
+        # Prueba de vida de la app Android (POST identidad/prueba-de-vida, MobileBffApi.kt).
+        # Sin esta regla la peticion caia al target group por defecto, que esta vacio, y el
+        # ALB respondia 503. Va al FINAL de la lista a proposito: la prioridad de cada regla
+        # es route.priority + la posicion del path (modules/alb/main.tf), asi que agregarla
+        # al final le da la 45 y no corre las prioridades de las reglas que ya existen.
+        "/bff-movil/v1/identidad",
       ]
       priority = 40
     }
+    # Grafana (namespace solventa-observability, ver
+    # infra/k8s/platform/observability/). Mismo mecanismo que los 14
+    # microservicios: una entrada más de ALB, sin Ingress ni ALB nuevo (ver
+    # odd/tasks/observabilidad-prometheus-grafana.md -- un Ingress crearía
+    # un segundo ALB al que el API Gateway nunca llega).
+    grafana = {
+      port = 3000
+      # Sin "/*" explícito: aws_lb_listener_rule.routes ya agrega el wildcard
+      # al path_pattern (infra/terraform/modules/alb/main.tf:187) y al Name
+      # del tag (línea 191) -- un "*" literal aquí duplica el wildcard y
+      # además rompe el patrón de tags de AWS (no permite "*"), como en las
+      # demás entradas de este mapa (api-socios, bff-web, bff-movil).
+      paths             = ["/observabilidad/grafana"]
+      health_check_path = "/api/health"
+      priority          = 50
+    }
   }
+}
+
+variable "apigw_restringir_a_rutas_mapeadas" {
+  type        = bool
+  description = "Quita la ruta comodin del API Gateway para que solo pasen los paths de alb_routes; el resto responde 404 en el borde. false mantiene el comportamiento actual (comodin + rutas mapeadas)."
+  default     = false
 }
 
 variable "cloudfront_price_class" {

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="registration_capture" path="registration/" />
+    <cache-path name="claim_evidence" path="claim/" />
 </paths>

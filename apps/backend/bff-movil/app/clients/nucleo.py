@@ -1,6 +1,11 @@
+import json
 import os
+from contextvars import ContextVar
 
 import httpx
+
+token_saliente: ContextVar[str | None] = ContextVar("token_saliente", default=None)
+correlacion_saliente: ContextVar[str | None] = ContextVar("correlacion_saliente", default=None)
 from fastapi import HTTPException
 
 DETALLE_INCOMPLETA = "Respuesta del nucleo incompleta"
@@ -14,8 +19,15 @@ SERVICIOS = {
     "ms-perfilamiento": "MS_PERFILAMIENTO_URL",
     "ms-siniestros": "MS_SINIESTROS_URL",
     "ms-suscripcion": "MS_SUSCRIPCION_URL",
+    "notificaciones": "MS_NOTIFICACIONES_URL",
 }
 
+
+
+class RechazoNucleo(HTTPException):
+    def __init__(self, status_code: int, codigo: str, detail) -> None:
+        super().__init__(status_code=status_code, detail=detail)
+        self.codigo = codigo
 
 class ClienteNucleo:
     """Llama los mismos paths que bff-web. No habla con bff-web."""
@@ -24,6 +36,7 @@ class ClienteNucleo:
         if urls is None:
             urls = {nombre: os.environ.get(variable) for nombre, variable in SERVICIOS.items()}
         self._urls = urls
+        self._clientes: dict[str, httpx.Client] = {}
 
     def autenticar(self, *, correo: str, contrasena: str) -> dict:
         return self._pedir(
@@ -31,6 +44,55 @@ class ClienteNucleo:
             "POST",
             "/v1/usuarios/autenticacion",
             json={"email": correo, "password": contrasena},
+        )
+
+    def crear_usuario(
+        self,
+        *,
+        tipo_documento: str,
+        numero_documento: str,
+        email: str,
+        password: str,
+        nombre: str = "",
+        apellidos: str = "",
+        ingresos_mensuales: str | None = None,
+        gastos_mensuales: str | None = None,
+        prueba_de_vida: str = "no",
+    ) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "POST",
+            "/v1/usuarios",
+            json={
+                "tipo_documento": tipo_documento,
+                "numero_documento": numero_documento,
+                "email": email,
+                "password": password,
+                "nombre": nombre,
+                "apellidos": apellidos,
+                "ingresos_mensuales": ingresos_mensuales,
+                "gastos_mensuales": gastos_mensuales,
+                "prueba_de_vida": prueba_de_vida,
+            },
+        )
+
+    def registrar_prueba_de_vida(self, usuario_id: str, valor: str) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/prueba-de-vida",
+            json={"prueba_de_vida": valor},
+        )
+
+    def obtener_usuario(self, usuario_id: str) -> dict:
+        return self._pedir("ms-identidad", "GET", f"/v1/usuarios/{usuario_id}")
+
+    def actualizar_perfil(self, usuario_id: str, *, nombre: str, apellidos: str) -> dict:
+        return self._pedir(
+            "ms-identidad",
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/perfil",
+            json={"nombre": nombre, "apellidos": apellidos},
         )
 
     def cotizar(
@@ -43,36 +105,56 @@ class ClienteNucleo:
         producto: str,
         canal: str,
         datos_riesgo: dict,
+        moneda: str | None = None,
     ) -> dict:
+        cuerpo = {
+            "usuario_id": usuario_id,
+            "socio_id": socio_id,
+            "consentimiento_id": consentimiento_id,
+            "producto": producto,
+            "canal": canal,
+            "datos_riesgo": datos_riesgo,
+        }
+        if moneda is not None:
+            cuerpo["moneda"] = moneda
         return self._pedir(
             "ms-cotizacion",
             "POST",
             "/v1/cotizaciones",
-            json={
-                "usuario_id": usuario_id,
-                "socio_id": socio_id,
-                "consentimiento_id": consentimiento_id,
-                "producto": producto,
-                "canal": canal,
-                "datos_riesgo": datos_riesgo,
-            },
+            json=cuerpo,
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
-    def reconsultar(self, cotizacion_id: str) -> dict:
-        return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/{cotizacion_id}")
+    def listar_cotizaciones_usuario(self, *, usuario_id: str, tamano: int) -> dict:
+        return self._pedir(
+            "ms-cotizacion",
+            "GET",
+            f"/v1/cotizaciones/por-usuario/{usuario_id}",
+            params={"tamano": tamano},
+        )
+
+    def reconsultar(self, cotizacion_id: str, usuario_id: str | None = None) -> dict:
+        params = {"usuario_id": usuario_id} if usuario_id else None
+        return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/{cotizacion_id}", params=params)
 
     def reconsultar_por_oferta(self, oferta_id: str) -> dict:
         return self._pedir("ms-cotizacion", "GET", f"/v1/cotizaciones/por-oferta/{oferta_id}")
 
     def aceptar_oferta(
-        self, *, cotizacion_id: str, idempotency_key: str, perfil_id: str, score: str
+        self,
+        *,
+        cotizacion_id: str,
+        idempotency_key: str,
+        perfil_id: str,
+        score: str,
+        usuario_id: str | None = None,
     ) -> dict:
         return self._pedir(
             "ms-cotizacion",
             "POST",
             f"/v1/cotizaciones/{cotizacion_id}/aceptacion",
             json={"perfil_id": perfil_id, "score": score},
+            params={"usuario_id": usuario_id} if usuario_id else None,
             cabeceras={"Idempotency-Key": idempotency_key},
         )
 
@@ -83,6 +165,7 @@ class ClienteNucleo:
         oferta_id: str,
         usuario_id: str,
         monto: str,
+        moneda: str,
         token_medio_pago: str,
     ) -> dict:
         return self._pedir(
@@ -94,6 +177,7 @@ class ClienteNucleo:
                 "oferta_id": oferta_id,
                 "usuario_id": usuario_id,
                 "monto": monto,
+                "moneda": moneda,
                 "token_medio_pago": token_medio_pago,
             },
         )
@@ -128,8 +212,86 @@ class ClienteNucleo:
             params={"usuario_id": usuario_id, "limite": limite},
         )
 
-    def obtener_por_numero(self, numero: str) -> dict:
-        return self._pedir("ms-polizas", "GET", f"/v1/polizas/numero/{numero}")
+    def polizas_por_vencer(self, *, usuario_id: str, dias: int = 30) -> list:
+        return self._pedir(
+            "ms-polizas",
+            "GET",
+            "/v1/polizas/por-vencer",
+            params={"usuario_id": usuario_id, "dias": dias},
+        )
+
+    def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict:
+        return self._pedir(
+            "ms-polizas",
+            "PATCH",
+            f"/v1/polizas/{poliza_id}/preferencias",
+            params={"usuario_id": usuario_id},
+            json={"renovacion_automatica": renovacion_automatica},
+        )
+
+    def obtener_por_numero(self, numero: str, usuario_id: str | None = None) -> dict:
+        params = {"usuario_id": usuario_id} if usuario_id else None
+        return self._pedir("ms-polizas", "GET", f"/v1/polizas/numero/{numero}", params=params)
+
+    def prestadores(self, **filtros) -> dict:
+        params = {clave: valor for clave, valor in filtros.items() if valor is not None}
+        return self._pedir("ms-siniestros", "GET", "/v1/prestadores", params=params)
+
+    def ciudades_prestadores(self, pais: str) -> dict:
+        params = {"pais": pais, "con_prestadores": "true"}
+        return self._pedir("ms-siniestros", "GET", "/v1/prestadores/ciudades", params=params)
+
+    def prestadores_siniestro(self, siniestro_id: str, **filtros) -> dict:
+        params = {clave: valor for clave, valor in filtros.items() if valor is not None}
+        return self._pedir("ms-siniestros", "GET", f"/v1/siniestros/{siniestro_id}/prestadores", params=params or None)
+
+    def listar_siniestros(self, *, usuario_id: str) -> list:
+        cuerpo = self._pedir("ms-siniestros", "GET", "/v1/siniestros", params={"usuario_id": usuario_id})
+        return cuerpo if isinstance(cuerpo, list) else []
+
+    def registrar_aviso(
+        self,
+        *,
+        usuario_id: str,
+        datos: dict,
+        archivos: list[tuple],
+        idempotency_key: str,
+    ) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "POST",
+            "/v1/siniestros",
+            data={"datos": json.dumps(datos)},
+            # httpx espera (nombre de campo, archivo). Sin el nombre, el 3-tuple
+            # (filename, bytes, content-type) revienta al armar el multipart.
+            files=[("archivos", archivo) for archivo in archivos],
+            cabeceras={"Idempotency-Key": idempotency_key},
+        )
+
+    def pagos_recibidos(self) -> dict:
+        return self._pedir("ms-siniestros", "GET", "/v1/pagos-recibidos")
+
+    def pago_recibido(self, siniestro_id: str) -> dict:
+        return self._pedir("ms-siniestros", "GET", f"/v1/pagos-recibidos/{siniestro_id}")
+
+    def detalle_siniestro(self, siniestro_id: str, usuario_id: str) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "GET",
+            f"/v1/siniestros/{siniestro_id}/detalle",
+            params={"usuario_id": usuario_id},
+        )
+
+    def crear_siniestro(
+        self, *, usuario_id: str, poliza: str, poliza_id: str, idempotency_key: str
+    ) -> dict:
+        return self._pedir(
+            "ms-siniestros",
+            "POST",
+            "/v1/siniestros",
+            json={"usuario_id": usuario_id, "poliza": poliza, "poliza_id": poliza_id},
+            cabeceras={"Idempotency-Key": idempotency_key},
+        )
 
     def otorgar_consentimiento(self, cliente_id: str) -> dict:
         return self._pedir(
@@ -139,6 +301,37 @@ class ClienteNucleo:
             json={"cliente_id": cliente_id},
         )
 
+    def consentimiento_vigente(self, cliente_id: str) -> dict:
+        return self._pedir("ms-perfilamiento", "GET", f"/v1/consentimientos/{cliente_id}")
+
+    def revocar_consentimiento(self, cliente_id: str) -> dict:
+        return self._pedir("ms-perfilamiento", "DELETE", f"/v1/consentimientos/{cliente_id}")
+
+    def originacion_pendiente(self, cliente_id: str) -> dict:
+        return self._pedir("ms-perfilamiento", "GET", f"/v1/originaciones/clientes/{cliente_id}/pendiente")
+
+    def cerrar_originacion(self, cliente_id: str) -> None:
+        headers = {}
+        token = token_saliente.get()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        correlacion = correlacion_saliente.get()
+        if correlacion:
+            headers["X-Correlation-Id"] = correlacion
+        try:
+            http = self._clientes.get("ms-perfilamiento")
+            if http is None:
+                http = httpx.Client(base_url=self._base("ms-perfilamiento"), timeout=TIMEOUT_S)
+                self._clientes["ms-perfilamiento"] = http
+            respuesta = http.request(
+                "DELETE", f"/v1/originaciones/clientes/{cliente_id}/pendiente", headers=headers
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="ms-perfilamiento no disponible") from exc
+        if respuesta.status_code in (204, 404):
+            return
+        raise HTTPException(status_code=503, detail="ms-perfilamiento no disponible")
+
     def solicitar_oferta_hipotecario(self, *, idempotency_key: str, cliente_id: str) -> dict:
         return self._pedir(
             "ms-perfilamiento",
@@ -147,6 +340,43 @@ class ClienteNucleo:
             json={"cliente_id": cliente_id},
             cabeceras={"Idempotency-Key": idempotency_key},
         )
+
+    def registrar_dispositivo(self, *, plataforma: str, token: str) -> dict:
+        """POST /v1/notificaciones/dispositivos: upsert por (usuario_id, token)
+        -- notificaciones resuelve el usuario_id del JWT reenviado (`uid`),
+        no de un parámetro explícito. Devuelve 201 (nuevo) o 200 (ya existía),
+        ambos manejados igual por _pedir (solo falla en >=400)."""
+        return self._pedir(
+            "notificaciones",
+            "POST",
+            "/v1/notificaciones/dispositivos",
+            json={"plataforma": plataforma, "token": token},
+        )
+
+    def desactivar_dispositivo(self, *, token: str) -> None:
+        """DELETE devuelve 204 sin cuerpo. _pedir exige JSON, así que se pide aparte."""
+        try:
+            headers = {}
+            token_sesion = token_saliente.get()
+            if token_sesion:
+                headers["Authorization"] = f"Bearer {token_sesion}"
+            http = self._clientes.get("notificaciones")
+            if http is None:
+                http = httpx.Client(base_url=self._base("notificaciones"), timeout=TIMEOUT_S)
+                self._clientes["notificaciones"] = http
+            respuesta = http.request(
+                "DELETE",
+                "/v1/notificaciones/dispositivos",
+                json={"token": token},
+                headers=headers,
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="notificaciones no disponible") from exc
+        if respuesta.status_code == 204:
+            return
+        if respuesta.status_code in (401, 403, 422):
+            raise HTTPException(status_code=respuesta.status_code, detail="Operación rechazada")
+        raise HTTPException(status_code=503, detail="notificaciones no disponible")
 
     def _base(self, servicio: str) -> str:
         base = (self._urls.get(servicio) or "").strip().rstrip("/")
@@ -163,12 +393,24 @@ class ClienteNucleo:
         json: dict | None = None,
         params: dict | None = None,
         cabeceras: dict | None = None,
+        data: dict | None = None,
+        files: list | None = None,
     ):
         try:
-            with httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S) as http:
-                respuesta = http.request(
-                    metodo, ruta, json=json, params=params, headers=cabeceras or {}
-                )
+            headers = dict(cabeceras or {})
+            token = token_saliente.get()
+            if token and "Authorization" not in headers:
+                headers["Authorization"] = f"Bearer {token}"
+            correlacion = correlacion_saliente.get()
+            if correlacion and "X-Correlation-Id" not in headers:
+                headers["X-Correlation-Id"] = correlacion
+            http = self._clientes.get(servicio)
+            if http is None:
+                http = httpx.Client(base_url=self._base(servicio), timeout=TIMEOUT_S)
+                self._clientes[servicio] = http
+            respuesta = http.request(
+                metodo, ruta, json=json, params=params, headers=headers, data=data, files=files
+            )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible") from exc
         try:
@@ -177,16 +419,19 @@ class ClienteNucleo:
             cuerpo = None
         if respuesta.status_code == 404:
             raise HTTPException(status_code=404, detail="No existe")
-        if respuesta.status_code in (401, 409, 422):
+        if respuesta.status_code in (401, 403, 409, 422):
             if isinstance(cuerpo, dict) and "mensaje" in cuerpo:
                 detalle = cuerpo["mensaje"]
             elif cuerpo is None:
                 detalle = "Operación rechazada"
             else:
                 detalle = cuerpo
+            if isinstance(cuerpo, dict) and cuerpo.get("codigo"):
+                raise RechazoNucleo(respuesta.status_code, str(cuerpo["codigo"]), detalle)
             raise HTTPException(status_code=respuesta.status_code, detail=detalle)
         if respuesta.status_code >= 400:
             raise HTTPException(status_code=503, detail=f"{servicio} no disponible")
         if cuerpo is None:
             raise HTTPException(status_code=502, detail=DETALLE_INCOMPLETA)
+        self.ultimo_estado = respuesta.status_code
         return cuerpo

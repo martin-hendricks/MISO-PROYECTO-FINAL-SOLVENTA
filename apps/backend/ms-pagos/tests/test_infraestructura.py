@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
@@ -167,8 +168,28 @@ async def test_motor_y_fabrica_no_abren_conexion_al_crearse():
         await motor.dispose()
 
 
+SECRETO = "test-secret"
+
+
 def _suscripciones(manejador) -> SuscripcionesHTTP:
-    return SuscripcionesHTTP(httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)))
+    return SuscripcionesHTTP(
+        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_suscripcion_http_envia_token_de_servicio():
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"decision": "ACEPTADA"})
+
+    await _suscripciones(manejador).aceptada(uuid4())
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-pagos", "servicio")
 
 
 @pytest.mark.parametrize(("decision", "esperado"), [("ACEPTADA", True), ("RECHAZADA", False)])
@@ -211,6 +232,7 @@ def test_dependencia_caida_responde_503(client, suscripciones):
         "oferta_id": str(uuid4()),
         "usuario_id": str(uuid4()),
         "monto": "10.00",
+        "moneda": "COP",
         "token_medio_pago": "tok_visa",
     }
 
@@ -218,6 +240,40 @@ def test_dependencia_caida_responde_503(client, suscripciones):
 
     assert respuesta.status_code == 503
     assert respuesta.json()["codigo"] == "dependencia_no_disponible"
+
+
+def test_pasarela_caida_responde_503_sin_registrar_el_pago(client, almacen):
+    client.app.dependency_overrides[obtener_pasarela] = lambda: PasarelaStub(fallar=True)
+    cuerpo = {
+        "solicitud_id": str(uuid4()),
+        "oferta_id": str(uuid4()),
+        "usuario_id": str(uuid4()),
+        "monto": "10.00",
+        "moneda": "COP",
+        "token_medio_pago": "tok_visa",
+    }
+
+    respuesta = client.post("/v1/pagos/primas", json=cuerpo)
+
+    assert respuesta.status_code == 503
+    assert respuesta.json()["codigo"] == "dependencia_no_disponible"
+    assert almacen.pagos == {}
+
+
+def test_al_arrancar_la_app_configura_el_doble_de_pasarela_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace()
+
+    async def liberar():
+        pass
+
+    motor.dispose = liberar
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_PASARELA_LATENCIA_MS", "300")
+    monkeypatch.setenv("DOBLE_PASARELA_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert (app.state.pasarela._latencia_ms, app.state.pasarela._fallar) == (300, True)
 
 
 def test_al_arrancar_la_app_crea_adaptadores_y_libera_recursos(monkeypatch):

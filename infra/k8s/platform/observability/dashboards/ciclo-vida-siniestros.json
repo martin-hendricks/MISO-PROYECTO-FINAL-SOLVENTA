@@ -1,0 +1,72 @@
+{
+  "title": "Solventa - Ciclo de vida y siniestros",
+  "uid": "solventa-ciclo-vida-siniestros",
+  "schemaVersion": 39,
+  "editable": true,
+  "graphTooltip": 0,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Renovaciones vs cancelaciones",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(solventa_polizas_renovaciones_total[5m])) by (resultado)",
+          "legendFormat": "renovacion {{resultado}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(solventa_polizas_cancelaciones_total[5m]))",
+          "legendFormat": "cancelaciones"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Latencia del job de avisos de vencimiento",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(solventa_avisos_vencimiento_job_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "p95 latencia de siniestros por operacion",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum(rate(solventa_siniestros_latency_seconds_bucket[5m])) by (le, operacion))",
+          "legendFormat": "{{operacion}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Siniestros por resultado",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(rate(solventa_siniestros_resultado_total[5m])) by (resultado)",
+          "legendFormat": "{{resultado}}"
+        }
+      ]
+    }
+  ]
+}

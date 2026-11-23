@@ -8,6 +8,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 enum class SolventaBannerStyle {
@@ -30,7 +33,10 @@ fun SolventaBanner(
         SolventaBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
     }
     Surface(
-        modifier = modifier.fillMaxWidth().testTag("solventa_banner_${style.name.lowercase()}"),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("solventa_banner_${style.name.lowercase()}")
+            .semantics { liveRegion = LiveRegionMode.Polite },
         color = container,
         contentColor = content,
         shape = SolventaSpacing.cardRadius,

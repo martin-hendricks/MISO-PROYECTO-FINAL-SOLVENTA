@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 
@@ -21,6 +22,16 @@ def test_siniestro_recibido_queda_con_historial_y_origen():
     assert siniestro.estado is EstadoSiniestro.RECIBIDO
     assert len(siniestro.historial) == 1
     assert siniestro.historial[0].origen == "api"
+
+
+def test_siniestro_recibido_sin_poliza_id_queda_none():
+    assert Siniestro.recibir("evt-1", origen="api").poliza_id is None
+
+
+def test_siniestro_recibido_con_poliza_id_la_conserva():
+    poliza_id = uuid4()
+
+    assert Siniestro.recibir("evt-1", origen="api", poliza_id=poliza_id).poliza_id == poliza_id
 
 
 def test_transicion_valida_deja_traza_con_marca_de_tiempo_y_origen():
@@ -189,6 +200,7 @@ def test_disparar_pago_cuando_umbral_se_cumplio():
     assert pago.monto == Decimal("500.00")
     assert pago.evento_id == "evt-1"
     assert pago.siniestro_id == siniestro.id
+    assert pago.comprobante == f"CMP-{pago.id.hex[:10].upper()}"
 
 
 def test_no_se_puede_disparar_pago_si_umbral_no_se_cumplio():
@@ -209,3 +221,29 @@ def test_pago_con_monto_no_positivo_se_rechaza():
     with pytest.raises(ReglaDeNegocioViolada) as exc:
         PagoParametrico.disparar(evaluacion, siniestro.id, Decimal("0"))
     assert exc.value.codigo == "monto_no_positivo"
+
+
+def test_recibir_guarda_dueno_ramo_y_resumen():
+    from uuid import uuid4
+
+    from app.domain.modelos import pago_parametrico_disparado
+
+    dueno = uuid4()
+    siniestro = Siniestro.recibir(
+        "evt-dueno",
+        origen="test",
+        usuario_id=dueno,
+        ramo="clima-vuelos",
+        poliza_numero="POL-11002-CO",
+        descripcion="retraso de vuelo",
+    )
+    assert siniestro.usuario_id == dueno
+    assert siniestro.poliza is not None
+    assert (siniestro.poliza.ramo, siniestro.poliza.numero) == ("clima-vuelos", "POL-11002-CO")
+    assert siniestro.descripcion == "retraso de vuelo"
+    assert siniestro.poliza_id is None
+
+    evento = EventoParametrico.recibir("evt-dueno", Decimal("100"))
+    evaluacion = EvaluacionUmbral.evaluar(evento, umbral=Decimal("80"), poliza_vigente=True)
+    pago = PagoParametrico.disparar(evaluacion, siniestro.id, Decimal("180000"))
+    assert pago_parametrico_disparado(pago).payload["comprobante"] == pago.comprobante

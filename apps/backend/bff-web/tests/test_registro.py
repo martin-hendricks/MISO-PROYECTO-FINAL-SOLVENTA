@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 import httpx
@@ -13,6 +14,8 @@ BODY = {
     "correo": "camila@correo.com",
     "contrasena": "secreto123",
     "habeasData": True,
+    "ingresos_mensuales": "4500000.00",
+    "gastos_mensuales": "1500000.00",
 }
 
 
@@ -41,9 +44,43 @@ def test_alta_deja_marca_de_consentimiento_auditable(client):
     assert datetime.fromisoformat(marca["otorgadoEn"]).tzinfo is not None
 
 
-def test_alta_sin_consentimiento_se_rechaza(client):
+def test_alta_con_cuenta_que_no_puede_entrar_es_401(client, nucleo_identidad):
+    def cuenta(estado: str, usuario_id: str):
+        return lambda _: httpx.Response(
+            201,
+            json={"usuario_id": usuario_id, "email": "camila@correo.com", "estado": estado},
+        )
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = cuenta("INACTIVO", "11111111-1111-1111-1111-111111111111")
+    assert client.post("/v1/registro", json=BODY).status_code == 401
+
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = cuenta("ACTIVO", "")
+    assert client.post("/v1/registro", json=BODY).status_code == 401
+
+
+def test_alta_otorga_habeas_data_en_ms_consentimiento(client, nucleo_consentimiento):
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 200
+    otorgadas = [p for p in nucleo_consentimiento.peticiones if p.method == "POST" and p.url.path == "/v1/consentimientos"]
+    assert len(otorgadas) == 1
+    assert json.loads(otorgadas[0].content) == {"cliente_id": "11111111-1111-1111-1111-111111111111"}
+
+
+def test_alta_sin_ms_consentimiento_disponible_es_503(client, nucleo_consentimiento):
+    nucleo_consentimiento.respuestas = {}
+    nucleo_consentimiento._default_status = 503
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 503
+    assert "accessToken" not in response.text
+
+
+def test_alta_sin_consentimiento_se_rechaza(client, nucleo_consentimiento):
     response = client.post("/v1/registro", json={**BODY, "habeasData": False})
     assert response.status_code == 422
+    assert nucleo_consentimiento.peticiones == []
 
 
 @pytest.mark.parametrize("campo", ["contrasena", "habeasData"])
@@ -71,3 +108,32 @@ def test_alta_con_cuenta_ya_existente_en_ms_identidad_es_409(client, nucleo_iden
     response = client.post("/v1/registro", json=BODY)
 
     assert response.status_code == 409
+
+
+def test_alta_con_identidad_rechazada_por_kyc_es_422_y_no_cuenta_duplicada(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        422, json={"codigo": "identidad_no_verificada", "mensaje": "No fue posible verificar la identidad"}
+    )
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "No fue posible verificar la identidad"
+
+
+def test_alta_sin_ingreso_no_crea_cuenta(client, nucleo_identidad):
+    response = client.post("/v1/registro", json={**BODY, "ingresos_mensuales": "0.00"})
+    assert response.status_code == 422
+    assert nucleo_identidad.peticiones == []
+    assert "4500000.00" not in response.text
+    assert "contrasena" not in response.text
+
+
+def test_alta_con_kyc_caido_en_ms_identidad_no_esta_disponible(client, nucleo_identidad):
+    nucleo_identidad.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+        503, json={"codigo": "dependencia_no_disponible", "mensaje": "No fue posible consultar el verificador KYC"}
+    )
+
+    response = client.post("/v1/registro", json=BODY)
+
+    assert response.status_code == 503

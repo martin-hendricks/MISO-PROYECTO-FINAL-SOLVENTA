@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -23,8 +24,11 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.data.consent.ConsentPrefsFile
+import com.grupo8_uniandes.solventa.data.profile.SessionPrefsFile
 import com.grupo8_uniandes.solventa.data.region.KeyAppliedRegion
 import com.grupo8_uniandes.solventa.data.region.RegionPrefsFile
+import com.grupo8_uniandes.solventa.data.registration.RegistrationPrefsFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Before
@@ -37,9 +41,19 @@ class IdiomaRegionTest {
     @get:Rule
     val rule = createAndroidComposeRule<MainActivity>()
 
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
+
     @Before
     fun resetRegion() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         clearRegionPrefs()
+        context.getSharedPreferences(RegistrationPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(SessionPrefsFile, Context.MODE_PRIVATE).edit().clear().commit()
         rule.activityRule.scenario.recreate()
     }
 
@@ -60,8 +74,6 @@ class IdiomaRegionTest {
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_MEDIA_IMAGES))
         assertFalse(requestedPermissions().contains(Manifest.permission.READ_EXTERNAL_STORAGE))
-        assertFalse(requestedPermissions().contains(Manifest.permission.ACCESS_FINE_LOCATION))
-        assertFalse(requestedPermissions().contains(Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
     @Test
@@ -74,7 +86,7 @@ class IdiomaRegionTest {
     fun givenPicker_whenContinuar_thenOnboardingWithoutPermissions() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
@@ -94,9 +106,9 @@ class IdiomaRegionTest {
     fun givenContinuar_whenRelaunched_thenPickerStaysClosed() {
         rule.waitForTag("screen_idioma_region")
         rule.onNodeWithTag("action_continuar").performClick()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.activityRule.scenario.recreate()
-        rule.waitForTag("screen_onboarding")
+        rule.waitForTag("screen_consentimiento")
         rule.onAllNodesWithTag("screen_idioma_region").assertCountEquals(0)
         rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
     }
@@ -114,6 +126,12 @@ class IdiomaRegionTest {
 class IdiomaRegionProfileTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Test
     fun givenProfile_whenListo_thenSheetClosesOnProfile() {

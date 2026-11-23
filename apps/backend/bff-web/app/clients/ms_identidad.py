@@ -17,7 +17,17 @@ class ClienteMsIdentidad(ClienteServicio):
     nombre = "ms-identidad"
 
     async def crear_usuario(
-        self, *, tipo_documento: str, numero_documento: str, email: str, password: str
+        self,
+        *,
+        tipo_documento: str,
+        numero_documento: str,
+        email: str,
+        password: str,
+        nombre: str = "",
+        apellidos: str = "",
+        ingresos_mensuales: str | None = None,
+        gastos_mensuales: str | None = None,
+        canal: str | None = None,
     ) -> dict[str, Any]:
         """POST /v1/usuarios. ms-identidad responde 409 (RechazoDelNucleo)
         si el correo o el documento ya existen -- el router lo propaga como
@@ -30,7 +40,57 @@ class ClienteMsIdentidad(ClienteServicio):
                 "numero_documento": numero_documento,
                 "email": email,
                 "password": password,
+                "nombre": nombre,
+                "apellidos": apellidos,
+                "ingresos_mensuales": None if ingresos_mensuales is None else str(ingresos_mensuales),
+                "gastos_mensuales": None if gastos_mensuales is None else str(gastos_mensuales),
+                "canal": canal,
             },
+        )
+
+    async def obtener(self, usuario_id: str) -> dict[str, Any]:
+        return await self._pedir("GET", f"/v1/usuarios/{usuario_id}")
+
+    async def listar_clientes(
+        self,
+        q: str | None = None,
+        estado: str | None = None,
+        pagina: int | None = None,
+        ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """GET /v1/usuarios?rol=cliente. `ids` se repite (máximo 50 por llamada)."""
+        params: dict[str, Any] = {"rol": "cliente"}
+        if q:
+            params["q"] = q
+        if estado:
+            params["estado"] = estado
+        if pagina is not None:
+            params["pagina"] = pagina
+        if ids:
+            params["ids"] = ids
+        return await self._pedir("GET", "/v1/usuarios", params=params)
+
+    async def editar_cliente(
+        self, usuario_id: str, *, nombre: str, apellidos: str, email: str
+    ) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}",
+            json={"nombre": nombre, "apellidos": apellidos, "email": email},
+        )
+
+    async def cambiar_estado(self, usuario_id: str, *, estado: str) -> dict[str, Any]:
+        return await self._pedir(
+            "POST",
+            f"/v1/usuarios/{usuario_id}/estado",
+            json={"estado": estado},
+        )
+
+    async def actualizar_perfil(self, usuario_id: str, *, nombre: str, apellidos: str) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/usuarios/{usuario_id}/perfil",
+            json={"nombre": nombre, "apellidos": apellidos},
         )
 
     async def autenticar(self, *, email: str, password: str) -> dict[str, Any]:
@@ -42,3 +102,37 @@ class ClienteMsIdentidad(ClienteServicio):
             "/v1/usuarios/autenticacion",
             json={"email": email, "password": password},
         )
+
+    async def listar_clientes_backoffice(self) -> list[dict[str, Any]]:
+        """GET /v1/clientes (HU-141): back-office únicamente -- ms-identidad
+        ya exige rol asesor/operador, bff-web solo reenvía el token.
+
+        Distinto de `listar_clientes()` (arriba): esa paginación/búsqueda
+        contra GET /v1/usuarios?rol=cliente es de otra rama (operador_
+        clientes.py/operador_notificaciones.py); este método sin argumentos
+        es el que ya consumía /asesor/clientes (routers/asesor.py)."""
+        return (await self._pedir("GET", "/v1/clientes"))["clientes"]
+
+    async def actualizar_estado_cliente(self, usuario_id: str, estado: str) -> dict[str, Any]:
+        """PATCH /v1/clientes/{usuario_id}/estado (HU-141): activa/desactiva
+        un cliente desde el back-office."""
+        return await self._pedir(
+            "PATCH",
+            f"/v1/clientes/{usuario_id}/estado",
+            json={"estado": estado},
+        )
+
+    async def listar_socios(self) -> dict[str, Any]:
+        return await self._pedir("GET", "/v1/socios")
+
+    async def crear_socio(self, *, nombre: str, alcances: list[str]) -> dict[str, Any]:
+        return await self._pedir("POST", "/v1/socios", json={"nombre": nombre, "alcances": alcances})
+
+    async def rotar_credencial_socio(self, socio_id: str) -> dict[str, Any]:
+        return await self._pedir("POST", f"/v1/socios/{socio_id}/credenciales")
+
+    async def revocar_credencial_socio(self, socio_id: str, credencial_id: str) -> None:
+        await self._enviar("DELETE", f"/v1/socios/{socio_id}/credenciales/{credencial_id}")
+
+    async def revocar_socio(self, socio_id: str) -> dict[str, Any]:
+        return await self._pedir("POST", f"/v1/socios/{socio_id}/revocacion")

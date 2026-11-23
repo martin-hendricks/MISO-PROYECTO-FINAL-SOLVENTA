@@ -1,0 +1,84 @@
+<section data-testid="billetera" [attr.data-state]="vm.status()">
+  <div class="page-head">
+    <h1>{{ 'billetera.title' | translate }}</h1>
+    <p class="subtitle">{{ 'billetera.subtitle' | translate }}</p>
+  </div>
+
+  @switch (vm.status()) {
+    @case ('loading') {
+      <p class="subtitle" role="status" data-testid="billetera-loading">
+        {{ 'billetera.loading' | translate }}
+      </p>
+    }
+    @case ('error') {
+      <div class="empty-state" role="alert" data-testid="billetera-error">
+        <p>{{ 'billetera.error' | translate }}</p>
+        <button type="button" class="outlined" data-testid="billetera-reintentar" (click)="vm.load()">
+          {{ 'billetera.reintentar' | translate }}
+        </button>
+      </div>
+    }
+    @case ('empty') {
+      <div class="empty-state" data-testid="billetera-vacia">
+        <p>{{ 'billetera.empty' | translate }}</p>
+        <a class="text" routerLink="/siniestros" data-testid="billetera-ver-siniestros">{{
+          'billetera.verSiniestros' | translate
+        }}</a>
+      </div>
+    }
+    @default {
+      <div class="chips" role="group" [attr.aria-label]="'billetera.chip.grupo' | translate">
+        @for (filtro of filtros; track filtro) {
+          <button
+            type="button"
+            class="chip"
+            [attr.data-testid]="'chip-' + filtro"
+            [attr.aria-pressed]="vm.filtro() === filtro"
+            (click)="vm.seleccionar(filtro)"
+          >
+            {{ 'billetera.chip.' + filtro | translate }}
+          </button>
+        }
+      </div>
+      <p class="eyebrow" data-testid="billetera-recibido">
+        {{ 'billetera.recibido' | translate }} ·
+        {{ 'billetera.count' | translate: { n: vm.movimientos().length } }}
+        @if (vm.moneda(); as moneda) {
+          · {{ moneda }}
+        }
+      </p>
+      @if (vm.total() !== null && vm.moneda(); as moneda) {
+        <p class="total" data-testid="billetera-total">{{ vm.total()! | svMoney: moneda }}</p>
+      }
+      <div class="table-scroll">
+        <table data-testid="billetera-table">
+          <caption class="visually-hidden">{{ 'billetera.title' | translate }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'billetera.column.aviso' | translate }}</th>
+              <th scope="col">{{ 'billetera.column.ramo' | translate }}</th>
+              <th scope="col">{{ 'billetera.column.tipo' | translate }}</th>
+              <th scope="col">{{ 'billetera.column.monto' | translate }}</th>
+              <th scope="col">{{ 'billetera.column.comprobante' | translate }}</th>
+              <th scope="col">{{ 'billetera.column.fecha' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of vm.movimientos(); track fila.id) {
+              <tr data-testid="billetera-fila">
+                <th scope="row">
+                  <a [routerLink]="['/billetera', fila.id]">{{ fila.siniestroId }}</a>
+                </th>
+                <td>{{ fila.ramo }}</td>
+                <td>{{ 'billetera.tipo.' + fila.tipo | translate }}</td>
+                <td class="amount">{{ fila.monto | svMoney: fila.moneda }}</td>
+                <td>{{ fila.comprobante }}</td>
+                <td>{{ fila.depositadoEn | svDate }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

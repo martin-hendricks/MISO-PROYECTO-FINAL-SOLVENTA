@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.domain.bff.home
 
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 
 data class HomeOfferSlot(
@@ -20,10 +21,11 @@ data class HomeClaimSlot(
 )
 
 data class BffHome(
-    val ofertaVigente: HomeOfferSlot,
-    val poliza: HomePolicySlot,
-    val siniestroEnCurso: HomeClaimSlot,
-    val hipotecario: String?,
+    val ofertaVigente: HomeOfferSlot?,
+    val poliza: HomePolicySlot?,
+    val siniestroEnCurso: HomeClaimSlot?,
+    val hipotecario: MortgageCredit?,
+    val cotizacionesPendientes: List<HomeOfferSlot> = emptyList(),
 )
 
 interface HomeBffRepository {

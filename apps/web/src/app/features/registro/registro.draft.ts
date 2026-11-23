@@ -8,6 +8,8 @@ export interface Alta {
   documento: string;
   correo: string;
   contrasena: string;
+  ingresos_mensuales: string;
+  gastos_mensuales: string;
 }
 
 /**

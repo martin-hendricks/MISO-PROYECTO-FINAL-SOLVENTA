@@ -11,18 +11,29 @@ fun shellMode(route: Any, signedIn: Boolean): ShellMode {
     if (!signedIn) return ShellMode.PreLogin
     if (route is EmisionEnCursoRoute || route is PolizaEmitidaRoute) return ShellMode.Issuance
     return when (route) {
-        InicioRoute, PolizasRoute, SiniestrosRoute, PerfilRoute -> ShellMode.Root
-        is CotizacionRoute, is VerOfertaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
-        SuscripcionRechazadaRoute,
+        InicioRoute, PolizasRoute, SiniestrosRoute, MapaPrestadoresRoute, BilleteraRoute, PerfilRoute -> ShellMode.Root
+        is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute, is PolizaDetalleRoute, is SiniestroDetalleRoute,
+        is AsistenciaSitioRoute, is PrestadorFichaRoute, is MapaPrestadoresSiniestroRoute,
+        SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
+        AvisoSiniestroRoute, EvidenciaAvisoRoute, is ConfirmacionAvisoRoute,
+        ParametricoRoute, AvisoVencimientoRoute, AvisoRenovacionRoute, is DepositoRoute,
         -> ShellMode.Nested
         else -> ShellMode.Root
     }
 }
 
 fun selectedDestination(route: Any): Destination? = when (route) {
-    InicioRoute, is CotizacionRoute, is VerOfertaRoute, SuscripcionRechazadaRoute -> Destination.Inicio
-    PolizasRoute, is PolizaDetalleRoute -> Destination.Polizas
-    SiniestrosRoute, is SiniestroDetalleRoute -> Destination.Siniestros
+    InicioRoute, is CotizacionRoute, is VerOfertaRoute, is ConfirmacionTarjetaRoute,
+    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute, OfertaHipotecarioRoute,
+    -> Destination.Inicio
+    PolizasRoute, is PolizaDetalleRoute, AvisoVencimientoRoute, AvisoRenovacionRoute,
+    -> Destination.Polizas
+    SiniestrosRoute, MapaPrestadoresRoute, is MapaPrestadoresSiniestroRoute, is PrestadorFichaRoute,
+    is AsistenciaSitioRoute, AvisoSiniestroRoute,
+    EvidenciaAvisoRoute, is ConfirmacionAvisoRoute, is SiniestroDetalleRoute,
+    ParametricoRoute,
+    -> Destination.Siniestros
+    BilleteraRoute, is DepositoRoute -> Destination.Billetera
     PerfilRoute -> Destination.Perfil
     else -> null
 }

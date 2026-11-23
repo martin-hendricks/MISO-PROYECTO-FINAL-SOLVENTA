@@ -14,7 +14,7 @@ object PublishedSamples {
     """
 
     const val SIGNUP = """
-        {"nombre":"Camila","apellidos":"Restrepo","documento":"1012345678","correo":"camila@correo.com","pruebaDeVida":"ok","habeasData":true}
+        {"nombre":"Camila","apellidos":"Restrepo","documento":"1012345678","correo":"camila@correo.com","pruebaDeVida":"ok","habeasData":true,"ingresos_mensuales":"4500000.00","gastos_mensuales":"1500000.00"}
     """
 
     const val REVOKE = """
@@ -22,7 +22,7 @@ object PublishedSamples {
     """
 
     const val OFFER_IN = """
-        {"ramo":"Protección de dispositivo","datosRiesgo":{"valorDispositivo":2400000,"marca":"Pixel","masDe12Meses":false}}
+        {"ramo":"Protección de dispositivo","datosRiesgo":{"valorDispositivo":2400000,"marca":"Pixel","masDe12Meses":false,"modelo":"Pixel 8"}}
     """
 
     const val OFFER_OUT = """
@@ -42,15 +42,19 @@ object PublishedSamples {
     """
 
     const val REJECTION = """
-        {"estado":"rechazada","motivo":"Valor del equipo fuera de rango"}
+        {"estado":"rechazada","motivo":"La suscripción automática rechazó el riesgo del dispositivo cotizado."}
     """
 
     const val WALLET = """
-        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12"}]}
+        {"polizas":[{"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo, Pantalla, Hurto","estado":"vigente","venceEn":"2027-03-12","inicioVigencia":"2026-03-12","finVigencia":"2027-03-12","moneda":"COP","primaTotal":89000},{"numero":"POL-11002-CO","ramo":"Microseguro de vida","resumen":"amparo de vida","estado":"por_vencer","venceEn":"2026-11-06","inicioVigencia":"2025-11-06","finVigencia":"2026-11-06","moneda":"COP","primaTotal":42000}]}
     """
 
     const val DETAIL = """
-        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","queHacer":"Toma la foto del daño y anota fecha y lugar."}
+        {"numero":"POL-88219-CO","ramo":"Protección de dispositivo","resumen":"Robo y Pantalla","estado":"vigente","venceEn":"2027-03-12","inicioVigencia":"2026-03-12","finVigencia":"2027-03-12","moneda":"COP","primaTotal":89000,"coberturas":[{"nombre":"Robo","sumaAsegurada":4000000,"deducible":0},{"nombre":"Pantalla","sumaAsegurada":1500000,"deducible":150000}],"queHacer":"Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.","renovable":true,"renovacionAutomatica":false}
+    """
+
+    const val CLAIM_DETAIL = """
+        {"id":"interno","siniestroId":"SIN-441","tipo":"asistido","ramo":"Protección de dispositivo","poliza":"POL-88219-CO","resumen":"pantalla rota","fecha":"2026-03-12","estado":"decidido","resultado":"rechazado","estadoTexto":"Decidido","reserva":350000,"moneda":"COP","descripcion":"Pantalla rota al caer el teléfono","lugar":"Av. Caracas con Calle 72","geo":{"lat":4.6533,"lng":-74.0836,"precisionM":12},"motivo":"Póliza no vigente en la fecha del hecho","evidencia":[{"nombre":"dano.jpg","tipo":"foto","contentType":"image/png","url":"https://example.test/dano.jpg"}],"historial":[{"estado":"recibido","fecha":"2026-03-12T10:00:00","estadoTexto":"Recibido"},{"estado":"decidido","fecha":"2026-03-13T10:00:00","estadoTexto":"Decidido"}],"pago":null,"umbral":null}
     """
 
     const val CLAIM_NOTICE = """
@@ -66,7 +70,7 @@ object PublishedSamples {
     """
 
     const val CLAIMS = """
-        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"Pantalla rota","estado":"en_evaluacion"}]}
+        {"siniestros":[{"siniestroId":"SIN-441","ramo":"Protección de dispositivo","resumen":"pantalla rota","estado":"en_evaluacion","poliza":"POL-88219-CO"},{"siniestroId":"SIN-220","ramo":"Protección de dispositivo","resumen":"hurto","estado":"pagado","poliza":"POL-88219-CO"},{"siniestroId":"SIN-P01","ramo":"Clima y vuelos","resumen":"retraso de vuelo","estado":"pagado","estadoTexto":"Pago automático · pagado","poliza":"POL-11002-CO"}]}
     """
 
     const val PAYMENT = """
@@ -78,11 +82,19 @@ object PublishedSamples {
     """
 
     const val MORTGAGE_OUT = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":false}
+    """
+
+    const val PROFILING_CONSENT = """
+        {"estado":"vigente","otorgadoEn":"2026-10-01T10:00:00Z"}
+    """
+
+    const val PROFILING_CONSENT_REVOKED = """
+        {"estado":"revocado","revocadoEn":"2026-11-11T15:30:00Z"}
     """
 
     const val MORTGAGE_DEGRADED = """
-        {"ramo":"Vida crediticia","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
+        {"ramo":"Vida hipotecario","estado":"oferta_vigente","prima":64000,"moneda":"COP","factores":["plazo","valor del crédito"],"degradada":true}
     """
 
     const val NOTICES = """
@@ -113,8 +125,27 @@ object PublishedSamples {
         {"tipo":"vencimiento","titulo":"Tu póliza vence","cuerpo":"En 7 días","destino":"aviso-vencimiento","poliza":"POL-88219-CO"}
     """
 
+    const val PARAMETRIC_PUSH = """
+        {"tipo":"pago_automatico","titulo":"Pago automático realizado","cuerpo":"Retraso > 90 min · dato oficial del vuelo","destino":"parametrico","poliza":"POL-88219-CO"}
+    """
+
     const val PROVIDERS = """
-        {"prestadores":[{"id":"PR-1","nombre":"Taller Norte","distanciaKm":1.2,"zona":"Chapinero"},{"id":"PR-2","nombre":"Taller Sur","distanciaKm":3.4,"zona":"Kennedy"}]}
+        {"centro":{"lat":4.6432,"lng":-74.0631,"origen":"posicion"},"radioKm":10,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+    """
+
+    const val PROVIDERS_AREA = """
+        {"centro":{"lat":4.6432,"lng":-74.0631,"origen":"posicion"},"radioKm":null,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
+    """
+
+    const val PROVIDER_CITIES = """
+        [{"pais":"CO","ciudades":[{"nombre":"Bogotá","lat":4.6097,"lng":-74.0817,"zoom":12,"prestadores":30},{"nombre":"Medellín","lat":6.2442,"lng":-75.5812,"zoom":13,"prestadores":20},{"nombre":"Chía","lat":4.8619,"lng":-74.0597,"zoom":13,"prestadores":10}]},
+         {"pais":"MX","ciudades":[{"nombre":"Ciudad de México","lat":19.4326,"lng":-99.1332,"zoom":11,"prestadores":5},{"nombre":"Guadalajara","lat":20.6597,"lng":-103.3496,"zoom":13,"prestadores":4},{"nombre":"Monterrey","lat":25.6866,"lng":-100.3161,"zoom":13,"prestadores":4}]},
+         {"pais":"CL","ciudades":[{"nombre":"Santiago","lat":-33.4489,"lng":-70.6693,"zoom":11,"prestadores":5},{"nombre":"Valparaíso","lat":-33.0472,"lng":-71.6127,"zoom":13,"prestadores":4},{"nombre":"Concepción","lat":-36.827,"lng":-73.0503,"zoom":13,"prestadores":4}]},
+         {"pais":"PE","ciudades":[{"nombre":"Lima","lat":-12.0464,"lng":-77.0428,"zoom":11,"prestadores":5},{"nombre":"Arequipa","lat":-16.409,"lng":-71.5375,"zoom":13,"prestadores":4},{"nombre":"Trujillo","lat":-8.1116,"lng":-79.0288,"zoom":13,"prestadores":4}]}]
+    """
+
+    const val CLAIM_PROVIDERS = """
+        {"siniestro":{"id":"SIN-1","numero":"SIN-1988","ramo":"soat-motocicleta"},"ramoFijo":"soat-motocicleta","sinGeoetiqueta":false,"centro":{"lat":4.626,"lng":-74.15,"origen":"siniestro"},"radioKm":10,"truncado":false,"prestadores":[{"id":"PRE-BOG-06","nombre":"Taller Moto Chapinero","tipo":"taller-motos","ramos":["soat-motocicleta"],"direccion":"Cra 13 #45-18","ciudad":"Bogotá","pais":"CO","barrio":"Chapinero","lat":4.6355,"lng":-74.0655,"telefono":"601 555 0112","horario":"Lun–Sáb 7:00–19:00","distanciaKm":0.9}]}
     """
 
     const val ASSISTANCE_IN = """
@@ -123,5 +154,9 @@ object PublishedSamples {
 
     const val ASSISTANCE_OUT = """
         {"asistenciaId":"AS-18","estado":"registrada"}
+    """
+
+    const val BILLETERA = """
+        {"moneda":"COP","totalRecibido":"1070000.00","movimientos":[{"id":"7b0c0000-0000-4000-8000-000000000001","siniestroId":"SIN-1988","tipo":"asistido","ramo":"Protección de dispositivo","resumen":"hurto","poliza":"POL-88219-CO","monto":"890000.00","moneda":"COP","comprobante":"CMP-3F9A0C12DE","depositadoEn":"2026-07-11T15:20:00+00:00"},{"id":"a51e0000-0000-4000-8000-000000000002","siniestroId":"SIN-1002","tipo":"pago_automatico","ramo":"Clima y vuelos","resumen":"retraso de vuelo","poliza":"POL-11002-CO","monto":"180000.00","moneda":"COP","comprobante":"CMP-0A77B2C4F1","depositadoEn":"2026-07-02T09:05:00+00:00"}]}
     """
 }

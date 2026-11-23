@@ -55,6 +55,8 @@ export const EMITIDA: EmisionAsesor = {
     expedidaEn: '2026-09-16T15:25:01Z',
     inicioVigencia: '2026-09-16',
     finVigencia: '2027-09-16',
+    moneda: 'COP',
+    monedaInicio: 'PEN',
   },
 };
 

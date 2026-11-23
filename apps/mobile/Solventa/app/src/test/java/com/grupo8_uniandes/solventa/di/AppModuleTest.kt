@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.di
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.grupo8_uniandes.solventa.bff.AndroidKeyStoreProvider
 import com.grupo8_uniandes.solventa.data.bff.mock.MockMobileSessionRepository
 import com.grupo8_uniandes.solventa.data.bff.mock.MockOfferRepository
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteOfferRepository
@@ -9,6 +10,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.region.Region
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
@@ -19,6 +21,11 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class AppModuleTest {
+    @Before
+    fun keyStore() {
+        AndroidKeyStoreProvider.install()
+    }
+
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun graphResolvesWithContextSuppliedOutsideTheModule() {

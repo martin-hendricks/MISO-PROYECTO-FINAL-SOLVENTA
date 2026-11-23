@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Callable
 
@@ -7,16 +8,22 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.clients.analitica import ClienteAnalitica
+from app.clients.ms_consentimiento import ClienteMsConsentimiento
 from app.clients.ms_cotizacion import ClienteMsCotizacion
 from app.clients.ms_identidad import ClienteMsIdentidad
 from app.clients.ms_pagos import ClienteMsPagos
+from app.clients.notificaciones import ClienteNotificaciones
 from app.clients.ms_perfilamiento import ClienteMsPerfilamiento
 from app.clients.ms_polizas import ClienteMsPolizas
 from app.clients.ms_siniestros import ClienteMsSiniestros
 from app.clients.ms_suscripcion import ClienteMsSuscripcion
 from app.dependencies import (
+    obtener_cliente_analitica,
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
     obtener_cliente_identidad,
+    obtener_cliente_notificaciones,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
@@ -76,6 +83,11 @@ def nucleo_siniestros() -> NucleoSimulado:
     # el genérico 404 de NucleoSimulado, igual que haría ms-siniestros real.
     doble = NucleoSimulado()
     doble.respuestas[("GET", "/v1/siniestros")] = lambda _: httpx.Response(200, json=[])
+    # HU-61: toda cancelación consulta siniestros abiertos (informativo, no
+    # bloquea); sin ninguno registrado, cero abiertos es la respuesta vigente.
+    doble.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(
+        200, json={"abiertos": 0, "siniestros": []}
+    )
     return doble
 
 
@@ -85,30 +97,64 @@ def nucleo_suscripcion() -> NucleoSimulado:
 
 
 @pytest.fixture
+def nucleo_analitica() -> NucleoSimulado:
+    return NucleoSimulado()
+
+
+@pytest.fixture
+def nucleo_notificaciones() -> NucleoSimulado:
+    return NucleoSimulado()
+
+
+@pytest.fixture
 def nucleo_identidad() -> NucleoSimulado:
     # A diferencia del default generico 404 de NucleoSimulado, alta y
     # autenticacion exitosas son el caso feliz mas comun en los tests de
     # registro.py/sesion.py -- cada test que necesite un rechazo (409/401)
     # sobrescribe la respuesta explicitamente, igual que con los demas.
+    def cuenta(request: httpx.Request, status: int) -> httpx.Response:
+        cuerpo = json.loads(request.content or b"{}")
+        email = str(cuerpo.get("email", "")).strip().lower()
+        if email.startswith("operador"):
+            rol = "operador"
+        elif email.endswith("@solventa.co") or email.endswith("@solventa.com"):
+            rol = "asesor"
+        else:
+            rol = "cliente"
+        return httpx.Response(
+            status,
+            json={
+                "usuario_id": "11111111-1111-1111-1111-111111111111",
+                "tipo_documento": cuerpo.get("tipo_documento", "CC"),
+                "numero_documento": cuerpo.get("numero_documento", "0"),
+                "email": email,
+                "estado": "ACTIVO",
+                "nombre": cuerpo.get("nombre", ""),
+                "apellidos": cuerpo.get("apellidos", ""),
+                "rol": rol,
+            },
+        )
+
     doble = NucleoSimulado()
-    doble.respuestas[("POST", "/v1/usuarios")] = lambda request: httpx.Response(
+    doble.respuestas[("POST", "/v1/usuarios")] = lambda request: cuenta(request, 201)
+    doble.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: cuenta(request, 200)
+    return doble
+
+
+@pytest.fixture
+def nucleo_consentimiento() -> NucleoSimulado:
+    # Otorgar es el caso feliz mas comun en los tests que ejercitan el alta
+    # de cliente desde el back-office -- un test que necesite ver la caida
+    # del servicio sobrescribe la respuesta, igual que con los demas.
+    doble = NucleoSimulado()
+    doble.respuestas[("POST", "/v1/consentimientos")] = lambda request: httpx.Response(
         201,
         json={
-            "usuario_id": "11111111-1111-1111-1111-111111111111",
-            "tipo_documento": "CC",
-            "numero_documento": "0",
-            "email": "sin-email@solventa.com",
-            "estado": "ACTIVO",
-        },
-    )
-    doble.respuestas[("POST", "/v1/usuarios/autenticacion")] = lambda request: httpx.Response(
-        200,
-        json={
-            "usuario_id": "11111111-1111-1111-1111-111111111111",
-            "tipo_documento": "CC",
-            "numero_documento": "0",
-            "email": "sin-email@solventa.com",
-            "estado": "ACTIVO",
+            "id": "66666666-6666-6666-6666-666666666666",
+            "cliente_id": json.loads(request.content or b"{}").get("cliente_id"),
+            "otorgado_en": "2026-11-13T00:00:00Z",
+            "revocado_en": None,
+            "vigente": True,
         },
     )
     return doble
@@ -123,6 +169,9 @@ def client(
     nucleo_siniestros,
     nucleo_suscripcion,
     nucleo_identidad,
+    nucleo_consentimiento,
+    nucleo_analitica,
+    nucleo_notificaciones,
 ) -> TestClient:
     http_cotizacion = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_cotizacion), base_url="http://ms-cotizacion")
     http_pagos = httpx.AsyncClient(transport=httpx.MockTransport(nucleo_pagos), base_url="http://ms-pagos")
@@ -139,6 +188,15 @@ def client(
     http_identidad = httpx.AsyncClient(
         transport=httpx.MockTransport(nucleo_identidad), base_url="http://ms-identidad"
     )
+    http_consentimiento = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_consentimiento), base_url="http://ms-consentimiento"
+    )
+    http_analitica = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_analitica), base_url="http://analitica"
+    )
+    http_notificaciones = httpx.AsyncClient(
+        transport=httpx.MockTransport(nucleo_notificaciones), base_url="http://notificaciones"
+    )
 
     app.dependency_overrides[obtener_cliente_cotizacion] = lambda: ClienteMsCotizacion(http_cotizacion, "corr-test")
     app.dependency_overrides[obtener_cliente_pagos] = lambda: ClienteMsPagos(http_pagos, "corr-test")
@@ -151,6 +209,13 @@ def client(
         http_suscripcion, "corr-test"
     )
     app.dependency_overrides[obtener_cliente_identidad] = lambda: ClienteMsIdentidad(http_identidad, "corr-test")
+    app.dependency_overrides[obtener_cliente_consentimiento] = lambda: ClienteMsConsentimiento(
+        http_consentimiento, "corr-test"
+    )
+    app.dependency_overrides[obtener_cliente_analitica] = lambda: ClienteAnalitica(http_analitica, "corr-test")
+    app.dependency_overrides[obtener_cliente_notificaciones] = lambda: ClienteNotificaciones(
+        http_notificaciones, "corr-test"
+    )
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -159,9 +224,20 @@ def client(
 
 
 def token(client: TestClient, rol: str) -> str:
+    # El dominio del correo debe ser consistente con el rol pedido (ver
+    # routers/sesion.py: una cuenta no corporativa no puede entrar pidiendo
+    # rol asesor/operador, y viceversa) -- antes este fixture usaba el mismo
+    # correo @solventa.com para cualquier rol, lo que ahora el propio BFF
+    # rechazaría para rol="cliente".
+    if rol == "operador":
+        correo = "operador@solventa.com"
+    elif rol == "asesor":
+        correo = "persona@solventa.com"
+    else:
+        correo = "persona@correo.com"
     response = client.post(
         "/v1/sesion/ingreso",
-        json={"correo": "persona@solventa.com", "contrasena": "secreto", "rol": rol},
+        json={"correo": correo, "contrasena": "secreto", "rol": rol},
     )
     assert response.status_code == 200
     return response.json()["accessToken"]

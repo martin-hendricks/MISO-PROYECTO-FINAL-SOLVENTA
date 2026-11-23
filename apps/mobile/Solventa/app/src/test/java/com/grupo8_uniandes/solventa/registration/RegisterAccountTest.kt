@@ -49,6 +49,8 @@ class RegisterAccountTest {
         assertFalse(register.submit(draft(givenName = "   ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(email = "camila", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(password = " ", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = "qwerty1", documentPhoto = photo), Region.Colombia))
+        assertFalse(register.submit(draft(password = "a".repeat(73), documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(surnames = " ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(email = " ", documentPhoto = photo), Region.Colombia))
         assertFalse(register.submit(draft(documentType = " ", documentPhoto = photo), Region.Colombia))
@@ -108,6 +110,8 @@ class RegisterAccountTest {
         documentNumber: String = "1023456789",
         password: String = "secret12",
         documentPhoto: ByteArray? = byteArrayOf(1),
+        monthlyIncome: String = "4500000.00",
+        monthlySpending: String = "0.00",
     ) = AccountDraft(
         givenName = givenName,
         surnames = surnames,
@@ -116,6 +120,8 @@ class RegisterAccountTest {
         documentNumber = documentNumber,
         password = password,
         documentPhoto = documentPhoto,
+        monthlyIncome = monthlyIncome,
+        monthlySpending = monthlySpending,
     )
 }
 

@@ -2,6 +2,7 @@ package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -27,8 +29,6 @@ import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 @Composable
 fun EmisionEnCursoScreen(
-    onFinished: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") offerId: String = "",
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -41,6 +41,16 @@ fun EmisionEnCursoScreen(
     ) {
         SolventaStatusMark(status = SolventaStatus.Processing)
         Text(
+            text = stringResource(R.string.issuing_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
             text = stringResource(R.string.issuing_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -48,21 +58,18 @@ fun EmisionEnCursoScreen(
                 .fillMaxWidth()
                 .testTag("emision_body"),
         )
-        SolventaButton(
-            text = stringResource(R.string.action_continue_issued),
-            style = SolventaButtonStyle.Filled,
-            onClick = onFinished,
-            modifier = Modifier.fillMaxWidth(),
-            testTag = "action_finish_issuing",
-        )
     }
 }
 
 @Composable
 fun PolizaEmitidaScreen(
     policyId: String,
+    ramo: String,
     onGoHome: () -> Unit,
     onGoPolicy: () -> Unit,
+    renewalChecked: Boolean = false,
+    renewalMissing: Boolean = false,
+    onRenewal: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -75,7 +82,7 @@ fun PolizaEmitidaScreen(
     ) {
         SolventaStatusMark(status = SolventaStatus.Success)
         Text(
-            text = stringResource(R.string.issued_title),
+            text = stringResource(R.string.issued_title, ramo),
             fontFamily = HankenGrotesk,
             fontWeight = FontWeight.SemiBold,
             fontSize = 24.sp,
@@ -100,6 +107,15 @@ fun PolizaEmitidaScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        IssuedRow(stringResource(R.string.issued_prima), stringResource(R.string.issued_prima_value))
+        IssuedRow(stringResource(R.string.issued_currency), stringResource(R.string.issued_currency_value))
+        IssuedRow(stringResource(R.string.issued_reference), stringResource(R.string.issued_reference_value))
+        RenewalChoice(
+            checked = renewalChecked,
+            helper = stringResource(R.string.renewal_off_issued),
+            missing = renewalMissing,
+            onChecked = onRenewal,
+        )
         SolventaButton(
             text = stringResource(R.string.action_go_policy),
             style = SolventaButtonStyle.Filled,
@@ -118,11 +134,30 @@ fun PolizaEmitidaScreen(
 }
 
 @Composable
+private fun IssuedRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
 fun SuscripcionRechazadaScreen(
     onHome: () -> Unit,
     onUnderstood: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    BackHandler(onBack = onHome)
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -132,6 +167,16 @@ fun SuscripcionRechazadaScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         SolventaStatusMark(status = SolventaStatus.Error)
+        Text(
+            text = stringResource(R.string.rejection_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         Text(
             text = stringResource(R.string.rejection_heading),
             fontFamily = HankenGrotesk,
@@ -158,6 +203,53 @@ fun SuscripcionRechazadaScreen(
             onClick = onUnderstood,
             modifier = Modifier.fillMaxWidth(),
             testTag = "action_rejection_understood",
+        )
+    }
+}
+
+@Composable
+fun ConsentimientoRevocadoScreen(
+    onNewQuote: () -> Unit,
+    onHome: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BackHandler(onBack = onHome)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = SolventaSpacing.gutter, vertical = SolventaSpacing.s12)
+            .testTag("screen_consent_revoked"),
+        verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SolventaStatusMark(status = SolventaStatus.Error)
+        Text(
+            text = stringResource(R.string.consent_revoked_title),
+            fontFamily = HankenGrotesk,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SolventaBanner(
+            message = stringResource(R.string.consent_revoked_banner),
+            style = SolventaBannerStyle.Error,
+        )
+        SolventaButton(
+            text = stringResource(R.string.action_new_quote),
+            style = SolventaButtonStyle.Filled,
+            onClick = onNewQuote,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "action_consent_revoked_new_quote",
+        )
+        SolventaButton(
+            text = stringResource(R.string.action_back_home),
+            style = SolventaButtonStyle.Text,
+            onClick = onHome,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "action_consent_revoked_home",
         )
     }
 }

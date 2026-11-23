@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,6 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +39,9 @@ fun InicioScreen(
     onAcceptOffer: (String) -> Unit = {},
     onOpenPolicy: (String) -> Unit = {},
     onOpenClaim: (String) -> Unit = {},
+    onOpenMortgage: () -> Unit = {},
+    walletLine: String? = null,
+    onOpenWallet: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val panel = state.panel
@@ -51,14 +58,31 @@ fun InicioScreen(
             Text(
                 text = stringResource(R.string.load_failed),
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.testTag("load_failed"),
+                modifier = Modifier
+                    .testTag("load_failed")
+                    .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
         panel.offerId?.let { offerId ->
             HomeSection {
                 HomeSectionLabel(R.string.home_section_offer)
                 SolventaCard(onClick = { onOpenOffer(offerId) }, testTag = "home_offer") {
-                    Text(text = offerId, style = SolventaTypography.amount)
+                    Column(verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12)) {
+                        LabeledValue(
+                            label = R.string.home_offer_id,
+                            value = offerId,
+                            valueStyle = SolventaTypography.amount,
+                            testTag = "home_offer_id",
+                        )
+                        panel.offerRamo?.let { ramo ->
+                            LabeledValue(
+                                label = R.string.home_offer_ramo,
+                                value = ramo,
+                                valueStyle = MaterialTheme.typography.bodyLarge,
+                                testTag = "home_offer_ramo",
+                            )
+                        }
+                    }
                 }
                 SolventaButton(
                     text = stringResource(R.string.action_accept_offer),
@@ -84,14 +108,25 @@ fun InicioScreen(
                 }
             }
         }
-        panel.claimId?.let { claimId ->
+        if (panel.claimId != null || !walletLine.isNullOrBlank()) {
             HomeSection {
                 HomeSectionLabel(R.string.home_section_claims)
-                SolventaCard(
-                    onClick = { onOpenClaim(claimId) },
-                    testTag = "home_claim",
-                ) {
-                    Text(text = claimId, style = SolventaTypography.amount)
+                walletLine?.let { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .testTag("home_billetera")
+                            .clickable(onClick = onOpenWallet),
+                    )
+                }
+                panel.claimId?.let { claimId ->
+                    SolventaCard(
+                        onClick = { onOpenClaim(claimId) },
+                        testTag = "home_claim",
+                    ) {
+                        Text(text = claimId, style = SolventaTypography.amount)
+                    }
                 }
             }
         }
@@ -99,7 +134,7 @@ fun InicioScreen(
             HomeSection {
                 HomeSectionLabel(R.string.home_section_mortgage)
                 SolventaCard(
-                    onClick = {},
+                    onClick = onOpenMortgage,
                     testTag = "home_vida_crediticia",
                 ) {
                     Text(
@@ -123,6 +158,27 @@ fun InicioScreen(
                 testTag = "action_new_quote",
             )
         }
+    }
+}
+
+@Composable
+private fun LabeledValue(
+    @StringRes label: Int,
+    value: String,
+    valueStyle: TextStyle,
+    testTag: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4)) {
+        Text(
+            text = stringResource(label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = valueStyle,
+            modifier = Modifier.testTag(testTag),
+        )
     }
 }
 

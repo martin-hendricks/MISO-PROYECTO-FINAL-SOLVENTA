@@ -7,4 +7,5 @@ Feature: Advisor issuance with a failed signature
     Then the Emisión step of the stepper is marked as an error
     And the asesor sees the reason the signature failed
     And no policy is shown as issued
+    And the current page has no accessibility violations
     And the asesor can quote another product for the same customer

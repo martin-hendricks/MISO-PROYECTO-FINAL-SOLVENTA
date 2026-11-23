@@ -3,7 +3,16 @@ import { Page } from 'playwright';
 import { Role } from '../support/doubles/bff';
 import { Client } from '../support/data/generators';
 
-export type Section = 'clientes' | 'cotizaciones' | 'polizas' | 'avisos';
+export type Section =
+  | 'clientes'
+  | 'socios'
+  | 'cotizaciones'
+  | 'polizas'
+  | 'avisos'
+  | 'reportes'
+  | 'metricas'
+  | 'notificaciones'
+  | 'prestadores';
 
 export class BackofficePage {
   constructor(private readonly page: Page) {}
@@ -43,10 +52,52 @@ export class BackofficePage {
       .getByTestId('top-nav-admin')
       .locator('nav a')
       .allInnerTexts();
+    const role = await this.page.getByTestId('role-selector').getAttribute('data-role');
+    const expected = [
+      'Clientes',
+      'Socios',
+      'Cotizaciones',
+      'Pólizas',
+      'Avisos',
+      'Reportes',
+      'Métricas',
+    ];
+    if (role === 'operador') {
+      expected.push('Notificaciones');
+    }
+    expected.push('Prestadores');
     assert.deepEqual(
       destinations.map((text) => text.trim()),
-      ['Clientes', 'Cotizaciones', 'Pólizas', 'Avisos'],
+      expected,
     );
+  }
+
+  async expectNotificacionesAbsent(): Promise<void> {
+    assert.equal(await this.page.getByTestId('nav-notificaciones').count(), 0);
+  }
+
+  async expectCustomerPush(usuarioId: string, push: 'si' | 'no' | 'desconocido'): Promise<void> {
+    assert.equal(await this.page.getByTestId(`push-${usuarioId}`).getAttribute('data-push'), push);
+  }
+
+  async expectWriteControlsHidden(usuarioId: string): Promise<void> {
+    assert.equal(await this.page.getByTestId('clientes-new').count(), 0);
+    assert.equal(await this.page.getByTestId(`editar-${usuarioId}`).count(), 0);
+    assert.equal(await this.page.getByTestId(`desactivar-${usuarioId}`).count(), 0);
+  }
+
+  async expectCanCreateCustomer(): Promise<void> {
+    await this.page.getByTestId('clientes-new').waitFor({ state: 'visible' });
+  }
+
+  async quoteCustomer(usuarioId: string): Promise<void> {
+    await this.page.getByTestId(`cotizar-${usuarioId}`).click();
+    await this.page.getByTestId('asesor-cotizacion').waitFor({ state: 'visible' });
+  }
+
+  async expectQuoteStarted(usuarioId: string): Promise<void> {
+    await this.page.getByTestId('asesor-cotizacion').waitFor({ state: 'visible' });
+    assert.equal(new URL(this.page.url()).searchParams.get('cliente'), usuarioId);
   }
 
   async expectCurrentSection(name: Section): Promise<void> {
@@ -72,6 +123,42 @@ export class BackofficePage {
   async expectClientsState(state: 'empty' | 'error'): Promise<void> {
     await this.page.getByTestId(`clientes-${state}`).waitFor({ state: 'visible' });
     assert.equal(await this.page.getByTestId('clientes-table').count(), 0);
+  }
+
+  async expectPartner(nombre: string): Promise<void> {
+    await this.page.getByTestId('socios-table').waitFor({ state: 'visible' });
+    const row = this.page.locator('[data-testid="socios-table"] tbody tr', { hasText: nombre });
+    assert.equal(await row.count(), 1);
+  }
+
+  async expectPartnerReadOnly(nombre: string): Promise<void> {
+    await this.expectPartner(nombre);
+    const row = this.page.locator('[data-testid="socios-table"] tbody tr', { hasText: nombre });
+    assert.match(await row.innerText(), /Activo/);
+    assert.equal(await this.page.getByTestId('socios-new').count(), 0);
+    assert.equal(await row.locator('button').count(), 0);
+    assert.equal(await this.page.locator('[data-testid="socios-table"] thead th').count(), 3);
+  }
+
+  async createPartner(nombre: string, alcance: string): Promise<void> {
+    await this.page.getByTestId('socios-new').click();
+    await this.page.getByTestId('socios-nombre').fill(nombre);
+    await this.page.getByTestId(`socios-alcance-${alcance}`).check();
+    await this.page.getByTestId('socios-save').click();
+  }
+
+  async expectApiKey(apiKey: string): Promise<void> {
+    const panel = this.page.getByTestId('socios-clave');
+    await panel.waitFor({ state: 'visible' });
+    assert.equal((await this.page.getByTestId('socios-clave-valor').innerText()).trim(), apiKey);
+  }
+
+  async dismissApiKey(): Promise<void> {
+    await this.page.getByTestId('socios-clave-cerrar').click();
+  }
+
+  async expectApiKeyHidden(): Promise<void> {
+    await this.page.getByTestId('socios-clave').waitFor({ state: 'detached' });
   }
 
   async expectNoPermission(current: Role, required: Role): Promise<void> {

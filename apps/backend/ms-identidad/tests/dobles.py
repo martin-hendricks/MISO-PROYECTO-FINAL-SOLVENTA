@@ -1,13 +1,16 @@
 from copy import deepcopy
 from uuid import UUID
 
-from app.domain.modelos import Usuario
-from app.ports.persistencia import CuentaYaExiste
+from app.domain.modelos import EventoDominio, Usuario
+from app.domain.socios import Socio
+from app.ports.persistencia import TAMANO_PAGINA_CLIENTES, CuentaYaExiste
 
 
 class AlmacenEnMemoria:
     def __init__(self) -> None:
         self.usuarios: dict[UUID, Usuario] = {}
+        self.socios: dict[UUID, Socio] = {}
+        self.outbox: list[EventoDominio] = []
         self.chocar_en_proximo_commit: bool = False
 
 
@@ -33,26 +36,113 @@ class _Usuarios:
             None,
         )
 
+    async def obtener_por_id(self, usuario_id: UUID):
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        usuario = vista.get(usuario_id)
+        return deepcopy(usuario) if usuario else None
+
     async def agregar(self, usuario: Usuario) -> None:
         self._uow.pendientes[usuario.id] = usuario
+
+    async def actualizar(self, usuario: Usuario) -> None:
+        self._uow.pendientes[usuario.id] = usuario
+
+    async def listar_clientes(self, estado, q, ids, pagina):
+        tamano = len(ids) if ids else TAMANO_PAGINA_CLIENTES
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        usuarios = [usuario for usuario in vista.values() if usuario.rol == "cliente"]
+        if estado is not None:
+            usuarios = [usuario for usuario in usuarios if usuario.estado.value == estado]
+        if q:
+            aguja = q.casefold()
+            usuarios = [
+                usuario
+                for usuario in usuarios
+                if aguja in usuario.nombre.casefold()
+                or aguja in usuario.apellidos.casefold()
+                or aguja in usuario.email.casefold()
+                or aguja in usuario.numero_documento.casefold()
+            ]
+        if ids:
+            pedidos = set(ids)
+            usuarios = [usuario for usuario in usuarios if usuario.id in pedidos]
+        usuarios.sort(key=lambda usuario: (usuario.apellidos, usuario.nombre, usuario.id))
+        inicio = (pagina - 1) * tamano
+        pagina_filas = usuarios[inicio : inicio + tamano + 1]
+        return [deepcopy(usuario) for usuario in pagina_filas[:tamano]], len(pagina_filas) > tamano
+
+    async def listar_por_rol(self, rol: str):
+        vista = {**self._uow.almacen.usuarios, **self._uow.pendientes}
+        return [deepcopy(u) for u in vista.values() if u.rol == rol]
+
+
+class _Socios:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    def _vista(self) -> dict[UUID, Socio]:
+        return {**self._uow.almacen.socios, **self._uow.socios_pendientes}
+
+    async def agregar(self, socio: Socio) -> None:
+        self._uow.socios_pendientes[socio.socio_id] = deepcopy(socio)
+
+    async def actualizar(self, socio: Socio) -> None:
+        self._uow.socios_pendientes[socio.socio_id] = deepcopy(socio)
+
+    async def obtener(self, socio_id: UUID):
+        socio = self._vista().get(socio_id)
+        return deepcopy(socio) if socio else None
+
+    async def obtener_por_huella(self, huella_sha256: str):
+        return next(
+            (
+                deepcopy(s)
+                for s in self._vista().values()
+                if any(c.huella_sha256 == huella_sha256 for c in s.credenciales)
+            ),
+            None,
+        )
+
+    async def listar(self):
+        return [deepcopy(s) for s in sorted(self._vista().values(), key=lambda s: (s.creado_en, s.socio_id))]
+
+
+class _Outbox:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    async def agregar(self, evento: EventoDominio) -> None:
+        self._uow.eventos_pendientes.append(evento)
 
 
 class UnidadDeTrabajoEnMemoria:
     def __init__(self, almacen: AlmacenEnMemoria) -> None:
         self.almacen = almacen
         self.pendientes: dict[UUID, Usuario] = {}
+        self.eventos_pendientes: list[EventoDominio] = []
+        self.socios_pendientes: dict[UUID, Socio] = {}
         self.usuarios = _Usuarios(self)
+        self.socios = _Socios(self)
+        self.outbox = _Outbox(self)
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, *exc):
         self.pendientes.clear()
+        self.eventos_pendientes.clear()
+        self.socios_pendientes.clear()
 
     async def confirmar(self):
         if self.almacen.chocar_en_proximo_commit:
             self.almacen.chocar_en_proximo_commit = False
             self.pendientes.clear()
+            self.eventos_pendientes.clear()
+            self.socios_pendientes.clear()
             raise CuentaYaExiste
         self.almacen.usuarios.update(self.pendientes)
+        self.almacen.socios.update(self.socios_pendientes)
+        self.almacen.outbox.extend(self.eventos_pendientes)
         self.pendientes.clear()
+        self.eventos_pendientes.clear()
+        self.socios_pendientes.clear()

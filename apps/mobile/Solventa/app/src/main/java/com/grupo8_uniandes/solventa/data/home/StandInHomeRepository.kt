@@ -25,28 +25,33 @@ class StandInHomeRepository(
         val ready = runBlocking { home.load() } as? StandInAnswer.Ready<BffHome> ?: return null
         val sample = ready.value
         return HomeSituation(
-            quotes = listOf(
+            quotes = sample.cotizacionesPendientes.ifEmpty { listOfNotNull(sample.ofertaVigente) }.map { offer ->
                 Quote(
-                    id = sample.ofertaVigente.cotizacionId,
-                    consultable = sample.ofertaVigente.estado == IN_FORCE,
+                    id = offer.cotizacionId,
+                    consultable = offer.estado == IN_FORCE,
                     becameCurrentAt = becameCurrentAt,
-                ),
-            ),
-            policies = listOf(
-                PolicyCandidate(
-                    id = sample.poliza.numero,
-                    active = sample.poliza.estado == POLICY_IN_FORCE,
-                    issuedAt = becameCurrentAt,
-                ),
-            ),
-            claims = listOf(
-                ClaimCandidate(
-                    id = sample.siniestroEnCurso.siniestroId,
-                    inProgress = sample.siniestroEnCurso.estado == CLAIM_IN_PROGRESS,
-                    openedAt = becameCurrentAt,
-                ),
-            ),
-            origination = Origination(present = sample.hipotecario != null),
+                    ramo = offer.ramo,
+                )
+            },
+            policies = sample.poliza?.let { policy ->
+                listOf(
+                    PolicyCandidate(
+                        id = policy.numero,
+                        active = policy.estado.equals(POLICY_IN_FORCE, ignoreCase = true),
+                        issuedAt = becameCurrentAt,
+                    ),
+                )
+            }.orEmpty(),
+            claims = sample.siniestroEnCurso?.let { claim ->
+                listOf(
+                    ClaimCandidate(
+                        id = claim.siniestroId,
+                        inProgress = claim.estado.lowercase() in CLAIMS_OPEN,
+                        openedAt = becameCurrentAt,
+                    ),
+                )
+            }.orEmpty(),
+            origination = Origination(present = sample.hipotecario != null, credit = sample.hipotecario),
         )
     }
 
@@ -54,6 +59,6 @@ class StandInHomeRepository(
         val SAMPLE_AT: Instant = Instant.parse("2026-10-01T00:00:00Z")
         const val IN_FORCE = "oferta_vigente"
         const val POLICY_IN_FORCE = "vigente"
-        const val CLAIM_IN_PROGRESS = "en_evaluacion"
+        val CLAIMS_OPEN = setOf("recibido", "en_evaluacion", "enrutado")
     }
 }

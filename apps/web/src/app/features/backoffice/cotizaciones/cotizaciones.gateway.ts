@@ -7,6 +7,7 @@ export interface CotizacionPendiente {
   cotizacionId: string;
   ofertaId: string;
   ramo: string;
+  descripcion?: string;
   estado: string;
   prima: number;
   moneda: string;

@@ -3,7 +3,9 @@ package com.grupo8_uniandes.solventa.bff
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
+import com.grupo8_uniandes.solventa.data.bff.mapping.toParts
 import com.grupo8_uniandes.solventa.data.bff.remote.BffCache
+import com.grupo8_uniandes.solventa.data.bff.remote.BffPolicyMemory
 import com.grupo8_uniandes.solventa.data.bff.remote.MobileBffApi
 import com.grupo8_uniandes.solventa.data.bff.remote.BffClients
 import com.grupo8_uniandes.solventa.data.bff.remote.BffGate
@@ -20,10 +22,16 @@ import com.grupo8_uniandes.solventa.data.bff.remote.RemotePushRepository
 import com.grupo8_uniandes.solventa.data.bff.remote.RemoteSignupRepository
 import com.grupo8_uniandes.solventa.data.session.TokenStore
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
 import com.grupo8_uniandes.solventa.domain.bff.claim.Attachment
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
+import com.grupo8_uniandes.solventa.domain.bff.claim.EvidenceBytes
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.DeviceRisk
@@ -59,8 +67,10 @@ class BffCallTest {
 
     @Before
     fun setUp() {
+        AndroidKeyStoreProvider.install()
         server.start()
         tokens = TokenStore(context).also { it.clear() }
+        tokens.save(SessionTokens("jwt-access", "jwt-refresh", 900))
         cache = BffCache(context).also { it.clear() }
         val api = BffClients.open(server.url("/").toString(), tokens).api
         gate = BffGate(api, cache)
@@ -72,6 +82,28 @@ class BffCallTest {
     }
 
     @Test
+    fun givenANewOwner_whenRetained_thenABlankUidKeepsTheCache() {
+        cache.retainOwner(null)
+        cache.retainOwner(" ")
+        cache.retainOwner("ana")
+        cache.retainOwner("ana")
+        cache.writeDetail(
+            PolicyDetail(
+                numero = "POL-1",
+                ramo = "SOAT",
+                resumen = "Moto",
+                estado = "CANCELADA",
+                venceEn = "2027-01-01",
+                queHacer = "",
+                cancelacion = com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyCancellation("Fin", "2026-11-01", 10.0),
+            ),
+        )
+        assertEquals("POL-1", cache.readDetail("POL-1")?.numero)
+        cache.retainOwner("luis")
+        assertNull(cache.readDetail("POL-1"))
+    }
+
+    @Test
     fun givenAReadableBody_whenTheHostAnswers_thenDegradedAndEmptyOriginationStayReady() = runBlocking {
         enqueue(PublishedSamples.MORTGAGE_DEGRADED)
         val mortgage = RemoteMortgageRepository(api(), gate).offer(CreditProfile(180_000_000, 180, true))
@@ -80,9 +112,38 @@ class BffCallTest {
         assertEquals(64_000L, ready.value.prima)
 
         enqueue(PublishedSamples.HOME)
-        val home = RemoteHomeBffRepository(api(), gate).load() as StandInAnswer.Ready
+        val home = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
         assertNull(home.value.hipotecario)
-        assertEquals("COT-1042", home.value.ofertaVigente.cotizacionId)
+        assertEquals("COT-1042", checkNotNull(home.value.ofertaVigente).cotizacionId)
+
+        enqueue(
+            """
+            {"ofertaVigente":{"cotizacionId":"COT-1042","ramo":"Protección de dispositivo","estado":"oferta_vigente"},"poliza":null,"siniestroEnCurso":{"siniestroId":"SIN-441","estado":"en_evaluacion"},"hipotecario":null}
+            """,
+        )
+        val withoutPolicy = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
+        assertNull(withoutPolicy.value.poliza)
+        assertEquals("COT-1042", checkNotNull(withoutPolicy.value.ofertaVigente).cotizacionId)
+        assertEquals("SIN-441", checkNotNull(withoutPolicy.value.siniestroEnCurso).siniestroId)
+
+        enqueue(
+            """
+            {"ofertaVigente":null,"cotizacionesPendientes":[],"poliza":null,"siniestroEnCurso":null,"hipotecario":null}
+            """,
+        )
+        val empty = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
+        assertNull(empty.value.ofertaVigente)
+        assertNull(empty.value.poliza)
+        assertTrue(empty.value.cotizacionesPendientes.isEmpty())
+    }
+
+    @Test
+    fun givenNoAccessToken_whenHomeLoads_thenInicioStaysEmpty() = runBlocking {
+        tokens.clear()
+        val home = RemoteHomeBffRepository(api(), gate, tokens).load() as StandInAnswer.Ready
+        assertNull(home.value.ofertaVigente)
+        assertNull(home.value.poliza)
+        assertEquals(0, server.requestCount)
     }
 
     @Test
@@ -97,6 +158,71 @@ class BffCallTest {
     }
 
     @Test
+    fun givenADecimalPrima_whenQuoted_thenTheOfferIsReady() = runBlocking {
+        val body = """
+            {"cotizacionId":"89167dc2-aab6-491c-8378-45131495f364","ramo":"Protección de dispositivo","estado":"cotizada","prima":"106900.00","moneda":"COP","venceEn":"2026-11-02T02:00:23.185686Z"}
+        """
+        enqueue(body)
+        val answer = RemoteOfferRepository(api(), gate) { "PEN" }.quote("Protección de dispositivo", DeviceRisk(2_400_000, "apple", false, "iPhone 15"))
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"moneda\":\"PEN\""))
+        val ready = answer as StandInAnswer.Ready
+        assertEquals("89167dc2-aab6-491c-8378-45131495f364", ready.value.cotizacionId)
+        assertEquals(106_900L, ready.value.prima)
+        assertEquals("cotizada", ready.value.estado)
+    }
+
+    @Test
+    fun givenA422Detail_whenQuoted_thenTheExplanationSurvives() = runBlocking {
+        val detail = "El ratio de gastos supera el porcentaje máximo vigente"
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"$detail"}"""))
+        val explained = runCatching {
+            RemoteOfferRepository(api(), gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            )
+        }.exceptionOrNull()
+        assertEquals(detail, (explained as com.grupo8_uniandes.solventa.domain.bff.offer.QuoteExplained).detail)
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
+        val failed = RemoteOfferRepository(api(), gate).quote(
+            "Protección de dispositivo",
+            DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+        )
+        server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
+        assertTrue(
+            RemoteOfferRepository(api(), gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            ) is StandInAnswer.Failed,
+        )
+        val dead = deadClients()
+        assertTrue(
+            RemoteOfferRepository(dead.api, dead.gate).quote(
+                "Protección de dispositivo",
+                DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
+            ) is StandInAnswer.Failed,
+        )
+    }
+
+    @Test
+    fun givenADecimalPrima_whenTheQuoteIsAccepted_thenThePathCarriesTheId() = runBlocking {
+        val body = """
+            {"cotizacionId":"COT-9","estado":"aceptada","prima":"10.00","moneda":"COP"}
+        """
+        enqueue(body)
+        val answer = RemoteOfferRepository(api(), gate) { "MXN" }.accept("COT-9") as StandInAnswer.Ready
+        assertEquals("COT-9", answer.value.cotizacionId)
+        assertEquals("aceptada", answer.value.estado)
+        assertEquals(10L, answer.value.prima)
+        assertEquals("COP", answer.value.moneda)
+        assertEquals("COP", answer.value.monedaInicio)
+        val recorded = server.takeRequest()
+        assertTrue(recorded.body.readUtf8().contains("\"monedaInicio\":\"MXN\""))
+        assertTrue(recorded.path.orEmpty().endsWith("cliente/cotizaciones/COT-9/aceptacion"))
+        assertTrue(recorded.getHeader("Idempotency-Key").orEmpty().length in 8..128)
+        assertEquals("POST", recorded.method)
+    }
+
+    @Test
     fun givenASilentHost_whenAsked_thenTheAskFails() = runBlocking {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         val api = BffClients.open(server.url("/").toString(), tokens, readTimeoutSeconds = 1).api
@@ -108,7 +234,7 @@ class BffCallTest {
     fun givenEachLine_whenQuoted_thenDatosRiesgoMatchesThatLine() = runBlocking {
         val offer = RemoteOfferRepository(api(), gate)
         val cases = listOf(
-            "valorDispositivo" to DeviceRisk(2_400_000, "Pixel", false),
+            "valorDispositivo" to DeviceRisk(2_400_000, "apple", false, "iPhone 15"),
             "sumaAsegurada" to LifeRisk(50_000_000, 34),
             "evento" to ClimateRisk("lluvia", "Chapinero", 40),
             "\"valor\"" to MortgageRisk(180_000_000, 180),
@@ -122,6 +248,10 @@ class BffCallTest {
             val recorded = server.takeRequest()
             val body = recorded.body.readUtf8()
             assertTrue(body.contains(field))
+            if (risk is DeviceRisk) {
+                assertTrue(body.contains("\"marca\":\"${risk.marca}\""))
+                assertTrue(body.contains("\"modelo\":\"${risk.modelo}\""))
+            }
             val key = recorded.getHeader("Idempotency-Key").orEmpty()
             assertTrue(key.length in 8..128)
             assertFalse(body.contains("\"rol\""))
@@ -138,16 +268,17 @@ class BffCallTest {
     @Test
     fun givenNoStoredWallet_whenTheHostIsUnreachable_thenTheLoadFails() = runBlocking {
         val dead = deadClients()
-        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).policies() is StandInAnswer.Failed)
 
         enqueue(PublishedSamples.WALLET)
-        val stored = RemoteIssuanceRepository(api(), gate, cache).wallet() as StandInAnswer.Ready
-        assertEquals("POL-88219-CO", stored.value.single().numero)
+        val stored = RemoteIssuanceRepository(api(), gate, cache).policies() as StandInAnswer.Ready
+        assertEquals("POL-88219-CO", stored.value.first().numero)
+        assertEquals("POL-11002-CO", stored.value[1].numero)
 
-        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).policies() is StandInAnswer.Failed)
 
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"codigo":"x","mensaje":"no"}"""))
-        assertTrue(RemoteIssuanceRepository(api(), gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(api(), gate, cache).policies() is StandInAnswer.Failed)
     }
 
     @Test
@@ -164,12 +295,12 @@ class BffCallTest {
                 Attachment(AttachmentKind.SOPORTE, "acta.jpg"),
             ),
         )
-        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice) is StandInAnswer.Failed)
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice, null) is StandInAnswer.Failed)
         val key = cache.readClaim()!!.key
 
         enqueue(PublishedSamples.CLAIM_RECEIPT)
         enqueue(PublishedSamples.CLAIM_RECEIPT)
-        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-13")) as StandInAnswer.Ready
+        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-13"), null) as StandInAnswer.Ready
         assertEquals("SIN-441", sent.value.siniestroId)
         val replay = server.takeRequest()
         val fresh = server.takeRequest()
@@ -177,9 +308,10 @@ class BffCallTest {
         assertNotEquals(key, fresh.getHeader("Idempotency-Key"))
         val replayBody = replay.body.readUtf8()
         val freshBody = fresh.body.readUtf8()
-        assertTrue(replayBody, replayBody.contains("\"geo\":null"))
+        assertTrue(replayBody, replayBody.contains("name=\"fechaHecho\""))
+        assertTrue(replayBody, replayBody.contains("2026-03-12"))
         assertTrue(freshBody, freshBody.contains("2026-03-13"))
-        assertFalse(replayBody.contains("lat"))
+        assertFalse(replayBody.contains("name=\"geo\""))
         assertNull(cache.readClaim())
     }
 
@@ -188,11 +320,14 @@ class BffCallTest {
         enqueue(PublishedSamples.REJECTION)
         val rejection = RemoteIssuanceRepository(api(), gate, cache).rejected() as StandInAnswer.Ready
         assertEquals("rechazada", rejection.value.estado)
-        assertEquals("Valor del equipo fuera de rango", rejection.value.motivo)
+        assertEquals("La suscripción automática rechazó el riesgo del dispositivo cotizado.", rejection.value.motivo)
 
         enqueue(PublishedSamples.ISSUED)
-        val issued = RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") as StandInAnswer.Ready
+        val issued = RemoteIssuanceRepository(api(), gate, cache) { "PEN" }.accept("COT-1042") as StandInAnswer.Ready
         assertEquals("POL-88219-CO", issued.value.numero)
+        assertEquals("COP", issued.value.monedaInicio)
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"monedaInicio\":\"PEN\""))
 
         enqueue(PublishedSamples.REJECTION)
         assertTrue(RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") is StandInAnswer.Failed)
@@ -201,9 +336,60 @@ class BffCallTest {
         server.enqueue(MockResponse().setResponseCode(503).setBody("""{"codigo":"x","mensaje":"no"}"""))
         assertTrue(RemoteIssuanceRepository(api(), gate, cache).accept("COT-1042") is StandInAnswer.Failed)
         server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
-        assertTrue(RemoteIssuanceRepository(api(), gate, cache).wallet() is StandInAnswer.Failed)
+        assertTrue(RemoteIssuanceRepository(api(), gate, cache).policies() is StandInAnswer.Failed)
         val dead = deadClients()
         assertTrue(RemoteIssuanceRepository(dead.api, dead.gate, cache).accept("COT-1042") is StandInAnswer.Failed)
+    }
+
+    @Test
+    fun givenARevokedConsent_whenAcceptanceIsRead_thenTheRepositoryReportsIt() = runBlocking {
+        val issuance = RemoteIssuanceRepository(api(), gate, cache)
+        server.enqueue(
+            MockResponse().setResponseCode(422)
+                .setBody("""{"detail":"El consentimiento ya no está vigente","codigo":"consentimiento_revocado"}"""),
+        )
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertTrue(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no","codigo":"oferta_ya_usada"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"no","codigo":"consentimiento_revocado"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"detail":"no"}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("consentimiento_revocado"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""["consentimiento_revocado"]"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":null}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody(""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("{"))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":{"valor":"consentimiento_revocado"}}"""))
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Failed)
+        assertFalse(issuance.consentRevoked())
+
+        enqueue(PublishedSamples.ISSUED)
+        assertTrue(issuance.accept("COT-1042") is StandInAnswer.Ready)
+        assertFalse(issuance.consentRevoked())
     }
 
     @Test
@@ -211,16 +397,16 @@ class BffCallTest {
         val claims = RemoteClaimRepository(api(), gate, cache)
         val notice = ClaimNotice("POL-88219-CO", "2026-03-12", null, emptyList())
         server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
-        assertTrue(claims.notify(notice) is StandInAnswer.Failed)
+        assertTrue(claims.notify(notice, null) is StandInAnswer.Rejected)
         assertNull(cache.readClaim())
         server.enqueue(MockResponse().setResponseCode(200).setBody("{"))
-        assertTrue(claims.notify(notice) is StandInAnswer.Failed)
+        assertTrue(claims.notify(notice, null) is StandInAnswer.Failed)
 
         val dead = deadClients()
-        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice) is StandInAnswer.Failed)
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).notify(notice, null) is StandInAnswer.Failed)
         server.enqueue(MockResponse().setResponseCode(422).setBody("""{"codigo":"x","mensaje":"no"}"""))
         enqueue(PublishedSamples.CLAIM_RECEIPT)
-        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-14"))
+        val sent = RemoteClaimRepository(api(), gate, cache).notify(notice.copy(fechaHecho = "2026-03-14"), null)
         assertTrue(sent is StandInAnswer.Ready)
         assertNull(cache.readClaim())
     }
@@ -228,9 +414,29 @@ class BffCallTest {
     @Test
     fun givenACorruptCache_whenRead_thenItIsAbsent() {
         val prefs = context.getSharedPreferences("solventa.bff", android.content.Context.MODE_PRIVATE)
-        prefs.edit().putString("wallet", "{").putString("claim", "{").commit()
-        assertNull(cache.readWallet())
+        cache.clear()
+        assertNull(cache.readPolicies())
+        assertNull(cache.readDetail("POL-88219-CO"))
+        prefs.edit().putString("policies", "{").putString("claim", "{").putString("details", "{").commit()
+        val memory = BffPolicyMemory(cache)
+        assertNull(memory.readPolicies())
         assertNull(cache.readClaim())
+        assertNull(memory.readDetail("POL-88219-CO"))
+        memory.writePolicies(
+            listOf(PolicyEntry("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")),
+        )
+        memory.writeDetail(
+            PolicyDetail(
+                "POL-88219-CO",
+                "Protección de dispositivo",
+                "Robo y Pantalla",
+                "vigente",
+                "2027-03-12",
+                "guia",
+            ),
+        )
+        assertEquals("POL-88219-CO", memory.readPolicies()?.single()?.numero)
+        assertEquals("Robo y Pantalla", memory.readDetail("POL-88219-CO")?.resumen)
     }
 
     @Test
@@ -251,15 +457,12 @@ class BffCallTest {
 
         enqueue(PublishedSamples.CLAIMS)
         val claims = RemoteClaimRepository(api(), gate, cache).list() as StandInAnswer.Ready
-        assertEquals("SIN-441", claims.value.single().siniestroId)
+        assertEquals(3, claims.value.size)
+        assertEquals("SIN-441", claims.value.first().siniestroId)
 
         enqueue(PublishedSamples.PAYMENT)
         val payment = RemotePaymentRepository(api(), gate).read() as StandInAnswer.Ready
         assertEquals(250_000L, payment.value.monto)
-
-        enqueue(PublishedSamples.MORTGAGE_DEGRADED)
-        val degraded = RemoteMortgageRepository(api(), gate).degraded() as StandInAnswer.Ready
-        assertTrue(degraded.value.degradada)
 
         enqueue(PublishedSamples.NOTICES)
         assertTrue(RemoteNoticeRepository(api(), gate).list() is StandInAnswer.Ready)
@@ -279,16 +482,106 @@ class BffCallTest {
         enqueue(PublishedSamples.PUSH_REGISTRATION)
         val push = RemotePushRepository(api(), gate)
         assertTrue(push.register(PushRegistration("fcm-stub", "android")) is StandInAnswer.Ready)
-        enqueue(PublishedSamples.PUSH_NOTICE)
-        val notice = push.notice() as StandInAnswer.Ready
-        assertEquals("Tu póliza vence", notice.value.titulo)
+        val registered = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.MILLISECONDS) }
+            .first { it.path.orEmpty().contains("avisos/token") }
+        assertEquals("POST", registered.method)
+        assertTrue(registered.path.orEmpty().endsWith("cliente/avisos/token"))
+        assertTrue(registered.body.readUtf8().contains("\"plataforma\":\"android\""))
+        server.enqueue(MockResponse().setResponseCode(204))
+        assertTrue(push.unregister("fcm-stub") is StandInAnswer.Ready)
+        val deleted = server.takeRequest()
+        assertEquals("DELETE", deleted.method)
+        assertTrue(deleted.path.orEmpty().endsWith("cliente/avisos/token"))
+        assertTrue(deleted.body.readUtf8().contains("fcm-stub"))
 
         enqueue(PublishedSamples.PROVIDERS)
         val assistance = RemoteAssistanceRepository(api(), gate)
-        assertEquals(2, (assistance.providers() as StandInAnswer.Ready).value.size)
+        val page = assistance.providers(
+            ProviderQuery(lat = 4.64, lng = -74.06, ramo = "soat-motocicleta", radioKm = 10.0),
+        ) as StandInAnswer.Ready
+        assertEquals("PRE-BOG-06", page.value.prestadores.single().id)
+        val asked = server.takeRequest()
+        assertTrue(asked.path.orEmpty().contains("cliente/prestadores"))
+        assertTrue(asked.path.orEmpty().contains("lat=4.64"))
+        assertTrue(asked.path.orEmpty().contains("ramo=soat-motocicleta"))
+        assertTrue(asked.path.orEmpty().contains("radioKm=10"))
+
+        enqueue("""{"pais":"MX","ciudades":[{"nombre":"Ciudad de México","lat":19.4326,"lng":-99.1332,"zoom":11,"prestadores":5}]}""")
+        val cities = assistance.cities("MX") as StandInAnswer.Ready
+        assertEquals("Ciudad de México", cities.value.single().nombre)
+        assertEquals(11, cities.value.single().zoom)
+        assertTrue(server.takeRequest().path.orEmpty().endsWith("cliente/prestadores/ciudades?pais=MX"))
+
+        enqueue(PublishedSamples.PROVIDERS_AREA.replace("\"truncado\":false", "\"truncado\":true"))
+        val area = ProviderArea(norte = 4.66, sur = 4.62, este = -74.05, oeste = -74.08)
+        val areaPage = assistance.providers(ProviderQuery(lat = 4.6432, lng = -74.0631, area = area)) as StandInAnswer.Ready
+        assertTrue(areaPage.value.truncado)
+        assertNull(areaPage.value.radioKm)
+        val areaAsked = server.takeRequest().path.orEmpty()
+        assertTrue(areaAsked.contains("norte=4.66"))
+        assertTrue(areaAsked.contains("sur=4.62"))
+        assertTrue(areaAsked.contains("este=-74.05"))
+        assertTrue(areaAsked.contains("oeste=-74.08"))
+        assertFalse(areaAsked.contains("radioKm"))
+
+        enqueue(PublishedSamples.CLAIM_PROVIDERS)
+        assertTrue(assistance.providersNearClaim("SIN-1", area) is StandInAnswer.Ready)
+        val claimAsked = server.takeRequest().path.orEmpty()
+        assertTrue(claimAsked.contains("cliente/siniestros/SIN-1/prestadores"))
+        assertTrue(claimAsked.contains("norte=4.66"))
+        assertTrue(claimAsked.contains("oeste=-74.08"))
         enqueue(PublishedSamples.ASSISTANCE_OUT)
         val requested = assistance.request(AssistanceRequest("PR-1", 4.65, -74.08, "POL-88219-CO"))
         assertTrue(requested is StandInAnswer.Ready)
+    }
+
+    @Test
+    fun givenMissingFileBytes_whenNotifying_thenTheHostIsNotCalled() = runBlocking {
+        EvidenceBytes.clear()
+        val notice = ClaimNotice(
+            poliza = "POL-1",
+            fechaHecho = "2026-11-01",
+            geo = null,
+            adjuntos = listOf(Attachment(AttachmentKind.FOTO, "a.png", "image/png", 20)),
+            descripcion = "Choque",
+        )
+        val answer = RemoteClaimRepository(api(), gate, cache).notify(notice, "key-11111111")
+        assertTrue(answer is StandInAnswer.Failed)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun givenAClaimDetail_whenTheHostAnswers_thenTheFieldsAndAMissingClaimAreMapped() = runBlocking {
+        enqueue(
+            """
+            {"id":"internal","siniestroId":"SIN-9","tipo":"parametrico","ramo":"Clima","resumen":"vuelo","fecha":"2026-11-01","estado":"pagado","poliza":"POL-1","descripcion":"Retraso","lugar":"Calle 72","umbral":"90 min","pago":{"comprobante":"C-1","monto":180000,"moneda":"COP","fecha":"2026-11-01"}}
+            """.trimIndent(),
+        )
+        val ready = RemoteClaimRepository(api(), gate, cache).detail("internal") as StandInAnswer.Ready
+        assertEquals("POL-1", ready.value.poliza)
+        assertEquals("Calle 72", ready.value.lugar)
+        assertEquals(null, ready.value.geo)
+        assertEquals("vuelo", ready.value.storedPayment()?.asunto)
+        server.enqueue(MockResponse().setResponseCode(404))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Rejected)
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Failed)
+        server.enqueue(MockResponse().setResponseCode(200).setBody("not-json"))
+        assertTrue(RemoteClaimRepository(api(), gate, cache).detail("missing") is StandInAnswer.Failed)
+        val dead = deadClients()
+        assertTrue(RemoteClaimRepository(dead.api, dead.gate, cache).detail("missing") is StandInAnswer.Failed)
+        val located = ClaimNotice(
+            poliza = "POL-1",
+            fechaHecho = "2026-11-01",
+            geo = com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint(4.6, -74.0, 8),
+            adjuntos = listOf(Attachment(AttachmentKind.FOTO, "geo.png", "image/png", 2)),
+            descripcion = "Choque",
+            lugar = "Calle 72",
+        )
+        EvidenceBytes.keep("geo.png", byteArrayOf(1, 2))
+        val parts = located.toParts()
+        assertTrue(parts.any { it.headers?.get("Content-Disposition")?.contains("name=\"geo\"") == true })
+        assertTrue(parts.any { it.headers?.get("Content-Disposition")?.contains("name=\"lugar\"") == true })
     }
 
     private fun api() = BffClients.open(server.url("/").toString(), tokens).api

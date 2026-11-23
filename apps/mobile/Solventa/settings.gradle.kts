@@ -17,6 +17,18 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        exclusiveContent {
+            // Maven Central returns 429 for these large jars from GitHub runners.
+            forRepository {
+                maven {
+                    name = "mavenCentralMirror"
+                    url = uri("https://maven-central.storage-download.googleapis.com/maven2")
+                }
+            }
+            filter {
+                includeModule("org.robolectric", "android-all-instrumented")
+            }
+        }
         google()
         mavenCentral()
     }

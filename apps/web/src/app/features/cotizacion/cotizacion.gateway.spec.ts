@@ -1,6 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideSolventaI18n } from '../../core/i18n/provide-i18n';
 import { Catalogo, CotizacionGateway, Oferta, rechazoDe } from './cotizacion.gateway';
 import {
   CATALOGO_DISPOSITIVO,
@@ -20,9 +21,13 @@ describe('CotizacionGateway', () => {
     masDe12Meses: false,
   };
 
-  function setup() {
+  beforeEach(() => localStorage.removeItem('solventa.locale'));
+
+  function setup(locale?: string) {
+    if (locale) localStorage.setItem('solventa.locale', locale);
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), ...provideSolventaI18n()],
     });
     return {
       gateway: TestBed.inject(CotizacionGateway),
@@ -74,9 +79,19 @@ describe('CotizacionGateway', () => {
 
     const request = http.expectOne('/web/cliente/cotizaciones');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ ramo: RAMO, datosRiesgo: DATOS });
+    expect(request.request.body).toEqual({ ramo: RAMO, datosRiesgo: DATOS, moneda: 'COP' });
     request.flush(OFERTA_WIRE);
     expect(oferta).toEqual(OFERTA);
+  });
+
+  it('quotes in soles when the active locale is Perú', () => {
+    const { gateway, http } = setup('es-PE');
+
+    gateway.quote(RAMO, DATOS).subscribe();
+
+    const request = http.expectOne('/web/cliente/cotizaciones');
+    expect(request.request.body).toEqual({ ramo: RAMO, datosRiesgo: DATOS, moneda: 'PEN' });
+    request.flush(OFERTA_WIRE);
   });
 
   it('quotes on behalf of the customer the advisor serves', () => {
@@ -90,6 +105,7 @@ describe('CotizacionGateway', () => {
       clienteId: 'CLI-18',
       ramo: RAMO,
       datosRiesgo: DATOS,
+      moneda: 'COP',
     });
     request.flush(OFERTA_DESGLOSE_WIRE);
     expect(oferta?.primaNeta).toBe(120000);
@@ -134,6 +150,17 @@ describe('CotizacionGateway', () => {
       mensaje: '',
     });
     expect(rechazoDe(new HttpErrorResponse({ status: 500 }))).toBeNull();
+    expect(
+      rechazoDe(
+        new HttpErrorResponse({
+          status: 422,
+          error: { detail: 'El ratio de gastos supera el porcentaje máximo vigente' },
+        }),
+      ),
+    ).toEqual({
+      codigo: 'rechazo',
+      mensaje: 'El ratio de gastos supera el porcentaje máximo vigente',
+    });
     expect(rechazoDe(new Error('boom'))).toBeNull();
   });
 });

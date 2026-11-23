@@ -1,4 +1,8 @@
-from uuid import uuid4
+from datetime import date, timedelta
+from decimal import Decimal
+from uuid import UUID, uuid4
+
+from app.domain.modelos import VENTANA_GRACIA_DIAS
 
 
 def _cuerpo(oferta_id=None, token_pago_confirmado=None):
@@ -194,27 +198,43 @@ def test_modificar_coberturas_vacias_responde_422(client):
 def test_cancelar_responde_200_y_queda_cancelada(client):
     poliza = _emitir(client)
 
-    respuesta = client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió"})
+    respuesta = client.post(
+        f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió", "operador": "op-1"}
+    )
 
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
     assert cuerpo["estado"] == "CANCELADA"
     assert cuerpo["motivo_cancelacion"] == "El cliente lo pidió"
+    assert cuerpo["cancelada_por"] == "op-1"
+    assert Decimal(cuerpo["devolucion_estimada"]) > 0
 
 
 def test_cancelar_sin_motivo_responde_422(client):
     poliza = _emitir(client)
 
-    respuesta = client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": ""})
+    respuesta = client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "", "operador": "op-1"})
+
+    assert respuesta.status_code == 422
+
+
+def test_cancelar_sin_operador_responde_422(client):
+    poliza = _emitir(client)
+
+    respuesta = client.post(
+        f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió", "operador": ""}
+    )
 
     assert respuesta.status_code == 422
 
 
 def test_cancelar_dos_veces_responde_409(client):
     poliza = _emitir(client)
-    client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió"})
+    client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió", "operador": "op-1"})
 
-    respuesta = client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "Otro motivo"})
+    respuesta = client.post(
+        f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "Otro motivo", "operador": "op-2"}
+    )
 
     assert respuesta.status_code == 409
     assert respuesta.json()["codigo"] == "transicion_invalida"
@@ -222,7 +242,56 @@ def test_cancelar_dos_veces_responde_409(client):
 
 def test_renovar_poliza_cancelada_responde_409(client):
     poliza = _emitir(client)
-    client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió"})
+    client.post(f"/v1/polizas/{poliza['id']}/cancelacion", json={"motivo": "El cliente lo pidió", "operador": "op-1"})
+
+    respuesta = client.post(
+        f"/v1/polizas/{poliza['id']}/renovacion", json={"nueva_fin_vigencia": "2029-01-01"}
+    )
+
+    assert respuesta.status_code == 409
+
+
+def test_emitir_devuelve_la_prima_como_suma_de_sumas_aseguradas(client):
+    poliza = _emitir(client)
+
+    assert Decimal(poliza["prima"]["valor"]) == Decimal("50000000.00")
+    assert poliza["prima"]["periodicidad"] == "ANUAL"
+
+
+def test_emitir_devuelve_renovable_true(client):
+    assert _emitir(client)["renovable"] is True
+
+
+def test_consultar_poliza_vencida_fuera_de_ventana_de_gracia_devuelve_renovable_false(client, almacen):
+    poliza = _emitir(client)
+    fila = almacen.polizas[UUID(poliza["id"])]
+    fila.fin_vigencia -= timedelta(days=365 + VENTANA_GRACIA_DIAS + 1)
+
+    respuesta = client.get(f"/v1/polizas/{poliza['id']}")
+
+    assert respuesta.json()["renovable"] is False
+
+
+def test_renovar_dentro_de_la_ventana_de_gracia_responde_200(client, almacen):
+    poliza = _emitir(client)
+    fila = almacen.polizas[UUID(poliza["id"])]
+    # fin_vigencia queda a 364 días de hoy (emitida ahora, _un_anio_despues
+    # resta un día): la empujo al pasado para que esté vencida hace
+    # exactamente VENTANA_GRACIA_DIAS.
+    fila.fin_vigencia -= timedelta(days=364 + VENTANA_GRACIA_DIAS)
+
+    respuesta = client.post(
+        f"/v1/polizas/{poliza['id']}/renovacion", json={"nueva_fin_vigencia": "2029-01-01"}
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["estado"] == "VIGENTE"
+
+
+def test_renovar_fuera_de_la_ventana_de_gracia_responde_409(client, almacen):
+    poliza = _emitir(client)
+    fila = almacen.polizas[UUID(poliza["id"])]
+    fila.fin_vigencia -= timedelta(days=365 + VENTANA_GRACIA_DIAS + 1)
 
     respuesta = client.post(
         f"/v1/polizas/{poliza['id']}/renovacion", json={"nueva_fin_vigencia": "2029-01-01"}
@@ -278,3 +347,97 @@ def test_consultar_firma_inexistente_responde_404(client):
     respuesta = client.get(f"/v1/polizas/firmas/{uuid4()}")
 
     assert respuesta.status_code == 404
+
+
+# --- por-vencer (HU-119) ----------------------------------------------------
+
+
+def test_por_vencer_devuelve_solo_vigentes_en_la_ventana(client):
+    poliza = client.post("/v1/polizas", json=_cuerpo()).json()
+
+    respuesta = client.get("/v1/polizas/por-vencer", params={"usuario_id": poliza["usuario_id"]})
+
+    assert respuesta.status_code == 200
+    # La póliza recién emitida vence en 1 año: fuera de la ventana de 30 días por defecto.
+    assert poliza["id"] not in [p["id"] for p in respuesta.json()]
+
+
+def test_por_vencer_rechaza_dias_fuera_de_rango(client):
+    respuesta = client.get("/v1/polizas/por-vencer", params={"dias": 0})
+    assert respuesta.status_code == 422
+
+    respuesta = client.get("/v1/polizas/por-vencer", params={"dias": 400})
+    assert respuesta.status_code == 422
+
+
+def test_por_vencer_cliente_sin_usuario_id_usa_el_de_su_sesion(client):
+    uid_cliente = str(uuid4())
+    como_cliente = client.como("cliente", uid=uid_cliente)
+
+    respuesta = como_cliente.get("/v1/polizas/por-vencer")
+
+    assert respuesta.status_code == 200
+
+
+def test_por_vencer_cliente_pidiendo_otro_usuario_id_da_404(client):
+    # alcance() trata "cliente pidiendo el usuario_id de otro" como 404, no
+    # 403 -- mismo comportamiento ya usado por GET /v1/polizas (listar).
+    como_cliente = client.como("cliente", uid=str(uuid4()))
+
+    respuesta = como_cliente.get("/v1/polizas/por-vencer", params={"usuario_id": str(uuid4())})
+
+    assert respuesta.status_code == 404
+
+
+# --- reportes (HU-62/HU-63) --------------------------------------------------
+
+
+def test_reporte_regulador_devuelve_el_archivo_del_adaptador(client):
+    hoy = date.today().isoformat()
+
+    respuesta = client.get("/v1/reportes/regulador", params={"desde": hoy, "hasta": hoy})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    # El doble de test (ReportesFalsos) no genera el nombre real del stub
+    # (ver test_infraestructura.py para ReportesStub real) -- aquí solo se
+    # valida que la ruta expone lo que devuelve GeneradorReportes tal cual.
+    assert cuerpo["nombre_archivo"] == "regulador.csv"
+    assert cuerpo["tipo_contenido"] == "text/csv"
+
+
+def test_reporte_reaseguradora_devuelve_el_archivo_del_adaptador(client):
+    hoy = date.today().isoformat()
+
+    respuesta = client.get("/v1/reportes/reaseguradora", params={"desde": hoy, "hasta": hoy})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["nombre_archivo"] == "reaseguradora.csv"
+
+
+def test_reporte_regulador_rechaza_rol_cliente(client):
+    hoy = date.today().isoformat()
+    como_cliente = client.como("cliente")
+
+    respuesta = como_cliente.get("/v1/reportes/regulador", params={"desde": hoy, "hasta": hoy})
+
+    assert respuesta.status_code == 403
+
+
+def test_reporte_regulador_rechaza_rol_asesor(client):
+    hoy = date.today().isoformat()
+    como_asesor = client.como("asesor")
+
+    respuesta = como_asesor.get("/v1/reportes/regulador", params={"desde": hoy, "hasta": hoy})
+
+    assert respuesta.status_code == 403
+
+
+def test_reporte_reaseguradora_rechaza_rol_cliente(client):
+    hoy = date.today().isoformat()
+    como_cliente = client.como("cliente")
+
+    respuesta = como_cliente.get("/v1/reportes/reaseguradora", params={"desde": hoy, "hasta": hoy})
+
+    assert respuesta.status_code == 403

@@ -1,0 +1,32 @@
+# RBAC de solo lectura para que Prometheus descubra pods/servicios vía
+# `kubernetes_sd_configs` (ver prometheus-configmap.yaml). Los experimentos
+# (Docker Compose) no necesitaban esto: un scrape_config con targets
+# estáticos no habla con el API server. En K8s real, el descubrimiento
+# dinámico es justamente lo que evita listar los 14 microservicios a mano.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: solventa-observability
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: solventa-prometheus
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: solventa-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: solventa-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: solventa-observability

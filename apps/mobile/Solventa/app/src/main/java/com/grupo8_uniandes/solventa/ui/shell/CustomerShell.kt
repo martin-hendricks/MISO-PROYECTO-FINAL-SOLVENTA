@@ -1,8 +1,14 @@
 package com.grupo8_uniandes.solventa.ui.shell
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.ActivityCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -14,11 +20,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
+import com.grupo8_uniandes.solventa.BuildConfig
 import com.grupo8_uniandes.solventa.data.bff.remote.SessionUnauthorized
 import com.grupo8_uniandes.solventa.di.startSolventaKoin
 import org.koin.androidx.compose.koinViewModel
@@ -37,6 +46,14 @@ import com.grupo8_uniandes.solventa.domain.consent.ConsentState
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
+import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
+import com.grupo8_uniandes.solventa.domain.bff.signup.VerifySelfie
+import com.grupo8_uniandes.solventa.domain.profile.PublishStoredName
+import com.grupo8_uniandes.solventa.domain.push.PushPrompt
+import com.grupo8_uniandes.solventa.domain.push.PushOptIn
+import com.grupo8_uniandes.solventa.domain.push.PushTarget
 import com.grupo8_uniandes.solventa.domain.registration.RegisterAccount
 import com.grupo8_uniandes.solventa.domain.startup.PostSplashStep
 import com.grupo8_uniandes.solventa.domain.startup.RestoreRemoteSession
@@ -44,7 +61,10 @@ import com.grupo8_uniandes.solventa.domain.startup.RestoredSession
 import com.grupo8_uniandes.solventa.domain.startup.StartupSession
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.home.HomeViewModel
+import com.grupo8_uniandes.solventa.navigation.BilleteraRoute
+import com.grupo8_uniandes.solventa.navigation.DepositoRoute
 import com.grupo8_uniandes.solventa.navigation.CotizacionRoute
+import com.grupo8_uniandes.solventa.navigation.OfertaHipotecarioRoute
 import com.grupo8_uniandes.solventa.navigation.Destination
 import com.grupo8_uniandes.solventa.navigation.VerOfertaRoute
 import com.grupo8_uniandes.solventa.navigation.CustomerNavHost
@@ -53,11 +73,24 @@ import com.grupo8_uniandes.solventa.navigation.InicioRoute
 import com.grupo8_uniandes.solventa.navigation.PerfilRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaDetalleRoute
 import com.grupo8_uniandes.solventa.navigation.PolizaEmitidaRoute
+import com.grupo8_uniandes.solventa.navigation.ConsentimientoRevocadoRoute
 import com.grupo8_uniandes.solventa.navigation.SuscripcionRechazadaRoute
 import com.grupo8_uniandes.solventa.navigation.PolizasRoute
 import com.grupo8_uniandes.solventa.navigation.ShellMode
+import com.grupo8_uniandes.solventa.navigation.AsistenciaSitioRoute
+import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresRoute
+import com.grupo8_uniandes.solventa.navigation.MapaPrestadoresSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.PrestadorFichaRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestroDetalleRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoSiniestroRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoRenovacionRoute
+import com.grupo8_uniandes.solventa.navigation.AvisoVencimientoRoute
+import com.grupo8_uniandes.solventa.navigation.ParametricoRoute
+import com.grupo8_uniandes.solventa.navigation.ConfirmacionAvisoRoute
+import com.grupo8_uniandes.solventa.navigation.ConfirmacionTarjetaRoute
+import com.grupo8_uniandes.solventa.navigation.EvidenciaAvisoRoute
 import com.grupo8_uniandes.solventa.navigation.SiniestrosRoute
+import com.grupo8_uniandes.solventa.navigation.leaveIssuance
 import com.grupo8_uniandes.solventa.navigation.openDestination
 import com.grupo8_uniandes.solventa.navigation.selectedDestination
 import com.grupo8_uniandes.solventa.navigation.shellMode
@@ -78,12 +111,14 @@ import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import com.grupo8_uniandes.solventa.ui.login.LoginEffect
 import com.grupo8_uniandes.solventa.ui.login.LoginScreen
 import com.grupo8_uniandes.solventa.ui.login.LoginViewModel
+import com.grupo8_uniandes.solventa.ui.registration.FrontCameraPreview
 import com.grupo8_uniandes.solventa.ui.registration.LivenessEffect
 import com.grupo8_uniandes.solventa.ui.registration.LivenessScreen
 import com.grupo8_uniandes.solventa.ui.registration.LivenessViewModel
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingEffect
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingScreen
 import com.grupo8_uniandes.solventa.ui.registration.OnboardingViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun CustomerShell(
@@ -96,6 +131,9 @@ fun CustomerShell(
     openConsent: Boolean = false,
     resumeProfile: Boolean = false,
     signedOut: Boolean = false,
+    askPush: Boolean = false,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (signedOut) {
@@ -103,11 +141,21 @@ fun CustomerShell(
         return
     }
     if (enterSignedInShell) {
-        SignedInShell(modifier = modifier, startOnProfile = resumeProfile)
+        SignedInShell(
+            modifier = modifier,
+            startOnProfile = resumeProfile,
+            askPush = askPush,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
+        )
         return
     }
     if (openOnboarding) {
-        OnboardingHost(modifier = modifier, showStep = onboardingShowsStep)
+        if (consentGranted(LocalContext.current)) {
+            OnboardingHost(modifier = modifier, showStep = onboardingShowsStep)
+        } else {
+            ConsentHost(modifier = modifier)
+        }
         return
     }
     if (openLiveness) {
@@ -143,12 +191,13 @@ fun CustomerShell(
     val livenessDone = remember(context) {
         SharedPrefsRegistrationRepository(context.applicationContext).livenessCompleted()
     }
-    val consentOpen = remember(context) {
-        SharedPrefsConsentRepository(context.applicationContext).read().state != ConsentState.NotGranted
-    }
+    val consentGranted = remember(context) { consentGranted(context) }
     when {
         step == PostSplashStep.LanguageAndRegion && !completed -> {
             FirstLaunchLanguage(repository = repository, modifier = modifier)
+        }
+        step == PostSplashStep.LanguageAndRegion && completed && !registrationDone && !consentGranted -> {
+            ConsentHost(modifier = modifier)
         }
         step == PostSplashStep.LanguageAndRegion && completed && !registrationDone -> {
             OnboardingHost(modifier = modifier)
@@ -156,15 +205,17 @@ fun CustomerShell(
         step == PostSplashStep.LanguageAndRegion && completed && registrationDone && !livenessDone -> {
             LivenessHost(modifier = modifier)
         }
-        step == PostSplashStep.LanguageAndRegion && completed && registrationDone && livenessDone && !consentOpen && !resumeProfile -> {
-            ConsentHost(modifier = modifier)
-        }
         step == PostSplashStep.Login ||
             (registrationDone && !SharedPrefsSessionRepository(context.applicationContext).isOpen()) -> {
             LoginHost(modifier = modifier, onLeaveToAccount = null)
         }
         else -> {
-            RestoredSessionHost(modifier = modifier, startOnProfile = resumeProfile)
+            RestoredSessionHost(
+                modifier = modifier,
+                startOnProfile = resumeProfile,
+                pushTarget = pushTarget,
+                onPushHandled = onPushHandled,
+            )
         }
     }
 }
@@ -173,6 +224,8 @@ fun CustomerShell(
 private fun RestoredSessionHost(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
 ) {
     val context = LocalContext.current
     startSolventaKoin(context)
@@ -191,6 +244,7 @@ private fun RestoredSessionHost(
     LaunchedEffect(restore) {
         restored = restore()
     }
+    val remoteWithoutSession = restored == RestoredSession.Local && BuildConfig.BFF_BASE_URL.isNotBlank()
     when (restored) {
         null -> SplashScreen(modifier = modifier)
         RestoredSession.Login -> LoginHost(
@@ -198,9 +252,16 @@ private fun RestoredSessionHost(
             onLeaveToAccount = null,
             showBack = false,
         )
+        RestoredSession.Local if remoteWithoutSession -> LoginHost(
+            modifier = modifier,
+            onLeaveToAccount = null,
+            showBack = false,
+        )
         RestoredSession.Local, RestoredSession.Home -> SignedInShell(
             modifier = modifier,
             startOnProfile = startOnProfile,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
         )
     }
 }
@@ -217,7 +278,7 @@ private fun FirstLaunchLanguage(
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
         if (state.effect == RegionEffect.ContinueToOnboarding) {
-            activity?.openOnboarding(showStep = true)
+            activity?.openConsent()
         }
     }
     IdiomaRegionScreen(
@@ -241,13 +302,40 @@ private fun OnboardingHost(
     val session = remember {
         GlobalContext.get().get<MobileSessionRepository>()
     }
-    val viewModel = remember(context, region, session) {
+    val signup = remember {
+        GlobalContext.get().get<SignupRepository>()
+    }
+    val priorHabeasData = remember(context) {
+        when (SharedPrefsConsentRepository(context.applicationContext).read().state) {
+            ConsentState.Granted -> true
+            ConsentState.Revoked -> false
+            ConsentState.NotGranted -> null
+        }
+    }
+    val viewModel = remember(context, region, session, signup, priorHabeasData) {
         OnboardingViewModel(
             RegisterAccount(SharedPrefsRegistrationRepository(context.applicationContext)),
             region,
             openRemoteSession = { email, password ->
                 session.signIn(email, password) is StandInAnswer.Ready
             },
+            registerRemote = { draft, habeasData ->
+                habeasData && signup.register(
+                    SignupRecord(
+                        nombre = draft.givenName.trim(),
+                        apellidos = draft.surnames.trim(),
+                        documento = draft.documentNumber.trim(),
+                        correo = draft.email.trim(),
+                        pruebaDeVida = Liveness.NO,
+                        habeasData = habeasData,
+                        contrasena = draft.password.trim(),
+                        tipoDocumento = draft.documentType.trim(),
+                        ingresosMensuales = draft.monthlyIncome.trim(),
+                        gastosMensuales = draft.monthlySpending.trim(),
+                    ),
+                ) is StandInAnswer.Ready
+            },
+            priorHabeasData = priorHabeasData,
         )
     }
     val state by viewModel.state.collectAsState()
@@ -269,10 +357,14 @@ private fun OnboardingHost(
             onDocumentNumber = viewModel::onDocumentNumber,
             onPassword = viewModel::onPassword,
             onPasswordConfirm = viewModel::onPasswordConfirm,
+            onIncome = viewModel::onIncome,
+            onSpending = viewModel::onSpending,
             onPhotoAttached = viewModel::attachPhoto,
             onPhotoDeclined = viewModel::photoDeclined,
+            onHabeasData = viewModel::onHabeasData,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
+            region = region,
             showStep = showStep,
             modifier = modifier,
         )
@@ -284,6 +376,9 @@ internal fun SignedInShell(
     modifier: Modifier = Modifier,
     startOnProfile: Boolean = false,
     homeState: HomeUiState? = null,
+    askPush: Boolean = false,
+    pushTarget: PushTarget? = null,
+    onPushHandled: () -> Unit = {},
 ) {
     val signedIn = true
     val navController = rememberNavController()
@@ -301,6 +396,26 @@ internal fun SignedInShell(
             }
         }
     }
+    val scope = rememberCoroutineScope()
+    val optIn = remember {
+        GlobalContext.get().get<PushOptIn>()
+    }
+    val publishName = remember { GlobalContext.get().get<PublishStoredName>() }
+    LaunchedEffect(publishName) { publishName() }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        scope.launch { optIn.onPermissionResult(granted) }
+    }
+    LaunchedEffect(askPush) {
+        optIn.publishInstallation()
+        val host = activity ?: return@LaunchedEffect
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(host, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted || !askPush) return@LaunchedEffect
+        if (optIn.onSessionStarted() == PushPrompt.Ask) {
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     val homeViewModel: HomeViewModel = koinViewModel()
     val collectedHome by homeViewModel.state.collectAsState()
     val homeStateResolved = homeState ?: collectedHome
@@ -309,7 +424,8 @@ internal fun SignedInShell(
     val route = entry?.toSolventaRoute() ?: start
     val mode = shellMode(route, signedIn)
     val selected = selectedDestination(route)
-    val showBottomBar = mode == ShellMode.Root || mode == ShellMode.Nested
+    val showBottomBar = (mode == ShellMode.Root || mode == ShellMode.Nested) &&
+        !(route is EvidenciaAvisoRoute && AvisoChrome.coverTabs)
 
     val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     val consumeBack = remember {
@@ -331,11 +447,18 @@ internal fun SignedInShell(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            if (signedIn && mode != ShellMode.PreLogin && route != PolizaEmitidaRoute) {
+            if (signedIn && mode != ShellMode.PreLogin && route !is PolizaEmitidaRoute && route !is EmisionEnCursoRoute) {
                 SolventaTopBar(
                     title = routeTitle(route),
                     showBack = mode == ShellMode.Nested,
-                    onBack = { navController.popBackStack() },
+                    showIdentityMark = route is OfertaHipotecarioRoute || route is ConfirmacionTarjetaRoute,
+                    onBack = {
+                        if (route == SuscripcionRechazadaRoute || route == ConsentimientoRevocadoRoute) {
+                            navController.leaveIssuance(InicioRoute)
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
                 )
             }
         },
@@ -367,6 +490,8 @@ internal fun SignedInShell(
             startDestination = start,
             onSignedOut = { activity?.signOutToLogin() },
             onInicioVisible = homeViewModel::refresh,
+            pushTarget = pushTarget,
+            onPushHandled = onPushHandled,
         )
     }
 }
@@ -375,13 +500,24 @@ internal fun SignedInShell(
 private fun routeTitle(route: Any): String = when (route) {
     is CotizacionRoute -> stringResource(R.string.quote_step_title)
     is VerOfertaRoute -> stringResource(R.string.offer_title)
+    is ConfirmacionTarjetaRoute -> stringResource(R.string.card_title)
+    OfertaHipotecarioRoute -> stringResource(R.string.mortgage_offer_title)
     is PolizaDetalleRoute -> stringResource(R.string.policy_detail_title)
     is SiniestroDetalleRoute -> stringResource(R.string.destination_siniestros)
     is EmisionEnCursoRoute -> stringResource(R.string.issuing_title)
-    PolizaEmitidaRoute -> stringResource(R.string.issued_title)
-    SuscripcionRechazadaRoute -> stringResource(R.string.rejection_title)
+    is PolizaEmitidaRoute -> stringResource(R.string.issued_title, route.ramo)
+    SuscripcionRechazadaRoute, ConsentimientoRevocadoRoute -> stringResource(R.string.rejection_title)
     PolizasRoute -> stringResource(R.string.destination_polizas)
-    SiniestrosRoute -> stringResource(R.string.destination_siniestros)
+    SiniestrosRoute, MapaPrestadoresRoute, is MapaPrestadoresSiniestroRoute -> stringResource(R.string.destination_siniestros)
+    is PrestadorFichaRoute -> stringResource(R.string.providers_ficha_title)
+    AvisoSiniestroRoute -> stringResource(R.string.claim_notice_title)
+    ParametricoRoute -> stringResource(R.string.parametric_title)
+    AvisoVencimientoRoute, AvisoRenovacionRoute -> stringResource(R.string.validity_title)
+    EvidenciaAvisoRoute -> stringResource(AvisoChrome.titleRes)
+    is ConfirmacionAvisoRoute -> stringResource(R.string.claim_sent_title)
+    is AsistenciaSitioRoute -> stringResource(R.string.assistance_title)
+    BilleteraRoute -> stringResource(R.string.destination_billetera)
+    is DepositoRoute -> stringResource(R.string.billetera_shell_deposito)
     PerfilRoute -> stringResource(R.string.destination_perfil)
     else -> stringResource(R.string.destination_inicio)
 }
@@ -408,11 +544,15 @@ private fun LoginHost(
             negativeButtonText = host.getString(R.string.action_secondary),
         )
     }
-    val unlockEnabled = registration.biometricPromptOffered()
+    val unlockEnabled = registration.biometricUnlockEnabled()
     val deviceCanAuthenticate = biometricPrompt?.available() == true
     val offerBiometric = unlockEnabled && deviceCanAuthenticate && !state.biometricFallback
-    LaunchedEffect(state.effect) {
-        if (state.effect == LoginEffect.OpenHome || state.effect == LoginEffect.ConfirmBiometric) {
+    val confirmBiometric = state.effect == LoginEffect.ConfirmBiometric && deviceCanAuthenticate
+    LaunchedEffect(state.effect, deviceCanAuthenticate) {
+        val openHome = state.effect == LoginEffect.OpenHome ||
+            (state.effect == LoginEffect.ConfirmBiometric && !deviceCanAuthenticate)
+        if (openHome) {
+            activity?.intent?.putExtra(MainActivity.EXTRA_ASK_PUSH, true)
             activity?.openHomeAfterOnboarding()
             viewModel.consumeEffect()
         }
@@ -427,7 +567,7 @@ private fun LoginHost(
         onBiometric = { biometricPrompt?.authenticate(viewModel::onDeviceUnlock) },
         biometricEnabled = true,
         biometricFallback = !offerBiometric,
-        confirmBiometric = false,
+        confirmBiometric = confirmBiometric,
         onAcceptBiometric = viewModel::acceptBiometric,
         onDeclineBiometric = viewModel::declineBiometric,
         onBack = { onLeaveToAccount?.invoke() },
@@ -435,8 +575,10 @@ private fun LoginHost(
         onCreateAccount = {
             if (onLeaveToAccount != null) {
                 onLeaveToAccount()
-            } else {
+            } else if (consentGranted(context)) {
                 activity?.openOnboarding()
+            } else {
+                activity?.openConsent()
             }
         },
         modifier = modifier,
@@ -458,19 +600,42 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
     val repository = remember(context) {
         SharedPrefsRegistrationRepository(context.applicationContext)
     }
-    val viewModel = remember(repository, region) {
-        LivenessViewModel(repository, region)
+    startSolventaKoin(context)
+    val verify = remember { GlobalContext.get().get<VerifySelfie>() }
+    val viewModel = remember(repository, region, verify) {
+        LivenessViewModel(repository, region, verify)
     }
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
+    var askedCamera by remember { mutableStateOf(false) }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        askedCamera = true
+        viewModel.onCameraResult(granted)
+    }
     LaunchedEffect(state.effect) {
-        if (state.effect == LivenessEffect.OpenConsent) {
-            activity?.openConsent()
+        if (state.effect == LivenessEffect.OpenHome) {
+            activity?.intent?.putExtra(MainActivity.EXTRA_ASK_PUSH, true)
+            activity?.openHomeAfterOnboarding()
+        }
+        if (state.effect == LivenessEffect.RequestCamera) {
+            viewModel.consumeEffect()
+            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+            val rationale = activity?.let {
+                ActivityCompat.shouldShowRequestPermissionRationale(it, Manifest.permission.CAMERA)
+            } == true
+            when {
+                granted -> viewModel.onCameraResult(true)
+                askedCamera && !rationale -> viewModel.onCameraResult(false)
+                else -> cameraPermission.launch(Manifest.permission.CAMERA)
+            }
         }
     }
     if (state.effect == LivenessEffect.OpenLogin) {
         LoginHost(modifier = modifier, onLeaveToAccount = viewModel::dismissLogin)
     } else {
+        val grantedNow = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
         LivenessScreen(
             state = state,
             onGivenName = viewModel::onGivenName,
@@ -481,6 +646,19 @@ private fun LivenessHost(modifier: Modifier = Modifier) {
             onPassword = viewModel::onPassword,
             onContinue = viewModel::continuar,
             onExistingAccount = viewModel::yaTengoCuenta,
+            onShutter = { viewModel.onShutter(grantedNow) },
+            onRepeat = viewModel::repetirFoto,
+            onRetry = viewModel::reintentar,
+            onContinueCamera = viewModel::continuarCamara,
+            onContinueWithDocument = viewModel::continuarConDocumento,
+            preview = {
+                FrontCameraPreview(
+                    captureTicket = state.captureTicket,
+                    onPhoto = viewModel::onPhoto,
+                    onUnavailable = viewModel::onCameraUnavailable,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            },
             modifier = modifier,
         )
     }
@@ -511,8 +689,12 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
     val activity = LocalContext.current.findActivity()
     LaunchedEffect(state.effect) {
-        if (state.effect == ConsentEffect.OpenHome) {
-            activity?.openHomeAfterOnboarding()
+        if (state.effect == ConsentEffect.OpenAccount) {
+            activity?.openOnboarding(showStep = true)
+        }
+        if (state.effect == ConsentEffect.OpenLanguage) {
+            SharedPrefsRegionRepository(context.applicationContext).reopenFirstLaunch()
+            activity?.recreate()
         }
     }
     ConsentScreen(
@@ -520,18 +702,21 @@ private fun ConsentHost(modifier: Modifier = Modifier) {
         confirmEnabled = state.confirmEnabled,
         onSwitch = viewModel::onSwitch,
         onConfirm = viewModel::confirm,
-        onBack = {
-            viewModel.back()
-            activity?.openOnboarding(showStep = true)
-        },
+        onBack = viewModel::back,
         modifier = modifier,
     )
 }
 
 internal fun Activity.openConsent() {
     intent.putExtra(MainActivity.EXTRA_OPEN_CONSENT, true)
+    intent.removeExtra(MainActivity.EXTRA_OPEN_ONBOARDING)
+    intent.removeExtra(MainActivity.EXTRA_SIGNED_OUT)
+    intent.removeExtra(MainActivity.EXTRA_ENTER_SIGNED_IN_SHELL)
     recreate()
 }
+
+private fun consentGranted(context: android.content.Context): Boolean =
+    SharedPrefsConsentRepository(context.applicationContext).read().state == ConsentState.Granted
 
 internal fun Activity.openHomeAfterOnboarding() {
     SharedPrefsSessionRepository(this).open()

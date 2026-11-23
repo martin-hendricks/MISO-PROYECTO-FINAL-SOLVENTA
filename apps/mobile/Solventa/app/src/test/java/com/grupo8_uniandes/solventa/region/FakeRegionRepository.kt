@@ -26,4 +26,9 @@ class FakeRegionRepository(
         choice = choice.copy(appliedRegion = choice.draftRegion)
         return choice
     }
+
+    override fun reopenFirstLaunch(): RegionChoice {
+        choice = choice.copy(firstLaunchCompleted = false)
+        return choice
+    }
 }

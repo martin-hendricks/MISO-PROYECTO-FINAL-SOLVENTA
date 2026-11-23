@@ -18,6 +18,47 @@ class Settings(BaseSettings):
     timeout_open_finance_ms: int = 400
     timeout_open_data_ms: int = 400
 
+    # Dobles (HU-88): demora y fallo forzables por entorno en el ambiente de integración
+    # (DOBLE_OPEN_FINANCE_LATENCIA_MS, DOBLE_OPEN_DATA_FALLAR, ...). En 0/False el doble
+    # responde de inmediato, como hasta ahora.
+    doble_open_finance_latencia_ms: int = 0
+    doble_open_finance_fallar: bool = False
+    doble_open_data_latencia_ms: int = 0
+    doble_open_data_fallar: bool = False
+
+    redis_cache_od_host: str = ""
+    redis_cache_od_port: int = 6379
+    # Vigencia fresca: pasado este tiempo el perfil guardado se considera vencido y toca
+    # refrescarlo, pero sigue sirviendo de respaldo hasta la vigencia maxima.
+    redis_cache_od_ttl_seconds: int = 600
+    redis_cache_od_ttl_duro_seconds: int = 86400
+    # ElastiCache exige TLS y token de autenticacion (transit_encryption_enabled + auth_token
+    # en infra/terraform/modules/elasticache). En local el Redis del compose no usa ninguno.
+    redis_cache_od_password: str = ""
+    redis_cache_od_ssl: bool = False
+    timeout_cache_ms: int = 50
+    # El PING de arranque paga la conexion TCP y el handshake TLS, mas que una lectura
+    # con el pool ya abierto; por eso no reutiliza timeout_cache_ms.
+    timeout_cache_arranque_ms: int = 2000
+    # Abrir una conexion a ElastiCache (TCP + TLS + token) tarda decenas de milisegundos, mas
+    # que timeout_cache_ms: una operacion que tenga que abrirla expira y se salta la cache.
+    # Por eso el pool se calienta al arrancar y se mantiene vivo; el tope acota las conexiones
+    # por replica (pasado el tope la operacion falla y tambien se salta la cache).
+    redis_cache_od_pool_calentamiento: int = 8
+    redis_cache_od_pool_max: int = 32
+    redis_cache_od_health_check_s: int = 30
+
+    # Resiliencia frente al proveedor (solo con cache Redis configurada). El presupuesto es lo
+    # que una peticion espera al proveedor antes de responder con el valor vencido; la
+    # invocacion sigue en segundo plano hasta el timeout del proveedor.
+    presupuesto_respuesta_ms: int = 120
+    timeout_proveedor_ms: int = 700
+    # Circuit breaker por tasa de fallo sobre una ventana deslizante.
+    interruptor_ventana_s: float = 10.0
+    interruptor_umbral_tasa: float = 0.5
+    interruptor_min_muestras: int = 10
+    interruptor_apertura_s: float = 5.0
+
     # Valores de respaldo (HU-56): constantes razonables e inventadas para fines
     # académicos, una por atributo stub. Se usan cuando el adaptador excede su timeout
     # o lanza una excepción.
@@ -31,6 +72,7 @@ class Settings(BaseSettings):
     # README del servicio. Son valores inventados para el proyecto académico, no una
     # tabla de rating real.
     tarifa_base: Decimal = Decimal("50000")
+    factor_referencia_mercado: Decimal = Decimal("1.10")
     peso_nivel_ingresos_estimado: Decimal = Decimal("-0.08")
     peso_score_comportamiento: Decimal = Decimal("-0.15")
     peso_zona_riesgo: Decimal = Decimal("0.20")

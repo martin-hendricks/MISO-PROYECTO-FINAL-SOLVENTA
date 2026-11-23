@@ -36,7 +36,7 @@ class HomeViewModel(
             _state.value = if (panel == null) {
                 _state.value.copy(failed = true)
             } else {
-                HomeUiState(panel = panel, failed = false)
+                HomeUiState(panel = panel)
             }
         }
     }

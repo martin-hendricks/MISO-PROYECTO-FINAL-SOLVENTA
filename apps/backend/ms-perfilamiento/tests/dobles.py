@@ -5,7 +5,7 @@ from copy import deepcopy
 from decimal import Decimal
 from uuid import UUID
 
-from app.domain.modelos import Consentimiento, EventoDominio, Oferta
+from app.domain.modelos import Consentimiento, EventoDominio, Oferta, Originacion
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
 
@@ -36,6 +36,7 @@ class AlmacenEnMemoria:
         self.consentimientos: dict[UUID, Consentimiento] = {}
         self.ofertas: dict[UUID, Oferta] = {}
         self.ofertas_por_clave: dict[str, UUID] = {}
+        self.originaciones: dict[UUID, Originacion] = {}
         self.eventos: list[EventoDominio] = []
         self.chocar_en_proximo_commit: tuple[str, Oferta] | None = None
 
@@ -84,9 +85,31 @@ class _RepoOfertas:
             return None
         return deepcopy(self._vista().get(oferta_id))
 
+    async def obtener_ultima_por_cliente(self, cliente_id: str) -> Oferta | None:
+        candidatas = [o for o in self._vista().values() if o.cliente_id == cliente_id]
+        return deepcopy(max(reversed(candidatas), key=lambda o: o.creado_en)) if candidatas else None
+
     async def agregar(self, idempotency_key: str, oferta: Oferta) -> None:
         self._uow.ofertas_pendientes[oferta.id] = oferta
         self._uow.claves_pendientes[idempotency_key] = oferta.id
+
+
+class _RepoOriginaciones:
+    def __init__(self, uow: "UnidadDeTrabajoEnMemoria") -> None:
+        self._uow = uow
+
+    def _vista(self) -> dict[UUID, Originacion]:
+        return {**self._uow.almacen.originaciones, **self._uow.originaciones_pendientes}
+
+    async def obtener_pendiente(self, cliente_id: str) -> Originacion | None:
+        candidatas = [o for o in self._vista().values() if o.cliente_id == cliente_id and o.pendiente]
+        return deepcopy(max(reversed(candidatas), key=lambda o: o.creada_en)) if candidatas else None
+
+    async def agregar(self, originacion: Originacion) -> None:
+        self._uow.originaciones_pendientes[originacion.id] = originacion
+
+    async def actualizar(self, originacion: Originacion) -> None:
+        self._uow.originaciones_pendientes[originacion.id] = originacion
 
 
 class _Outbox:
@@ -103,9 +126,11 @@ class UnidadDeTrabajoEnMemoria:
         self.consentimientos_pendientes: dict[UUID, Consentimiento] = {}
         self.ofertas_pendientes: dict[UUID, Oferta] = {}
         self.claves_pendientes: dict[str, UUID] = {}
+        self.originaciones_pendientes: dict[UUID, Originacion] = {}
         self.eventos_pendientes: list[EventoDominio] = []
         self.consentimientos = _RepoConsentimientos(self)
         self.ofertas = _RepoOfertas(self)
+        self.originaciones = _RepoOriginaciones(self)
         self.outbox = _Outbox(self)
 
     async def __aenter__(self) -> "UnidadDeTrabajoEnMemoria":
@@ -113,6 +138,7 @@ class UnidadDeTrabajoEnMemoria:
 
     async def __aexit__(self, *exc: object) -> None:
         self.consentimientos_pendientes.clear()
+        self.originaciones_pendientes.clear()
         self.ofertas_pendientes.clear()
         self.claves_pendientes.clear()
         self.eventos_pendientes.clear()
@@ -128,6 +154,8 @@ class UnidadDeTrabajoEnMemoria:
         self.almacen.consentimientos.update(self.consentimientos_pendientes)
         self.almacen.ofertas.update(self.ofertas_pendientes)
         self.almacen.ofertas_por_clave.update(self.claves_pendientes)
+        self.almacen.originaciones.update(self.originaciones_pendientes)
+        self.originaciones_pendientes.clear()
         self.almacen.eventos.extend(self.eventos_pendientes)
         self.consentimientos_pendientes.clear()
         self.ofertas_pendientes.clear()

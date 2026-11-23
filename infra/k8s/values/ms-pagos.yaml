@@ -16,11 +16,11 @@ imagen:
   tag: ""  # TODO: tag de imagen — se fija en el pipeline de CI/CD
   pullPolicy: IfNotPresent
 
-replicas: 2
+replicas: 1
 grupoEscalado: "b"
 
 puerto: 8080
-puertoMetricas: 9090
+puertoMetricas: 8080
 
 recursos:
   # Bajado de 512Mi/1Gi: con la cuota real de vCPU de la cuenta (16, ver
@@ -51,7 +51,7 @@ probes:
 
 hpa:
   habilitado: true
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 6
   targetCPU: 65
   targetMemory: 75
@@ -82,6 +82,11 @@ externalSecrets:
       nombreLocal: ms-pagos-db
       claves:
         - database_url
+    # SOLVENTA_TOKEN_SECRET: ms-pagos valida el JWT de quien lo llama y firma el token de
+    # servicio con el que consulta a ms-suscripcion. Sin esta variable seguridad.py responde
+    # 500 "SOLVENTA_TOKEN_SECRET no configurado" y POST /v1/pagos/primas (emitir poliza) falla.
+    - nombreRemoto: solventa-minimo-bff-web-token
+      nombreLocal: ms-pagos-token
 
 serviceAccount:
   crear: true

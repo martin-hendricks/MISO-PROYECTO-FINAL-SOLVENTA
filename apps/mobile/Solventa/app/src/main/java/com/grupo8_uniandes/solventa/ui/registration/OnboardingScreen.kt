@@ -12,14 +12,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -31,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,6 +54,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,8 +67,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.grupo8_uniandes.solventa.R
+import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.quoteAmountDigits
+import com.grupo8_uniandes.solventa.ui.shell.QuoteAmountVisualTransformation
 import com.grupo8_uniandes.solventa.ui.components.SolventaBanner
 import com.grupo8_uniandes.solventa.ui.components.SolventaBannerStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
@@ -72,6 +82,8 @@ import com.grupo8_uniandes.solventa.ui.components.SolventaSelectAppearance
 import com.grupo8_uniandes.solventa.ui.components.SolventaTextField
 import com.grupo8_uniandes.solventa.ui.components.SolventaTopBar
 import com.grupo8_uniandes.solventa.ui.theme.HankenGrotesk
+import com.grupo8_uniandes.solventa.ui.capture.captureUri
+import com.grupo8_uniandes.solventa.ui.capture.prepareCaptureFile
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -100,14 +112,19 @@ fun OnboardingScreen(
     onDocumentNumber: (String) -> Unit,
     onPassword: (String) -> Unit,
     onPasswordConfirm: (String) -> Unit,
+    onIncome: (String) -> Unit = {},
+    onSpending: (String) -> Unit = {},
     onPhotoAttached: (ByteArray) -> Unit,
     onPhotoDeclined: () -> Unit,
+    onHabeasData: (Boolean) -> Unit,
     onContinue: () -> Unit,
     onExistingAccount: () -> Unit,
+    region: Region = Region.Colombia,
     showStep: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val moneyVisual = remember(region) { QuoteAmountVisualTransformation(region) }
     var typeExpanded by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
@@ -206,9 +223,15 @@ fun OnboardingScreen(
                 text = stringResource(R.string.onboarding_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = stringResource(R.string.onboarding_intro),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.onboarding_income_sentence),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -278,7 +301,7 @@ fun OnboardingScreen(
                 value = state.password,
                 onValueChange = onPassword,
                 label = stringResource(R.string.onboarding_contrasena),
-                helper = stringResource(R.string.onboarding_contrasena_hint),
+                helper = "",
                 keyboardOptions = KeyboardOptions(
                     keyboardType = if (passwordVisible) KeyboardType.Text else KeyboardType.Password,
                 ),
@@ -296,6 +319,11 @@ fun OnboardingScreen(
                 },
                 externalLabel = true,
                 testTag = "field_contrasena",
+            )
+            PasswordRequirements(
+                typed = state.password.trim().isNotEmpty(),
+                minimumMet = state.passwordMinMet,
+                maximumMet = state.passwordMaxMet,
             )
             SolventaTextField(
                 value = state.passwordConfirm,
@@ -321,6 +349,26 @@ fun OnboardingScreen(
                 externalLabel = true,
                 testTag = "field_confirmar",
             )
+            SolventaTextField(
+                value = state.monthlyIncome,
+                onValueChange = { onIncome(quoteAmountDigits(it)) },
+                label = stringResource(R.string.onboarding_income),
+                helper = stringResource(R.string.onboarding_income_hint),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = moneyVisual,
+                externalLabel = true,
+                testTag = "field_ingresos",
+            )
+            SolventaTextField(
+                value = state.monthlySpending,
+                onValueChange = { onSpending(quoteAmountDigits(it)) },
+                label = stringResource(R.string.onboarding_spending),
+                helper = stringResource(R.string.onboarding_spending_hint),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                visualTransformation = moneyVisual,
+                externalLabel = true,
+                testTag = "field_gastos",
+            )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -337,6 +385,7 @@ fun OnboardingScreen(
                         )
                     }
                     .clickable(onClick = openCamera)
+                    .semantics(mergeDescendants = true) {}
                     .testTag("action_foto"),
                 contentAlignment = Alignment.Center,
             ) {
@@ -371,6 +420,41 @@ fun OnboardingScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+            }
+            if (state.showDataTreatment) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s4),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = SolventaSpacing.minTouch)
+                            .toggleable(
+                                value = state.habeasData,
+                                role = Role.Checkbox,
+                                onValueChange = onHabeasData,
+                            )
+                            .testTag("field_habeas_data"),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = state.habeasData,
+                            onCheckedChange = null,
+                            modifier = Modifier.clearAndSetSemantics {},
+                        )
+                        Text(
+                            text = stringResource(R.string.consent_heading),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.consent_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -420,18 +504,43 @@ private fun launchCapture(
     }
 }
 
-internal fun captureUri(context: android.content.Context, file: File): Uri {
-    prepareCaptureFile(file)
-    return FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file,
+@Composable
+private fun PasswordRequirements(
+    typed: Boolean,
+    minimumMet: Boolean,
+    maximumMet: Boolean,
+) {
+    val titleStyle = TextStyle(
+        fontFamily = HankenGrotesk,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
     )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_requisitos),
+            style = titleStyle,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        Spacer(Modifier.height(SolventaSpacing.s4))
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_min),
+            style = titleStyle,
+            color = passwordRuleColor(typed, minimumMet),
+        )
+        Text(
+            text = stringResource(R.string.onboarding_contrasena_max),
+            style = titleStyle,
+            color = passwordRuleColor(typed, maximumMet),
+        )
+    }
 }
 
-internal fun prepareCaptureFile(file: File) {
-    file.parentFile?.mkdirs()
-    if (!file.exists()) file.createNewFile()
+@Composable
+private fun passwordRuleColor(typed: Boolean, met: Boolean) = when {
+    !typed -> MaterialTheme.colorScheme.outline
+    met -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.error
 }
 
 internal fun decodeDocumentPhoto(bytes: ByteArray): Bitmap? {

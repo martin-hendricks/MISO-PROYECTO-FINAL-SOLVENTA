@@ -294,6 +294,49 @@ resource "aws_iam_role_policy_attachment" "web_deploy" {
 }
 
 # ---------------------------------------------------------------------------
+# Permisos: resolver los bootstrap brokers de MSK
+# ---------------------------------------------------------------------------
+#
+# MSK no expone el string de brokers como atributo de Terraform utilizable
+# desde el workflow (el state es local, ver arriba), así que deploy.yml lo
+# consulta en tiempo de ejecución con `aws kafka list-clusters` +
+# `aws kafka get-bootstrap-brokers` y lo inyecta en las env
+# MSK_BOOTSTRAP_BROKERS de los servicios que hablan con Kafka
+# (notificaciones, outbox-relay). Sin este permiso el despliegue de esos
+# servicios fallaba con AccessDeniedException en kafka:ListClusters.
+# Solo lectura: crear y configurar el clúster sigue siendo de Terraform, y
+# crear tópicos es una operación del Admin de Kafka dentro de la VPC (ver
+# modules/irsa_aplicacion), no de IAM del workflow.
+data "aws_iam_policy_document" "msk_read" {
+  statement {
+    sid       = "ListClusters"
+    effect    = "Allow"
+    actions   = ["kafka:ListClusters"]
+    resources = ["*"] # ListClusters es una operación de listado: IAM no la acota por ARN (el error de AWS muestra el recurso como "v1/clusters").
+  }
+
+  statement {
+    sid       = "GetBootstrapBrokers"
+    effect    = "Allow"
+    actions   = ["kafka:GetBootstrapBrokers"]
+    resources = [var.msk_cluster_arn]
+  }
+}
+
+resource "aws_iam_policy" "msk_read" {
+  name        = "${local.role_name}-msk-read"
+  description = "Permite resolver los bootstrap brokers del clúster MSK desde el workflow de despliegue, sin depender del state de Terraform."
+  policy      = data.aws_iam_policy_document.msk_read.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "msk_read" {
+  role       = aws_iam_role.github_actions_cd.name
+  policy_arn = aws_iam_policy.msk_read.arn
+}
+
+# ---------------------------------------------------------------------------
 # Access entry: autorización dentro del clúster (API de Kubernetes)
 # ---------------------------------------------------------------------------
 #

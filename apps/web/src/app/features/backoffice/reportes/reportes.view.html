@@ -1,0 +1,92 @@
+<section data-testid="reportes" [attr.data-state]="allowed ? 'ready' : 'no-permission'">
+  @if (!allowed) {
+    <h1>{{ 'backoffice.reportes.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <h1>{{ 'backoffice.reportes.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.reportes.subtitle' | translate }}</p>
+
+    <div class="reporte-card" data-testid="reporte-regulador">
+      <h2>{{ 'backoffice.reportes.regulador.title' | translate }}</h2>
+      <p>{{ 'backoffice.reportes.regulador.body' | translate }}</p>
+      <div class="actions">
+        <button
+          type="button"
+          class="filled"
+          data-testid="reporte-regulador-generar"
+          [attr.aria-label]="
+            ('backoffice.reportes.generar' | translate) +
+            ' ' +
+            ('backoffice.reportes.regulador.title' | translate)
+          "
+          [disabled]="vm.status().regulador === 'generando'"
+          (click)="generar('regulador')"
+        >
+          {{ 'backoffice.reportes.generar' | translate }}
+        </button>
+        @if (vm.status().regulador === 'listo' && vm.reporte().regulador; as reporte) {
+          <button
+            type="button"
+            class="outlined"
+            data-testid="reporte-regulador-descargar"
+            [attr.aria-label]="
+              ('backoffice.reportes.descargar' | translate) +
+              ' ' +
+              ('backoffice.reportes.regulador.title' | translate)
+            "
+            (click)="descargar(reporte)"
+          >
+            {{ 'backoffice.reportes.descargar' | translate }}
+          </button>
+        }
+      </div>
+      @if (vm.status().regulador === 'error') {
+        <p class="error-text" role="alert" data-testid="reporte-regulador-error">
+          {{ 'backoffice.reportes.error' | translate }}
+        </p>
+      }
+    </div>
+
+    <div class="reporte-card" data-testid="reporte-reaseguradora">
+      <h2>{{ 'backoffice.reportes.reaseguradora.title' | translate }}</h2>
+      <p>{{ 'backoffice.reportes.reaseguradora.body' | translate }}</p>
+      <div class="actions">
+        <button
+          type="button"
+          class="filled"
+          data-testid="reporte-reaseguradora-generar"
+          [attr.aria-label]="
+            ('backoffice.reportes.generar' | translate) +
+            ' ' +
+            ('backoffice.reportes.reaseguradora.title' | translate)
+          "
+          [disabled]="vm.status().reaseguradora === 'generando'"
+          (click)="generar('reaseguradora')"
+        >
+          {{ 'backoffice.reportes.generar' | translate }}
+        </button>
+        @if (vm.status().reaseguradora === 'listo' && vm.reporte().reaseguradora; as reporte) {
+          <button
+            type="button"
+            class="outlined"
+            data-testid="reporte-reaseguradora-descargar"
+            [attr.aria-label]="
+              ('backoffice.reportes.descargar' | translate) +
+              ' ' +
+              ('backoffice.reportes.reaseguradora.title' | translate)
+            "
+            (click)="descargar(reporte)"
+          >
+            {{ 'backoffice.reportes.descargar' | translate }}
+          </button>
+        }
+      </div>
+      @if (vm.status().reaseguradora === 'error') {
+        <p class="error-text" role="alert" data-testid="reporte-reaseguradora-error">
+          {{ 'backoffice.reportes.error' | translate }}
+        </p>
+      }
+    </div>
+  }
+</section>

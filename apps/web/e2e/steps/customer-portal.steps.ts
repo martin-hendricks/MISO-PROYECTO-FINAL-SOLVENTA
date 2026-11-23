@@ -34,7 +34,10 @@ Then(
   async function (this: PortalWorld) {
     const offer = this.home.ofertaVigente!;
     await this.inicio.expectCard('offer', offer.ramo);
-    await this.inicio.expectLink('inicio-accept', `/emision?cotizacion=${offer.cotizacionId}`);
+    await this.inicio.expectLink(
+      'inicio-accept',
+      `/confirmacion-tarjeta?cotizacion=${offer.cotizacionId}`,
+    );
   },
 );
 
@@ -57,19 +60,22 @@ Then(
 );
 
 Then(
-  'the customer sees the Vida Crediticia card when there is an origination',
+  'the customer sees the Vida hipotecario card when there is an origination',
   async function (this: PortalWorld) {
-    await this.inicio.expectCard('vida-crediticia', 'Vida Crediticia');
+    await this.inicio.expectCard('vida-crediticia', 'Vida hipotecario');
     await this.inicio.expectLink('inicio-vida-link', '/vida-crediticia');
   },
 );
 
-Then('"Nueva cotización" is below "Aceptar oferta"', async function (this: PortalWorld) {
-  await this.inicio.expectQuoteBelowAccept();
+Then('"Nueva cotización" stays in the page head', async function (this: PortalWorld) {
+  await this.inicio.expectQuoteInHead();
 });
 
 Then('accepting starts the issuance, not a recalculation', async function (this: PortalWorld) {
+  await this.bff.serveCustomerIssuance();
   await this.inicio.accept();
+  await this.cotizacion.fillCard();
+  await this.cotizacion.confirmCard();
   await this.inicio.expectIssuance(this.home.ofertaVigente!.cotizacionId);
   assert.equal(this.bff.quotesRequested(), 0);
 });
@@ -110,8 +116,8 @@ When('the customer opens the menu', async function (this: PortalWorld) {
   await this.shell.openMenu();
 });
 
-Then('the navigation menu shows the same four destinations', async function (this: PortalWorld) {
-  await this.shell.expectMenuShowsFourDestinations();
+Then('the navigation menu shows the same five destinations', async function (this: PortalWorld) {
+  await this.shell.expectMenuShowsFiveDestinations();
 });
 
 Then('closing the overlay does not change the page', async function (this: PortalWorld) {
@@ -153,8 +159,11 @@ Given('the customer accepted a valid offer', async function (this: PortalWorld) 
   await this.shell.expectInicio();
   this.home = fullHome();
   await this.bff.serveHome(this.home);
+  await this.bff.serveCustomerIssuance();
   await this.inicio.open();
   await this.inicio.accept();
+  await this.cotizacion.fillCard();
+  await this.cotizacion.confirmCard();
 });
 
 When('the customer is on Emitiendo or Póliza emitida', async function (this: PortalWorld) {

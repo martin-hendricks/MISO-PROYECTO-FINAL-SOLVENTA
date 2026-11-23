@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Protocol
+from uuid import UUID
 
-from app.domain.modelos import Usuario
+from app.domain.modelos import EventoDominio, Usuario
+from app.domain.socios import Socio
+
+TAMANO_PAGINA_CLIENTES = 20
 
 
 class CuentaYaExiste(Exception):
@@ -17,11 +21,43 @@ class RepositorioUsuarios(Protocol):
 
     async def obtener_por_documento(self, tipo_documento: str, numero_documento: str) -> Usuario | None: ...
 
+    async def obtener_por_id(self, usuario_id) -> Usuario | None: ...
+
     async def agregar(self, usuario: Usuario) -> None: ...
+
+    async def actualizar(self, usuario: Usuario) -> None: ...
+
+    async def listar_clientes(
+        self,
+        estado: str | None,
+        q: str | None,
+        ids: list[UUID] | None,
+        pagina: int,
+    ) -> tuple[list[Usuario], bool]: ...
+
+    async def listar_por_rol(self, rol: str) -> list[Usuario]: ...
+
+
+class RepositorioSocios(Protocol):
+    async def agregar(self, socio: Socio) -> None: ...
+
+    async def actualizar(self, socio: Socio) -> None: ...
+
+    async def obtener(self, socio_id: UUID) -> Socio | None: ...
+
+    async def obtener_por_huella(self, huella_sha256: str) -> Socio | None: ...
+
+    async def listar(self) -> list[Socio]: ...
+
+
+class Outbox(Protocol):
+    async def agregar(self, evento: EventoDominio) -> None: ...
 
 
 class UnidadDeTrabajo(Protocol):
     usuarios: RepositorioUsuarios
+    socios: RepositorioSocios
+    outbox: Outbox
 
     async def __aenter__(self) -> UnidadDeTrabajo: ...
 

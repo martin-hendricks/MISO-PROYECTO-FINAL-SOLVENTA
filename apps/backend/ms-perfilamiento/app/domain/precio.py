@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .modelos import FactorInterno, Oferta, Perfil
+from .modelos import AJUSTE_COMPETITIVO, FactorInterno, Oferta, Perfil, ajuste_por_factores
 
 # Nombres de los atributos propios de Solventa (HU-54), usados como claves canónicas
 # tanto para armar el Perfil como para calcular la Oferta y sus factores internos.
@@ -19,22 +19,29 @@ def _impacto(peso: Decimal) -> str:
     return _IMPACTO_REDUCE if peso < 0 else _IMPACTO_AUMENTA
 
 
-def calcular_oferta(cliente_id: str, perfil: Perfil, pesos: dict[str, Decimal], tarifa_base: Decimal) -> Oferta:
+def calcular_oferta(
+    cliente_id: str,
+    perfil: Perfil,
+    pesos: dict[str, Decimal],
+    tarifa_base: Decimal,
+    factor_referencia_mercado: Decimal | None = None,
+) -> Oferta:
     """Fórmula simple y determinista (HU-55): tarifa_base * (1 + sum(peso_i * valor_i))
     sobre los atributos propios de Solventa. No es scoring crediticio real: es una
     fórmula inventada para fines del proyecto académico, documentada en el README del
     servicio. Cada atributo aporta un FactorInterno en lenguaje de negocio, nunca el
     valor crudo del proveedor."""
-    ajuste = Decimal("1")
-    factores: list[FactorInterno] = []
-    for nombre, peso in pesos.items():
-        atributo = perfil.atributo(nombre)
-        if atributo is None:
-            continue
-        ajuste += peso * atributo.valor
-        factores.append(FactorInterno(factor=nombre, impacto=_impacto(peso), peso=peso))
+    factores = [
+        FactorInterno(factor=nombre, impacto=_impacto(peso), peso=peso)
+        for nombre, peso in pesos.items()
+        if perfil.atributo(nombre) is not None
+    ]
 
-    precio = tarifa_base * ajuste
+    ajuste_perfil = ajuste_por_factores(tuple(factores), perfil.atributos)
+    if factor_referencia_mercado is not None and ajuste_perfil > factor_referencia_mercado:
+        factores.append(FactorInterno(factor=AJUSTE_COMPETITIVO, impacto=_IMPACTO_REDUCE, peso=factor_referencia_mercado))
+
+    precio = tarifa_base * ajuste_por_factores(tuple(factores), perfil.atributos)
     if precio <= 0:
         # Guardia de negocio: ningún combo de pesos/atributos deja la oferta en un
         # precio inválido; se acota a un mínimo simbólico antes de construir la Oferta.

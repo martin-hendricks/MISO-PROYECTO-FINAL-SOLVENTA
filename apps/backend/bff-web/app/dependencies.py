@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -6,6 +7,9 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from . import revocacion
+from .clients.analitica import ClienteAnalitica
+from .clients.ms_consentimiento import ClienteMsConsentimiento
 from .clients.ms_cotizacion import ClienteMsCotizacion
 from .clients.ms_identidad import ClienteMsIdentidad
 from .clients.ms_pagos import ClienteMsPagos
@@ -13,6 +17,7 @@ from .clients.ms_perfilamiento import ClienteMsPerfilamiento
 from .clients.ms_polizas import ClienteMsPolizas
 from .clients.ms_siniestros import ClienteMsSiniestros
 from .clients.ms_suscripcion import ClienteMsSuscripcion
+from .clients.notificaciones import ClienteNotificaciones
 
 EXPIRA_EN = 900
 ROLES = ("cliente", "asesor", "operador")
@@ -27,21 +32,27 @@ def secret() -> str:
     return value
 
 
-def _encode(subject: str, rol: str, token_type: str) -> str:
+def _encode(subject: str, rol: str, token_type: str, uid: str) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
+        "uid": uid,
         "rol": rol,
         "typ": token_type,
+        # jti (JWT ID): identifica este token de forma única para poder
+        # revocarlo (blacklist) sin tener que guardar el token completo --
+        # ver app/revocacion.py.
+        "jti": uuid.uuid4().hex,
         "exp": now + timedelta(seconds=EXPIRA_EN),
     }
     return jwt.encode(payload, secret(), algorithm=ALGORITHM)
 
 
-def issue_pair(correo: str, rol: str) -> dict:
+def issue_pair(correo: str, rol: str, uid: str) -> dict:
+    correo_normalizado = correo.strip().lower()
     return {
-        "accessToken": _encode(correo, rol, "access"),
-        "refreshToken": _encode(correo, rol, "refresh"),
+        "accessToken": _encode(correo_normalizado, rol, "access", uid),
+        "refreshToken": _encode(correo_normalizado, rol, "refresh", uid),
         "expiraEn": EXPIRA_EN,
     }
 
@@ -62,6 +73,8 @@ def require_roles(*allowed: str):
         payload = _decode(credentials.credentials)
         if payload.get("typ") != "access":
             raise HTTPException(status_code=401, detail="Token invalido")
+        if revocacion.esta_revocado(payload.get("jti", "")):
+            raise HTTPException(status_code=401, detail="Token invalido")
         if allowed and payload.get("rol") not in allowed:
             raise HTTPException(status_code=403, detail="Rol no autorizado")
         return payload
@@ -71,9 +84,29 @@ def require_roles(*allowed: str):
 
 def refresh_session(refresh_token: str) -> dict:
     payload = _decode(refresh_token)
-    if payload.get("typ") != "refresh" or payload.get("rol") not in ROLES:
+    if payload.get("typ") != "refresh" or payload.get("rol") not in ROLES or not payload.get("uid"):
         raise HTTPException(status_code=401, detail="Token invalido")
-    return issue_pair(payload["sub"], payload["rol"])
+    if revocacion.esta_revocado(payload.get("jti", "")):
+        raise HTTPException(status_code=401, detail="Token invalido")
+    return issue_pair(payload["sub"], payload["rol"], payload["uid"])
+
+
+def revocar_token(token: str) -> None:
+    """Decodifica `token` y marca su jti como revocado (logout real).
+
+    Silencioso ante un token ya invalido/expirado: revocar algo que ya no
+    sirve no es un error -- el objetivo (que no se pueda volver a usar) ya
+    se cumple solo.
+    """
+    try:
+        payload = jwt.decode(token, secret(), algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        return
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        return
+    revocacion.revocar(jti, datetime.fromtimestamp(exp, tz=timezone.utc))
 
 
 def obtener_cliente_cotizacion(request: Request) -> ClienteMsCotizacion:
@@ -86,6 +119,10 @@ def obtener_cliente_pagos(request: Request) -> ClienteMsPagos:
 
 def obtener_cliente_polizas(request: Request) -> ClienteMsPolizas:
     return ClienteMsPolizas(request.app.state.http_ms_polizas, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_analitica(request: Request) -> ClienteAnalitica:
+    return ClienteAnalitica(request.app.state.http_analitica, getattr(request.state, "correlacion", None))
 
 
 def obtener_cliente_perfilamiento(request: Request) -> ClienteMsPerfilamiento:
@@ -104,3 +141,15 @@ def obtener_cliente_suscripcion(request: Request) -> ClienteMsSuscripcion:
 
 def obtener_cliente_identidad(request: Request) -> ClienteMsIdentidad:
     return ClienteMsIdentidad(request.app.state.http_ms_identidad, getattr(request.state, "correlacion", None))
+
+
+def obtener_cliente_consentimiento(request: Request) -> ClienteMsConsentimiento:
+    return ClienteMsConsentimiento(
+        request.app.state.http_ms_consentimiento, getattr(request.state, "correlacion", None)
+    )
+
+
+def obtener_cliente_notificaciones(request: Request) -> ClienteNotificaciones:
+    return ClienteNotificaciones(
+        request.app.state.http_notificaciones, getattr(request.state, "correlacion", None)
+    )

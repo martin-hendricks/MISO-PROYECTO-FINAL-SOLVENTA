@@ -17,7 +17,7 @@ export interface Client {
 }
 
 export interface Home {
-  ofertaVigente: { cotizacionId: string; ramo: string; estado: string } | null;
+  ofertaVigente: { cotizacionId: string; ramo: string; estado: string; venceEn: string } | null;
   poliza: { numero: string; ramo: string; estado: string } | null;
   siniestroEnCurso: { siniestroId: string; estado: string } | null;
   hipotecario: { estado: string } | null;
@@ -79,6 +79,7 @@ export function fullHome(): Home {
       cotizacionId: `COT-${faker.string.numeric(4)}`,
       ramo,
       estado: 'oferta_vigente',
+      venceEn: '2999-06-01T12:00:00Z',
     },
     poliza: { numero: `POL-${faker.string.numeric(5)}-CO`, ramo, estado: 'vigente' },
     siniestroEnCurso: { siniestroId: `SIN-${faker.string.numeric(3)}`, estado: 'en_evaluacion' },
@@ -123,6 +124,58 @@ export function policyDetail(numero: string): PolicyDetail {
   };
 }
 
+export interface PolicyNotice {
+  numero: string;
+  ramo: string;
+  descripcion: string;
+  venceEn: string;
+  renovable: boolean;
+}
+
+/** Shape of GET /cliente/polizas/por-vencer (bff-web routers/avisos_poliza.py, HU-119). */
+export function policyNotice(numero: string): PolicyNotice {
+  return {
+    numero,
+    ramo: 'SOAT motocicleta',
+    descripcion: 'SOAT motocicleta',
+    venceEn: '2026-11-20T00:00:00Z',
+    renovable: true,
+  };
+}
+
+export interface OperatorPolicy {
+  numero: string;
+  ramo: string;
+  estado: 'vigente' | 'cancelada';
+  venceEn: string;
+  prima: { valor: number; periodicidad: string };
+  renovable: boolean;
+  devolucionEstimada: number | null;
+  canceladaEn: string | null;
+  canceladaPor: string | null;
+  motivoCancelacion: string | null;
+  siniestrosAbiertos: number | null;
+  coberturas: { nombre: string; suma_asegurada: number; deducible: number }[];
+}
+
+/** Shape of GET/POST /operador/polizas/* (bff-web routers/operador.py, _poliza_salida). */
+export function operatorPolicy(numero: string): OperatorPolicy {
+  return {
+    numero,
+    ramo: 'Protección de dispositivo',
+    estado: 'vigente',
+    venceEn: '2027-10-01',
+    prima: { valor: 1000, periodicidad: 'ANUAL' },
+    renovable: true,
+    devolucionEstimada: null,
+    canceladaEn: null,
+    canceladaPor: null,
+    motivoCancelacion: null,
+    siniestrosAbiertos: null,
+    coberturas: [{ nombre: 'Robo', suma_asegurada: 2000000, deducible: 0 }],
+  };
+}
+
 export interface Catalog {
   ramo: string;
   nombre: string;
@@ -133,6 +186,25 @@ export interface Catalog {
     | { nombre: string; tipo: 'valores'; valores: string[] }
   )[];
 }
+
+/** `vida-crediticia` (seed 07): the customer names it Vida crediticia, the advisor Vida hipotecario. */
+const VIDA_CREDITICIA: Catalog = {
+  ramo: 'Vida crediticia',
+  nombre: 'Vida crediticia',
+  moneda: 'COP',
+  coberturas: [
+    {
+      codigo: 'muerte',
+      nombre: 'Muerte por cualquier causa',
+      limite: '500000000',
+      unidadLimite: 'MONEDA',
+    },
+  ],
+  datosRiesgo: [
+    { nombre: 'valorCredito', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+    { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+  ],
+};
 
 /** Catalogs as bff-web serves the ms-cotizacion seeds, keyed by the `ramo` the portal sends. */
 export const CATALOGS: Record<string, Catalog> = {
@@ -167,6 +239,15 @@ export const CATALOGS: Record<string, Catalog> = {
       { nombre: 'ciudad_circulacion', tipo: 'valores', valores: ['bogota', 'medellin', 'cali'] },
     ],
   },
+  'Vida crediticia': VIDA_CREDITICIA,
+  'Vida hipotecario': {
+    ...VIDA_CREDITICIA,
+    ramo: 'Vida hipotecario',
+    datosRiesgo: [
+      { nombre: 'valor', tipo: 'rango', minimo: '1000000', maximo: '500000000' },
+      { nombre: 'plazoMeses', tipo: 'rango', minimo: '6', maximo: '360' },
+    ],
+  },
 };
 
 export interface Offer {
@@ -192,5 +273,26 @@ export function offer(ramo = 'Protección de dispositivo'): Offer {
     expedicion: '9000.00',
     moneda: 'COP',
     venceEn: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+  };
+}
+
+export interface MortgageOffer extends Offer {
+  factores: { factor: string; impacto: string }[];
+  degradada: boolean;
+  credito: { valor: number; plazoMeses: number };
+}
+
+/** The mortgage life offer (HU-162): a firm quote priced with Solventa's profile. */
+export function mortgageOffer(degradada = false): MortgageOffer {
+  return {
+    ...offer('Vida crediticia'),
+    factores: degradada
+      ? []
+      : [
+          { factor: 'score_comportamiento', impacto: 'reduce_prima' },
+          { factor: 'zona_riesgo', impacto: 'aumenta_prima' },
+        ],
+    degradada,
+    credito: { valor: 180000000, plazoMeses: 240 },
   };
 }

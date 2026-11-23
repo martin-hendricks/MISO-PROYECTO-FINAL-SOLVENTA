@@ -2,7 +2,7 @@
   <p class="brand">{{ 'shell.portal' | translate }}</p>
   <span class="tag" data-testid="backoffice-tag">{{ 'backoffice.tag' | translate }}</span>
   <nav [attr.aria-label]="'backoffice.nav.label' | translate">
-    @for (section of sections; track section) {
+    @for (section of sections(); track section) {
       <a
         [routerLink]="['/cms', section]"
         routerLinkActive="active"
@@ -22,7 +22,7 @@
     <button type="button" class="sign-out" data-testid="sign-out" (click)="signOut()">
       {{ 'backoffice.signOut' | translate }}
     </button>
-    <span class="avatar" aria-hidden="true"></span>
+    <span class="avatar" data-testid="avatar" [attr.title]="nombreCompleto()">{{ iniciales() }}</span>
   </div>
 </header>
 

@@ -3,6 +3,11 @@
   @if (id) {
     <p class="subtitle">{{ id }}</p>
   }
+
+  @if (siniestro()) {
+    <p data-testid="siniestro-id">{{ siniestro() }}</p>
+  }
+
   <div class="empty-state" data-testid="destino-pending">
     <h2>{{ 'destino.pending.title' | translate }}</h2>
     <p>{{ 'destino.pending.body' | translate }}</p>

@@ -6,16 +6,19 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import android.content.Intent
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.grupo8_uniandes.solventa.MainActivity
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -29,6 +32,11 @@ class CustomerShellTest {
     val rule = createEmptyComposeRule()
 
     private lateinit var scenario: ActivityScenario<MainActivity>
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun leaveSplash() {
@@ -47,7 +55,7 @@ class CustomerShellTest {
 
     @Test
     fun givenSignedIn_whenShellOpens_thenExactlyFourDestinations() {
-        listOf("Inicio", "Pólizas", "Siniestros", "Perfil").forEach { label ->
+        listOf("Inicio", "Polizas", "Siniestros", "Perfil").forEach { label ->
             assertTrue(rule.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty())
         }
         listOf("Inicio", "Polizas", "Siniestros", "Perfil").forEach { name ->
@@ -74,14 +82,14 @@ class CustomerShellTest {
 
     @Test
     fun givenInicio_whenPolizasTapped_thenPolizasIsSelected() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
     }
 
     @Test
     fun givenPolicyDetail_whenVolver_thenReturnsToPolizasNotInicio() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -92,16 +100,16 @@ class CustomerShellTest {
 
     @Test
     fun givenSelectedDestination_whenTappedAgain_thenStaysOnRoot() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onAllNodesWithTag("screen_poliza_detalle").assertCountEquals(0)
     }
 
     @Test
     fun givenRoot_whenSystemBack_thenDestinationDoesNotChange() {
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.runOnIdle {
             scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         }
@@ -120,10 +128,9 @@ class CustomerShellTest {
     @Test
     fun givenOfferAccepted_whenIssuingAndIssued_thenBarIsHiddenUntilLeaving() {
         rule.onNodeWithText("Aceptar oferta").performClick()
-        rule.onNodeWithTag("screen_emision").assertIsDisplayed()
-        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
-        rule.onNodeWithTag("action_finish_issuing").performClick()
+        rule.confirmReviewCard()
         rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onAllNodesWithTag("bottom_bar").assertCountEquals(0)
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
@@ -133,7 +140,8 @@ class CustomerShellTest {
     @Test
     fun givenIssuedPolicy_whenContinueToDetail_thenPolizasIsSelected() {
         rule.onNodeWithText("Aceptar oferta").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
+        rule.confirmReviewCard()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
         rule.onNodeWithTag("tab_Polizas").assertIsSelected()
@@ -154,10 +162,10 @@ class CustomerShellTest {
         rule.onNodeWithTag("field_device_value").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithText("Pólizas").performClick()
+        rule.onNodeWithText("Polizas").performClick()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
-        rule.onNodeWithTag("action_cancel_policy").assertIsDisplayed()
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("action_expiry_notices").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("solventa_card").assertIsDisplayed()
         rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         rule.onAllNodesWithText("SOL-0001").assertCountEquals(0)

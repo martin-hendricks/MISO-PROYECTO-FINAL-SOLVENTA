@@ -95,6 +95,27 @@ async def test_choque_sin_pago_visible_falla(uow, almacen, suscripciones, pasare
         await casos_uso.cobrar_prima(uow, suscripciones, pasarela, solicitud())
 
 
+async def test_moneda_de_inicio_se_guarda_y_el_reintento_no_la_cambia(uow, suscripciones, pasarela):
+    pedido = solicitud(moneda="MXN")
+
+    cobro = await casos_uso.cobrar_prima(uow, suscripciones, pasarela, pedido)
+    reintento = await casos_uso.cobrar_prima(
+        uow, suscripciones, pasarela, solicitud(oferta_id=pedido.oferta_id, moneda="CLP")
+    )
+
+    assert cobro.pago.moneda == "MXN"
+    assert reintento.pago.moneda == "MXN"
+    assert len(pasarela.movimientos) == 1
+
+
+async def test_moneda_no_soportada_no_llama_a_la_pasarela(uow, suscripciones, pasarela):
+    with pytest.raises(ReglaDeNegocioViolada) as error:
+        await casos_uso.cobrar_prima(uow, suscripciones, pasarela, solicitud(moneda="USD"))
+
+    assert error.value.codigo == "moneda_no_soportada"
+    assert pasarela.movimientos == []
+
+
 async def test_consultar_pago_inexistente(uow):
     with pytest.raises(NoEncontrado):
         await casos_uso.consultar_pago(uow, uuid4())

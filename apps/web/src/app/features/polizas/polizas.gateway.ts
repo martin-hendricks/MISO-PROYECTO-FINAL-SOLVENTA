@@ -13,6 +13,7 @@ export interface PolizaResumen {
   finVigencia: string;
   moneda: string;
   primaTotal: number;
+  referenciaPago?: string;
 }
 
 export interface Cobertura {
@@ -23,6 +24,14 @@ export interface Cobertura {
 
 export interface PolizaDetalle extends PolizaResumen {
   coberturas: Cobertura[];
+}
+
+export interface AvisoPoliza {
+  numero: string;
+  ramo: string;
+  descripcion: string;
+  venceEn: string;
+  renovable: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,5 +56,22 @@ export class PolizasGateway {
             : throwError(() => error),
         ),
       );
+  }
+
+  preference(
+    numero: string,
+    renovacionAutomatica: boolean,
+  ): Observable<{ numero: string; renovacionAutomatica: boolean }> {
+    return this.http.patch<{ numero: string; renovacionAutomatica: boolean }>(
+      `${this.baseUrl}/cliente/polizas/${encodeURIComponent(numero)}/preferencias`,
+      { renovacionAutomatica },
+    );
+  }
+
+  /** HU-119: pólizas vigentes que vencen pronto. Solo lectura -- "the customer cannot renew it". */
+  avisos(): Observable<AvisoPoliza[]> {
+    return this.http
+      .get<{ polizas: AvisoPoliza[] }>(`${this.baseUrl}/cliente/polizas/por-vencer`)
+      .pipe(map((body) => body.polizas));
   }
 }

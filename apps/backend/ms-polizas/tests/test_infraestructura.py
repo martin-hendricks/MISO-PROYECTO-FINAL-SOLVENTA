@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
@@ -20,6 +21,7 @@ from app.infrastructure.sql import (
     ConstanciaFirmaFila,
     OutboxFila,
     PolizaFila,
+    PrimaFila,
     UnidadDeTrabajoSQL,
     crear_motor,
     fabrica_unidad_de_trabajo,
@@ -30,12 +32,15 @@ from .dobles import coberturas
 
 
 class SesionFalsa:
-    def __init__(self, error_commit: Exception | None = None, fila=None, coberturas=(), secuencia=7) -> None:
+    def __init__(
+        self, error_commit: Exception | None = None, fila=None, coberturas=(), prima=None, secuencia=7
+    ) -> None:
         self.agregados: list = []
         self.eliminados: list = []
         self.error_commit = error_commit
         self.fila = fila
         self.coberturas = list(coberturas)
+        self.prima = prima
         self.secuencia = secuencia
         self.commits = self.rollbacks = self.cierres = 0
 
@@ -54,6 +59,8 @@ class SesionFalsa:
     async def scalar(self, consulta):
         if "poliza_numero_seq" in str(consulta):
             return self.secuencia
+        if "prima" in str(consulta):
+            return self.prima
         return self.fila
 
     async def scalars(self, _consulta):
@@ -79,7 +86,7 @@ def _poliza() -> Poliza:
     return Poliza.emitir(uuid4(), uuid4(), "POL-2026-00000007", coberturas(), date(2026, 10, 23))
 
 
-async def test_agregar_poliza_escribe_poliza_coberturas_y_evento_y_confirma():
+async def test_agregar_poliza_escribe_poliza_coberturas_prima_y_evento_y_confirma():
     sesion = SesionFalsa()
     poliza = _poliza()
 
@@ -88,7 +95,7 @@ async def test_agregar_poliza_escribe_poliza_coberturas_y_evento_y_confirma():
         await tx.outbox.agregar(poliza_emitida(poliza))
         await tx.confirmar()
 
-    fila, *filas_cobertura, evento = sesion.agregados
+    fila, *filas_cobertura, fila_prima, evento = sesion.agregados
     assert isinstance(fila, PolizaFila)
     assert (fila.poliza_id, fila.oferta_id, fila.numero, fila.estado) == (
         poliza.id,
@@ -98,6 +105,12 @@ async def test_agregar_poliza_escribe_poliza_coberturas_y_evento_y_confirma():
     )
     assert all(isinstance(c, CoberturaFila) and c.poliza_id == poliza.id for c in filas_cobertura)
     assert len(filas_cobertura) == 2
+    assert isinstance(fila_prima, PrimaFila)
+    assert (fila_prima.poliza_id, fila_prima.valor, fila_prima.periodicidad) == (
+        poliza.id,
+        poliza.prima.valor,
+        poliza.prima.periodicidad,
+    )
     assert isinstance(evento, OutboxFila) and evento.tipo == "PolizaEmitida"
     assert (sesion.commits, sesion.cierres) == (1, 1)
 
@@ -110,6 +123,10 @@ async def test_agregar_poliza_guarda_su_hash_de_firma():
         await tx.polizas.agregar(poliza)
 
     assert sesion.agregados[0].firma_hash == "abc123"
+
+
+def _prima_fila(poliza_id, valor=Decimal("10"), periodicidad="ANUAL") -> PrimaFila:
+    return PrimaFila(prima_id=uuid4(), poliza_id=poliza_id, valor=valor, periodicidad=periodicidad)
 
 
 async def test_obtener_mapea_el_hash_de_firma_al_dominio():
@@ -125,7 +142,7 @@ async def test_obtener_mapea_el_hash_de_firma_al_dominio():
         firma_hash="abc123",
     )
 
-    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, prima=_prima_fila(poliza.id))) as tx:
         assert (await tx.polizas.obtener(poliza.id)).firma_hash == "abc123"
 
 
@@ -196,7 +213,9 @@ async def test_obtener_mapea_la_fila_y_sus_coberturas_al_dominio():
         cobertura_id=uuid4(), poliza_id=fila.poliza_id, nombre="RC", suma_asegurada=Decimal("10"), deducible=Decimal("1")
     )
 
-    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, coberturas=[cobertura])) as tx:
+    async with UnidadDeTrabajoSQL(
+        lambda: SesionFalsa(fila=fila, coberturas=[cobertura], prima=_prima_fila(fila.poliza_id))
+    ) as tx:
         por_id = await tx.polizas.obtener(fila.poliza_id)
         por_oferta = await tx.polizas.obtener_por_oferta(fila.oferta_id)
 
@@ -214,6 +233,44 @@ async def test_obtener_sin_fila_devuelve_none():
         assert await tx.polizas.obtener_por_numero("POL-2026-00000001") is None
 
 
+async def test_obtener_sin_fila_de_prima_la_reconstruye_desde_las_coberturas():
+    """Pólizas emitidas antes de persistir ms_polizas.prima no deben tumbar
+    el listado. La prima se reconstruye como en Poliza.emitir: suma de las
+    sumas aseguradas, periodicidad anual."""
+    fila = PolizaFila(
+        poliza_id=uuid4(),
+        oferta_id=uuid4(),
+        usuario_id=uuid4(),
+        numero="POL-2026-00000001",
+        inicio_vigencia=date(2026, 1, 1),
+        fin_vigencia=date(2026, 12, 31),
+        estado="VIGENTE",
+    )
+    coberturas = [
+        CoberturaFila(
+            cobertura_id=uuid4(),
+            poliza_id=fila.poliza_id,
+            nombre="aceptada",
+            suma_asegurada=Decimal("100"),
+            deducible=Decimal("0"),
+        ),
+        CoberturaFila(
+            cobertura_id=uuid4(),
+            poliza_id=fila.poliza_id,
+            nombre="robo",
+            suma_asegurada=Decimal("50"),
+            deducible=Decimal("0"),
+        ),
+    ]
+
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, coberturas=coberturas, prima=None)) as tx:
+        encontrada = await tx.polizas.obtener(fila.poliza_id)
+
+    assert encontrada is not None
+    assert encontrada.prima.valor == Decimal("150")
+    assert encontrada.prima.periodicidad == "ANUAL"
+
+
 async def test_obtener_por_numero_mapea_la_fila_al_dominio():
     fila = PolizaFila(
         poliza_id=uuid4(),
@@ -225,7 +282,7 @@ async def test_obtener_por_numero_mapea_la_fila_al_dominio():
         estado="VIGENTE",
     )
 
-    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila)) as tx:
+    async with UnidadDeTrabajoSQL(lambda: SesionFalsa(fila=fila, prima=_prima_fila(fila.poliza_id))) as tx:
         encontrada = await tx.polizas.obtener_por_numero(fila.numero)
 
     assert encontrada.numero == fila.numero
@@ -245,7 +302,7 @@ async def test_listar_por_usuario_usa_limite_y_orden_descendente():
 
     class SesionConLista(SesionFalsa):
         def __init__(self) -> None:
-            super().__init__()
+            super().__init__(prima=_prima_fila(fila.poliza_id))
             self.consultas: list = []
 
         async def scalars(self, consulta):
@@ -266,7 +323,7 @@ async def test_listar_por_usuario_usa_limite_y_orden_descendente():
 
 async def test_actualizar_escribe_los_campos_mutables_y_reemplaza_coberturas():
     poliza = _poliza()
-    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1))
+    poliza.cancelar("El cliente lo pidió", date(2026, 11, 1), "op-1")
     fila = PolizaFila(
         poliza_id=poliza.id,
         oferta_id=poliza.oferta_id,
@@ -289,6 +346,8 @@ async def test_actualizar_escribe_los_campos_mutables_y_reemplaza_coberturas():
     assert fila.estado == "CANCELADA"
     assert fila.motivo_cancelacion == "El cliente lo pidió"
     assert fila.cancelada_en == date(2026, 11, 1)
+    assert fila.cancelada_por == "op-1"
+    assert fila.devolucion_estimada == poliza.devolucion_estimada
     assert [c.poliza_id for c in sesion.agregados if isinstance(c, CoberturaFila)] == [poliza.id] * len(
         poliza.coberturas
     )
@@ -327,8 +386,28 @@ async def test_motor_y_fabrica_no_abren_conexion_al_crearse():
         await motor.dispose()
 
 
+SECRETO = "test-secret"
+
+
 def _suscripciones(manejador) -> SuscripcionesHTTP:
-    return SuscripcionesHTTP(httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)))
+    return SuscripcionesHTTP(
+        httpx.AsyncClient(base_url="http://ms-suscripcion", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_suscripcion_http_envia_token_de_servicio():
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"decision": "ACEPTADA"})
+
+    await _suscripciones(manejador).aceptada(uuid4())
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-polizas", "servicio")
 
 
 @pytest.mark.parametrize(("decision", "esperado"), [("ACEPTADA", True), ("RECHAZADA", False)])
@@ -362,7 +441,25 @@ async def test_suscripcion_sin_red_no_esta_disponible():
 
 
 def _cobros(manejador) -> CobrosHTTP:
-    return CobrosHTTP(httpx.AsyncClient(base_url="http://ms-pagos", transport=httpx.MockTransport(manejador)))
+    return CobrosHTTP(
+        httpx.AsyncClient(base_url="http://ms-pagos", transport=httpx.MockTransport(manejador)), SECRETO
+    )
+
+
+async def test_cobros_http_envia_token_de_servicio():
+    oferta_id, pago_id = uuid4(), uuid4()
+    recibidas = []
+
+    def manejador(request):
+        recibidas.append(request)
+        return httpx.Response(200, json={"estado": "APROBADO", "oferta_id": str(oferta_id)})
+
+    assert await _cobros(manejador).exitoso(oferta_id, pago_id) is True
+
+    esquema, token = recibidas[0].headers["Authorization"].split(" ", 1)
+    assert esquema == "Bearer"
+    claims = jwt.decode(token, SECRETO, algorithms=["HS256"])
+    assert (claims["sub"], claims["rol"]) == ("ms-polizas", "servicio")
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,57 @@
+.back {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: var(--sv-primary);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 12px 32px;
+  max-width: 720px;
+  margin: 0 0 32px;
+}
+
+.datos dt {
+  color: var(--sv-on-surface-variant);
+  font-size: 14px;
+}
+
+.datos dd {
+  margin: 0;
+}
+
+.aviso-motivo {
+  max-width: 720px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--sv-error-container);
+}
+
+.tarjeta {
+  max-width: 720px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+}
+
+.tarjeta h2,
+.tarjeta p {
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.evidencia,
+.historial {
+  padding-left: 20px;
+  line-height: 28px;
+}

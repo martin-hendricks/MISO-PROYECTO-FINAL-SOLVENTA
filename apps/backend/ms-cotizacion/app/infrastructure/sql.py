@@ -39,7 +39,7 @@ class SolicitudFila(Base):
     idempotency_key: Mapped[str] = mapped_column(String, unique=True)
     usuario_id: Mapped[UUID]
     socio_id: Mapped[UUID]
-    consentimiento_id: Mapped[UUID]
+    consentimiento_id: Mapped[UUID | None]
     producto: Mapped[str]
     canal: Mapped[str]
     datos_riesgo: Mapped[dict[str, Any]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
@@ -236,6 +236,29 @@ class RepositorioSolicitudesSQL:
         )
         if vigentes_desde is not None:
             consulta = consulta.where(OfertaFila.vence_en > vigentes_desde)
+        filas = (await self._s.execute(consulta)).all()
+        return [(_a_dominio(s), _oferta_a_dominio(o)) for s, o in filas]
+
+    async def listar_por_usuario(
+        self,
+        usuario_id: UUID,
+        vigentes_desde: datetime,
+        desplazamiento: int,
+        limite: int,
+    ) -> list[tuple[SolicitudCotizacion, Oferta]]:
+        # ix_solicitud_usuario (db/01) acota por usuario; el desempate por id estabiliza la página.
+        consulta = (
+            select(SolicitudFila, OfertaFila)
+            .join(OfertaFila, OfertaFila.solicitud_id == SolicitudFila.solicitud_id)
+            .where(
+                SolicitudFila.usuario_id == usuario_id,
+                SolicitudFila.estado == EstadoSolicitud.COTIZADA.value,
+                OfertaFila.vence_en > vigentes_desde,
+            )
+            .order_by(SolicitudFila.creada_en.desc(), SolicitudFila.solicitud_id.desc())
+            .offset(desplazamiento)
+            .limit(limite)
+        )
         filas = (await self._s.execute(consulta)).all()
         return [(_a_dominio(s), _oferta_a_dominio(o)) for s, o in filas]
 

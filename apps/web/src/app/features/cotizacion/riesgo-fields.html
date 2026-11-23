@@ -1,28 +1,30 @@
 @let form = vm();
 @let id = prefix();
 @let ramo = form.ramo();
-<div class="field">
-  <label [for]="id + '-ramo'">{{ 'cotizacion.campo.ramo' | translate }}</label>
-  <select
-    #ramoSelect
-    [id]="id + '-ramo'"
-    data-testid="cotizacion-ramo"
-    (change)="form.select(ramoSelect.value)"
-  >
-    @for (opcion of form.ramos; track opcion.id) {
-      <option
-        [value]="opcion.id"
-        [selected]="opcion.id === ramo.id"
-        [disabled]="!opcion.disponible"
-      >
-        {{ opcion.ramo }}
-        @if (!opcion.disponible) {
-          · {{ 'cotizacion.proximamente' | translate }}
-        }
-      </option>
-    }
-  </select>
-</div>
+@if (!portal()) {
+  <div class="field">
+    <label [for]="id + '-ramo'">{{ 'cotizacion.campo.ramo' | translate }}</label>
+    <select
+      #ramoSelect
+      [id]="id + '-ramo'"
+      data-testid="cotizacion-ramo"
+      (change)="form.select(ramoSelect.value)"
+    >
+      @for (opcion of form.ramos; track opcion.id) {
+        <option
+          [value]="opcion.id"
+          [selected]="opcion.id === ramo.id"
+          [disabled]="!opcion.disponible"
+        >
+          {{ opcion.ramo }}
+          @if (!opcion.disponible) {
+            · {{ 'cotizacion.proximamente' | translate }}
+          }
+        </option>
+      }
+    </select>
+  </div>
+}
 
 @if (form.catalogoStatus() === 'error') {
   <p class="banner" role="alert" data-testid="catalogo-error">

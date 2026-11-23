@@ -1,30 +1,44 @@
 import asyncio
+import logging
 import uuid
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_cotizacion import ClienteMsCotizacion
 from ..clients.ms_pagos import ClienteMsPagos
 from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
+from ..clients.ms_identidad import ClienteMsIdentidad
 from ..clients.ms_polizas import ClienteMsPolizas
+from ..clients.ms_siniestros import ClienteMsSiniestros
+from ..ramos import PRODUCTOS, presentar, producto_de
 from ..dependencies import (
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
+    obtener_cliente_identidad,
     obtener_cliente_pagos,
     obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
+    obtener_cliente_siniestros,
     require_roles,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cliente",
     tags=["cliente"],
     dependencies=[Depends(require_roles("cliente"))],
 )
+
+# Payload del JWT del cliente: `sub` es su correo y de él salen sus ids.
+Sesion = Annotated[dict, Depends(require_roles("cliente"))]
 
 OFFER = {
     "cotizacionId": "COT-1042",
@@ -50,15 +64,11 @@ PAYMENT = {
     "estado": "pagado",
 }
 
-# Mapeo de "ramo" (vocabulario del canal web) a "producto" (catálogo real de
-# ms-cotizacion, ver apps/backend/ms-cotizacion/app/domain/catalogo.py). Si
-# llega un ramo no mapeado se usa un slug derivado de su texto -- ms-cotizacion
-# responderá 404/422 si ese producto no existe en su catálogo, y ese error ya
-# se propaga tipificado por los exception handlers de main.py.
-RAMO_A_PRODUCTO = {
-    "Protección de dispositivo": "proteccion-dispositivo",
-    "Vida crediticia": "vida-crediticia",
-}
+RAMO_A_PRODUCTO = {nombre: codigo for codigo, (nombre, _) in PRODUCTOS.items()}
+
+RAMO_VIDA_HIPOTECARIO = "Vida hipotecario"
+PRODUCTO_VIDA_HIPOTECARIO = RAMO_A_PRODUCTO[RAMO_VIDA_HIPOTECARIO]
+PRODUCTOS_HIPOTECARIOS = frozenset({PRODUCTO_VIDA_HIPOTECARIO, RAMO_A_PRODUCTO["Vida crediticia"]})
 
 # Namespace fijo y arbitrario, solo para derivar UUIDs deterministas v5 a
 # partir de datos ya disponibles (correo de sesión). No tiene significado de
@@ -70,11 +80,29 @@ _NAMESPACE_SOLVENTA = uuid.UUID("5f4d3a2b-0000-4000-8000-000000000000")
 
 
 def _producto_de(ramo: str) -> str:
-    return RAMO_A_PRODUCTO.get(ramo, ramo.strip().lower().replace(" ", "-"))
+    codigo = producto_de(ramo)
+    if codigo is None:
+        raise HTTPException(status_code=404, detail="ramo_no_disponible")
+    return codigo
 
 
 def _uuid_desde(*partes: str) -> UUID:
     return uuid.uuid5(_NAMESPACE_SOLVENTA, "|".join(partes))
+
+
+def _exigir_dueno(recurso: dict, uid: UUID) -> None:
+    dueno = recurso.get("usuario_id")
+    if dueno is not None and str(dueno) != str(uid):
+        raise HTTPException(status_code=404, detail="No existe")
+
+
+def contexto_canonico(usuario: dict) -> "ContextoUsuario":
+    """El uid del JWT es el usuario_id de ms-identidad. Los ids de apoyo
+    salen de ese uid, nunca del correo."""
+    uid = str(usuario.get("uid") or "")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Token invalido")
+    return ContextoUsuario(uid, canonico=True)
 
 
 class ContextoUsuario:
@@ -90,11 +118,16 @@ class ContextoUsuario:
     resolución de identidad real ni debe tratarse como tal en producción.
     """
 
-    def __init__(self, correo: str) -> None:
-        self.usuario_id = _uuid_desde("usuario", correo)
-        self.socio_id = _uuid_desde("socio", correo)
-        self.consentimiento_id = _uuid_desde("consentimiento", correo)
-        self.perfil_id = _uuid_desde("perfil", correo)
+    def __init__(self, correo: str, *, canonico: bool = False) -> None:
+        if canonico:
+            self.usuario_id = UUID(correo)
+            semilla = str(self.usuario_id)
+        else:
+            self.usuario_id = _uuid_desde("usuario", correo)
+            semilla = correo
+        self.socio_id = _uuid_desde("socio", semilla)
+        self.consentimiento_id = _uuid_desde("consentimiento", semilla)
+        self.perfil_id = _uuid_desde("perfil", semilla)
 
 
 def _idempotency_key() -> str:
@@ -105,20 +138,43 @@ class Cotizacion(BaseModel):
     ramo: str
     datosRiesgo: dict
     clienteId: str | None = None
+    moneda: str | None = None
+
+
+MONEDAS_INICIO = {"COP", "MXN", "CLP", "PEN"}
+
+
+def rechazar_moneda(moneda: str | None) -> JSONResponse | None:
+    """Una moneda omitida sigue en COP. Solo un código fuera de la tabla se rechaza."""
+    if moneda is None or not moneda.strip():
+        return None
+    if moneda not in MONEDAS_INICIO:
+        return JSONResponse(
+            status_code=422,
+            content={"codigo": "moneda_no_soportada", "mensaje": "La moneda de inicio no está soportada"},
+        )
+    return None
 
 
 class Aceptar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     cotizacionId: str
+    monedaInicio: str | None = None
+
+
+class PreferenciaRenovacion(BaseModel):
+    renovacionAutomatica: bool
 
 
 class Credito(BaseModel):
-    valor: int
-    plazoMeses: int
+    valor: int = Field(gt=0)
+    plazoMeses: int = Field(gt=0)
 
 
 class Hipoteca(BaseModel):
     credito: Credito
     consentimientoPerfil: bool
+    moneda: str | None = None
 
 
 def _offer(cotizacion_id: str) -> dict:
@@ -127,7 +183,7 @@ def _offer(cotizacion_id: str) -> dict:
     return body
 
 
-def _cotizacion_salida(datos: dict, ramo: str) -> dict:
+def _cotizacion_salida(datos: dict, ramo: str, descripcion: str = "") -> dict:
     """Traduce la salida real de ms-cotizacion al shape que el canal web ya
     espera, para no romper el contrato existente del frontend.
 
@@ -137,6 +193,7 @@ def _cotizacion_salida(datos: dict, ramo: str) -> dict:
     return {
         "cotizacionId": datos["cotizacion_id"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "estado": datos["estado"],
         "prima": datos["prima"],
         "primaNeta": datos["prima_neta"],
@@ -162,8 +219,12 @@ def _catalogo_salida(producto: dict, ramo: str) -> dict:
     """Traduce ProductoSalida (ms-cotizacion, HU-1/HU-2) al shape propuesto
     para SOLV-245: el frontend bloquea "Continuar" con estos rangos antes de
     cotizar, en vez de esperar al 422 de dato fuera de rango."""
+    codigo = _producto_de(ramo)
+    _, descripcion = presentar(codigo)
     return {
         "ramo": ramo,
+        "descripcion": producto.get("descripcion") or descripcion,
+        "disponible": producto.get("disponible", True),
         "nombre": producto["nombre"],
         "moneda": producto["moneda"],
         "coberturas": [
@@ -195,19 +256,24 @@ async def catalogo(
 async def cotizar(
     body: Cotizacion,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     if body.clienteId:
         raise HTTPException(status_code=400, detail="La venta asistida no es de este canal")
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
 
-    # TODO: reemplazar con el correo real de la sesión (request.state /
-    # payload del JWT) una vez que esta función reciba el contexto de
-    # autenticación; por ahora usa un valor fijo de desarrollo porque la ruta
-    # no tiene acceso al payload decodificado (require_roles solo se usa como
-    # dependencia del router, no se inyecta en la función). No bloquea la
-    # integración real con ms-cotizacion: el usuario_id derivado es estable
-    # dentro de este proceso.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = contexto_canonico(usuario)
     producto = _producto_de(body.ramo)
+    datos_riesgo = dict(body.datosRiesgo)
+    try:
+        perfil = await cliente_identidad.obtener(contexto.usuario_id)
+    except (RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible):
+        perfil = {}
+    if perfil.get("ingresos_mensuales") is not None and perfil.get("gastos_mensuales") is not None:
+        datos_riesgo["ingresos_mensuales"] = perfil["ingresos_mensuales"]
+        datos_riesgo["gastos_mensuales"] = perfil["gastos_mensuales"]
 
     datos = await cliente_cotizacion.cotizar(
         idempotency_key=_idempotency_key(),
@@ -216,29 +282,41 @@ async def cotizar(
         consentimiento_id=contexto.consentimiento_id,
         producto=producto,
         canal="web",
-        datos_riesgo=body.datosRiesgo,
+        datos_riesgo=datos_riesgo,
+        moneda=body.moneda,
     )
-    return _cotizacion_salida(datos, body.ramo)
+    _, descripcion = presentar(producto)
+    return _cotizacion_salida(datos, body.ramo, descripcion)
 
 
 @router.get("/cotizaciones/{cotizacion_id}")
 async def reconsultar(
     cotizacion_id: str,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    datos = await cliente_cotizacion.reconsultar(cotizacion_id)
-    # No existe mapeo inverso producto->ramo (RAMO_A_PRODUCTO es de solo
-    # ida): se devuelve el código de producto del núcleo tal cual mientras
-    # no haya un catálogo de vocabulario web que lo traduzca de regreso.
-    return _cotizacion_salida(datos, datos.get("producto", ""))
+    datos = await cliente_cotizacion.reconsultar(cotizacion_id, contexto_canonico(usuario).usuario_id)
+    ramo, descripcion = presentar(datos.get("producto"))
+    return _cotizacion_salida(datos, ramo, descripcion)
+
+
+async def _cerrar_originacion(cliente_perfilamiento: ClienteMsPerfilamiento, cliente_id: str) -> None:
+    """La póliza ya está emitida: si cerrar la originación falla, la card de
+    Inicio sigue un rato más, pero la emisión no se revierte por eso."""
+    try:
+        await cliente_perfilamiento.cerrar_originacion(cliente_id)
+    except (RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
+        logger.warning("no se pudo cerrar la originación hipotecaria del cliente %s", cliente_id)
 
 
 @router.post("/polizas")
 async def emitir(
     body: Aceptar,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     """Aceptar la oferta y emitir la póliza. Flujo real:
 
@@ -264,7 +342,9 @@ async def emitir(
     """
     # TODO: mismo placeholder de identidad que en cotizar() -- no hay
     # ms-identidad real para resolver el correo de la sesión a un contexto.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = contexto_canonico(usuario)
+    if (rechazo := rechazar_moneda(body.monedaInicio)) is not None:
+        return rechazo
 
     # TODO: `score` es un stub fijo documentado: no hay ms-perfilamiento
     # conectado aún que calcule un score real de riesgo/crédito para el
@@ -274,9 +354,14 @@ async def emitir(
 
     aceptacion = await cliente_cotizacion.aceptar_oferta(
         cotizacion_id=body.cotizacionId,
-        idempotency_key=_idempotency_key(),
+        # Clave derivada de la cotización (igual que asesor.py::firmar_y_emitir):
+        # ms-cotizacion confirma la aceptación antes de encadenar ms-suscripcion,
+        # así que una key aleatoria por request deja la cotización aceptada y
+        # quema los reintentos con `oferta_ya_usada` (422).
+        idempotency_key=str(_uuid_desde("aceptacion-cliente", body.cotizacionId)),
         perfil_id=contexto.perfil_id,
         score=score_stub,
+        usuario_id=contexto.usuario_id,
     )
 
     if aceptacion["decision"].upper() != "ACEPTADA":
@@ -296,6 +381,7 @@ async def emitir(
         oferta_id=oferta_id,
         usuario_id=contexto.usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 
@@ -322,13 +408,16 @@ async def emitir(
         return {"resultado": "RECHAZADA", "motivo": {"codigo": rechazo.codigo, "mensaje": rechazo.mensaje}}
 
     cotizacion = await cliente_cotizacion.reconsultar(str(solicitud_id))
-    ramo = cotizacion.get("producto", "")
+    ramo, descripcion = presentar(cotizacion.get("producto"))
+    if cotizacion.get("producto") in PRODUCTOS_HIPOTECARIOS:
+        await _cerrar_originacion(cliente_perfilamiento, str(contexto.usuario_id))
 
     return {
         "resultado": "EMITIDA",
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "descripcion": descripcion,
             "producto": ramo,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
@@ -336,6 +425,8 @@ async def emitir(
             "finVigencia": poliza.get("fin_vigencia", ""),
             "moneda": aceptacion.get("moneda", ""),
             "primaTotal": float(aceptacion["prima"]),
+            "monedaInicio": pago.get("moneda") or body.monedaInicio,
+            "referenciaPago": pago.get("token_referencia", "stub-medio-pago"),
         },
     }
 
@@ -356,11 +447,12 @@ async def _cotizacion_de_poliza(cliente_cotizacion: ClienteMsCotizacion, poliza:
         return {}
 
 
-def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
-    ramo = cotizacion.get("producto") or RAMO_SIN_CLASIFICAR
+def _poliza_lista(poliza: dict, cotizacion: dict) -> dict:
+    ramo, descripcion = presentar(cotizacion.get("producto"))
     return {
         "numero": poliza["numero"],
         "ramo": ramo,
+        "descripcion": descripcion,
         "producto": ramo,
         "resumen": ", ".join(c["nombre"] for c in poliza["coberturas"]) or "Sin coberturas",
         "estado": poliza["estado"].upper(),
@@ -373,18 +465,19 @@ def _poliza_billetera(poliza: dict, cotizacion: dict) -> dict:
 
 
 @router.get("/polizas")
-async def billetera(
+async def polizas(
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
     # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no
     # hay ms-identidad real para resolver el correo de la sesión a un
     # usuario_id. El usuario_id derivado es estable dentro de este proceso.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
+    contexto = contexto_canonico(usuario)
 
     polizas = await cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=20)
     cotizaciones = await asyncio.gather(*(_cotizacion_de_poliza(cliente_cotizacion, p) for p in polizas))
-    return {"polizas": [_poliza_billetera(p, c) for p, c in zip(polizas, cotizaciones, strict=True)]}
+    return {"polizas": [_poliza_lista(p, c) for p, c in zip(polizas, cotizaciones, strict=True)]}
 
 
 # "queHacer" es contenido estático de ayuda al usuario (guía de qué hacer
@@ -401,9 +494,11 @@ async def detalle(
     numero: str,
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    poliza = await cliente_polizas.obtener_por_numero(numero)
-    salida = _poliza_billetera(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
+    poliza = await cliente_polizas.obtener_por_numero(numero, contexto_canonico(usuario).usuario_id)
+    _exigir_dueno(poliza, contexto_canonico(usuario).usuario_id)
+    salida = _poliza_lista(poliza, await _cotizacion_de_poliza(cliente_cotizacion, poliza))
     salida["coberturas"] = [
         {
             "nombre": c["nombre"],
@@ -425,88 +520,300 @@ def pagos() -> dict:
     return dict(PAYMENT)
 
 
-def _oferta_hipotecaria_salida(oferta: dict) -> dict:
-    """Traduce OfertaSalida de ms-perfilamiento al shape que el canal web ya
-    espera. precio->prima, degradado->degradada; factores se simplifica a la
-    lista de nombres de factor (el canal web solo muestra cuáles factores
-    influyeron, no el detalle de impacto/peso que ms-perfilamiento sí calcula
-    internamente para explicabilidad)."""
+SIN_CONSENTIMIENTO = "sin_consentimiento"
+
+
+async def ofertar_vida_hipotecario(
+    contexto: ContextoUsuario,
+    credito: Credito,
+    canal: str,
+    cliente_perfilamiento: ClienteMsPerfilamiento,
+    cliente_cotizacion: ClienteMsCotizacion,
+    asesor_id: UUID | None = None,
+    cliente_ref: str | None = None,
+    idempotency_key: str | None = None,
+    moneda: str | None = None,
+) -> dict:
+    """Oferta de vida hipotecario (HU-105/HU-162) para el cliente y el asesor.
+
+    1. Otorga el consentimiento de perfilamiento (HU-53) y pide a
+       ms-perfilamiento el perfil y sus factores explicables (HU-54/55).
+    2. Cotiza `vida-hipotecario` en ms-cotizacion con el valor y el plazo del
+       crédito; ms-cotizacion toma el factor de ese mismo perfil (IPerfilRiesgo).
+
+    Con la misma `idempotency_key` ms-cotizacion devuelve la misma cotización,
+    así volver a autorizar la misma originación no deja cotizaciones sueltas.
+    Si ms-perfilamiento no responde, la originación no se cancela (HU-56).
+    """
+    cliente_id = str(contexto.usuario_id)
+    factores: list[dict] = []
+    perfil_degradado = True
+    try:
+        await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
+        perfil = await cliente_perfilamiento.solicitar_oferta_hipotecario(
+            idempotency_key=_idempotency_key(),
+            cliente_id=cliente_id,
+        )
+        factores = [{"factor": f["factor"], "impacto": f["impacto"]} for f in perfil["factores"]]
+        perfil_degradado = perfil["degradado"]
+    except ServicioNoDisponible:
+        pass
+
+    datos = await cliente_cotizacion.cotizar(
+        idempotency_key=idempotency_key or _idempotency_key(),
+        usuario_id=contexto.usuario_id,
+        socio_id=contexto.socio_id,
+        consentimiento_id=contexto.consentimiento_id,
+        producto=PRODUCTO_VIDA_HIPOTECARIO,
+        canal=canal,
+        datos_riesgo={"valor": credito.valor, "plazoMeses": credito.plazoMeses},
+        asesor_id=asesor_id,
+        cliente_ref=cliente_ref,
+        moneda=moneda,
+    )
     return {
-        "ramo": "Vida crediticia",
-        "estado": "oferta_vigente",
-        "prima": float(oferta["precio"]),
-        "moneda": oferta["moneda"],
-        "factores": [f["factor"] for f in oferta["factores"]],
-        "degradada": oferta["degradado"],
+        **_cotizacion_salida(datos, RAMO_VIDA_HIPOTECARIO),
+        "factores": factores,
+        "degradada": perfil_degradado or datos.get("factor_riesgo_origen") == "respaldo",
+        "credito": {"valor": credito.valor, "plazoMeses": credito.plazoMeses},
     }
+
+
+def _credito_de(originacion: dict) -> dict:
+    return {
+        "valor": int(Decimal(str(originacion["valor"]))),
+        "plazoMeses": int(originacion["plazo_meses"]),
+        "origen": originacion.get("origen", "cliente"),
+    }
+
+
+async def _originacion_para(cliente_perfilamiento: ClienteMsPerfilamiento, cliente_id: str, credito: Credito) -> dict:
+    """La originación pendiente con estos valores; si cambiaron o no existe, una nueva."""
+    try:
+        pendiente = await cliente_perfilamiento.originacion_pendiente(cliente_id)
+    except RecursoNoEncontrado:
+        pendiente = None
+    if pendiente is not None:
+        actual = _credito_de(pendiente)
+        if (actual["valor"], actual["plazoMeses"]) == (credito.valor, credito.plazoMeses):
+            return pendiente
+    return await cliente_perfilamiento.registrar_originacion(cliente_id, credito.valor, credito.plazoMeses)
+
+
+@router.post("/originacion-hipotecaria", status_code=201)
+async def registrar_originacion(
+    body: Credito,
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    """El cliente cotiza vida hipotecario desde Nueva cotización: guarda el
+    crédito para continuar en /vida-crediticia y en la card de Inicio."""
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    return _credito_de(await cliente_perfilamiento.registrar_originacion(cliente_id, body.valor, body.plazoMeses))
+
+
+@router.get("/originacion-hipotecaria")
+async def originacion_pendiente(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    return _credito_de(await cliente_perfilamiento.originacion_pendiente(cliente_id))
+
+
+@router.get("/consentimiento-perfil")
+async def consentimiento_perfil(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        vigente = await cliente_perfilamiento.consentimiento_vigente(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "vigente", "otorgadoEn": vigente["otorgado_en"]}
+
+
+@router.delete("/consentimiento-perfil")
+async def revocar_consentimiento_perfil(
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        revocado = await cliente_perfilamiento.revocar_consentimiento(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "revocado", "revocadoEn": revocado["revocado_en"]}
+
+
+@router.get("/consentimiento")
+async def consentimiento_datos(
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        vigente = await cliente_consentimiento.consentimiento_vigente(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "vigente", "otorgadoEn": vigente["otorgado_en"]}
+
+
+@router.delete("/consentimiento")
+async def revocar_consentimiento_datos(
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    cliente_id = str(contexto_canonico(usuario).usuario_id)
+    try:
+        revocado = await cliente_consentimiento.revocar_consentimiento(cliente_id)
+    except RecursoNoEncontrado:
+        return {"estado": SIN_CONSENTIMIENTO}
+    return {"estado": "revocado", "revocadoEn": revocado["revocado_en"]}
 
 
 @router.post("/oferta-hipotecaria")
 async def hipoteca(
     body: Hipoteca,
     cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
 ) -> dict:
-    """Integración real con ms-perfilamiento (HU-53 a HU-56).
+    """Oferta de vida hipotecario del cliente (HU-105).
 
-    `consentimientoPerfil=True` es la acción explícita del cliente para
-    autorizar el perfilamiento (HU-53: nunca se asume consentimiento
-    implícito). Solo en ese caso se otorga el consentimiento (idempotente del
-    lado de ms-perfilamiento) y se solicita la oferta real.
-
-    `consentimientoPerfil=False` NO debe disparar ninguna llamada a
-    ms-perfilamiento -- ese es el comportamiento de negocio correcto, no una
-    limitación técnica: sin consentimiento no se invoca el adaptador de
-    perfilamiento. Se devuelve el mismo shape "degradado" que ya esperaba el
-    canal web, documentado ahora como "sin consulta" en vez de un valor de
-    oferta inventado.
+    `consentimientoPerfil=False` no llama a ningún servicio (HU-53: nunca se
+    asume consentimiento) y no inventa una prima: el canal vuelve a Inicio.
+    La cotización se ata a la originación, así autorizar de nuevo no la duplica.
     """
-    # TODO: mismo placeholder de identidad que en cotizar()/emitir() -- no hay
-    # ms-identidad real que resuelva el correo de la sesión a un cliente_id.
-    # ms-perfilamiento espera un cliente_id como str (no un UUID tipado como
-    # usuario_id); se reutiliza el mismo usuario_id derivado (uuid5 estable a
-    # partir del correo de sesión) convertido a texto, para que el mismo
-    # usuario siempre resuelva al mismo cliente_id frente a ms-perfilamiento,
-    # consistente con cómo ya se usa usuario_id frente a ms-cotizacion/
-    # ms-pagos/ms-polizas. No se agrega un atributo nuevo a ContextoUsuario
-    # porque usuario_id ya cumple ese rol de identificador estable por sesión.
-    contexto = ContextoUsuario("sesion-cliente@solventa.com")
-    cliente_id = str(contexto.usuario_id)
-
     if not body.consentimientoPerfil:
-        return {
-            "ramo": "Vida crediticia",
-            "estado": "oferta_vigente",
-            "prima": 50000,
-            "moneda": "COP",
-            "factores": ["plazo", "valor del crédito"],
-            "degradada": True,
-        }
+        return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
 
-    await cliente_perfilamiento.otorgar_consentimiento(cliente_id)
-    oferta = await cliente_perfilamiento.solicitar_oferta_hipotecario(
-        idempotency_key=_idempotency_key(),
-        cliente_id=cliente_id,
+    contexto = contexto_canonico(usuario)
+    clave = None
+    try:
+        originacion = await _originacion_para(cliente_perfilamiento, str(contexto.usuario_id), body.credito)
+        clave = f"originacion-{originacion['id']}"
+    except ServicioNoDisponible:
+        pass
+    return await ofertar_vida_hipotecario(
+        contexto,
+        body.credito,
+        "web",
+        cliente_perfilamiento,
+        cliente_cotizacion,
+        idempotency_key=clave,
+        moneda=body.moneda,
     )
-    return _oferta_hipotecaria_salida(oferta)
 
 
-# TODO: este resumen agrega datos de varios microservicios (cotización
-# vigente, póliza, siniestro en curso, hipotecario) que hoy no tienen todos
-# equivalente real conectado (ms-siniestros y la oferta hipotecaria no están
-# integrados) -- requiere componer varias llamadas reales, no solo una.
+CORTE_INICIO_S = 0.7
+
+
+async def _tarjeta(coro):
+    try:
+        return await asyncio.wait_for(coro, CORTE_INICIO_S)
+    except (TimeoutError, RecursoNoEncontrado, ServicioNoDisponible, RechazoDelNucleo):
+        return None
+
+
 @router.get("/inicio")
-def inicio() -> dict:
+async def inicio(
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    cliente_siniestros: Annotated[ClienteMsSiniestros, Depends(obtener_cliente_siniestros)],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    contexto = contexto_canonico(usuario)
+    pagina, filas, abiertos, originacion = await asyncio.gather(
+        _tarjeta(cliente_cotizacion.listar_por_usuario(contexto.usuario_id)),
+        _tarjeta(cliente_polizas.listar_por_usuario(contexto.usuario_id, limite=1)),
+        _tarjeta(cliente_siniestros.listar(usuario_id=contexto.usuario_id)),
+        _tarjeta(cliente_perfilamiento.originacion_pendiente(str(contexto.usuario_id))),
+    )
+    pendientes: list[dict] = []
+    for item in (pagina or {}).get("items") or []:
+        if item.get("producto") in PRODUCTOS_HIPOTECARIOS:
+            continue
+        ramo, _ = presentar(item.get("producto"))
+        pendientes.append(
+            {
+                "cotizacionId": item.get("cotizacion_id"),
+                "ramo": ramo,
+                "estado": "oferta_vigente",
+                "venceEn": item.get("vence_en"),
+            }
+        )
+    poliza = None
+    if filas:
+        producto = await _tarjeta(_cotizacion_de_poliza(cliente_cotizacion, filas[0]))
+        ramo, _ = presentar((producto or {}).get("producto"))
+        poliza = {"numero": filas[0]["numero"], "ramo": ramo, "estado": str(filas[0]["estado"]).lower()}
+    siniestro = None
+    if abiertos:
+        primero = abiertos[0]
+        siniestro = {"siniestroId": str(primero["id"]), "estado": primero["estado"]}
     return {
-        "ofertaVigente": {
-            "cotizacionId": "COT-1042",
-            "ramo": "Protección de dispositivo",
-            "estado": "oferta_vigente",
-        },
-        "poliza": {
-            "numero": "POL-88219-CO",
-            "ramo": "Protección de dispositivo",
-            "estado": "vigente",
-        },
-        "siniestroEnCurso": {"siniestroId": "SIN-441", "estado": "en_evaluacion"},
-        "hipotecario": None,
+        "ofertaVigente": pendientes[0] if pendientes else None,
+        "cotizacionesPendientes": pendientes,
+        "poliza": poliza,
+        "siniestroEnCurso": siniestro,
+        "hipotecario": {"estado": "disponible", **_credito_de(originacion)} if originacion else None,
     }
+
+
+class PerfilEntrada(BaseModel):
+    nombre: str
+    apellidos: str
+
+
+def _perfil_salida(usuario: dict) -> dict:
+    return {
+        "usuarioId": str(usuario["usuario_id"]),
+        "correo": usuario["email"],
+        "nombre": usuario.get("nombre") or "",
+        "apellidos": usuario.get("apellidos") or "",
+        "tipoDocumento": usuario.get("tipo_documento") or "",
+        "documento": usuario.get("numero_documento") or "",
+    }
+
+
+@router.patch("/polizas/{numero}/preferencias")
+async def guardar_renovacion(
+    numero: str,
+    body: PreferenciaRenovacion,
+    cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    contexto = contexto_canonico(usuario)
+    poliza = await cliente_polizas.obtener_por_numero(numero, contexto.usuario_id)
+    actualizada = await cliente_polizas.guardar_preferencia(
+        str(poliza["id"]), body.renovacionAutomatica, str(contexto.usuario_id)
+    )
+    return {
+        "numero": actualizada["numero"],
+        "renovacionAutomatica": actualizada["renovacion_automatica"],
+    }
+
+
+@router.get("/perfil")
+async def leer_perfil(
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    return _perfil_salida(await cliente_identidad.obtener(str(contexto_canonico(usuario).usuario_id)))
+
+
+@router.patch("/perfil")
+async def guardar_perfil(
+    body: PerfilEntrada,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    usuario: Annotated[dict, Depends(require_roles("cliente"))],
+) -> dict:
+    actualizado = await cliente_identidad.actualizar_perfil(
+        str(contexto_canonico(usuario).usuario_id), nombre=body.nombre, apellidos=body.apellidos
+    )
+    return _perfil_salida(actualizado)

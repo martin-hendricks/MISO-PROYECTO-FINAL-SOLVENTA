@@ -1,19 +1,89 @@
 import { Page } from 'playwright';
-import { Catalog, Client, Home, Offer, PolicyDetail } from '../data/generators';
+import {
+  Catalog,
+  Client,
+  Home,
+  MortgageOffer,
+  Offer,
+  OperatorPolicy,
+  PolicyDetail,
+  PolicyNotice,
+} from '../data/generators';
 
 export type Role = 'cliente' | 'asesor' | 'operador';
 
+export interface OperadorPrestador {
+  id: string;
+  nombre: string;
+  tipo: string;
+  ramos: string[];
+  direccion: string;
+  pais?: string;
+  ciudad: string;
+  barrio: string;
+  lat: number;
+  lng: number;
+  telefono: string;
+  horario: string;
+  estado: 'activo' | 'inactivo';
+  actualizadoEn: string;
+}
+
+export interface CiudadPrestadores {
+  nombre: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+  prestadores: number;
+}
+
+/** The seeded city catalog (db/schema/17), with the active provider counts of the seed. */
+export const CIUDADES_E2E: Record<string, CiudadPrestadores[]> = {
+  CO: [
+    { nombre: 'Bogotá', lat: 4.6097, lng: -74.0817, zoom: 12, prestadores: 30 },
+    { nombre: 'Medellín', lat: 6.2442, lng: -75.5812, zoom: 13, prestadores: 20 },
+    { nombre: 'Chía', lat: 4.8619, lng: -74.0597, zoom: 13, prestadores: 10 },
+  ],
+  MX: [
+    { nombre: 'Ciudad de México', lat: 19.4326, lng: -99.1332, zoom: 11, prestadores: 5 },
+    { nombre: 'Guadalajara', lat: 20.6597, lng: -103.3496, zoom: 13, prestadores: 4 },
+    { nombre: 'Monterrey', lat: 25.6866, lng: -100.3161, zoom: 13, prestadores: 4 },
+  ],
+  CL: [
+    { nombre: 'Santiago', lat: -33.4489, lng: -70.6693, zoom: 11, prestadores: 5 },
+    { nombre: 'Valparaíso', lat: -33.0472, lng: -71.6127, zoom: 13, prestadores: 4 },
+    { nombre: 'Concepción', lat: -36.827, lng: -73.0503, zoom: 13, prestadores: 4 },
+  ],
+  PE: [
+    { nombre: 'Lima', lat: -12.0464, lng: -77.0428, zoom: 11, prestadores: 5 },
+    { nombre: 'Arequipa', lat: -16.409, lng: -71.5375, zoom: 13, prestadores: 4 },
+    { nombre: 'Trujillo', lat: -8.1116, lng: -79.0288, zoom: 13, prestadores: 4 },
+  ],
+};
+
 const INGRESO = '**/web/sesion/ingreso';
 const SALIDA = '**/web/sesion/salida';
-const CLIENTES = '**/web/asesor/clientes';
+const CLIENTES = '**/web/operador/clientes**';
+const NOTIFICACIONES = '**/web/operador/notificaciones/**';
+const SOCIOS = '**/web/backoffice/socios**';
 const ASESOR_COTIZACIONES = '**/web/asesor/cotizaciones?**';
 const INICIO = '**/web/cliente/inicio';
+const BILLETERA = '**/web/cliente/billetera';
+const BILLETERA_DETALLE = '**/web/cliente/billetera/*';
+const PERFIL = '**/web/cliente/perfil';
 const POLIZAS_LISTA = '**/web/cliente/polizas';
 const POLIZA_DETALLE = '**/web/cliente/polizas/*';
+// Más específica que POLIZA_DETALLE (que también matchea esta URL, ver el
+// comentario de serveOperatorPolicyWith sobre el orden de registro inverso de
+// Playwright) -- se registra DESPUÉS de servePolicyDetail en cualquier step
+// que necesite ambas, para que esta gane primero.
+const POLIZAS_AVISOS = '**/web/cliente/polizas/por-vencer';
 const COTIZACIONES = '**/web/cliente/cotizaciones**';
 const REGISTRO = '**/web/registro';
 const ASESOR_EMISION = '**/web/asesor/emisiones';
 const ASESOR_POLIZA = '**/web/asesor/emisiones/*/poliza';
+const OPERADOR_POLIZA_DETALLE = '**/web/operador/polizas/*';
+const OPERADOR_POLIZA_CICLO = '**/web/operador/polizas/ciclo';
 
 export interface ConsentMark {
   habeasData: boolean;
@@ -42,6 +112,9 @@ export class BffDoubles {
   private issueRequests = 0;
   private signUpBody: Record<string, unknown> | null = null;
   private consentMark: ConsentMark | null = null;
+  private mortgageBodies: Record<string, unknown>[] = [];
+  private originationBodies: Record<string, unknown>[] = [];
+  private profilingConsentRevocations = 0;
 
   constructor(private readonly page: Page) {}
 
@@ -84,6 +157,32 @@ export class BffDoubles {
     await this.page.route(SALIDA, (route) => route.fulfill({ json: { estado: 'aceptada' } }));
   }
 
+  /** Profile is read when Perfil opens. A live 401 would sign the customer out. */
+  async serveProfile(correo: string): Promise<void> {
+    await this.page.route(PERFIL, (route) =>
+      route.fulfill({
+        json: {
+          usuarioId: 'usuario-e2e',
+          correo,
+          nombre: 'Camila',
+          apellidos: 'Restrepo',
+          tipoDocumento: 'CC',
+          documento: '1012345678',
+        },
+      }),
+    );
+  }
+
+  async serveDataConsent(otorgadoEn: string | null): Promise<void> {
+    const url = '**/web/cliente/consentimiento';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) =>
+      route.fulfill({
+        json: otorgadoEn ? { estado: 'vigente', otorgadoEn } : { estado: 'sin_consentimiento' },
+      }),
+    );
+  }
+
   async rejectSignIn(): Promise<void> {
     await this.page.route(INGRESO, (route) =>
       route.fulfill({ status: 401, json: { detail: 'Credenciales invalidas' } }),
@@ -95,8 +194,84 @@ export class BffDoubles {
   }
 
   async serveClients(clientes: Client[]): Promise<void> {
-    await this.replaceClients((route) => route.fulfill({ json: { clientes } }));
+    await this.replaceClients((route) =>
+      route.fulfill({
+        json: {
+          clientes: clientes.map((cliente) => ({
+            usuarioId: cliente.clienteId,
+            nombre: cliente.nombre,
+            apellidos: '',
+            email: `${cliente.clienteId.toLowerCase()}@correo.com`,
+            documento: cliente.documento,
+            estado: cliente.estado === 'inactivo' ? 'INACTIVO' : 'ACTIVO',
+            dispositivosActivos: cliente.estado === 'inactivo' ? 0 : 1,
+          })),
+          pagina: 1,
+          hayMas: false,
+        },
+      }),
+    );
     await this.servePendingQuotes();
+  }
+
+  async serveDirectory(
+    clientes: {
+      usuarioId: string;
+      nombre: string;
+      apellidos: string;
+      email: string;
+      documento: string;
+      estado: 'ACTIVO' | 'INACTIVO';
+      dispositivosActivos: number | null;
+    }[],
+  ): Promise<void> {
+    await this.replaceClients((route) =>
+      route.fulfill({ json: { clientes, pagina: 1, hayMas: false } }),
+    );
+    await this.servePendingQuotes();
+  }
+
+  async serveBroadcast(audiencia: {
+    usuarioId: string;
+    nombre: string;
+    apellidos: string;
+    email: string;
+    documento: string;
+    dispositivosActivos: number;
+  }[]): Promise<void> {
+    const historial: {
+      difusionId: string;
+      titulo: string;
+      cuerpo: string;
+      poliza: string | null;
+      creadaEn: string;
+      enviadas: number;
+      fallidas: number;
+      sinDispositivo: number;
+    }[] = [];
+    await this.page.unroute(NOTIFICACIONES);
+    await this.page.route(NOTIFICACIONES, (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/audiencia')) {
+        return route.fulfill({ json: { usuarios: audiencia } });
+      }
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { titulo: string; cuerpo: string; poliza?: string };
+        const item = {
+          difusionId: 'c2d40000-0000-4000-8000-000000000001',
+          titulo: body.titulo,
+          cuerpo: body.cuerpo,
+          poliza: body.poliza ?? null,
+          creadaEn: '2026-11-09T13:05:00Z',
+          enviadas: 2,
+          fallidas: 0,
+          sinDispositivo: 0,
+        };
+        historial.unshift(item);
+        return route.fulfill({ status: 201, json: item });
+      }
+      return route.fulfill({ json: { items: historial } });
+    });
   }
 
   /** Answers the advisor's pending quotes (HU-163) with an empty first page. */
@@ -115,6 +290,79 @@ export class BffDoubles {
     );
   }
 
+  async servePartners(nombres: string[], apiKey: string): Promise<void> {
+    const socios = nombres.map((nombre, indice) => ({
+      socioId: `5ec10000-0000-4000-8000-00000000000${indice}`,
+      nombre,
+      alcances: ['catalogo:leer'],
+      estado: 'activo',
+      creadoEn: '2026-11-19T10:00:00Z',
+      credenciales: [
+        {
+          credencialId: `c4ed0000-0000-4000-8000-00000000000${indice}`,
+          creadaEn: '2026-11-19T10:00:00Z',
+          revocadaEn: null,
+        },
+      ],
+    }));
+    await this.page.unroute(SOCIOS);
+    await this.page.route(SOCIOS, (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.fulfill({ json: { socios } });
+      }
+      const body = route.request().postDataJSON() as { nombre: string; alcances: string[] };
+      const socio = {
+        socioId: `5ec10000-0000-4000-8000-0000000000${socios.length + 10}`,
+        nombre: body.nombre,
+        alcances: body.alcances,
+        estado: 'activo',
+        creadoEn: '2026-11-20T12:00:00Z',
+        credenciales: [
+          {
+            credencialId: `c4ed0000-0000-4000-8000-0000000000${socios.length + 10}`,
+            creadaEn: '2026-11-20T12:00:00Z',
+            revocadaEn: null,
+          },
+        ],
+      };
+      socios.push(socio);
+      return route.fulfill({
+        status: 201,
+        json: {
+          socioId: socio.socioId,
+          nombre: socio.nombre,
+          alcances: socio.alcances,
+          estado: socio.estado,
+          creadoEn: socio.creadoEn,
+          credencialId: socio.credenciales[0].credencialId,
+          apiKey,
+        },
+      });
+    });
+  }
+
+  async failWallet(): Promise<void> {
+    await this.page.unroute(BILLETERA);
+    await this.page.route(BILLETERA, (route) =>
+      route.fulfill({ status: 503, json: { codigo: 'servicio_no_disponible' } }),
+    );
+  }
+
+  async serveWallet(body: unknown): Promise<void> {
+    await this.page.unroute(BILLETERA);
+    await this.page.route(BILLETERA, (route) => route.fulfill({ json: body }));
+    await this.page.unroute(BILLETERA_DETALLE);
+    await this.page.route(BILLETERA_DETALLE, (route) => {
+      const id = route.request().url().split('/').pop();
+      const movimientos = (body as { movimientos?: { id: string }[] }).movimientos ?? [];
+      const fila = movimientos.find((m) => m.id === id);
+      if (!fila) {
+        return route.fulfill({ status: 404, json: { codigo: 'no_encontrado' } });
+      }
+      return route.fulfill({ json: fila });
+    });
+  }
+
   async serveHome(home: Home): Promise<void> {
     await this.page.unroute(INICIO);
     await this.page.route(INICIO, (route) => route.fulfill({ json: home }));
@@ -128,6 +376,138 @@ export class BffDoubles {
   async servePolicyList(policies: PolicyDetail[]): Promise<void> {
     await this.page.unroute(POLIZAS_LISTA);
     await this.page.route(POLIZAS_LISTA, (route) => route.fulfill({ json: { polizas: policies } }));
+  }
+
+  /** HU-119: pólizas vigentes del cliente que vencen pronto. Registrar
+   * después de servePolicyDetail si el escenario también necesita esa ruta. */
+  async serveNotices(notices: PolicyNotice[]): Promise<void> {
+    await this.page.unroute(POLIZAS_AVISOS);
+    await this.page.route(POLIZAS_AVISOS, (route) => route.fulfill({ json: { polizas: notices } }));
+  }
+
+  /** Single handler for both GET .../polizas/{numero} and POST .../ciclo:
+   * Playwright matches overlapping glob routes in reverse registration
+   * order, and `**\/polizas/*` also matches `.../polizas/ciclo`, so two
+   * separate `page.route()` calls race each other for the same POST. One
+   * handler per URL pattern, dispatching on method, avoids that entirely. */
+  private async serveOperatorPolicyWith(
+    detalle: (policy: OperatorPolicy) => OperatorPolicy,
+    ciclo: (
+      policy: OperatorPolicy,
+      body: { verbo: string; motivo?: string; coberturas?: OperatorPolicy['coberturas'] },
+    ) => { status?: number; json: unknown },
+    policy: OperatorPolicy,
+  ): Promise<void> {
+    let current = policy;
+    await this.page.unroute(OPERADOR_POLIZA_CICLO);
+    await this.page.unroute(OPERADOR_POLIZA_DETALLE);
+    await this.page.route(OPERADOR_POLIZA_DETALLE, (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as {
+          verbo: string;
+          motivo?: string;
+          coberturas?: OperatorPolicy['coberturas'];
+        };
+        const { status, json } = ciclo(current, body);
+        if (json && typeof json === 'object' && 'numero' in json) {
+          current = json as OperatorPolicy;
+        }
+        return route.fulfill({ status, json });
+      }
+      current = detalle(current);
+      return route.fulfill({ json: current });
+    });
+  }
+
+  /** Answers the operator's policy screen (HU-59/61) with a single stateful
+   * double, same shape as the real core (renovar keeps renovable true
+   * unless told otherwise, cancelar answers with the cancellation record). */
+  async serveOperatorPolicy(policy: OperatorPolicy): Promise<void> {
+    await this.serveOperatorPolicyWith(
+      (current) => current,
+      (current, body) => {
+        if (body.verbo === 'renovar') {
+          return { json: { ...current, venceEn: '2028-10-01' } };
+        }
+        if (body.verbo === 'modificar') {
+          return { json: { ...current, coberturas: body.coberturas ?? current.coberturas } };
+        }
+        if (body.verbo === 'cancelar') {
+          return {
+            json: {
+              ...current,
+              estado: 'cancelada',
+              renovable: false,
+              devolucionEstimada: 500,
+              canceladaEn: '2026-11-01',
+              canceladaPor: 'persona@solventa.com',
+              motivoCancelacion: body.motivo ?? '',
+            },
+          };
+        }
+        return { json: current };
+      },
+      policy,
+    );
+  }
+
+  /** Same double as `serveOperatorPolicy`, but cancelar always answers 409
+   * (ya cancelada) regardless of the body -- for "already cancelled". */
+  async serveOperatorPolicyAlreadyCancelled(policy: OperatorPolicy): Promise<void> {
+    const cancelled: OperatorPolicy = {
+      ...policy,
+      estado: 'cancelada',
+      renovable: false,
+      devolucionEstimada: 500,
+      canceladaEn: '2026-11-01',
+      canceladaPor: 'persona@solventa.com',
+      motivoCancelacion: 'El cliente lo pidió',
+    };
+    await this.serveOperatorPolicyWith(
+      () => cancelled,
+      () => ({
+        status: 409,
+        json: { codigo: 'transicion_invalida', mensaje: 'La póliza ya estaba cancelada' },
+      }),
+      cancelled,
+    );
+  }
+
+  /** Same shape, but renovar always answers 409 (vencida fuera de la ventana
+   * de gracia) -- for "policy no longer valid". */
+  async serveOperatorPolicyNotRenewable(policy: OperatorPolicy): Promise<void> {
+    const notRenewable: OperatorPolicy = { ...policy, renovable: false };
+    await this.serveOperatorPolicyWith(
+      () => notRenewable,
+      () => ({
+        status: 409,
+        json: { codigo: 'transicion_invalida', mensaje: 'No se puede pasar de VIGENTE a VIGENTE' },
+      }),
+      notRenewable,
+    );
+  }
+
+  /** Keeps customer issuance inside the portal. A live BFF 401 would sign the customer out. */
+  async serveCustomerIssuance(): Promise<void> {
+    await this.page.route(POLIZAS_LISTA, (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.fallback();
+      }
+      return route.fulfill({
+        json: {
+          resultado: 'EMITIDA',
+          poliza: {
+            numero: 'POL-2026-00088421',
+            producto: 'Protección de dispositivo',
+            estado: 'VIGENTE',
+            inicioVigencia: '2026-03-12',
+            finVigencia: '2027-03-12',
+            moneda: 'COP',
+            primaTotal: 42300,
+          },
+        },
+      });
+    });
   }
 
   /** Counts every call to the quote endpoints. Accepting an offer must not make one. */
@@ -174,6 +554,49 @@ export class BffDoubles {
     });
   }
 
+  /** Answers the customer issuance `POST /cliente/polizas` with a core refusal (HU-165). */
+  async refuseIssuance(status: number, body: Record<string, unknown>): Promise<void> {
+    await this.page.route(POLIZAS_LISTA, (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      this.issueRequests += 1;
+      return route.fulfill({ status, json: body });
+    });
+  }
+
+  /** Answers the customer mortgage origination: GET returns the pending one (or 404), POST saves it. */
+  async serveMortgageOrigination(pending: { valor: number; plazoMeses: number } | null): Promise<void> {
+    const url = '**/web/cliente/originacion-hipotecaria';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        this.originationBodies.push(body);
+        return route.fulfill({ status: 201, json: { ...body, origen: 'cliente' } });
+      }
+      return pending
+        ? route.fulfill({ json: { ...pending, origen: 'cliente' } })
+        : route.fulfill({ status: 404, json: { codigo: 'no_encontrado', mensaje: 'No existe' } });
+    });
+  }
+
+  originationBody(): Record<string, unknown> | undefined {
+    return this.originationBodies.at(-1);
+  }
+
+  /** Answers `POST /{canal}/oferta-hipotecaria` (HU-162); a new call replaces the answer. */
+  async serveMortgageOffer(canal: Canal, offer: MortgageOffer): Promise<void> {
+    const url = `**/web/${canal}/oferta-hipotecaria`;
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      this.mortgageBodies.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ json: offer });
+    });
+  }
+
+  mortgageBody(): Record<string, unknown> | undefined {
+    return this.mortgageBodies.at(-1);
+  }
+
   issuesRequested(): number {
     return this.issueRequests;
   }
@@ -193,6 +616,149 @@ export class BffDoubles {
   hasClients(): boolean {
     return this.clientsServed;
   }
+
+  async serveProfilingConsent(otorgadoEn: string | null): Promise<void> {
+    const url = '**/web/cliente/consentimiento-perfil';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      if (route.request().method() === 'DELETE') {
+        this.profilingConsentRevocations += 1;
+        return route.fulfill({
+          json: { estado: 'revocado', revocadoEn: '2026-11-11T15:30:00Z' },
+        });
+      }
+      return route.fulfill({
+        json: otorgadoEn ? { estado: 'vigente', otorgadoEn } : { estado: 'sin_consentimiento' },
+      });
+    });
+  }
+
+  profilingConsentRevoked(): number {
+    return this.profilingConsentRevocations;
+  }
+
+  /** `body` may depend on the query (pais, ciudad, area); `/ciudades` answers from the catalog. */
+  async serveCustomerPrestadores(
+    body: unknown | ((query: URLSearchParams) => unknown),
+    ciudades: Record<string, CiudadPrestadores[]> = CIUDADES_E2E,
+  ): Promise<void> {
+    const url = '**/web/cliente/prestadores**';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      const destino = new URL(route.request().url());
+      if (destino.pathname.endsWith('/prestadores/ciudades')) {
+        const pais = destino.searchParams.get('pais') ?? 'CO';
+        return route.fulfill({ json: { pais, ciudades: ciudades[pais] ?? [] } });
+      }
+      const respuesta = typeof body === 'function' ? body(destino.searchParams) : body;
+      return route.fulfill({ json: respuesta });
+    });
+  }
+
+  async serveClaimPrestadores(id: string, status: number, body: unknown): Promise<void> {
+    const url = `**/web/cliente/siniestros/${id}/prestadores**`;
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => route.fulfill({ status, json: body }));
+  }
+
+  async serveOperadorPrestadores(
+    filas: OperadorPrestador[],
+    conteos: Record<string, number>,
+  ): Promise<void> {
+    this.operadorPrestadores = filas.map((fila) => ({ ...fila, ramos: [...fila.ramos] }));
+    const url = '**/web/operador/prestadores**';
+    await this.page.unroute(url);
+    await this.page.route(url, (route) => {
+      const request = route.request();
+      const partes = new URL(request.url()).pathname.split('/').filter(Boolean);
+      const indice = partes.lastIndexOf('prestadores');
+      const id = partes[indice + 1];
+      const cola = partes[indice + 2];
+      const params = new URL(request.url()).searchParams;
+      const pais = params.get('pais') ?? 'CO';
+      if (id === 'ciudades' && request.method() === 'GET') {
+        const catalogo = (CIUDADES_E2E[pais] ?? []).map((item) => ({
+          ...item,
+          prestadores: this.operadorPrestadores.filter(
+            (fila) => (fila.pais ?? 'CO') === pais && fila.ciudad === item.nombre,
+          ).length,
+        }));
+        return route.fulfill({ json: { pais, ciudades: catalogo } });
+      }
+      if (!id && request.method() === 'GET') {
+        const ramo = params.get('ramo');
+        const ciudad = params.get('ciudad');
+        const estado = params.get('estado');
+        const prestadores = this.operadorPrestadores.filter((fila) => {
+          if ((fila.pais ?? 'CO') !== pais) {
+            return false;
+          }
+          if (ramo && !fila.ramos.includes(ramo)) {
+            return false;
+          }
+          if (ciudad && fila.ciudad !== ciudad) {
+            return false;
+          }
+          if (estado && fila.estado !== estado) {
+            return false;
+          }
+          return true;
+        });
+        const conteosPais =
+          pais === 'CO'
+            ? conteos
+            : Object.fromEntries(
+                (CIUDADES_E2E[pais] ?? []).map((item) => [
+                  item.nombre,
+                  this.operadorPrestadores.filter(
+                    (fila) => (fila.pais ?? 'CO') === pais && fila.ciudad === item.nombre,
+                  ).length,
+                ]),
+              );
+        const primera = CIUDADES_E2E[pais]?.[0];
+        return route.fulfill({
+          json: {
+            pais,
+            conteos: conteosPais,
+            centro: primera ? { lat: primera.lat, lng: primera.lng } : null,
+            prestadores,
+          },
+        });
+      }
+      if (!id && request.method() === 'POST') {
+        const body = request.postDataJSON() as Omit<
+          OperadorPrestador,
+          'id' | 'estado' | 'actualizadoEn'
+        >;
+        const creada: OperadorPrestador = {
+          ...body,
+          id: 'PRE-E2E-01',
+          estado: 'activo',
+          actualizadoEn: new Date().toISOString(),
+        };
+        this.operadorPrestadores.push(creada);
+        return route.fulfill({ status: 201, json: creada });
+      }
+      const fila = this.operadorPrestadores.find((item) => item.id === id);
+      if (!fila) {
+        return route.fulfill({ status: 404, json: { detail: 'no_encontrado' } });
+      }
+      if (request.method() === 'GET') {
+        return route.fulfill({ json: fila });
+      }
+      if (request.method() === 'PATCH') {
+        Object.assign(fila, request.postDataJSON());
+        return route.fulfill({ json: fila });
+      }
+      if (request.method() === 'POST' && cola === 'estado') {
+        fila.estado = (request.postDataJSON() as { estado: 'activo' | 'inactivo' }).estado;
+        return route.fulfill({ json: fila });
+      }
+      return route.fulfill({ status: 404, json: {} });
+    });
+  }
+
+  private operadorPrestadores: OperadorPrestador[] = [];
 
   private async replaceClients(handler: Parameters<Page['route']>[1]): Promise<void> {
     await this.page.unroute(CLIENTES);

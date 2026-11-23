@@ -60,14 +60,19 @@ pydantic-settings==2.15.0
     # via ms-pagos (pyproject.toml)
 pygments==2.21.0
     # via pytest
+pyjwt==2.15.1
+    # via ms-pagos (pyproject.toml)
 pytest==9.1.1
     # via
     #   ms-pagos (pyproject.toml)
     #   pytest-asyncio
     #   pytest-cov
+    #   pytest-socket
 pytest-asyncio==1.4.0
     # via ms-pagos (pyproject.toml)
 pytest-cov==7.1.0
+    # via ms-pagos (pyproject.toml)
+pytest-socket==0.8.1
     # via ms-pagos (pyproject.toml)
 python-dotenv==1.2.4
     # via

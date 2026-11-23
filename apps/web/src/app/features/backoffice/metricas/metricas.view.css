@@ -1,0 +1,16 @@
+.metricas-table {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+}
+
+.metricas-table th,
+.metricas-table td {
+  padding: 8px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--sv-surface-container-low);
+}
+
+.metricas-table th {
+  font-weight: 600;
+}

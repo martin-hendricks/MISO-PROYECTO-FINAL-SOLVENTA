@@ -1,36 +1,55 @@
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+.filtros,
+.paginacion,
+.ficha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
   margin: 0 0 24px;
-  padding: 0;
-  list-style: none;
 }
 
-.kpis li {
-  display: flex;
+.ficha {
   flex-direction: column;
-  gap: 8px;
-  padding: 20px;
+  align-items: stretch;
+  max-width: 480px;
+  padding: 24px;
   border-radius: 12px;
   background: var(--sv-surface-container-low);
 }
 
-.kpi-label,
-.kpi-hint {
-  color: var(--sv-on-surface-variant);
-  font-size: 12px;
-  line-height: 16px;
+.ficha label,
+.filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.kpi-value {
+.ficha input,
+.filtros input,
+.filtros select {
+  padding: 12px 16px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 12px;
+  font: inherit;
+  background: var(--sv-surface);
+}
+
+.text {
+  margin-right: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--sv-primary);
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 40px;
+  font: inherit;
+  cursor: pointer;
 }
 
-.badge[data-estado='activo'] {
+.badge[data-estado='ACTIVO'] {
   color: var(--sv-on-primary);
   background: var(--sv-primary);
+}
+
+.badge[data-estado='INACTIVO'] {
+  color: var(--sv-on-surface-variant);
+  background: var(--sv-surface-container);
 }

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -45,8 +46,11 @@ fun SolventaSelect(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     appearance: SolventaSelectAppearance = SolventaSelectAppearance.Button,
+    optionTag: (String) -> String = { "option_$it" },
+    fieldTag: String? = null,
+    placeholder: String = "",
 ) {
-    val menuTag = if (expanded) "solventa_select_open" else "solventa_select_closed"
+    val menuTag = fieldTag ?: if (expanded) "solventa_select_open" else "solventa_select_closed"
     if (appearance == SolventaSelectAppearance.Field) {
         DocumentTypeMenu(
             label = label,
@@ -57,6 +61,8 @@ fun SolventaSelect(
             onSelect = onSelect,
             modifier = modifier,
             menuTag = menuTag,
+            optionTag = optionTag,
+            placeholder = placeholder,
         )
         return
     }
@@ -77,7 +83,7 @@ fun SolventaSelect(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(option)
                 }
@@ -96,6 +102,8 @@ private fun DocumentTypeMenu(
     onSelect: (String) -> Unit,
     modifier: Modifier,
     menuTag: String,
+    optionTag: (String) -> String,
+    placeholder: String,
 ) {
     val shape = RoundedCornerShape(8.dp)
     Column(modifier.fillMaxWidth()) {
@@ -108,20 +116,27 @@ private fun DocumentTypeMenu(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(SolventaSpacing.minTouch)
+                .heightIn(min = SolventaSpacing.minTouch)
                 .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
                 .clickable { onExpandedChange(!expanded) }
-                .semantics { role = Role.DropdownList }
+                .semantics(mergeDescendants = true) {
+                    role = Role.DropdownList
+                    if (value.isBlank()) contentDescription = label
+                }
                 .testTag(menuTag)
                 .padding(horizontal = SolventaSpacing.s12),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = value,
+                text = value.ifBlank { placeholder },
                 style = SolventaTypography.amount,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (value.isBlank() && placeholder.isNotBlank()) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 modifier = Modifier.weight(1f),
             )
             Icon(
@@ -140,7 +155,7 @@ private fun DocumentTypeMenu(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = SolventaSpacing.minTouch)
-                        .testTag("option_$option"),
+                        .testTag(optionTag(option)),
                 ) {
                     Text(
                         text = option,

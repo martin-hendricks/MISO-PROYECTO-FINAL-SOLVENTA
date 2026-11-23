@@ -6,6 +6,7 @@ export const INICIO: Inicio = {
     cotizacionId: 'COT-1042',
     ramo: 'Protección de dispositivo',
     estado: 'oferta_vigente',
+    venceEn: '2999-06-01T12:00:00Z',
   },
   poliza: {
     numero: 'POL-88219-CO',

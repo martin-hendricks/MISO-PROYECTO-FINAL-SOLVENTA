@@ -27,6 +27,7 @@ class HomeViewModelTest {
     fun givenStandInHome_whenDefaultLoads_thenPublishedOfferIsCurrent() {
         val panel = HomeViewModel(LoadInicio(StandInHomeRepository())).state.value.panel
         assertEquals("COT-1042", panel.offerId)
+        assertEquals("Protección de dispositivo", panel.offerRamo)
         assertEquals("POL-88219-CO", panel.policyId)
         assertEquals("SIN-441", panel.claimId)
         assertFalse(panel.vidaCrediticia)
@@ -160,8 +161,10 @@ class HomeViewModelTest {
             viewModel.refresh()
             viewModel.refresh()
             dispatcher.scheduler.advanceUntilIdle()
+            viewModel.refresh()
+            dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(2, calls)
+            assertEquals(3, calls)
             assertFalse(viewModel.state.value.failed)
         } finally {
             Dispatchers.resetMain()

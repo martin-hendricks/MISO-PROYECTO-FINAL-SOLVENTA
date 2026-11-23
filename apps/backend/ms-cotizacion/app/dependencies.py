@@ -2,6 +2,7 @@ from fastapi import Request
 
 from app.config import Settings
 from app.ports.catalogo import CatalogoProductos
+from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 from app.ports.suscripcion import MotorSuscripcion
@@ -25,3 +26,7 @@ def obtener_config(request: Request) -> Settings:
 
 def obtener_suscripciones(request: Request) -> MotorSuscripcion:
     return request.app.state.suscripciones
+
+
+def obtener_consentimientos(request: Request) -> ConsentimientoPerfil:
+    return request.app.state.consentimientos

@@ -2,7 +2,8 @@ package com.grupo8_uniandes.solventa.data.bff
 
 /**
  * A non-blank Gradle address wins. Otherwise a non-blank `bff.baseUrl` is used.
- * Both blank means the stand-in. Debug never asks this; its address field is empty.
+ * Both blank means the debug stand-in (published samples). The remote build is the
+ * cross-channel check: `./gradlew :app:installRemote -PbffBaseUrl=http://10.0.2.2:8007`.
  */
 object BffAddress {
     fun resolve(gradleUrl: String?, localUrl: String?): String {

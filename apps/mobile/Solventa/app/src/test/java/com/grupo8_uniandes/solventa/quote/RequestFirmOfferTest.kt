@@ -10,6 +10,7 @@ import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.MortgageRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.offer.PaymentsRisk
+import com.grupo8_uniandes.solventa.domain.bff.offer.SoatRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAnswers
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteAttempt
 import com.grupo8_uniandes.solventa.domain.bff.offer.QuoteInput
@@ -28,7 +29,7 @@ class RequestFirmOfferTest {
         val ready = (attempt as QuoteAttempt.Answer).answer as StandInAnswer.Ready
 
         assertEquals("Protección de dispositivo", repository.lastRamo)
-        assertEquals(DeviceRisk(2400000, "Pixel", false), repository.lastRisk)
+        assertEquals(DeviceRisk(2400000, "apple", false, "iPhone 15"), repository.lastRisk)
         assertEquals(89000L, ready.value.prima)
         assertEquals("COT-1042", ready.value.cotizacionId)
         assertEquals("COP", ready.value.moneda)
@@ -109,6 +110,8 @@ class RequestFirmOfferTest {
         assertEquals(QuoteInput.Value, gap(request, device(value = "-5")))
         assertEquals(QuoteInput.Value, gap(request, device(value = "12.5")))
         assertEquals(QuoteInput.Brand, gap(request, device(brand = "  ")))
+        assertEquals(QuoteInput.Brand, gap(request, device(brand = "nokia")))
+        assertEquals(QuoteInput.Model, gap(request, device(model = " ")))
         assertEquals(QuoteInput.Age, gap(request, device(older = null)))
         assertEquals(
             QuoteInput.Destination,
@@ -119,6 +122,25 @@ class RequestFirmOfferTest {
             gap(request, QuoteLine.Travel, QuoteAnswers(destination = "Bogotá", duration = "0")),
         )
         assertEquals(0, repository.quotes)
+    }
+
+    @Test
+    fun givenSoatAnswers_whenSubmitted_thenDisplacementYearAndCityAreSent() {
+        val repository = RecordingOfferRepository()
+        val request = RequestFirmOffer(repository)
+        assertEquals(
+            SoatRisk(150, 2024, "Bogotá"),
+            sent(
+                request,
+                repository,
+                QuoteLine.Soat,
+                QuoteAnswers(displacement = "150", modelYear = "2024", city = "Bogotá"),
+            ),
+        )
+        assertEquals(QuoteInput.Displacement, gap(request, QuoteLine.Soat, QuoteAnswers(modelYear = "2024", city = "Bogotá")))
+        assertEquals(QuoteInput.ModelYear, gap(request, QuoteLine.Soat, QuoteAnswers(displacement = "150", city = "Bogotá")))
+        assertEquals(QuoteInput.City, gap(request, QuoteLine.Soat, QuoteAnswers(displacement = "150", modelYear = "2024")))
+        assertEquals(1, repository.quotes)
     }
 
     private fun sent(
@@ -134,9 +156,10 @@ class RequestFirmOfferTest {
 
     private fun device(
         value: String = "2400000",
-        brand: String = "Pixel",
+        brand: String = "apple",
+        model: String = "iPhone 15",
         older: Boolean? = false,
-    ) = QuoteAnswers(value = value, brand = brand, olderThan12Months = older)
+    ) = QuoteAnswers(value = value, brand = brand, model = model, olderThan12Months = older)
 
     private fun gap(
         request: RequestFirmOffer,
@@ -172,5 +195,7 @@ private class RecordingOfferRepository : OfferRepository {
     }
 
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
-        quote("", DeviceRisk(1, "x", false))
+        quote("", DeviceRisk(1, "x", false, "modelo"))
+
+    override suspend fun accept(cotizacionId: String) = StandInAnswer.Failed
 }

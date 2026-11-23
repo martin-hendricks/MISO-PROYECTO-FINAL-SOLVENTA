@@ -55,12 +55,31 @@ class ValoresPermitidos:
 
 
 @dataclass(frozen=True)
+class TextoLibre:
+    def valido(self, valor: Any) -> bool:
+        return isinstance(valor, str) and bool(valor.strip())
+
+    def describir_rango(self) -> str:
+        return "texto no vacío"
+
+
+@dataclass(frozen=True)
+class Booleano:
+    def valido(self, valor: Any) -> bool:
+        return isinstance(valor, bool)
+
+    def describir_rango(self) -> str:
+        return "verdadero o falso"
+
+
+@dataclass(frozen=True)
 class DefinicionProducto:
     producto: str
     nombre: str
     moneda: str
     coberturas: tuple[Cobertura, ...]
     datos_riesgo: Mapping[str, DefinicionDatoRiesgo]
+    descripcion: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "coberturas", tuple(self.coberturas))
@@ -69,3 +88,6 @@ class DefinicionProducto:
     @property
     def codigos_coberturas(self) -> list[str]:
         return [c.codigo for c in self.coberturas]
+
+    def disponible(self, tiene_regla: bool = True) -> bool:
+        return bool(self.descripcion.strip() and self.coberturas and self.datos_riesgo and tiene_regla)

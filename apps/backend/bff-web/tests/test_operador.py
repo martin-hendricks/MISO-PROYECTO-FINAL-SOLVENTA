@@ -24,9 +24,19 @@ POLIZA_VIGENTE = {
     "fin_vigencia": "2027-10-01",
     "estado": "VIGENTE",
     "coberturas": [{"nombre": "RC", "suma_asegurada": "1000.00", "deducible": "0"}],
+    "prima": {"valor": "1000.00", "periodicidad": "ANUAL"},
+    "renovable": True,
 }
 
-POLIZA_CANCELADA = {**POLIZA_VIGENTE, "estado": "CANCELADA", "motivo_cancelacion": "El cliente lo pidió"}
+POLIZA_CANCELADA = {
+    **POLIZA_VIGENTE,
+    "estado": "CANCELADA",
+    "renovable": False,
+    "motivo_cancelacion": "El cliente lo pidió",
+    "cancelada_en": "2026-11-01",
+    "cancelada_por": "persona@solventa.com",
+    "devolucion_estimada": "500.00",
+}
 
 
 def _auth(client):
@@ -43,9 +53,9 @@ def test_cola_sin_asistencia(client, nucleo_siniestros):
     assert all("asistenciaId" not in item for item in body["avisos"])
     assert body["avisos"][0]["siniestroId"] == SINIESTRO_ID
     assert body["avisos"][0]["estado"] == "en_evaluacion"
-    # TODO documentado en operador.py: ms-siniestros no tiene poliza/ramo.
+    # Un siniestro sin póliza ni ramo (paramétrico antiguo): vocabulario canónico.
     assert body["avisos"][0]["poliza"] == ""
-    assert body["avisos"][0]["ramo"] == ""
+    assert body["avisos"][0]["ramo"] == "Sin clasificar"
 
 
 def test_cola_servicio_no_disponible_es_503(client, nucleo_siniestros):
@@ -67,9 +77,14 @@ def test_rechazo_sin_motivo_es_400(client):
     assert response.status_code == 400
 
 
-def test_aprobar_decision_cambia_estado(client, nucleo_siniestros):
-    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/estado")] = lambda _: httpx.Response(
-        200, json=SINIESTRO_DECIDIDO
+def _detalle_nucleo(siniestro: dict) -> dict:
+    return {"siniestro": siniestro, "adjuntos": [], "decisiones": [], "pago": None, "intentos_pago": []}
+
+
+def test_aprobar_decision_llama_a_decision_del_nucleo_con_auditoria(client, nucleo_siniestros):
+    aprobado = {**SINIESTRO_DECIDIDO, "resultado": "aprobado", "tipo": "asistido", "numero": "SIN-1001"}
+    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/decision")] = lambda _: httpx.Response(
+        200, json=_detalle_nucleo(aprobado)
     )
 
     response = client.post(
@@ -80,17 +95,21 @@ def test_aprobar_decision_cambia_estado(client, nucleo_siniestros):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["siniestroId"] == SINIESTRO_ID
-    assert body["estado"] == "decidido"
+    assert body["id"] == SINIESTRO_ID
+    assert body["siniestroId"] == "SIN-1001"
+    assert body["estadoCola"] == "aprobado"
 
-    enviado = nucleo_siniestros.peticiones[-1]
     import json as _json
 
-    assert _json.loads(enviado.read()) == {"estado": "decidido", "origen": "operador"}
+    enviado = _json.loads(nucleo_siniestros.peticiones[-1].read())
+    # Aprobar y rechazar ya NO colapsan en el mismo estado: viaja el resultado, y el
+    # actor es el usuario de la sesión (quién decidió, HU-27).
+    assert enviado["resultado"] == "aprobado"
+    assert enviado["actor"]
 
 
 def test_decision_con_transicion_invalida_es_409(client, nucleo_siniestros):
-    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/estado")] = lambda _: httpx.Response(
+    nucleo_siniestros.respuestas[("POST", f"/v1/siniestros/{SINIESTRO_ID}/decision")] = lambda _: httpx.Response(
         409, json={"codigo": "transicion_invalida", "mensaje": "No se puede pasar de 'decidido' a 'decidido'"}
     )
 
@@ -131,16 +150,66 @@ def test_ciclo_con_verbo_no_permitido_es_400(client):
     assert response.status_code == 400
 
 
-def test_ciclo_sin_poliza_id_responde_501(client):
+def test_consultar_poliza_por_numero_devuelve_detalle(client, nucleo_polizas):
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=POLIZA_VIGENTE
+    )
+
+    response = client.get("/v1/operador/polizas/POL-88219-CO", headers=_auth(client))
+
+    assert response.status_code == 200
+    cuerpo = response.json()
+    assert cuerpo["numero"] == "POL-88219-CO"
+    assert cuerpo["estado"] == "vigente"
+    assert cuerpo["renovable"] is True
+
+
+def test_consultar_poliza_sin_oferta_no_reconsulta_la_cotizacion(client, nucleo_polizas, nucleo_cotizacion):
+    sin_oferta = {clave: valor for clave, valor in POLIZA_VIGENTE.items() if clave != "oferta_id"}
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=sin_oferta
+    )
+
+    response = client.get("/v1/operador/polizas/POL-88219-CO", headers=_auth(client))
+
+    assert response.status_code == 200
+    assert response.json()["ramo"] == "Sin clasificar"
+    assert nucleo_cotizacion.peticiones == []
+
+
+def test_consultar_poliza_inexistente_responde_404(client, nucleo_polizas):
+    response = client.get("/v1/operador/polizas/POL-NO-EXISTE", headers=_auth(client))
+    assert response.status_code == 404
+
+
+def test_ciclo_sin_poliza_id_resuelve_numero_y_cancela(client, nucleo_polizas, nucleo_siniestros):
+    nucleo_polizas.respuestas[("GET", "/v1/polizas/numero/POL-88219-CO")] = lambda _: httpx.Response(
+        200, json=POLIZA_VIGENTE
+    )
+    nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
+        200, json=POLIZA_CANCELADA
+    )
+
     response = client.post(
         "/v1/operador/polizas/ciclo",
         headers=_auth(client),
         json={"numero": "POL-88219-CO", "verbo": "cancelar", "motivo": "El cliente lo pidió"},
     )
-    assert response.status_code == 501
+
+    assert response.status_code == 200
+    assert response.json()["estado"] == "cancelada"
 
 
-def test_cancelar_con_poliza_id_y_motivo_cambia_estado(client, nucleo_polizas):
+def test_ciclo_sin_poliza_id_y_numero_inexistente_responde_404(client, nucleo_polizas):
+    response = client.post(
+        "/v1/operador/polizas/ciclo",
+        headers=_auth(client),
+        json={"numero": "POL-NO-EXISTE", "verbo": "cancelar", "motivo": "El cliente lo pidió"},
+    )
+    assert response.status_code == 404
+
+
+def test_cancelar_con_poliza_id_y_motivo_cambia_estado(client, nucleo_polizas, nucleo_siniestros):
     nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
         200, json=POLIZA_CANCELADA
     )
@@ -153,10 +222,49 @@ def test_cancelar_con_poliza_id_y_motivo_cambia_estado(client, nucleo_polizas):
 
     assert response.status_code == 200
     assert response.json()["estado"] == "cancelada"
+    assert response.json()["canceladaPor"] == "persona@solventa.com"
     peticion = nucleo_polizas.peticiones[-1]
     import json as _json
 
-    assert _json.loads(peticion.read())["motivo"] == "El cliente lo pidió"
+    enviado = _json.loads(peticion.read())
+    assert enviado["motivo"] == "El cliente lo pidió"
+    assert enviado["operador"] == "operador@solventa.com"
+
+
+def test_cancelar_consulta_siniestros_abiertos_sin_bloquear(client, nucleo_polizas, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(
+        200, json={"abiertos": 2, "siniestros": []}
+    )
+    nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
+        200, json=POLIZA_CANCELADA
+    )
+
+    response = client.post(
+        "/v1/operador/polizas/ciclo",
+        headers=_auth(client),
+        json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar", "motivo": "El cliente lo pidió"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["siniestrosAbiertos"] == 2
+
+
+def test_cancelar_sigue_cuando_siniestros_no_responde(client, nucleo_polizas, nucleo_siniestros):
+    nucleo_siniestros.respuestas[("GET", "/v1/siniestros/abiertos")] = lambda _: httpx.Response(503, json={})
+    nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
+        200, json=POLIZA_CANCELADA
+    )
+
+    response = client.post(
+        "/v1/operador/polizas/ciclo",
+        headers=_auth(client),
+        json={"numero": "POL-88219-CO", "polizaId": POLIZA_ID, "verbo": "cancelar", "motivo": "El cliente lo pidió"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["estado"] == "cancelada"
+    assert response.json()["siniestrosAbiertos"] is None
+    assert nucleo_polizas.peticiones[-1].url.path.endswith("/cancelacion")
 
 
 def test_renovar_con_poliza_id_cambia_vigencia(client, nucleo_polizas):
@@ -172,6 +280,7 @@ def test_renovar_con_poliza_id_cambia_vigencia(client, nucleo_polizas):
 
     assert response.status_code == 200
     assert response.json()["estado"] == "vigente"
+    assert response.json()["renovable"] is True
 
 
 def test_modificar_sin_coberturas_es_400(client):
@@ -203,7 +312,7 @@ def test_modificar_con_coberturas_reemplaza_coberturas(client, nucleo_polizas):
     assert response.json()["estado"] == "vigente"
 
 
-def test_ciclo_con_transicion_invalida_del_nucleo_se_propaga_409(client, nucleo_polizas):
+def test_ciclo_con_transicion_invalida_del_nucleo_se_propaga_409(client, nucleo_polizas, nucleo_siniestros):
     nucleo_polizas.respuestas[("POST", f"/v1/polizas/{POLIZA_ID}/cancelacion")] = lambda _: httpx.Response(
         409, json={"codigo": "transicion_invalida", "mensaje": "No se puede pasar de 'CANCELADA' a 'CANCELADA'"}
     )

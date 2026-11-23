@@ -53,13 +53,28 @@ class ClienteMsPolizas(ClienteServicio):
             "GET", "/v1/polizas", params={"usuario_id": str(usuario_id), "limite": limite}
         )
 
-    async def obtener_por_numero(self, numero: str) -> dict[str, Any]:
-        return await self._pedir("GET", f"/v1/polizas/numero/{numero}")
+    async def por_vencer(self, usuario_id: UUID, dias: int = 30) -> list[dict[str, Any]]:
+        """HU-119: pólizas VIGENTE cuya fin_vigencia cae en los próximos `dias`."""
+        return await self._pedir(
+            "GET", "/v1/polizas/por-vencer", params={"usuario_id": str(usuario_id), "dias": dias}
+        )
+
+    async def obtener_por_numero(self, numero: str, usuario_id: UUID | None = None) -> dict[str, Any]:
+        params = {"usuario_id": str(usuario_id)} if usuario_id is not None else None
+        return await self._pedir("GET", f"/v1/polizas/numero/{numero}", params=params)
+
+    async def guardar_preferencia(self, poliza_id: str, renovacion_automatica: bool, usuario_id: str) -> dict[str, Any]:
+        return await self._pedir(
+            "PATCH",
+            f"/v1/polizas/{poliza_id}/preferencias",
+            params={"usuario_id": usuario_id},
+            json={"renovacion_automatica": renovacion_automatica},
+        )
 
     async def renovar(self, poliza_id: UUID, nueva_fin_vigencia: date) -> dict[str, Any]:
         """HU-59. ms-polizas expone este endpoint por poliza_id (UUID interno),
-        no por numero -- ver TODO en app/routers/operador.py sobre el mapeo
-        numero->poliza_id que todavía falta resolver."""
+        no por numero -- operador.py resuelve numero->poliza_id vía
+        obtener_por_numero() antes de llamar aquí."""
         return await self._pedir(
             "POST",
             f"/v1/polizas/{poliza_id}/renovacion",
@@ -74,10 +89,32 @@ class ClienteMsPolizas(ClienteServicio):
             json={"coberturas": coberturas},
         )
 
-    async def cancelar(self, poliza_id: UUID, motivo: str) -> dict[str, Any]:
-        """HU-61. Mismo comentario que renovar() sobre poliza_id vs numero."""
+    async def cancelar(self, poliza_id: UUID, motivo: str, operador: str) -> dict[str, Any]:
+        """HU-61. Mismo comentario que renovar() sobre poliza_id vs numero.
+        `operador` es la identidad (sub del JWT) que ms-polizas audita como
+        cancelada_por."""
         return await self._pedir(
             "POST",
             f"/v1/polizas/{poliza_id}/cancelacion",
-            json={"motivo": motivo},
+            json={"motivo": motivo, "operador": operador},
+        )
+
+    async def reporte_regulador(self, desde: date, hasta: date) -> dict[str, Any]:
+        """HU-62: extracto interno para el regulador. El contenido lo define
+        el adaptador stub de ms-polizas (nunca el formato SFC real) -- bff-web
+        solo reenvía la respuesta tal cual, sin interpretarla."""
+        return await self._pedir(
+            "GET",
+            "/v1/reportes/regulador",
+            params={"desde": desde.isoformat(), "hasta": hasta.isoformat()},
+        )
+
+    async def reporte_reaseguradora(self, desde: date, hasta: date) -> dict[str, Any]:
+        """HU-63: extracto de cartera/siniestralidad para la reaseguradora.
+        Mismo comentario que reporte_regulador() sobre el adaptador stub
+        (nunca ACORD real)."""
+        return await self._pedir(
+            "GET",
+            "/v1/reportes/reaseguradora",
+            params={"desde": desde.isoformat(), "hasta": hasta.isoformat()},
         )

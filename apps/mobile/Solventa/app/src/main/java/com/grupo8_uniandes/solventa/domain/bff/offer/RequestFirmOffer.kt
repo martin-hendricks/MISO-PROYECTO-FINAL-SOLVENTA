@@ -6,6 +6,8 @@ sealed interface QuoteAttempt {
     data class Gap(val field: QuoteInput) : QuoteAttempt
 
     data class Answer(val answer: StandInAnswer<FirmOffer>) : QuoteAttempt
+
+    data class Refused(val detail: String) : QuoteAttempt
 }
 
 /**
@@ -17,7 +19,11 @@ class RequestFirmOffer(
 ) {
     suspend fun submit(line: QuoteLine, answers: QuoteAnswers): QuoteAttempt {
         val risk = riskOf(line, answers) ?: return QuoteAttempt.Gap(missing)
-        return QuoteAttempt.Answer(repository.quote(line.ramo, risk))
+        return try {
+            QuoteAttempt.Answer(repository.quote(line.ramo, risk))
+        } catch (explained: QuoteExplained) {
+            QuoteAttempt.Refused(explained.detail)
+        }
     }
 
     private var missing: QuoteInput = QuoteInput.Value
@@ -25,9 +31,11 @@ class RequestFirmOffer(
     private fun riskOf(line: QuoteLine, answers: QuoteAnswers): LineRisk? = when (line) {
         QuoteLine.Device -> {
             val value = positive(answers.value, QuoteInput.Value) ?: return null
-            val brand = text(answers.brand, QuoteInput.Brand) ?: return null
+            val brand = text(answers.brand, QuoteInput.Brand)?.takeIf { it in deviceBrands }
+                ?: return gap(QuoteInput.Brand)
+            val model = text(answers.model, QuoteInput.Model) ?: return null
             val older = answers.olderThan12Months ?: return gap(QuoteInput.Age)
-            DeviceRisk(value, brand, older)
+            DeviceRisk(value, brand, older, model)
         }
         QuoteLine.Life -> {
             val sum = positive(answers.sumInsured, QuoteInput.SumInsured) ?: return null
@@ -48,6 +56,12 @@ class RequestFirmOffer(
             val installment = positive(answers.installment, QuoteInput.Installment) ?: return null
             val term = positive(answers.term, QuoteInput.Term) ?: return null
             PaymentsRisk(installment, term)
+        }
+        QuoteLine.Soat -> {
+            val displacement = positive(answers.displacement, QuoteInput.Displacement) ?: return null
+            val year = positive(answers.modelYear, QuoteInput.ModelYear) ?: return null
+            val city = text(answers.city, QuoteInput.City) ?: return null
+            SoatRisk(displacement, year, city)
         }
         QuoteLine.Travel -> {
             val destination = text(answers.destination, QuoteInput.Destination) ?: return null

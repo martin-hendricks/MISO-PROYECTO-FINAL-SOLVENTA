@@ -5,7 +5,7 @@ import { Role } from '../../../core/session/session.service';
 import { NoPermission } from './no-permission';
 
 describe('NoPermission', () => {
-  function render(current: Role | null, required: Role) {
+  function render(current: Role | null, required: readonly Role[]) {
     TestBed.configureTestingModule({
       imports: [NoPermission],
       providers: [provideRouter([]), ...provideSolventaI18n()],
@@ -19,7 +19,7 @@ describe('NoPermission', () => {
   }
 
   it('names the current role and the required one', () => {
-    const element = render('asesor', 'operador');
+    const element = render('asesor', ['operador']);
 
     expect(element('no-permission-detail')?.textContent?.trim()).toBe(
       'Tu rol actual es Asesor. Esta sección es exclusiva del rol Operador. Solicita el cambio de rol al administrador.',
@@ -27,13 +27,13 @@ describe('NoPermission', () => {
   });
 
   it('sends the advisor back to Clientes', () => {
-    const element = render('asesor', 'operador');
+    const element = render('asesor', ['operador']);
 
     expect(element('no-permission-home')?.getAttribute('href')).toBe('/cms/clientes');
   });
 
   it('sends the operator back to Avisos', () => {
-    const element = render('operador', 'asesor');
+    const element = render('operador', ['asesor']);
 
     expect(element('no-permission-home')?.getAttribute('href')).toBe('/cms/avisos');
   });

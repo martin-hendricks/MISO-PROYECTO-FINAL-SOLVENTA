@@ -1,31 +1,44 @@
+import secrets
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
+from .cliente import rechazar_moneda
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_cotizacion import ClienteMsCotizacion
+from ..clients.ms_identidad import ClienteMsIdentidad
 from ..clients.ms_pagos import ClienteMsPagos
+from ..clients.ms_perfilamiento import ClienteMsPerfilamiento
 from ..clients.ms_polizas import ClienteMsPolizas
 from ..clients.ms_suscripcion import ClienteMsSuscripcion
 from ..dependencies import (
+    obtener_cliente_consentimiento,
     obtener_cliente_cotizacion,
+    obtener_cliente_identidad,
     obtener_cliente_pagos,
+    obtener_cliente_perfilamiento,
     obtener_cliente_polizas,
     obtener_cliente_suscripcion,
     require_roles,
 )
+from ..ramos import presentar
 from .cliente import (
     FIRMA_NO_EXITOSA,
     RAMO_A_PRODUCTO,
+    RAMO_VIDA_HIPOTECARIO,
+    SIN_CONSENTIMIENTO,
     ContextoUsuario,
+    Credito,
     _catalogo_salida,
     _cotizacion_salida,
     _idempotency_key,
     _producto_de,
     _uuid_desde,
+    ofertar_vida_hipotecario,
 )
 
 router = APIRouter(
@@ -35,47 +48,36 @@ router = APIRouter(
 )
 
 
-def _cliente(
-    cliente_id: str,
-    nombre: str,
-    documento: str,
-    canal: str,
-    estado: str,
-    consentimiento: str,
-) -> dict:
-    return {
-        "clienteId": cliente_id,
-        "nombre": nombre,
-        "documento": documento,
-        "correo": f"{nombre.split()[0].lower()}@correo.com",
-        "habeasData": consentimiento != "revocado",
-        "estado": estado,
-        "canal": canal,
-        "consentimiento": consentimiento,
-    }
-
-
-CLIENTES = [
-    _cliente("CLI-18", "Andrés Gómez", "1020334556", "web", "activo", "habeas_data"),
-    _cliente("CLI-19", "Laura Peña", "52448901", "android", "activo", "habeas_data"),
-    _cliente("CLI-20", "Ricardo Salas", "80112334", "web", "activo", "hipotecario_pendiente"),
-    _cliente("CLI-21", "Marcela Ruiz", "41778220", "android", "activo", "habeas_data"),
-    _cliente("CLI-22", "Julián Torres", "79330114", "web", "inactivo", "revocado"),
-]
-
-
 class VentaAsistida(BaseModel):
     clienteId: str = Field(min_length=1)
     ramo: str
     datosRiesgo: dict
+    moneda: str | None = None
+
+
+class OfertaHipotecariaAsistida(BaseModel):
+    clienteId: str = Field(min_length=1)
+    credito: Credito
+    consentimientoPerfil: bool
+    moneda: str | None = None
+
+
+def _contexto_atendido(cliente_id: str) -> ContextoUsuario:
+    """Un clienteId que ya es el usuario_id (UUID de ms-identidad) se usa tal
+    cual. Cualquier otra referencia sigue derivando un UUID estable."""
+    try:
+        UUID(cliente_id)
+    except (ValueError, AttributeError):
+        return ContextoUsuario(cliente_id)
+    return ContextoUsuario(cliente_id, canonico=True)
 
 
 class ClienteNuevo(BaseModel):
-    nombre: str
-    documento: str
-    correo: str
+    nombre: str = Field(min_length=1)
+    documento: str = Field(min_length=1)
+    correo: str = Field(min_length=1)
     habeasData: bool
-    estado: str = "activo"
+    canal: str = "web"
 
 
 class Desactivar(BaseModel):
@@ -104,7 +106,9 @@ async def venta(
     ms-identidad real que resuelva clienteId a una identidad verificada;
     ContextoUsuario deriva UUIDs deterministas a partir del string tal cual
     llega (mismo patrón ya documentado en cliente.py)."""
-    contexto = ContextoUsuario(body.clienteId)
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
+    contexto = _contexto_atendido(body.clienteId)
     producto = _producto_de(body.ramo)
 
     datos = await cliente_cotizacion.cotizar(
@@ -117,8 +121,39 @@ async def venta(
         datos_riesgo=body.datosRiesgo,
         asesor_id=_asesor_id(sesion),
         cliente_ref=body.clienteId,
+        moneda=body.moneda,
     )
-    return _cotizacion_salida(datos, body.ramo)
+    _, descripcion = presentar(producto)
+    return _cotizacion_salida(datos, body.ramo, descripcion)
+
+
+@router.post("/oferta-hipotecaria")
+async def oferta_hipotecaria(
+    body: OfertaHipotecariaAsistida,
+    sesion: Annotated[dict, Depends(require_roles("asesor"))],
+    cliente_perfilamiento: Annotated[ClienteMsPerfilamiento, Depends(obtener_cliente_perfilamiento)],
+    cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
+) -> dict:
+    """Oferta de vida hipotecario en el portal asesor (HU-58): la misma
+    orquestación y el mismo shape que ve el cliente (HU-105), pero a nombre
+    del cliente atendido, igual que venta(). `consentimientoPerfil` lo
+    declara el cliente en la venta asistida; sin él no se perfila. La
+    cotización queda con el asesor, así sigue a emisión por HU-163."""
+    if not body.consentimientoPerfil:
+        return {"ramo": RAMO_VIDA_HIPOTECARIO, "estado": SIN_CONSENTIMIENTO}
+    if body.moneda is not None and (rechazo := rechazar_moneda(body.moneda)) is not None:
+        return rechazo
+
+    return await ofertar_vida_hipotecario(
+        _contexto_atendido(body.clienteId),
+        body.credito,
+        "asesor",
+        cliente_perfilamiento,
+        cliente_cotizacion,
+        asesor_id=_asesor_id(sesion),
+        cliente_ref=body.clienteId,
+        moneda=body.moneda,
+    )
 
 
 POLIZAS_NO_DISPONIBLE = "polizas_no_disponible"
@@ -127,10 +162,12 @@ _PRODUCTO_A_RAMO = {producto: ramo for ramo, producto in RAMO_A_PRODUCTO.items()
 
 
 def _pendiente_salida(item: dict) -> dict:
+    ramo, descripcion = presentar(item.get("producto"))
     return {
         "cotizacionId": item["cotizacion_id"],
         "ofertaId": item["oferta_id"],
-        "ramo": _PRODUCTO_A_RAMO.get(item["producto"], item["producto"]),
+        "ramo": ramo,
+        "descripcion": descripcion,
         "estado": item["estado"],
         "prima": item["prima"],
         "moneda": item["moneda"],
@@ -216,13 +253,20 @@ def _pasos(aceptada: bool) -> list[dict]:
     ]
 
 
-def _cliente_salida(cliente_id: str | None) -> dict:
-    """Datos del cliente atendido. Sin ms-identidad se resuelve contra la
-    cartera de ejemplo; si no está, el id hace de nombre para no dejar vacío
-    el encabezado de la pantalla."""
+async def _cliente_salida(cliente_id: str | None, identidad: ClienteMsIdentidad) -> dict:
+    """Nombre del cliente atendido, leído de ms-identidad. Si no se puede
+    resolver, el id ocupa el encabezado para no dejarlo vacío."""
     cliente_id = cliente_id or ""
-    conocido = next((c for c in CLIENTES if c["clienteId"] == cliente_id), None)
-    return {"clienteId": cliente_id, "nombre": conocido["nombre"] if conocido else cliente_id}
+    nombre = cliente_id
+    if cliente_id:
+        try:
+            usuario = await identidad.obtener(cliente_id)
+            nombre = " ".join(
+                parte for parte in (usuario.get("nombre"), usuario.get("apellidos")) if parte
+            ).strip() or cliente_id
+        except (RecursoNoEncontrado, RechazoDelNucleo, ServicioNoDisponible):
+            nombre = cliente_id
+    return {"clienteId": cliente_id, "nombre": nombre}
 
 
 def _decision_salida(suscripcion: dict) -> dict:
@@ -274,6 +318,7 @@ async def consultar_emision(
     body: ConsultarEmision,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_suscripcion: Annotated[ClienteMsSuscripcion, Depends(obtener_cliente_suscripcion)],
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
 ) -> dict:
     """Consulta la decisión de suscripción SIN emitir (HU-149, SOLV-112).
 
@@ -302,7 +347,7 @@ async def consultar_emision(
     decision = _decision_salida(suscripcion)
     return {
         "solicitudId": body.cotizacionId,
-        "cliente": _cliente_salida(body.clienteId),
+        "cliente": await _cliente_salida(body.clienteId, cliente_identidad),
         "producto": await _nombre_producto(cliente_cotizacion, cotizacion["producto"]),
         "referencia": body.cotizacionId,
         "pasos": _pasos(decision["resultado"] == "ACEPTADA"),
@@ -311,9 +356,15 @@ async def consultar_emision(
     }
 
 
+class EmisionAsesor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    monedaInicio: str | None = None
+
+
 @router.post("/emisiones/{solicitud_id}/poliza")
 async def firmar_y_emitir(
     solicitud_id: str,
+    body: EmisionAsesor,
     cliente_cotizacion: Annotated[ClienteMsCotizacion, Depends(obtener_cliente_cotizacion)],
     cliente_pagos: Annotated[ClienteMsPagos, Depends(obtener_cliente_pagos)],
     cliente_polizas: Annotated[ClienteMsPolizas, Depends(obtener_cliente_polizas)],
@@ -334,6 +385,8 @@ async def firmar_y_emitir(
     el paso Emisión en ERROR; si la firma es exitosa, su fecha y hash salen
     de la constancia persistida, no de la póliza.
     """
+    if (rechazo := rechazar_moneda(body.monedaInicio)) is not None:
+        return rechazo
     score_stub = Decimal("0.5000")
     perfil_id = ContextoUsuario(solicitud_id).perfil_id
 
@@ -349,15 +402,17 @@ async def firmar_y_emitir(
 
     oferta_id = UUID(aceptacion["oferta_id"])
     solicitud_uuid = UUID(aceptacion["cotizacion_id"])
-    contexto = ContextoUsuario(solicitud_id)
+    cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
+    usuario_id = UUID(cotizacion["usuario_id"])
 
     # TODO: `token_medio_pago` es un placeholder -- mismo faltante que en
     # cliente.emitir() (sin pasarela real integrada todavía).
     pago = await cliente_pagos.cobrar_prima(
         solicitud_id=solicitud_uuid,
         oferta_id=oferta_id,
-        usuario_id=contexto.usuario_id,
+        usuario_id=usuario_id,
         monto=Decimal(str(aceptacion["prima"])),
+        moneda=body.monedaInicio or "COP",
         token_medio_pago="stub-medio-pago",
     )
 
@@ -372,7 +427,7 @@ async def firmar_y_emitir(
         poliza = await cliente_polizas.emitir(
             solicitud_id=solicitud_uuid,
             oferta_id=oferta_id,
-            usuario_id=contexto.usuario_id,
+            usuario_id=usuario_id,
             token_pago_confirmado=UUID(str(pago["id"])),
             coberturas=cobertura_minima,
         )
@@ -391,8 +446,7 @@ async def firmar_y_emitir(
         }
 
     constancia = await cliente_polizas.consultar_firma(oferta_id)
-    cotizacion = await cliente_cotizacion.reconsultar(solicitud_id)
-    ramo = cotizacion.get("producto", "")
+    ramo, descripcion = presentar(cotizacion.get("producto"))
 
     inicio = poliza.get("inicio_vigencia", "")
     return {
@@ -407,11 +461,14 @@ async def firmar_y_emitir(
         "poliza": {
             "numero": poliza["numero"],
             "ramo": ramo,
+            "descripcion": descripcion,
             "estado": poliza["estado"],
             "venceEn": poliza.get("fin_vigencia", ""),
             "expedidaEn": inicio,
             "inicioVigencia": inicio,
             "finVigencia": poliza.get("fin_vigencia", ""),
+            "moneda": aceptacion.get("moneda", ""),
+            "monedaInicio": pago.get("moneda") or body.monedaInicio,
         },
     }
 
@@ -439,22 +496,118 @@ def cartera() -> dict:
     }
 
 
-# TODO: el CRM de clientes depende de ms-identidad (no existe código, solo
-# README en cualquier rama) -- no hay microservicio real al que integrar.
+def _cliente_desde_identidad(item: dict) -> dict:
+    """Traduce ClienteSalida de ms-identidad (HU-141) al shape que ya espera
+    el frontend (apps/web/.../clientes.gateway.ts, interfaz Cliente):
+    clienteId, nombre, documento, canal, estado, consentimiento. ms-identidad
+    ya entrega estado/consentimiento en minúsculas y documento como {tipo,
+    numero} -- aquí se aplana el documento a un único string y se junta
+    nombre+apellidos en un solo campo "nombre" (ms-identidad los separa, el
+    frontend espera el nombre completo, ver clientes.testing.ts)."""
+    documento = item["documento"]
+    nombre_completo = " ".join(parte for parte in (item["nombre"], item.get("apellidos", "")) if parte)
+    return {
+        "clienteId": item["clienteId"],
+        "nombre": nombre_completo,
+        "documento": documento["numero"],
+        "canal": item["canal"],
+        "estado": item["estado"],
+        "consentimiento": item["consentimiento"],
+    }
+
+
 @router.get("/clientes")
-def listar() -> dict:
-    return {"clientes": [dict(cliente) for cliente in CLIENTES]}
+async def listar(
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: listado real de clientes contra ms-identidad (GET
+    /v1/clientes), ya no el mock en memoria -- ver CLIENTES, que sigue
+    respaldando únicamente POST /clientes (alta) y la ficha reducida de
+    _cliente_salida() en /asesor/emisiones, ambos fuera de este alcance."""
+    clientes = await cliente_identidad.listar_clientes_backoffice()
+    return {"clientes": [_cliente_desde_identidad(item) for item in clientes]}
 
 
-# TODO: mismo faltante que listar() -- alta de clientes depende de ms-identidad.
-@router.post("/clientes")
-def crear(body: ClienteNuevo) -> dict:
-    created = body.model_dump()
-    created["clienteId"] = "CLI-23"
-    return created
+# ms-identidad exige tipo+numero de documento por separado; el formulario
+# de alta del back-office solo captura un numero (igual que registro.py,
+# ver TIPO_DOCUMENTO_DEFECTO ahi) -- se asume cedula de ciudadania.
+TIPO_DOCUMENTO_DEFECTO = "CC"
 
 
-# TODO: mismo faltante que listar() -- cambio de estado depende de ms-identidad.
+def _separar_nombre(nombre_completo: str) -> tuple[str, str]:
+    """ms-identidad guarda nombre y apellidos por separado; el formulario de
+    alta del back-office solo captura un nombre completo. Se toma la primera
+    palabra como nombre y el resto como apellidos (mismo criterio ya usado
+    en este archivo para derivar un correo de prueba del mock, ver
+    _cliente()); si no hay mas de una palabra, "apellidos" queda vacio."""
+    partes = nombre_completo.split(maxsplit=1)
+    if len(partes) == 1:
+        return partes[0], ""
+    return partes[0], partes[1]
+
+
+def _password_temporal() -> str:
+    """El alta desde el back-office no captura una contrasena del cliente
+    (quien la define es el propio cliente al autogestionarse, no el asesor):
+    se genera una temporal aleatoria. No hay todavia un flujo de "cambiar
+    contrasena" ni de notificacion por correo en el proyecto -- documentado
+    como deuda en el ODD de esta HU."""
+    return secrets.token_urlsafe(18)
+
+
+@router.post("/clientes", status_code=201)
+async def crear(
+    body: ClienteNuevo,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+) -> dict:
+    """HU-141: alta real de cliente desde el back-office contra ms-identidad
+    (POST /v1/usuarios), ya no el mock CLIENTES. Si el asesor marca
+    habeasData, se otorga el consentimiento real en ms-consentimiento antes
+    de responder -- a diferencia de registro.py (alta del propio cliente),
+    que todavia simula ese consentimiento (ver su comentario "Stub hasta que
+    ms-consentimiento versione la politica")."""
+    if not body.habeasData:
+        raise HTTPException(status_code=422, detail="Consentimiento de datos requerido")
+
+    nombre, apellidos = _separar_nombre(body.nombre)
+    try:
+        creado = await cliente_identidad.crear_usuario(
+            tipo_documento=TIPO_DOCUMENTO_DEFECTO,
+            numero_documento=body.documento,
+            email=body.correo,
+            password=_password_temporal(),
+            nombre=nombre,
+            apellidos=apellidos,
+            canal=body.canal,
+        )
+    except RechazoDelNucleo as exc:
+        if exc.status == 409:
+            raise HTTPException(status_code=409, detail="El cliente ya existe") from exc
+        raise HTTPException(status_code=exc.status, detail=exc.mensaje) from exc
+
+    usuario_id = str(creado["usuario_id"])
+    await cliente_consentimiento.otorgar_consentimiento(usuario_id)
+
+    return _cliente_desde_identidad(
+        {
+            "clienteId": usuario_id,
+            "nombre": creado.get("nombre") or nombre,
+            "apellidos": creado.get("apellidos") or apellidos,
+            "documento": {"tipo": creado["tipo_documento"], "numero": creado["numero_documento"]},
+            "canal": creado.get("canal") or body.canal,
+            "estado": str(creado["estado"]).lower(),
+            "consentimiento": "habeas_data",
+        }
+    )
+
+
 @router.post("/clientes/estado")
-def desactivar(body: Desactivar) -> dict:
-    return {"clienteId": body.clienteId, "estado": "inactivo"}
+async def desactivar(
+    body: Desactivar,
+    cliente_identidad: Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)],
+) -> dict:
+    """HU-141: activa/desactiva un cliente real contra ms-identidad (PATCH
+    /v1/clientes/{usuario_id}/estado), ya no el mock en memoria."""
+    actualizado = await cliente_identidad.actualizar_estado_cliente(body.clienteId, body.estado)
+    return _cliente_desde_identidad(actualizado)

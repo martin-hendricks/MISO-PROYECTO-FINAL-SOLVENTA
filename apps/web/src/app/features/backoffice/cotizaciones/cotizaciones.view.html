@@ -67,10 +67,16 @@
           </p>
         }
         <table data-testid="cotizaciones-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.cotizaciones.title' | translate
+            }}
+          </caption>
           <thead>
             <tr>
               <th scope="col">{{ 'backoffice.cotizaciones.column.cliente' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.ramo' | translate }}</th>
+              <th scope="col">{{ 'backoffice.cotizaciones.column.descripcion' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.prima' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.estado' | translate }}</th>
               <th scope="col">{{ 'backoffice.cotizaciones.column.creadaEn' | translate }}</th>
@@ -86,6 +92,7 @@
               >
                 <th scope="row" class="mono">{{ cotizacion.clienteRef }}</th>
                 <td>{{ cotizacion.ramo }}</td>
+                <td>{{ cotizacion.descripcion }}</td>
                 <td class="mono">{{ cotizacion.prima | svMoney: cotizacion.moneda }}</td>
                 <td>
                   <span class="badge" [attr.data-estado]="cotizacion.estado">{{
@@ -106,6 +113,11 @@
                       [routerLink]="['/cms/cotizaciones', cotizacion.cotizacionId, 'emision']"
                       [queryParams]="{ cliente: cotizacion.clienteRef }"
                       [attr.data-testid]="'continuar-' + cotizacion.cotizacionId"
+                      [attr.aria-label]="
+                        ('backoffice.cotizaciones.continuar' | translate) +
+                        ' ' +
+                        cotizacion.clienteRef
+                      "
                       >{{ 'backoffice.cotizaciones.continuar' | translate }}</a
                     >
                   }
@@ -114,7 +126,7 @@
             }
           </tbody>
         </table>
-        <nav class="pager">
+        <nav class="pager" [attr.aria-label]="'backoffice.cotizaciones.paginacion' | translate">
           <button
             type="button"
             class="outlined"

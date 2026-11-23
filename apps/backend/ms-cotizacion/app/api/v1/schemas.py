@@ -6,10 +6,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.domain.catalogo import (
+    Booleano,
     Cobertura,
     DefinicionDatoRiesgo,
     DefinicionProducto,
     RangoNumerico,
+    TextoLibre,
     ValoresPermitidos,
 )
 
@@ -32,10 +34,11 @@ class CoberturaSalida(BaseModel):
 
 class DatoRiesgoSalida(BaseModel):
     nombre: str
-    tipo: Literal["rango", "valores"]
+    tipo: Literal["rango", "valores", "texto", "booleano"]
     minimo: Decimal | None = None
     maximo: Decimal | None = None
     valores: list[str] | None = None
+    obligatorio: bool = True
 
     @classmethod
     def desde(cls, nombre: str, dato: DefinicionDatoRiesgo) -> DatoRiesgoSalida:
@@ -43,13 +46,19 @@ class DatoRiesgoSalida(BaseModel):
             return cls(nombre=nombre, tipo="rango", minimo=dato.minimo, maximo=dato.maximo)
         if isinstance(dato, ValoresPermitidos):
             return cls(nombre=nombre, tipo="valores", valores=list(dato.valores))
+        if isinstance(dato, TextoLibre):
+            return cls(nombre=nombre, tipo="texto")
+        if isinstance(dato, Booleano):
+            return cls(nombre=nombre, tipo="booleano")
         raise TypeError(f"Dato de riesgo sin representación pública: {type(dato).__name__}")
 
 
 class ProductoSalida(BaseModel):
     producto: str
     nombre: str
+    descripcion: str
     moneda: str
+    disponible: bool
     coberturas: list[CoberturaSalida]
     datos_riesgo: list[DatoRiesgoSalida]
 
@@ -58,7 +67,9 @@ class ProductoSalida(BaseModel):
         return cls(
             producto=definicion.producto,
             nombre=definicion.nombre,
+            descripcion=definicion.descripcion,
             moneda=definicion.moneda,
+            disponible=definicion.disponible(),
             coberturas=[CoberturaSalida.desde(c) for c in definicion.coberturas],
             datos_riesgo=[DatoRiesgoSalida.desde(n, d) for n, d in definicion.datos_riesgo.items()],
         )

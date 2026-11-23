@@ -3,9 +3,14 @@ package com.grupo8_uniandes.solventa.policy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimSummary
+import com.grupo8_uniandes.solventa.domain.bff.issuance.ConsultPolicies
+import com.grupo8_uniandes.solventa.domain.bff.issuance.InMemoryPolicyStore
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyMemory
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,18 +19,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.coroutineContext
 
-enum class WalletPhase { Pending, Failed, Ready }
+enum class PoliciesPhase { Pending, Failed, Ready }
 
-data class WalletUiState(
-    val phase: WalletPhase = WalletPhase.Pending,
-    val policies: List<WalletEntry> = emptyList(),
+data class PoliciesUiState(
+    val phase: PoliciesPhase = PoliciesPhase.Pending,
+    val policies: List<PolicyEntry> = emptyList(),
+    val notice: Boolean = false,
 )
 
 class PolizasViewModel(
-    private val issuance: IssuanceRepository,
+    issuance: IssuanceRepository,
+    memory: PolicyMemory = InMemoryPolicyStore(),
 ) : ViewModel() {
-    private val _state = MutableStateFlow(WalletUiState())
-    val state: StateFlow<WalletUiState> = _state.asStateFlow()
+    private val consult = ConsultPolicies(issuance, memory)
+    private val _state = MutableStateFlow(PoliciesUiState())
+    val state: StateFlow<PoliciesUiState> = _state.asStateFlow()
     private var loadJob: Job? = null
 
     init {
@@ -35,12 +43,12 @@ class PolizasViewModel(
     fun refresh() {
         if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch {
-            val answer = issuance.wallet()
+            val result = consult.list()
             coroutineContext.ensureActive()
-            _state.value = when (answer) {
-                StandInAnswer.Pending -> _state.value.copy(phase = WalletPhase.Pending)
-                StandInAnswer.Failed -> _state.value.copy(phase = WalletPhase.Failed)
-                is StandInAnswer.Ready -> WalletUiState(phase = WalletPhase.Ready, policies = answer.value)
+            _state.value = when {
+                result.policies.isEmpty() && !result.empty -> PoliciesUiState(phase = PoliciesPhase.Pending)
+                result.policies.isEmpty() -> PoliciesUiState(phase = PoliciesPhase.Failed, notice = result.notice)
+                else -> PoliciesUiState(phase = PoliciesPhase.Ready, policies = result.policies, notice = result.notice)
             }
         }
     }
@@ -50,19 +58,23 @@ enum class PolicyPhase { Pending, Failed, Ready }
 
 data class PolicyDetailUiState(
     val phase: PolicyPhase = PolicyPhase.Pending,
-    val numero: String = "",
-    val ramo: String = "",
-    val resumen: String = "",
-    val estado: String = "",
-    val venceEn: String = "",
-    val queHacer: String = "",
-)
+    val requested: String = "",
+    val detail: PolicyDetail? = null,
+    val notice: Boolean = false,
+    val claims: List<ClaimSummary> = emptyList(),
+) {
+    val numero: String get() = detail?.numero ?: requested
+    val queHacer: String get() = detail?.queHacer.orEmpty()
+}
 
 class PolizaDetalleViewModel(
-    private val issuance: IssuanceRepository,
+    issuance: IssuanceRepository,
     private val numero: String,
+    memory: PolicyMemory = InMemoryPolicyStore(),
+    private val claims: ClaimRepository? = null,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(PolicyDetailUiState(numero = numero))
+    private val consult = ConsultPolicies(issuance, memory)
+    private val _state = MutableStateFlow(PolicyDetailUiState(requested = numero))
     val state: StateFlow<PolicyDetailUiState> = _state.asStateFlow()
 
     init {
@@ -71,22 +83,29 @@ class PolizaDetalleViewModel(
 
     fun refresh() {
         viewModelScope.launch {
-            _state.value = PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
-            _state.value = when (val answer = issuance.detail(numero)) {
-                StandInAnswer.Pending -> PolicyDetailUiState(phase = PolicyPhase.Pending, numero = numero)
-                StandInAnswer.Failed -> PolicyDetailUiState(phase = PolicyPhase.Failed, numero = numero)
-                is StandInAnswer.Ready -> answer.value.toUi().copy(numero = numero)
+            _state.value = PolicyDetailUiState(phase = PolicyPhase.Pending, requested = numero)
+            val result = consult.open(numero)
+            val related = claimsFor(numero)
+            _state.value = when {
+                result.detail != null -> PolicyDetailUiState(
+                    phase = PolicyPhase.Ready,
+                    requested = numero,
+                    detail = result.detail,
+                    notice = result.notice,
+                    claims = related,
+                )
+                result.missing -> PolicyDetailUiState(phase = PolicyPhase.Failed, requested = numero)
+                else -> PolicyDetailUiState(phase = PolicyPhase.Pending, requested = numero)
             }
         }
     }
 
-    private fun PolicyDetail.toUi() = PolicyDetailUiState(
-        phase = PolicyPhase.Ready,
-        numero = numero,
-        ramo = ramo,
-        resumen = resumen,
-        estado = estado,
-        venceEn = venceEn,
-        queHacer = queHacer,
-    )
+    private suspend fun claimsFor(numero: String): List<ClaimSummary> {
+        val answer = claims?.list() ?: return emptyList()
+        return if (answer is StandInAnswer.Ready) {
+            answer.value.filter { it.poliza == numero }
+        } else {
+            emptyList()
+        }
+    }
 }

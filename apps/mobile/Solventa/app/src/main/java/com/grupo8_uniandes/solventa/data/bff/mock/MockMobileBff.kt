@@ -5,38 +5,47 @@ import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimReceiptDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ClaimsDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimDetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.DetailDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProfilingConsentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ClaimProvidersDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
-import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RejectionDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
 import com.grupo8_uniandes.solventa.data.bff.mapping.required
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDetail
+import com.grupo8_uniandes.solventa.data.bff.mapping.toDeposit
 import com.grupo8_uniandes.solventa.data.bff.mapping.toEntries
+import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
 import com.grupo8_uniandes.solventa.data.bff.mapping.toHome
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotices
 import com.grupo8_uniandes.solventa.data.bff.mapping.toOffer
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPayment
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProfilingConsent
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
 import com.grupo8_uniandes.solventa.data.bff.mapping.toProfile
-import com.grupo8_uniandes.solventa.data.bff.mapping.toProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
+import com.grupo8_uniandes.solventa.data.bff.mapping.toClaimProviders
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
 import com.grupo8_uniandes.solventa.data.bff.mapping.toQuote
 import com.grupo8_uniandes.solventa.data.bff.mapping.toReceipt
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRecord
@@ -49,10 +58,18 @@ import com.grupo8_uniandes.solventa.data.bff.mapping.toRisk
 import com.grupo8_uniandes.solventa.data.bff.mapping.toSummaries
 import com.grupo8_uniandes.solventa.data.bff.mapping.toTokens
 import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Deposit
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.billetera.Wallet
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceRequest
 import com.grupo8_uniandes.solventa.domain.bff.assistance.AssistanceResult
-import com.grupo8_uniandes.solventa.domain.bff.assistance.Provider
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ClaimProviders
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimDetail
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimReceipt
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
@@ -63,25 +80,30 @@ import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
 import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
 import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
-import com.grupo8_uniandes.solventa.domain.bff.issuance.WalletEntry
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.CreditProfile
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageQuote
 import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.NoticeRepository
 import com.grupo8_uniandes.solventa.domain.bff.notice.ValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.offer.AcceptedQuote
 import com.grupo8_uniandes.solventa.domain.bff.offer.FirmOffer
 import com.grupo8_uniandes.solventa.domain.bff.offer.LineRisk
 import com.grupo8_uniandes.solventa.domain.bff.offer.OfferRepository
 import com.grupo8_uniandes.solventa.domain.bff.payment.AutomaticPayment
 import com.grupo8_uniandes.solventa.domain.bff.payment.PaymentRepository
 import com.grupo8_uniandes.solventa.domain.bff.policycommand.PolicyCommandRepository
-import com.grupo8_uniandes.solventa.domain.bff.push.PushNotice
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.MobileSessionRepository
 import com.grupo8_uniandes.solventa.domain.bff.session.SessionTokens
 import com.grupo8_uniandes.solventa.domain.bff.signup.ConsentRevocation
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRecord
+import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessCheck
+import com.grupo8_uniandes.solventa.domain.bff.signup.LivenessRepository
 import com.grupo8_uniandes.solventa.domain.bff.signup.SignupRepository
 import kotlinx.serialization.SerializationException
 
@@ -117,6 +139,13 @@ class MockMobileSessionRepository(
     override suspend fun signOut(): StandInAnswer<Unit> = control.ready { Unit }
 }
 
+class MockLivenessRepository : LivenessRepository {
+    override suspend fun check(photo: ByteArray): LivenessCheck =
+        if (photo.isNotEmpty()) LivenessCheck.Passed else LivenessCheck.Failed
+
+    override suspend fun record(result: Liveness): StandInAnswer<Liveness> = StandInAnswer.Ready(result)
+}
+
 class MockSignupRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : SignupRepository {
@@ -138,6 +167,9 @@ class MockOfferRepository(
     override suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer> =
         control.ready { decode<OfferOutDto>(PublishedSamples.OFFER_OUT).let(::required).toOffer() }
 
+    override suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote> =
+        control.ready { AcceptedQuote(cotizacionId, "aceptada", 89_000, "COP") }
+
     fun release() = control.release()
 }
 
@@ -150,8 +182,13 @@ class MockIssuanceRepository(
     override suspend fun rejected(): StandInAnswer<IssueRejection> =
         control.ready { required(decode<RejectionDto>(PublishedSamples.REJECTION).let(::required).toRejection()) }
 
-    override suspend fun wallet(): StandInAnswer<List<WalletEntry>> =
-        control.ready { decode<WalletDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    var walletLoads: Int = 0
+        private set
+
+    override suspend fun policies(): StandInAnswer<List<PolicyEntry>> {
+        walletLoads += 1
+        return control.ready { decode<PoliciesDto>(PublishedSamples.WALLET).let(::required).toEntries() }
+    }
 
     override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> =
         control.ready { decode<DetailDto>(PublishedSamples.DETAIL).let(::required).toDetail() }
@@ -161,11 +198,29 @@ class MockClaimRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
     private val noticeJson: String = PublishedSamples.CLAIM_NOTICE,
 ) : ClaimRepository {
-    override suspend fun notify(notice: ClaimNotice): StandInAnswer<ClaimReceipt> =
+    override suspend fun notify(
+        notice: ClaimNotice,
+        idempotencyKey: String?,
+    ): StandInAnswer<ClaimReceipt> =
         control.ready { decode<ClaimReceiptDto>(PublishedSamples.CLAIM_RECEIPT).let(::required).toReceipt() }
 
-    override suspend fun list(): StandInAnswer<List<ClaimSummary>> =
-        control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
+    var listLoads: Int = 0
+        private set
+
+    override suspend fun list(): StandInAnswer<List<ClaimSummary>> {
+        listLoads += 1
+        return control.ready { decode<ClaimsDto>(PublishedSamples.CLAIMS).let(::required).toSummaries() }
+    }
+
+    override suspend fun detail(id: String): StandInAnswer<ClaimDetail> =
+        control.ready {
+            val decoded = decode<ClaimDetailDto>(PublishedSamples.CLAIM_DETAIL).let(::required).toDetail()
+            if (id.isBlank()) {
+                decoded
+            } else {
+                decoded.copy(summary = decoded.summary.copy(id = id, siniestroId = id))
+            }
+        }
 
     fun readNotice(raw: String = noticeJson): ClaimNotice? = decode<ClaimNoticeDto>(raw)?.toNotice()
 }
@@ -182,10 +237,31 @@ class MockMortgageRepository(
 ) : MortgageRepository {
     override suspend fun offer(profile: CreditProfile): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_OUT)
 
-    override suspend fun degraded(): StandInAnswer<MortgageQuote> = read(PublishedSamples.MORTGAGE_DEGRADED)
-
     private fun read(raw: String) =
         control.ready { decode<MortgageOutDto>(raw).let(::required).toQuote() }
+}
+
+class MockProfilingConsentRepository(
+    private val control: StandInControl = StandInControl(StandInMode.Success),
+) : ProfilingConsentRepository {
+    private var sample = PublishedSamples.PROFILING_CONSENT
+
+    override suspend fun read(): StandInAnswer<ProfilingConsent> = read(sample)
+
+    override suspend fun revoke(): StandInAnswer<ProfilingConsent> {
+        val answer = read(PublishedSamples.PROFILING_CONSENT_REVOKED)
+        if (answer is StandInAnswer.Ready) sample = PublishedSamples.PROFILING_CONSENT_REVOKED
+        return answer
+    }
+
+    override suspend fun grant(): StandInAnswer<ProfilingConsent> {
+        val answer = read(PublishedSamples.PROFILING_CONSENT)
+        if (answer is StandInAnswer.Ready) sample = PublishedSamples.PROFILING_CONSENT
+        return answer
+    }
+
+    private fun read(raw: String) =
+        control.ready { decode<ProfilingConsentDto>(raw).let(::required).toProfilingConsent() }
 }
 
 class MockNoticeRepository(
@@ -228,18 +304,50 @@ class MockPushRepository(
     override suspend fun register(registration: PushRegistration): StandInAnswer<PushRegistration> =
         control.ready { decode<PushRegistrationDto>(PublishedSamples.PUSH_REGISTRATION).let(::required).toRegistration() }
 
-    override suspend fun notice(): StandInAnswer<PushNotice> =
-        control.ready { decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE).let(::required).toNotice() }
+    override suspend fun unregister(token: String): StandInAnswer<Unit> = control.ready { }
 }
 
 class MockAssistanceRepository(
     private val control: StandInControl = StandInControl(StandInMode.Success),
 ) : AssistanceRepository {
-    override suspend fun providers(): StandInAnswer<List<Provider>> =
-        control.ready { decode<ProvidersDto>(PublishedSamples.PROVIDERS).let(::required).toProviders() }
+    override suspend fun providers(query: ProviderQuery): StandInAnswer<ProviderPage> =
+        control.ready {
+            val sample = if (query.area == null) PublishedSamples.PROVIDERS else PublishedSamples.PROVIDERS_AREA
+            decode<ProvidersDto>(sample).let(::required).toProviderPage()
+        }
+
+    override suspend fun cities(pais: String): StandInAnswer<List<ProviderCity>> =
+        control.ready {
+            decode<List<ProviderCitiesDto>>(PublishedSamples.PROVIDER_CITIES).let(::required)
+                .firstOrNull { it.pais == pais }
+                ?.toCities()
+                .orEmpty()
+        }
+
+    override suspend fun providersNearClaim(id: String, area: ProviderArea?): StandInAnswer<ClaimProviders> =
+        control.ready { decode<ClaimProvidersDto>(PublishedSamples.CLAIM_PROVIDERS).let(::required).toClaimProviders() }
 
     override suspend fun request(body: AssistanceRequest): StandInAnswer<AssistanceResult> =
         control.ready { decode<AssistanceOutDto>(PublishedSamples.ASSISTANCE_OUT).let(::required).toResult() }
+}
+
+class MockDepositRepository(
+    private val control: StandInControl = StandInControl(StandInMode.Success),
+) : DepositRepository {
+    var loads: Int = 0
+        private set
+
+    override suspend fun wallet(): StandInAnswer<Wallet> {
+        loads += 1
+        return control.ready { decode<BilleteraDto>(PublishedSamples.BILLETERA).let(::required).toWallet() }
+    }
+
+    override suspend fun deposit(id: String): StandInAnswer<Deposit> =
+        control.ready {
+            decode<BilleteraDto>(PublishedSamples.BILLETERA).let(::required).movimientos
+                .first { it.id == id }
+                .toDeposit()
+        }
 }
 
 internal fun publishedOfferRequest() = decode<OfferInDto>(PublishedSamples.OFFER_IN).let(::required).toRisk()

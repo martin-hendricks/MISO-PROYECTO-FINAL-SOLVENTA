@@ -12,6 +12,14 @@ class ReglaDeNegocioViolada(ErrorDominio):
         self.codigo = codigo
 
 
+class ConsentimientoRevocado(ReglaDeNegocioViolada):
+    def __init__(self, cotizacion_id) -> None:
+        super().__init__(
+            "consentimiento_revocado",
+            f"El consentimiento de perfilamiento de la cotización {cotizacion_id} ya no está vigente; vuelva a cotizar",
+        )
+
+
 class TransicionInvalida(ErrorDominio):
     codigo = "transicion_invalida"
 

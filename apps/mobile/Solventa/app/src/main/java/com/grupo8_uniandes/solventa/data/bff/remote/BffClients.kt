@@ -73,7 +73,7 @@ private class UnauthorizedInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val response = chain.proceed(chain.request())
         val path = response.request.url.encodedPath
-        if (response.code == 401 && !path.isOpenSession()) {
+        if (response.code == 401 && !path.isOpenSession() && !path.isSignOut()) {
             tokens.clear()
             SessionUnauthorized.onUnauthorized?.invoke()
         }
@@ -86,7 +86,7 @@ private class AccessInterceptor(private val tokens: TokenStore) : Interceptor {
         val request = chain.request()
         if (request.url.encodedPath.isOpenSession()) return chain.proceed(request)
         val access = tokens.read()?.accessToken
-        if (access.isNullOrBlank()) return chain.proceed(request)
+        if (access == null) throw IOException("missing access credential")
         return chain.proceed(
             request.newBuilder().header("Authorization", "Bearer $access").build(),
         )
@@ -103,26 +103,34 @@ private class RefreshAuthenticator(
             tokens.clear()
             return null
         }
-        val current = tokens.read() ?: return null
-        val refreshed = synchronized(this) {
-            runBlocking {
+        return synchronized(this) {
+            val current = tokens.read() ?: return null
+            val presented = response.request.header("Authorization")?.removePrefix("Bearer ")
+            val latest = current.accessToken
+            if (presented != null && presented != latest) {
+                return response.request.newBuilder()
+                    .header("Authorization", "Bearer $latest")
+                    .header(RETRY, "1")
+                    .build()
+            }
+            val refreshed = runBlocking {
                 try {
                     refreshApi.refreshCall(RefreshInDto(current.refreshToken)).execute()
                 } catch (_: IOException) {
                     null
                 }
             }
+            val body = refreshed?.body()
+            if (refreshed == null || !refreshed.isSuccessful || body == null) {
+                tokens.clear()
+                return null
+            }
+            tokens.save(body.toTokens())
+            response.request.newBuilder()
+                .header("Authorization", "Bearer ${body.accessToken}")
+                .header(RETRY, "1")
+                .build()
         }
-        val body = refreshed?.body()
-        if (refreshed == null || !refreshed.isSuccessful || body == null) {
-            tokens.clear()
-            return null
-        }
-        tokens.save(body.toTokens())
-        return response.request.newBuilder()
-            .header("Authorization", "Bearer ${body.accessToken}")
-            .header(RETRY, "1")
-            .build()
     }
 
     private companion object {
@@ -131,4 +139,9 @@ private class RefreshAuthenticator(
 }
 
 private fun String.isOpenSession(): Boolean =
-    endsWith("sesion/ingreso") || endsWith("sesion/refresh")
+    endsWith("sesion/ingreso") ||
+        endsWith("sesion/refresh") ||
+        endsWith("/registro") ||
+        endsWith("identidad/prueba-de-vida")
+
+private fun String.isSignOut(): Boolean = endsWith("sesion/salida")

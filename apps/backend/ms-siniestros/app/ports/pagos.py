@@ -8,5 +8,9 @@ class AdaptadorDesembolso(Protocol):
     async def desembolsar(self, evento_id: str, monto: Decimal) -> None:
         """Ejecuta el desembolso. El llamador (caso de uso) decide el monto y cuándo
         llamar; el adaptador solo cumple esta interfaz. Sustituir el stub por la red de
-        desembolsos real no debe alterar application/ ni domain/."""
+        desembolsos real no debe alterar application/ ni domain/.
+
+        Contrato: idempotente por la clave recibida. El caso de uso desembolsa después
+        del commit y puede repetir la llamada al recuperar un pago que quedó a medias;
+        una clave ya desembolsada no debe generar un segundo desembolso."""
         ...

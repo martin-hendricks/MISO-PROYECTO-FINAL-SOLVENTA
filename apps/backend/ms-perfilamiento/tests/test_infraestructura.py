@@ -10,6 +10,7 @@ from app.config import Settings
 from app.dependencies import obtener_adaptador_open_data, obtener_adaptador_open_finance, obtener_config, obtener_uow
 from app.domain.errores import ConsentimientoNoOtorgado, ErrorDominio, NoEncontrado, ReglaDeNegocioViolada, TransicionInvalida
 from app.domain.modelos import EventoDominio
+from app.infrastructure.adaptadores import AdaptadorOpenDataStub, AdaptadorOpenFinanceStub
 from app.infrastructure.sql import OutboxFila, UnidadDeTrabajoSQL, crear_motor, fabrica_unidad_de_trabajo
 from app.ports.persistencia import ClaveIdempotenciaDuplicada
 
@@ -97,6 +98,34 @@ def test_al_arrancar_la_app_crea_los_adaptadores_y_libera_el_motor(monkeypatch):
     assert motor.liberado
 
 
+@pytest.mark.parametrize("doble", [AdaptadorOpenFinanceStub, AdaptadorOpenDataStub])
+async def test_doble_con_fallo_forzado_lanza(doble):
+    with pytest.raises(RuntimeError, match="fallo simulado"):
+        await doble(fallar=True).obtener_atributos("cliente-1")
+
+
+@pytest.mark.parametrize("doble", [AdaptadorOpenFinanceStub, AdaptadorOpenDataStub])
+async def test_doble_sin_configurar_responde_de_inmediato(doble):
+    assert len(await doble().obtener_atributos("cliente-1")) == 2
+
+
+def test_al_arrancar_la_app_configura_los_dobles_desde_el_entorno(monkeypatch):
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setenv("DOBLE_OPEN_FINANCE_LATENCIA_MS", "250")
+    monkeypatch.setenv("DOBLE_OPEN_DATA_FALLAR", "true")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert app.state.adaptador_open_finance._latencia_ms == 250
+        assert app.state.adaptador_open_finance._fallar is False
+        assert app.state.adaptador_open_data._fallar is True
+
+
+async def _nada() -> None:
+    pass
+
+
 @pytest.mark.parametrize(
     ("error", "estado"),
     [
@@ -134,3 +163,165 @@ def test_dependencias_leen_el_estado_de_la_app():
     assert obtener_adaptador_open_finance(request) is estado.adaptador_open_finance
     assert obtener_adaptador_open_data(request) is estado.adaptador_open_data
     assert obtener_config(request) is estado.config
+
+
+class PoolFalso:
+    """Lo minimo del pool de redis.asyncio que usa calentar_conexiones."""
+
+    def __init__(self) -> None:
+        self.tomadas = 0
+        self.devueltas = 0
+
+    async def get_connection(self):
+        self.tomadas += 1
+        return object()
+
+    async def release(self, conexion):
+        self.devueltas += 1
+
+
+def test_al_arrancar_con_redis_envuelve_los_adaptadores_en_el_adaptador_resiliente_y_la_cierra(monkeypatch):
+    from app.infrastructure.resiliencia import AdaptadorResiliente
+
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    creados = []
+
+    class RedisFalso:
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
+            self.host, self.port, self.password, self.ssl, self.cerrado = host, port, password, ssl, False
+            self.opciones, self.pings = opciones, 0
+            self.connection_pool = PoolFalso()
+            creados.append(self)
+
+        async def ping(self):
+            self.pings += 1
+            return True
+
+        async def aclose(self, close_connection_pool=False):
+            self.cerrado = close_connection_pool
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisFalso)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+    monkeypatch.setenv("REDIS_CACHE_OD_PORT", "6380")
+
+    app = main.crear_app()
+    with TestClient(app):
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorResiliente)
+        assert isinstance(app.state.adaptador_open_data, AdaptadorResiliente)
+        assert (creados[0].host, creados[0].port) == ("cache-od", 6380)
+        assert (creados[0].password, creados[0].ssl) == (None, False)
+        # El pool queda acotado, con conexiones vivas, y se calienta con las 8 conexiones de la configuracion.
+        assert creados[0].opciones == {"max_connections": 32, "health_check_interval": 30}
+        assert creados[0].pings == 1
+        assert (creados[0].connection_pool.tomadas, creados[0].connection_pool.devueltas) == (8, 8)
+        from app.infrastructure.cache_fuentes import CacheFuentesConPurga
+
+        assert isinstance(app.state.cache_fuentes, CacheFuentesConPurga)
+    assert creados[0].cerrado is True
+
+
+def test_al_arrancar_con_redis_pasa_el_token_y_el_tls_al_cliente(monkeypatch, caplog):
+    motor = SimpleNamespace(dispose=lambda: _nada())
+    creados = []
+
+    class RedisFalso:
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
+            self.password, self.ssl = password, ssl
+            self.connection_pool = PoolFalso()
+            creados.append(self)
+
+        async def ping(self):
+            return True
+
+        async def aclose(self, close_connection_pool=False):
+            return None
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisFalso)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+    monkeypatch.setenv("REDIS_CACHE_OD_PASSWORD", "token-de-prueba")
+    monkeypatch.setenv("REDIS_CACHE_OD_SSL", "true")
+
+    with caplog.at_level("INFO"), TestClient(main.crear_app()):
+        pass
+
+    assert (creados[0].password, creados[0].ssl) == ("token-de-prueba", True)
+    assert "cache redis conectada" in caplog.text
+
+
+def test_si_el_ping_de_arranque_falla_el_servicio_sigue_arriba_y_lo_advierte(monkeypatch, caplog):
+    from app.infrastructure.resiliencia import AdaptadorResiliente
+
+    motor = SimpleNamespace(dispose=lambda: _nada())
+
+    intentos = []
+
+    class RedisCaido:
+        def __init__(self, host, port, password=None, ssl=False, **opciones):
+            self.connection_pool = PoolFalso()
+
+        async def ping(self):
+            intentos.append(1)
+            raise ConnectionError("rechazada")
+
+        async def aclose(self, close_connection_pool=False):
+            return None
+
+    monkeypatch.setattr(main, "crear_motor", lambda _config: motor)
+    monkeypatch.setattr(main, "crear_cliente_redis", RedisCaido)
+    monkeypatch.setenv("REDIS_CACHE_OD_HOST", "cache-od")
+
+    app = main.crear_app()
+    with caplog.at_level("WARNING"), TestClient(app):
+        assert isinstance(app.state.adaptador_open_finance, AdaptadorResiliente)
+
+    assert "cache redis no responde al arrancar" in caplog.text
+    assert intentos == [1]  # sin conexion no se intenta calentar el pool
+
+
+async def test_repositorio_sql_de_originaciones_agrega_lee_y_cierra():
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from app.domain.modelos import Originacion, OrigenOriginacion
+    from app.infrastructure.sql import OriginacionFila, RepositorioOriginacionesSQL
+
+    class SesionFalsa:
+        def __init__(self):
+            self.filas = {}
+            self.flushes = 0
+
+        def add(self, fila):
+            self.filas[fila.id] = fila
+
+        async def get(self, _modelo, clave):
+            return self.filas.get(clave)
+
+        async def scalar(self, _consulta):
+            pendientes = [f for f in self.filas.values() if f.cerrada_en is None]
+            return max(pendientes, key=lambda f: f.creada_en) if pendientes else None
+
+        async def flush(self):
+            self.flushes += 1
+
+    sesion = SesionFalsa()
+    repo = RepositorioOriginacionesSQL(sesion)
+    originacion = Originacion.abrir("cliente-1", Decimal("180000000"), 240, OrigenOriginacion.SOCIO)
+
+    await repo.agregar(originacion)
+    leida = await repo.obtener_pendiente("cliente-1")
+    assert leida == originacion
+    assert isinstance(sesion.filas[originacion.id], OriginacionFila)
+    assert sesion.filas[originacion.id].origen == "socio"
+
+    originacion.cerrar()
+    await repo.actualizar(originacion)
+    assert sesion.filas[originacion.id].cerrada_en == originacion.cerrada_en
+    assert sesion.flushes == 1
+    assert await repo.obtener_pendiente("cliente-1") is None
+
+    fantasma = Originacion.abrir("cliente-2", Decimal("1"), 12, OrigenOriginacion.CLIENTE)
+    fantasma.cerrada_en = datetime.now(UTC)
+    await repo.actualizar(fantasma)
+    assert sesion.flushes == 1

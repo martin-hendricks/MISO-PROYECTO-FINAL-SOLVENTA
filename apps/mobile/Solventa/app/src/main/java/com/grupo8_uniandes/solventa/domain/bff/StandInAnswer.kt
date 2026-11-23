@@ -5,5 +5,7 @@ sealed interface StandInAnswer<out T> {
 
     data object Failed : StandInAnswer<Nothing>
 
+    data class Rejected(val message: String) : StandInAnswer<Nothing>
+
     data object Pending : StandInAnswer<Nothing>
 }

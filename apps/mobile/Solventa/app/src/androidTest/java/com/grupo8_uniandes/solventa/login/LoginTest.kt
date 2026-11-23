@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -15,7 +16,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -30,6 +30,7 @@ import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRep
 import com.grupo8_uniandes.solventa.domain.registration.Registration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -40,6 +41,12 @@ import java.io.File
 class LoginTest {
     @get:Rule
     val rule = createEmptyComposeRule()
+
+
+    @Before
+    fun accessibilityChecks() {
+        rule.enableAccessibilityChecks()
+    }
 
     @Before
     fun clearStores() {
@@ -59,12 +66,13 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             assertFalse(registrationCompleted())
-            assertFalse(consentRecorded())
+            assertTrue(consentRecorded())
         }
     }
 
     @Test
     fun givenDemoPair_whenNoSavedAccount_thenHome() {
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "secret")
@@ -78,6 +86,7 @@ class LoginTest {
     @Test
     fun givenSavedPair_whenIngresar_thenHomeWithoutConsentOrPhoto() {
         saveAccount()
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "secret")
@@ -87,24 +96,21 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_consentimiento").assertCountEquals(0)
             rule.onAllNodesWithTag("action_foto").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
-            assertFalse(consentRecorded())
+            assertTrue(consentRecorded())
         }
     }
 
     @Test
-    fun givenWrongPair_whenIngresar_thenBannerStaysUntilAMatch() {
+    fun givenWrongPair_whenTheStandInSessionOpens_thenHomeWithoutTheLocalBanner() {
         saveAccount()
+        grantConsent()
         ActivityScenario.launch<MainActivity>(onboardingIntent()).use {
             rule.openLogin()
             rule.typePair("camila@correo.com", "other")
             rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
-            rule.onNodeWithText("Correo o contraseña incorrectos. Reintenta en esta vista.").assertIsDisplayed()
-            rule.onNodeWithText("Revisa tu contraseña").assertIsDisplayed()
-            rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
-            rule.assertValue("field_login_correo", "camila@correo.com")
-            rule.onNodeWithTag("field_login_contrasena").performTextReplacement("secret")
-            rule.onNodeWithTag("action_ingresar").performScrollTo().performClick()
             rule.waitForTag("screen_inicio")
+            rule.onAllNodesWithText("Correo o contraseña incorrectos. Reintenta en esta vista.").assertCountEquals(0)
+            rule.onAllNodesWithText("Revisa tu contraseña").assertCountEquals(0)
             rule.onNodeWithTag("bottom_bar").assertIsDisplayed()
         }
     }
@@ -158,7 +164,7 @@ class LoginTest {
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
             rule.onNodeWithTag("action_crear_cuenta").performScrollTo().performClick()
-            rule.waitForTag("screen_onboarding")
+            rule.waitForTag("screen_consentimiento")
             rule.onAllNodesWithTag("screen_splash").assertCountEquals(0)
             rule.onAllNodesWithTag("screen_inicio").assertCountEquals(0)
         }
@@ -209,6 +215,14 @@ private fun readyForAccount(tag: String) {
         .edit()
         .putString(KeyAppliedRegion, tag)
         .putBoolean(KeyFirstLaunchCompleted, true)
+        .commit()
+    grantConsent()
+}
+
+private fun grantConsent() {
+    appContext().getSharedPreferences(ConsentPrefsFile, Context.MODE_PRIVATE)
+        .edit()
+        .putString("state", "granted")
         .commit()
 }
 

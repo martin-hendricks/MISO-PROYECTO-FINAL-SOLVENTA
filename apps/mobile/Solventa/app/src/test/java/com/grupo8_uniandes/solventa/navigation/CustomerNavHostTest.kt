@@ -1,22 +1,56 @@
 package com.grupo8_uniandes.solventa.navigation
 
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import com.grupo8_uniandes.solventa.claim.CannedEvidenceRegistry
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
+import com.grupo8_uniandes.solventa.issuance.confirmReviewCard
+import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
+import com.grupo8_uniandes.solventa.data.bff.mapping.decode
+import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
+import com.grupo8_uniandes.solventa.data.bff.mock.MockClaimRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockDepositRepository
+import com.grupo8_uniandes.solventa.data.bff.mock.MockIssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.OpenParametricPayment
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositRepository
+import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimRepository
+import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
+import com.grupo8_uniandes.solventa.domain.bff.issuance.AcceptOffer
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuanceRepository
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssueRejection
+import com.grupo8_uniandes.solventa.domain.bff.issuance.IssuedPolicy
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyDetail
+import com.grupo8_uniandes.solventa.domain.bff.issuance.PolicyEntry
+import com.grupo8_uniandes.solventa.domain.bff.notice.OpenValidityNotice
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeEntry
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import com.grupo8_uniandes.solventa.domain.home.HomePanel
 import com.grupo8_uniandes.solventa.home.HomeUiState
 import com.grupo8_uniandes.solventa.ui.theme.SolventaTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.koin.core.context.GlobalContext
+import org.koin.dsl.module
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -52,11 +86,40 @@ class CustomerNavHostTest {
                     contentPadding = PaddingValues(8.dp),
                     modifier = Modifier,
                     startDestination = PerfilRoute,
+                    originationActive = true,
                 )
             }
         }
 
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenOrigination_whenTheOfferIsAccepted_thenTheExistingIssuanceRouteIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("screen_consentimiento_hipotecario").assertIsDisplayed()
+        assertEquals(OfertaHipotecarioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("action_authorize_profiling").performClick()
+        rule.waitUntil(timeoutMillis = 8_000) {
+            rule.onAllNodesWithTag("screen_oferta_hipotecario").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("action_accept_mortgage").performClick()
+        rule.confirmReviewCard()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        val issued = holder[0]!!.currentBackStackEntry!!.toSolventaRoute() as PolizaEmitidaRoute
+        rule.onNodeWithText("Póliza emitida · ${issued.ramo}").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenOrigination_whenTheProfilingConsentIsDeclined_thenHomeIsCurrent() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, HomeUiState(panel = HomePanel(vidaCrediticia = true)))
+        rule.onNodeWithTag("home_vida_crediticia").performClick()
+        rule.onNodeWithTag("action_decline_profiling").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        rule.onAllNodesWithTag("screen_oferta_hipotecario").assertCountEquals(0)
     }
 
     @Test
@@ -74,7 +137,11 @@ class CustomerNavHostTest {
         rule.waitForIdle()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
+        rule.confirmReviewCard()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
+        val issued = nav.currentBackStackEntry!!.toSolventaRoute() as PolizaEmitidaRoute
+        rule.onNodeWithText("Póliza emitida · ${issued.ramo}").assertIsDisplayed()
+        rule.onNodeWithTag("issued_policy_id").assertTextEquals("POL-88219-CO")
         rule.onNodeWithTag("action_issued_home").performClick()
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
@@ -83,18 +150,16 @@ class CustomerNavHostTest {
         rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
 
         rule.onNodeWithTag("action_accept_offer").performClick()
-        rule.onNodeWithTag("action_finish_issuing").performClick()
+        rule.confirmReviewCard()
+        rule.onNodeWithTag("screen_issued").assertIsDisplayed()
         rule.onNodeWithTag("action_issued_policy").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithText("Cancelar").performClick()
-        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
-        rule.onNodeWithTag("action_new_quote").performClick()
-        rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
-        rule.onNodeWithTag("action_cancel_quote").performClick()
+        nav.popBackStack()
+        rule.waitForIdle()
         rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
         rule.onNodeWithTag("action_open_policy_POL-88219-CO").performClick()
         rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
-        rule.onNodeWithTag("policy_numero").assertTextEquals("POL-88219-CO")
+        rule.onNodeWithTag("policy_numero", useUnmergedTree = true).assertTextEquals("POL-88219-CO")
 
         nav.openDestination(Destination.Polizas)
         rule.waitForIdle()
@@ -105,6 +170,316 @@ class CustomerNavHostTest {
         nav.openDestination(Destination.Perfil)
         rule.waitForIdle()
         rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenPolizas_whenTheTabIsOpenedAgain_thenTheWalletLoadsAgain() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder)
+        val wallet = GlobalContext.get().get<IssuanceRepository>() as MockIssuanceRepository
+        val nav = holder[0]!!
+
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_polizas").assertIsDisplayed()
+        val afterFirst = wallet.walletLoads
+        assertTrue(afterFirst > 0)
+
+        nav.openDestination(Destination.Inicio)
+        rule.waitForIdle()
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        val afterReturn = wallet.walletLoads
+        assertTrue(afterReturn > afterFirst)
+
+        nav.openDestination(Destination.Polizas)
+        rule.waitForIdle()
+        assertTrue(wallet.walletLoads > afterReturn)
+    }
+
+    @Test
+    fun givenATab_whenTappedAgain_thenThatTabLoadsAgain() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        var homeLoads = 0
+        show(holder, onInicioVisible = { homeLoads += 1 })
+        val nav = holder[0]!!
+        rule.waitForIdle()
+        val homeAfterStart = homeLoads
+        assertTrue(homeAfterStart > 0)
+
+        nav.openDestination(Destination.Inicio)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        assertTrue(homeLoads > homeAfterStart)
+
+        val deposits = GlobalContext.get().get<DepositRepository>() as MockDepositRepository
+        nav.openDestination(Destination.Billetera)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_billetera").assertIsDisplayed()
+        val walletAfterOpen = deposits.loads
+        assertTrue(walletAfterOpen > 0)
+        nav.openDestination(Destination.Billetera)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_billetera").assertIsDisplayed()
+        assertTrue(deposits.loads > walletAfterOpen)
+
+        val claims = GlobalContext.get().get<ClaimRepository>() as MockClaimRepository
+        nav.openDestination(Destination.Siniestros)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        val claimsAfterOpen = claims.listLoads
+        assertTrue(claimsAfterOpen > 0)
+        nav.openDestination(Destination.Siniestros)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        assertTrue(claims.listLoads > claimsAfterOpen)
+
+        nav.openDestination(Destination.Perfil)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+        nav.openDestination(Destination.Perfil)
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_perfil").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenTheCatalog_whenAssistanceIsCancelled_thenTheCatalogReturns() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+        holder[0]!!.navigate(MapaPrestadoresRoute)
+        rule.waitForIdle()
+
+        rule.onNodeWithTag("screen_mapa_prestadores").assertIsDisplayed()
+        rule.onNodeWithText("Bogotá").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Taller Moto Chapinero").assertIsDisplayed()
+        assertEquals(MapaPrestadoresRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        rule.onNodeWithTag("action_open_provider_0").performClick()
+        rule.onNodeWithTag("screen_prestador_ficha").assertIsDisplayed()
+        rule.onNodeWithTag("action_pedir_asistencia").performClick()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        rule.onNodeWithText("Av. Caracas con Calle 72").assertIsDisplayed()
+        rule.onNodeWithTag("action_continuar_evidencia").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+
+        holder[0]!!.popBackStack()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_asistencia_sitio").assertIsDisplayed()
+        rule.onNodeWithTag("action_cancelar_asistencia").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_prestador_ficha").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenSiniestros_whenANoticeIsSent_thenTheConfirmationShowsSin441() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = InicioRoute)
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithTag("screen_aviso_siniestro").assertIsDisplayed()
+        assertEquals(AvisoSiniestroRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("screen_evidencia_aviso").assertIsDisplayed()
+        assertEquals(EvidenciaAvisoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText(
+            "SIN-441 · Protección de dispositivo · en evaluación. Te avisamos el avance en esta lista.",
+        ).assertIsDisplayed()
+        val sent = holder[0]!!.currentBackStackEntry!!.toSolventaRoute()
+        assertEquals(ConfirmacionAvisoRoute("SIN-441"), sent)
+        rule.onNodeWithText("Ver mis avisos").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        holder[0]!!.navigate(SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithText("Reportar siniestro").performClick()
+        rule.onNodeWithText("Cancelar").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAPolicy_whenTheNoticeIsSent_thenVerMisAvisosOpensTheClaimsList() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = PolizaDetalleRoute(OpenValidityNotice.POLICY))
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_report_claim").performClick()
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText("Ver mis avisos").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+        assertEquals(SiniestrosRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+    }
+
+    @Test
+    fun givenAPolicy_whenTheNoticeIsSent_thenIrAlInicioOpensHome() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = PolizaDetalleRoute(OpenValidityNotice.POLICY))
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_report_claim").performClick()
+        fillClaimNotice()
+        rule.onNodeWithText("Continuar a evidencia").performClick()
+        rule.onNodeWithTag("claim_pick_file").performClick()
+        rule.onNodeWithText("Enviar aviso").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_confirmacion_aviso").assertIsDisplayed()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+        assertEquals(InicioRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+    }
+
+    @Test
+    fun givenTheStoredPayment_whenOpened_thenTheSummaryShows() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-P01").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Pago automático realizado").assertIsDisplayed()
+        assertEquals(ParametricoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithText("Descargar comprobante").performClick()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("Volver a siniestros").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestros").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAParametricPush_whenItArrives_thenTheSameSummaryOpens() {
+        show(paymentPush = OpenParametricPayment.reviewPush())
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_parametrico").assertIsDisplayed()
+        rule.onNodeWithText("$180.000 COP depositados").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenTheExpiryAction_whenTheNoticeExists_thenTheExpiryScreenOpens() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder, start = PolizaDetalleRoute(OpenValidityNotice.POLICY))
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_expiry_notices").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_aviso_vencimiento").assertIsDisplayed()
+        rule.onNodeWithText("Entendido").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_poliza_detalle").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenARenewalNotice_whenTheRouteOpens_thenInicioIsTheExit() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        show(holder)
+        holder[0]!!.navigate(AvisoRenovacionRoute)
+        rule.waitForIdle()
+        assertEquals(AvisoRenovacionRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("screen_aviso_renovacion").assertIsDisplayed()
+        rule.onNodeWithText("Ir al inicio").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAPushThatIsNotThePayment_whenItArrives_thenInicioStays() {
+        show(paymentPush = OpenParametricPayment.reviewPush().copy(titulo = "Otro aviso"))
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnExpiryPush_whenItArrives_thenTheExpiryNoticeOpens() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        val published = decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE)!!.toNotice()
+        show(holder, paymentPush = published)
+        rule.waitForIdle()
+        assertEquals(AvisoVencimientoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("screen_aviso_vencimiento").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenARenewalPush_whenItArrives_thenTheRenewalNoticeOpens() {
+        val holder = arrayOfNulls<NavHostController>(1)
+        val renewal = NoticeEntry(
+            tipo = NoticeKind.RENOVACION,
+            titulo = "Renovación vigente",
+            cuerpo = "Hasta 12 mar 2028",
+            destino = NoticeDestination.AVISO_RENOVACION,
+            poliza = OpenValidityNotice.POLICY,
+        )
+        show(holder, paymentPush = renewal)
+        rule.waitForIdle()
+        assertEquals(AvisoRenovacionRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+        rule.onNodeWithTag("screen_aviso_renovacion").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenAnotherClaim_whenOpened_thenTheListStays() {
+        show(start = SiniestrosRoute)
+        rule.waitForIdle()
+        rule.onNodeWithTag("action_open_claim_SIN-441").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("screen_siniestro_detalle").assertIsDisplayed()
+        rule.onNodeWithText("SIN-441").assertIsDisplayed()
+    }
+
+    @Test
+    fun givenARevokedConsent_whenTheIssuanceAnswers_thenTheRevocationScreenOpens() {
+        val revoked = object : IssuanceRepository {
+            override suspend fun accept(cotizacionId: String): StandInAnswer<IssuedPolicy> = StandInAnswer.Failed
+
+            override suspend fun rejected(): StandInAnswer<IssueRejection> = StandInAnswer.Failed
+
+            override suspend fun consentRevoked(): Boolean = true
+
+            override suspend fun policies(): StandInAnswer<List<PolicyEntry>> = StandInAnswer.Failed
+
+            override suspend fun detail(numero: String): StandInAnswer<PolicyDetail> = StandInAnswer.Failed
+        }
+        GlobalContext.get().loadModules(listOf(module { single { AcceptOffer(revoked) } }), allowOverride = true)
+        try {
+            val holder = arrayOfNulls<NavHostController>(1)
+            show(holder, start = EmisionEnCursoRoute("COT-1042"))
+            rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+            assertEquals(ConsentimientoRevocadoRoute, holder[0]!!.currentBackStackEntry!!.toSolventaRoute())
+            rule.onNodeWithTag("action_consent_revoked_new_quote").performClick()
+            rule.onNodeWithTag("screen_cotizacion").assertIsDisplayed()
+        } finally {
+            GlobalContext.get().loadModules(
+                listOf(module { single { AcceptOffer(get()) } }),
+                allowOverride = true,
+            )
+        }
+    }
+
+    @Test
+    fun givenARevokedConsent_whenHome_thenInicioOpens() {
+        show(start = ConsentimientoRevocadoRoute)
+        rule.onNodeWithTag("screen_consent_revoked").assertIsDisplayed()
+        rule.onNodeWithTag("action_consent_revoked_home").performClick()
+        rule.onNodeWithTag("screen_inicio").assertIsDisplayed()
     }
 
     @Test
@@ -120,18 +495,38 @@ class CustomerNavHostTest {
         holder: Array<NavHostController?> = arrayOfNulls(1),
         homeState: HomeUiState = HomeUiState(),
         start: Any = InicioRoute,
+        paymentPush: NoticeEntry? = null,
+        onInicioVisible: () -> Unit = {},
     ) {
         rule.setContent {
+            val owner = remember {
+                object : ActivityResultRegistryOwner {
+                    override val activityResultRegistry = CannedEvidenceRegistry()
+                }
+            }
             SolventaTheme {
                 val controller = rememberNavController()
                 holder[0] = controller
-                CustomerNavHost(
-                    navController = controller,
-                    homeState = homeState,
-                    contentPadding = PaddingValues(0.dp),
-                    startDestination = start,
-                )
+                CompositionLocalProvider(LocalActivityResultRegistryOwner provides owner) {
+                    CustomerNavHost(
+                        navController = controller,
+                        homeState = homeState,
+                        contentPadding = PaddingValues(0.dp),
+                        startDestination = start,
+                        paymentPush = paymentPush,
+                        onInicioVisible = onInicioVisible,
+                    )
+                }
             }
         }
+    }
+
+    private fun fillClaimNotice() {
+        rule.waitForIdle()
+        rule.onNodeWithTag("claim_policy").performClick()
+        rule.onNodeWithTag("claim_policy_option_POL-88219-CO").performClick()
+        rule.onNodeWithTag("claim_date").performClick()
+        rule.onNodeWithText("Aceptar").performClick()
+        rule.onNodeWithTag("claim_description").performTextInput("Choque")
     }
 }

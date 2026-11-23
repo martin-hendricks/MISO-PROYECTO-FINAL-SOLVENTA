@@ -32,6 +32,7 @@ object SolventaTypography {
         titleMedium = hanken(FontWeight.Medium, 16, 24),
         bodyLarge = hanken(FontWeight.Normal, 16, 24),
         bodyMedium = hanken(FontWeight.Normal, 14, 20),
+        labelMedium = hanken(FontWeight.Medium, 12, 16),
     )
 
     val amount = TextStyle(

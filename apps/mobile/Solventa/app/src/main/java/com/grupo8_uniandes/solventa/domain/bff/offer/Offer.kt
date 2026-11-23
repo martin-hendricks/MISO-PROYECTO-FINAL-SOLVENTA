@@ -4,10 +4,13 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 
 sealed interface LineRisk
 
+val deviceBrands = listOf("samsung", "apple", "xiaomi", "motorola")
+
 data class DeviceRisk(
     val valorDispositivo: Long,
     val marca: String,
     val masDe12Meses: Boolean,
+    val modelo: String,
 ) : LineRisk
 
 data class FirmOffer(
@@ -17,10 +20,21 @@ data class FirmOffer(
     val prima: Long,
     val moneda: String,
     val venceEn: String,
+    val descripcion: String = "",
+)
+
+data class AcceptedQuote(
+    val cotizacionId: String,
+    val estado: String,
+    val prima: Long,
+    val moneda: String,
+    val monedaInicio: String = "COP",
 )
 
 interface OfferRepository {
     suspend fun quote(ramo: String, risk: LineRisk): StandInAnswer<FirmOffer>
 
     suspend fun requote(cotizacionId: String): StandInAnswer<FirmOffer>
+
+    suspend fun accept(cotizacionId: String): StandInAnswer<AcceptedQuote>
 }

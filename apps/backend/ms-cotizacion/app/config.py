@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     factor_riesgo_timeout_maximo_ms: int = 700
     factor_riesgo_valor_respaldo: Decimal = Decimal("1.0")
 
+    # Doble del perfil de riesgo (HU-88): demora y fallo forzables por entorno
+    # (DOBLE_PERFIL_RIESGO_LATENCIA_MS, DOBLE_PERFIL_RIESGO_FALLAR) para ejercitar la
+    # degradación de HU-5 en el ambiente de integración.
+    doble_perfil_riesgo_latencia_ms: int = 0
+    doble_perfil_riesgo_fallar: bool = False
+    # IPerfilRiesgo real (HU-162): estos productos toman el factor del perfil que arma
+    # ms-perfilamiento; los demás siguen con el adaptador stub.
+    ms_perfilamiento_url: str = "http://ms-perfilamiento:8080"
+    productos_perfil_perfilamiento: list[str] = ["vida-hipotecario"]
+
     # Vigencia de la oferta (HU-6/SOLV-99): sin valor numérico fijado por ninguna HU,
     # default razonable a confirmar con negocio.
     oferta_vigencia_minutos: int = 60

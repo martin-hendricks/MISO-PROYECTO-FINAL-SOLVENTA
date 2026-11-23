@@ -21,8 +21,9 @@ describe('CotizacionFormViewModel', () => {
     source: (ramo: string, datos: DatosRiesgo) => Observable<Oferta> = () => of(OFERTA),
     onQuoted?: (oferta: Oferta) => void,
     catalog: (ramo: string) => Observable<Catalogo> = (ramo) => of(CATALOGOS[ramo]),
+    moneda: () => string = () => '',
   ) {
-    const vm = new CotizacionFormViewModel(catalog, source, onQuoted);
+    const vm = new CotizacionFormViewModel(catalog, source, onQuoted, undefined, moneda);
     vm.loadCatalog();
     return vm;
   }
@@ -42,11 +43,11 @@ describe('CotizacionFormViewModel', () => {
     expect(vm.ramos.map((ramo) => [ramo.ramo, ramo.disponible])).toEqual([
       ['Protección de dispositivo', true],
       ['SOAT motocicleta', true],
-      ['Microseguro de vida', false],
-      ['Clima y vuelos', false],
-      ['Vida hipotecario', false],
-      ['Pagos', false],
-      ['Viaje', false],
+      ['Microseguro de vida', true],
+      ['Clima y vuelos', true],
+      ['Vida hipotecario', true],
+      ['Pagos', true],
+      ['Viaje', true],
     ]);
   });
 
@@ -90,6 +91,11 @@ describe('CotizacionFormViewModel', () => {
       'Reposición por equipo nuevo',
     ]);
     expect(vm.rangos()['valorDispositivo']).toEqual({ minimo: 500000, maximo: 10000000 });
+    const soles = form(undefined, undefined, undefined, () => 'PEN');
+    expect(soles.moneda()).toBe('PEN');
+    expect(soles.rangos()['valorDispositivo']).toEqual({ minimo: 455, maximo: 9090 });
+    soles.edit('valorDispositivo', '2500');
+    expect(soles.issue('valorDispositivo')).toBeNull();
     expect(vm.opciones('marca')).toEqual(['samsung', 'apple', 'xiaomi', 'motorola']);
     expect(vm.opciones('modelo')).toEqual([]);
   });
@@ -148,13 +154,13 @@ describe('CotizacionFormViewModel', () => {
     ]);
   });
 
-  it('ignores an unknown line or one that does not quote yet', () => {
+  it('ignores an unknown line and keeps the one just selected', () => {
     const vm = form();
 
     vm.select('viaje');
     vm.select('hogar');
 
-    expect(vm.ramo().id).toBe('dispositivo');
+    expect(vm.ramo().id).toBe('viaje');
   });
 
   it('blocks the CTA until the catalog loads and when it fails', () => {

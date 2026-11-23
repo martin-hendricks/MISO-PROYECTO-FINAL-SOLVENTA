@@ -1,10 +1,13 @@
-@policy-lifecycle @pendiente @HU-61 @SOLV-154
+@policy-lifecycle @HU-61 @SOLV-154
 Feature: Policy cancellation
 
   Scenario: Coverage withdrawal
     Given a valid policy
+    When the operador opens the cancel dialog
+    Then the current page has no accessibility violations
     When the operador cancels it
     Then the policy detail shows the cancelled status
+    And the current page has no accessibility violations
     And the customer no longer holds valid coverage
 
   Scenario: Policy already cancelled

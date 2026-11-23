@@ -44,6 +44,11 @@ variable "spa_kms_key_arn" {
   description = "ARN of the KMS key encrypting the SPA bucket (edge module var `kms_key_arn`), needed to grant kms:GenerateDataKey/Decrypt for `aws s3 sync`."
 }
 
+variable "msk_cluster_arn" {
+  type        = string
+  description = "ARN of the MSK cluster (msk module output `cluster_arn`). El workflow resuelve los bootstrap brokers por API para inyectarlos en los servicios que hablan con Kafka, así que el rol necesita kafka:ListClusters y kafka:GetBootstrapBrokers. Solo lectura."
+}
+
 variable "tags" {
   type        = map(string)
   description = "Extra tags merged into all taggable resources."

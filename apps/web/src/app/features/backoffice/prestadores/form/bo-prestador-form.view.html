@@ -1,0 +1,191 @@
+<section data-testid="bo-prestador-form" [attr.data-state]="vm.status()">
+  <a class="back" routerLink="/cms/prestadores" data-testid="prestador-volver">
+    {{ 'backoffice.prestadores.volver' | translate }}
+  </a>
+  <div class="page-head">
+    <div>
+      <h1>{{ 'backoffice.prestadores.form.title' | translate }}</h1>
+      <p class="subtitle">{{ 'backoffice.prestadores.form.subtitle' | translate }}</p>
+    </div>
+  </div>
+
+  @if (vm.status() === 'loading') {
+    <p class="subtitle" role="status" data-testid="prestador-loading">
+      {{ 'backoffice.prestadores.loading' | translate }}
+    </p>
+  } @else if (vm.status() === 'not-found') {
+    <div class="empty-state" data-testid="prestador-not-found">
+      <h2>{{ 'backoffice.prestadores.form.notFound' | translate }}</h2>
+    </div>
+  } @else {
+    <form (submit)="$event.preventDefault(); vm.guardar()">
+      <label>
+        {{ 'backoffice.prestadores.form.nombre' | translate }}
+        <input
+          data-testid="prestador-nombre"
+          [value]="vm.nombre()"
+          (input)="vm.nombre.set($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.barrio' | translate }}
+        <input
+          data-testid="prestador-barrio"
+          [value]="vm.barrio()"
+          (input)="vm.barrio.set($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.tipo' | translate }}
+        <select
+          data-testid="prestador-tipo"
+          [value]="vm.tipo()"
+          (change)="vm.tipo.set($any($event.target).value)"
+          required
+        >
+          <option value="">{{ 'backoffice.prestadores.form.eligeTipo' | translate }}</option>
+          @for (tipo of tipos; track tipo) {
+            <option [value]="tipo" [selected]="vm.tipo() === tipo">
+              {{ 'prestadores.tipo.' + tipo | translate }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.telefono' | translate }}
+        <input
+          data-testid="prestador-telefono"
+          [value]="vm.telefono()"
+          (input)="vm.telefono.set($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.direccion' | translate }}
+        <input
+          data-testid="prestador-direccion"
+          [value]="vm.direccion()"
+          (input)="vm.direccion.set($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.horario' | translate }}
+        <input
+          data-testid="prestador-horario"
+          [value]="vm.horario()"
+          (input)="vm.horario.set($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.pais' | translate }}
+        <select
+          data-testid="prestador-pais"
+          [value]="vm.pais()"
+          (change)="vm.elegirPais($any($event.target).value)"
+          required
+        >
+          @for (pais of paises; track pais) {
+            <option [value]="pais" [selected]="vm.pais() === pais">
+              {{ 'prestadores.pais.' + pais | translate }}
+            </option>
+          }
+        </select>
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.ciudad' | translate }}
+        <select
+          data-testid="prestador-ciudad"
+          [value]="vm.ciudad()"
+          (change)="vm.elegirCiudad($any($event.target).value)"
+          required
+        >
+          <option value="">{{ 'backoffice.prestadores.form.eligeCiudad' | translate }}</option>
+          @for (ciudad of vm.ciudades(); track ciudad.nombre) {
+            <option [value]="ciudad.nombre" [selected]="vm.ciudad() === ciudad.nombre">
+              {{ ciudad.nombre }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <fieldset [attr.aria-describedby]="vm.errorRamo() ? 'prestador-error-ramo' : null">
+        <legend>{{ 'backoffice.prestadores.form.ramos' | translate }}</legend>
+        <p class="subtitle">{{ 'backoffice.prestadores.form.ramosAyuda' | translate }}</p>
+        <div class="chips">
+          @for (ramo of ramos; track ramo) {
+            <button
+              type="button"
+              [attr.data-testid]="'chip-ramo-' + ramo"
+              [class.selected]="vm.ramos().includes(ramo)"
+              [attr.aria-pressed]="vm.ramos().includes(ramo)"
+              (click)="vm.alternarRamo(ramo)"
+            >
+              {{ 'prestadores.ramo.' + ramo | translate }}
+            </button>
+          }
+        </div>
+        @if (vm.errorRamo()) {
+          <p class="error-text" role="alert" id="prestador-error-ramo" data-testid="prestador-error-ramo">
+            {{ 'backoffice.prestadores.error.ramo' | translate }}
+          </p>
+        }
+      </fieldset>
+
+      @if (mapa() === 'disponible' && vm.pin(); as pin) {
+        <p data-testid="prestador-pin">{{ 'backoffice.prestadores.form.pin' | translate }}</p>
+        <p class="mono" data-testid="prestador-coords">{{ pin.lat }}, {{ pin.lng }}</p>
+        <sv-mapa-prestadores
+          data-testid="prestadores-mapa"
+          [disponible]="true"
+          [arrastrable]="true"
+          [centro]="pin"
+          [objetivo]="vm.objetivo()"
+          [pin]="pin"
+          [prestadores]="[]"
+          (mover)="vm.fijarPin($event.lat, $event.lng)"
+        />
+      }
+      <label>
+        {{ 'backoffice.prestadores.form.lat' | translate }}
+        <input
+          type="number"
+          step="0.000001"
+          data-testid="prestador-lat"
+          [value]="vm.lat() ?? ''"
+          (input)="vm.fijarLat($any($event.target).value)"
+          required
+        />
+      </label>
+      <label>
+        {{ 'backoffice.prestadores.form.lng' | translate }}
+        <input
+          type="number"
+          step="0.000001"
+          data-testid="prestador-lng"
+          [value]="vm.lng() ?? ''"
+          (input)="vm.fijarLng($any($event.target).value)"
+          required
+        />
+      </label>
+
+      @if (vm.errorCodigo(); as codigo) {
+        <p class="error-text" role="alert" data-testid="prestador-error">
+          {{ 'backoffice.prestadores.error.' + codigo | translate }}
+        </p>
+      }
+
+      <button
+        type="submit"
+        class="filled"
+        data-testid="prestador-guardar"
+        [disabled]="vm.status() === 'saving'"
+      >
+        {{ 'backoffice.prestadores.form.guardar' | translate }}
+      </button>
+    </form>
+  }
+</section>

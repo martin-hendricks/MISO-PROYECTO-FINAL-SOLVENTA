@@ -1,6 +1,7 @@
 package com.grupo8_uniandes.solventa.bff
 
 import com.grupo8_uniandes.solventa.data.bff.MobileBff
+import com.grupo8_uniandes.solventa.data.bff.dto.BilleteraDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceGeoDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.AssistanceOutDto
@@ -21,6 +22,7 @@ import com.grupo8_uniandes.solventa.data.bff.dto.HomeOfferDto
 import com.grupo8_uniandes.solventa.data.bff.dto.HomePolicyDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IssuedDto
 import com.grupo8_uniandes.solventa.data.bff.dto.LivenessDto
+import com.grupo8_uniandes.solventa.data.bff.dto.MortgageCreditDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.MortgageOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.NoticeDto
@@ -28,7 +30,11 @@ import com.grupo8_uniandes.solventa.data.bff.dto.NoticesDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.OfferOutDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PaymentDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PesosSerializer
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCitiesDto
+import com.grupo8_uniandes.solventa.data.bff.dto.ProviderCityDto
 import com.grupo8_uniandes.solventa.data.bff.dto.ProviderDto
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.data.bff.dto.ProvidersDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushDestinationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushNoticeDto
@@ -36,8 +42,9 @@ import com.grupo8_uniandes.solventa.data.bff.dto.PushRegistrationDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PushTypeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.RevokeDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SessionOutDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletDto
-import com.grupo8_uniandes.solventa.data.bff.dto.WalletEntryDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PoliciesDto
+import com.grupo8_uniandes.solventa.data.bff.dto.PolicyEntryDto
+import com.grupo8_uniandes.solventa.data.bff.dto.AcceptedQuoteDto
 import com.grupo8_uniandes.solventa.data.bff.dto.IdDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyCommandDto
 import com.grupo8_uniandes.solventa.data.bff.dto.PolicyVerbDto
@@ -47,6 +54,13 @@ import com.grupo8_uniandes.solventa.data.bff.dto.SessionInDto
 import com.grupo8_uniandes.solventa.data.bff.dto.SignupDto
 import com.grupo8_uniandes.solventa.data.bff.fixture.PublishedSamples
 import com.grupo8_uniandes.solventa.data.bff.mapping.decode
+import com.grupo8_uniandes.solventa.data.bff.mapping.toCities
+import com.grupo8_uniandes.solventa.data.bff.mapping.toProviderPage
+import com.grupo8_uniandes.solventa.data.bff.mapping.toAccepted
+import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicy
+import com.grupo8_uniandes.solventa.data.bff.mapping.toWallet
+import com.grupo8_uniandes.solventa.domain.bff.billetera.DepositType
+import java.math.BigDecimal
 import com.grupo8_uniandes.solventa.data.bff.mapping.toDto
 import com.grupo8_uniandes.solventa.data.bff.mapping.toNotice
 import com.grupo8_uniandes.solventa.data.bff.mapping.toPolicyOrNull
@@ -62,17 +76,26 @@ import com.grupo8_uniandes.solventa.domain.bff.StandInAnswer
 import com.grupo8_uniandes.solventa.domain.bff.claim.AttachmentKind
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimNotice
 import com.grupo8_uniandes.solventa.domain.bff.claim.ClaimStatus
-import com.grupo8_uniandes.solventa.domain.bff.push.PushDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeDestination
+import com.grupo8_uniandes.solventa.domain.bff.push.NoticeKind
 import com.grupo8_uniandes.solventa.domain.bff.push.PushRegistration
-import com.grupo8_uniandes.solventa.domain.bff.push.PushType
 import com.grupo8_uniandes.solventa.domain.bff.signup.Liveness
 import com.grupo8_uniandes.solventa.data.bff.mapping.toRequestElement
 import com.grupo8_uniandes.solventa.domain.bff.offer.ClimateRisk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.encoding.AbstractDecoder
+import kotlinx.serialization.encoding.AbstractEncoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.EmptySerializersModule
+import kotlinx.serialization.modules.SerializersModule
 import org.junit.Test
 
 class SampleMappingTest {
@@ -94,6 +117,8 @@ class SampleMappingTest {
         assertEquals("camila@correo.com", signup.correo)
         assertEquals(Liveness.OK, signup.pruebaDeVida)
         assertEquals(true, signup.habeasData)
+        assertEquals("", signup.contrasena)
+        assertEquals("", signup.tipoDocumento)
         assertEquals("Camila", bff.signup.register(signup).ready().nombre)
         assertEquals(false, bff.signup.revokeConsent().ready().habeasData)
 
@@ -106,6 +131,7 @@ class SampleMappingTest {
         assertEquals("Protección de dispositivo", offer.ramo)
         assertEquals("oferta_vigente", offer.estado)
         assertEquals(89_000L, offer.prima)
+        assertEquals(89_000L, decode<OfferOutDto>(PublishedSamples.OFFER_OUT)!!.prima)
         assertEquals("COP", offer.moneda)
         assertEquals("2026-10-01", offer.venceEn)
         assertEquals(offer, bff.offer.requote("COT-1042").ready())
@@ -115,21 +141,37 @@ class SampleMappingTest {
         assertEquals("Protección de dispositivo", issued.ramo)
         assertEquals("vigente", issued.estado)
         assertEquals("2027-03-12", issued.venceEn)
-        val wallet = bff.issuance.wallet().ready()
-        assertEquals(wallet, bff.issuance.wallet().ready())
-        val entry = wallet.single()
+        val wallet = bff.issuance.policies().ready()
+        assertEquals(wallet, bff.issuance.policies().ready())
+        assertEquals(2, wallet.size)
+        val entry = wallet.first()
         assertEquals("POL-88219-CO", entry.numero)
         assertEquals("Protección de dispositivo", entry.ramo)
         assertEquals("Robo, Pantalla, Hurto", entry.resumen)
         assertEquals("vigente", entry.estado)
         assertEquals("2027-03-12", entry.venceEn)
+        assertEquals("POL-11002-CO", wallet[1].numero)
+        assertEquals("Microseguro de vida", wallet[1].ramo)
+        assertEquals("amparo de vida", wallet[1].resumen)
+        assertEquals("por_vencer", wallet[1].estado)
         val detail = bff.issuance.detail("POL-88219-CO").ready()
         assertEquals("POL-88219-CO", detail.numero)
         assertEquals("Protección de dispositivo", detail.ramo)
         assertEquals("Robo y Pantalla", detail.resumen)
         assertEquals("vigente", detail.estado)
         assertEquals("2027-03-12", detail.venceEn)
-        assertEquals("Toma la foto del daño y anota fecha y lugar.", detail.queHacer)
+        assertEquals(
+            "Si se rompe la pantalla o te roban el equipo: toma la foto del daño, anota fecha y lugar, y no repares antes de dar el aviso. Cada ramo pide una evidencia distinta.",
+            detail.queHacer,
+        )
+        assertEquals(89_000.0, detail.primaTotal)
+        assertEquals("Robo", detail.coberturas.first().nombre)
+        assertEquals(150_000.0, detail.coberturas[1].deducible, 0.0)
+        assertEquals(true, detail.renovable)
+        val claim = MockClaimRepository().detail("interno") as StandInAnswer.Ready
+        assertEquals("Rechazado", claim.value.summary.statusWords())
+        assertEquals(12, claim.value.geo!!.precisionM)
+        assertEquals("Recibido", claim.value.historial.first().estadoTexto)
 
         val notice = MockClaimRepository().readNotice()!!
         assertEquals("POL-88219-CO", notice.poliza)
@@ -146,11 +188,16 @@ class SampleMappingTest {
         val receipt = bff.claim.notify(notice).ready()
         assertEquals("SIN-441", receipt.siniestroId)
         assertEquals(ClaimStatus.RECIBIDO, receipt.estado)
-        val claim = bff.claim.list().ready().single()
-        assertEquals("SIN-441", claim.siniestroId)
-        assertEquals("Protección de dispositivo", claim.ramo)
-        assertEquals(ClaimStatus.EN_EVALUACION, claim.estado)
-        assertEquals("Pantalla rota", claim.resumen)
+        val claims = bff.claim.list().ready()
+        assertEquals("SIN-441", claims[0].siniestroId)
+        assertEquals("Protección de dispositivo", claims[0].ramo)
+        assertEquals(ClaimStatus.EN_EVALUACION, claims[0].estado)
+        assertEquals("pantalla rota", claims[0].resumen)
+        assertEquals("En evaluación", claims[0].statusWords())
+        assertEquals("SIN-220", claims[1].siniestroId)
+        assertEquals("Pagado", claims[1].statusWords())
+        assertEquals("SIN-P01", claims[2].siniestroId)
+        assertEquals("Pago automático · pagado", claims[2].statusWords())
 
         val payment = bff.payment.read().ready()
         assertEquals("SIN-220", payment.siniestroId)
@@ -165,7 +212,7 @@ class SampleMappingTest {
         assertEquals(180, profile.plazoMeses)
         assertEquals(true, profile.consentimientoPerfil)
         val mortgage = bff.mortgage.offer(profile).ready()
-        assertEquals("Vida crediticia", mortgage.ramo)
+        assertEquals("Vida hipotecario", mortgage.ramo)
         assertEquals("oferta_vigente", mortgage.estado)
         assertEquals(64_000L, mortgage.prima)
         assertEquals("COP", mortgage.moneda)
@@ -185,32 +232,59 @@ class SampleMappingTest {
         assertEquals("POL-88219-CO", bff.policyCommand.cancel("POL-88219-CO", "El cliente lo pidió").ready().numero)
 
         val home = bff.home.load().ready()
-        assertEquals("COT-1042", home.ofertaVigente.cotizacionId)
-        assertEquals("Protección de dispositivo", home.ofertaVigente.ramo)
-        assertEquals("oferta_vigente", home.ofertaVigente.estado)
-        assertEquals("POL-88219-CO", home.poliza.numero)
-        assertEquals("Protección de dispositivo", home.poliza.ramo)
-        assertEquals("vigente", home.poliza.estado)
-        assertEquals("SIN-441", home.siniestroEnCurso.siniestroId)
-        assertEquals("en_evaluacion", home.siniestroEnCurso.estado)
+        val homeOffer = checkNotNull(home.ofertaVigente)
+        assertEquals("COT-1042", homeOffer.cotizacionId)
+        assertEquals("Protección de dispositivo", homeOffer.ramo)
+        assertEquals("oferta_vigente", homeOffer.estado)
+        val homePolicy = checkNotNull(home.poliza)
+        assertEquals("POL-88219-CO", homePolicy.numero)
+        assertEquals("Protección de dispositivo", homePolicy.ramo)
+        assertEquals("vigente", homePolicy.estado)
+        val homeClaim = checkNotNull(home.siniestroEnCurso)
+        assertEquals("SIN-441", homeClaim.siniestroId)
+        assertEquals("en_evaluacion", homeClaim.estado)
         assertNull(home.hipotecario)
 
         val registration = bff.push.register(PushRegistration("fcm-stub", "android")).ready()
         assertEquals("fcm-stub", registration.token)
         assertEquals("android", registration.plataforma)
-        val push = bff.push.notice().ready()
-        assertEquals(PushType.VENCIMIENTO, push.tipo)
+        val push = decode<PushNoticeDto>(PublishedSamples.PUSH_NOTICE)!!.toNotice()
+        assertEquals(NoticeKind.VENCIMIENTO, push.tipo)
         assertEquals("Tu póliza vence", push.titulo)
         assertEquals("En 7 días", push.cuerpo)
-        assertEquals(PushDestination.AVISO_VENCIMIENTO, push.destino)
+        assertEquals(NoticeDestination.AVISO_VENCIMIENTO, push.destino)
         assertEquals("POL-88219-CO", push.poliza)
 
-        val providers = bff.assistance.providers().ready()
-        assertEquals("PR-1", providers[0].id)
-        assertEquals("Taller Norte", providers[0].nombre)
-        assertEquals(1.2, providers[0].distanciaKm, 0.0)
-        assertEquals("Chapinero", providers[0].zona)
-        assertEquals("Kennedy", providers[1].zona)
+        val providers = bff.assistance.providers(com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery()).ready()
+        assertEquals("PRE-BOG-06", providers.prestadores[0].id)
+        assertEquals("Taller Moto Chapinero", providers.prestadores[0].nombre)
+        assertEquals(0.9, providers.prestadores[0].distanciaKm!!, 0.0)
+        assertEquals("Chapinero", providers.prestadores[0].barrio)
+        assertEquals("posicion", providers.centro!!.origen)
+        assertEquals(10.0, providers.radioKm!!, 0.0)
+        assertEquals("CO", providers.prestadores[0].pais)
+        assertFalse(providers.truncado)
+        val area = com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderArea(4.66, 4.62, -74.05, -74.08)
+        val areaPage = bff.assistance.providers(
+            com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery(area = area),
+        ).ready()
+        assertNull(areaPage.radioKm)
+        val truncated = decode<ProvidersDto>(
+            PublishedSamples.PROVIDERS_AREA.replace("\"truncado\":false", "\"truncado\":true"),
+        )!!.toProviderPage()
+        assertTrue(truncated.truncado)
+        val mexico = bff.assistance.cities("MX").ready()
+        assertEquals(listOf("Ciudad de México", "Guadalajara", "Monterrey"), mexico.map { it.nombre })
+        assertEquals(11, mexico[0].zoom)
+        assertEquals(5, mexico[0].prestadores)
+        assertEquals(19.4326, mexico[0].lat, 0.0)
+        assertEquals("Lima", bff.assistance.cities("PE").ready().first().nombre)
+        assertEquals(listOf("Bogotá", "Medellín", "Chía"), bff.assistance.cities("CO").ready().map { it.nombre })
+        assertEquals("Santiago", bff.assistance.cities("CL").ready().first().nombre)
+        assertTrue(bff.assistance.cities("AR").ready().isEmpty())
+        val claimProviders = bff.assistance.providersNearClaim("SIN-1", area).ready()
+        assertFalse(claimProviders.truncado)
+        assertEquals("CO", claimProviders.prestadores.single().pais)
         val request = publishedAssistanceRequest()!!
         assertEquals("PR-1", request.prestadorId)
         assertEquals(4.6533, request.lat, 0.0)
@@ -225,14 +299,40 @@ class SampleMappingTest {
     fun givenPublishedVariants_whenRead_thenTheyStaySuccessful() = runBlocking {
         val rejection = bff.issuance.rejected().ready()
         assertEquals("rechazada", rejection.estado)
-        assertEquals("Valor del equipo fuera de rango", rejection.motivo)
+        assertEquals("La suscripción automática rechazó el riesgo del dispositivo cotizado.", rejection.motivo)
 
         val withoutGeo = MockClaimRepository().readNotice(PublishedSamples.CLAIM_NOTICE_NO_GEO)!!
         assertNull(withoutGeo.geo)
         assertEquals(ClaimStatus.RECIBIDO, bff.claim.notify(withoutGeo).ready().estado)
+    }
 
-        assertEquals(true, bff.mortgage.degraded().ready().degradada)
-        assertEquals(64_000L, bff.mortgage.degraded().ready().prima)
+    @Test
+    fun givenADecimalPrima_whenRead_thenItIsWholePesos() {
+        val live = """
+            {"cotizacionId":"89167dc2-aab6-491c-8378-45131495f364","ramo":"Protección de dispositivo","estado":"cotizada","prima":"106900.00","moneda":"COP","venceEn":"2026-11-02T02:00:23.185686Z"}
+        """
+        val offer = decode<OfferOutDto>(live)!!
+        assertEquals("89167dc2-aab6-491c-8378-45131495f364", offer.cotizacionId)
+        assertEquals(106_900L, offer.prima)
+        assertEquals("cotizada", offer.estado)
+        assertEquals("2026-11-02T02:00:23.185686Z", offer.venceEn)
+    }
+
+    @Test
+    fun givenPesos_whenWrittenAsJsonOrAsALong_thenBothFormsRoundTrip() {
+        val json = Json
+        assertEquals("106900", json.encodeToString(PesosSerializer, 106_900L))
+        assertEquals(11L, json.decodeFromString(PesosSerializer, "\"10.5\""))
+        val encoder = LongEncoder()
+        PesosSerializer.serialize(encoder, 12L)
+        assertEquals(12L, encoder.value)
+        assertEquals(12L, PesosSerializer.deserialize(LongDecoder(12L)))
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(PesosSerializer, "\"no\"")
+        }
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(PesosSerializer, "\"10000000000000000000\"")
+        }
     }
 
     @Test
@@ -299,13 +399,27 @@ class SampleMappingTest {
         val signup = SignupDto("Camila", "Restrepo", "1012345678", "camila@correo.com", LivenessDto.ok, true)
         assertEquals(LivenessDto.no, signup.copy(pruebaDeVida = LivenessDto.no).pruebaDeVida)
         assertEquals(false, RevokeDto(false).habeasData)
-        val risk = DeviceRiskDto(2_400_000L, "Pixel", false)
+        val risk = DeviceRiskDto(2_400_000L, "Pixel", false, "Pixel 8")
         assertEquals("Protección de dispositivo", OfferInDto("Protección de dispositivo", risk).ramo)
         assertEquals("oferta_vigente", OfferOutDto("COT-1042", "Protección de dispositivo", "oferta_vigente", 89_000L, "COP", "2026-10-01").estado)
         assertEquals("COT-1042", IdDto("COT-1042").cotizacionId)
+        assertEquals("MXN", IdDto("COT-1042", "MXN").monedaInicio)
         assertEquals("vigente", IssuedDto("POL-88219-CO", "Protección de dispositivo", "vigente", "2027-03-12").estado)
-        val entry = WalletEntryDto("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")
-        assertEquals(entry.numero, WalletDto(listOf(entry)).polizas.single().numero)
+        val accepted = decode<AcceptedQuoteDto>(
+            """{"cotizacionId":"COT-1042","estado":"aceptada","prima":89000,"moneda":"COP","monedaInicio":"MXN"}""",
+        )!!.toAccepted()
+        assertEquals("COP", accepted.moneda)
+        assertEquals("MXN", accepted.monedaInicio)
+        val issued = decode<IssuedDto>(
+            """{"numero":"POL-1","ramo":"ramo","estado":"vigente","venceEn":"2027-03-12","monedaInicio":"PEN"}""",
+        )!!.toPolicy()
+        assertEquals("PEN", issued.monedaInicio)
+        val legacy = decode<IssuedDto>(
+            """{"numero":"POL-1","ramo":"ramo","estado":"vigente","venceEn":"2027-03-12"}""",
+        )!!.toPolicy()
+        assertEquals("COP", legacy.monedaInicio)
+        val entry = PolicyEntryDto("POL-88219-CO", "Protección de dispositivo", "Robo, Pantalla, Hurto", "vigente", "2027-03-12")
+        assertEquals(entry.numero, PoliciesDto(listOf(entry)).polizas.single().numero)
         assertEquals("Robo y Pantalla", DetailDto("POL-88219-CO", "Protección de dispositivo", "Robo y Pantalla", "vigente", "2027-03-12", "Toma la foto del daño y anota fecha y lugar.").resumen)
         val geo = GeoDto(4.6533, -74.0836, 12)
         assertEquals(12, geo.precisionM)
@@ -331,14 +445,39 @@ class SampleMappingTest {
         val policySlot = HomePolicyDto("POL-88219-CO", "Protección de dispositivo", "vigente")
         val claimSlot = HomeClaimDto("SIN-441", "en_evaluacion")
         assertNull(HomeDto(offerSlot, policySlot, claimSlot).hipotecario)
-        assertEquals("vida", HomeDto(offerSlot, policySlot, claimSlot, "vida").hipotecario)
+        assertEquals(
+            180,
+            HomeDto(offerSlot, policySlot, claimSlot, MortgageCreditDto(valor = 180_000_000L, plazoMeses = 180))
+                .hipotecario?.plazoMeses,
+        )
         assertEquals("android", PushRegistrationDto("fcm-stub", "android").plataforma)
         assertEquals(
             PushDestinationDto.`aviso-vencimiento`,
             PushNoticeDto(PushTypeDto.vencimiento, "Tu póliza vence", "En 7 días", PushDestinationDto.`aviso-vencimiento`, "POL-88219-CO").destino,
         )
-        val provider = ProviderDto("PR-1", "Taller Norte", 1.2, "Chapinero")
-        assertEquals(provider.id, ProvidersDto(listOf(provider)).prestadores.single().id)
+        val provider = ProviderDto(
+            id = "PRE-BOG-06",
+            nombre = "Taller Moto Chapinero",
+            tipo = "taller-motos",
+            ramos = listOf("soat-motocicleta"),
+            direccion = "Cra 13 #45-18",
+            ciudad = "Bogotá",
+            barrio = "Chapinero",
+            lat = 4.6355,
+            lng = -74.0655,
+            telefono = "601 555 0112",
+            horario = "Lun–Sáb 7:00–19:00",
+            distanciaKm = 0.9,
+        )
+        val center = com.grupo8_uniandes.solventa.data.bff.dto.ProviderCenterDto(4.6432, -74.0631, "posicion")
+        assertEquals(provider.id, ProvidersDto(center, 10.0, listOf(provider)).prestadores.single().id)
+        assertNull(provider.copy(distanciaKm = null).distanciaKm)
+        val page = ProvidersDto(center, null, listOf(provider.copy(pais = "MX")), truncado = true).toProviderPage()
+        assertEquals("MX", page.prestadores.single().pais)
+        assertTrue(page.truncado)
+        assertNull(page.radioKm)
+        val cities = ProviderCitiesDto("PE", listOf(ProviderCityDto("Lima", -12.0464, -77.0428, 11, 5))).toCities()
+        assertEquals(ProviderCity("Lima", -12.0464, -77.0428, 11, 5), cities.single())
         val where = AssistanceGeoDto(4.6533, -74.0836)
         assertEquals("PR-1", AssistanceInDto("PR-1", where, "POL-88219-CO").prestadorId)
         assertEquals("registrada", AssistanceOutDto("AS-18", "registrada").estado)
@@ -356,14 +495,53 @@ class SampleMappingTest {
 
     @Test
     fun givenLivenessNoAndNoGeo_whenMapped_thenThoseChoicesStay() {
-        val signup = publishedSignup().copy(pruebaDeVida = Liveness.NO)
-        assertEquals(LivenessDto.no, signup.toDto().pruebaDeVida)
+        val signup = publishedSignup().copy(
+            pruebaDeVida = Liveness.NO,
+            contrasena = "secreto12",
+            tipoDocumento = "CC",
+        )
+        val sent = signup.toDto()
+        assertEquals(LivenessDto.no, sent.pruebaDeVida)
+        assertEquals("secreto12", sent.contrasena)
+        assertEquals("CC", sent.tipoDocumento)
+        val echoed = decode<SignupDto>(
+            PublishedSamples.SIGNUP.replace(
+                "\"habeasData\":true",
+                "\"habeasData\":true,\"contrasena\":\"secreto12\",\"tipoDocumento\":\"CC\"",
+            ),
+        )!!.toRecord()
+        assertEquals("", echoed.contrasena)
+        assertEquals("CC", echoed.tipoDocumento)
         val notice = ClaimNotice("POL-9", "2026-03-12", null, emptyList())
         assertNull(notice.toDto().geo)
+    }
+
+    @Test
+    fun billeteraSampleMapsAutomaticPayments() {
+        val wallet = decode<BilleteraDto>(PublishedSamples.BILLETERA)!!.toWallet()
+        assertEquals(BigDecimal("1070000.00"), wallet.totalRecibido)
+        assertEquals(DepositType.Automatic, wallet.movimientos[1].tipo)
     }
 
     private fun <T> StandInAnswer<T>.ready(): T {
         val ready = this as StandInAnswer.Ready
         return ready.value
     }
+}
+
+private class LongEncoder : AbstractEncoder() {
+    var value: Long = 0
+    override val serializersModule: SerializersModule = EmptySerializersModule()
+
+    override fun encodeLong(value: Long) {
+        this.value = value
+    }
+}
+
+private class LongDecoder(private val value: Long) : AbstractDecoder() {
+    override val serializersModule: SerializersModule = EmptySerializersModule()
+
+    override fun decodeLong(): Long = value
+
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int = 0
 }

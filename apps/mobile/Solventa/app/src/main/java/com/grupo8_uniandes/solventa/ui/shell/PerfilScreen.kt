@@ -3,9 +3,12 @@ package com.grupo8_uniandes.solventa.ui.shell
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -16,11 +19,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -34,18 +39,26 @@ import com.grupo8_uniandes.solventa.data.profile.AndroidDevicePermissionReader
 import com.grupo8_uniandes.solventa.data.profile.SharedPrefsSessionRepository
 import com.grupo8_uniandes.solventa.data.region.SharedPrefsRegionRepository
 import com.grupo8_uniandes.solventa.data.registration.SharedPrefsRegistrationRepository
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsent
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.ProfilingConsentRepository
 import com.grupo8_uniandes.solventa.domain.consent.ChangeDataTreatment
 import com.grupo8_uniandes.solventa.domain.consent.ConsentState
+import com.grupo8_uniandes.solventa.domain.login.DeviceUnlock
 import com.grupo8_uniandes.solventa.domain.profile.DevicePermissionReader
 import com.grupo8_uniandes.solventa.domain.profile.LoadProfile
 import com.grupo8_uniandes.solventa.domain.profile.PermissionKind
 import com.grupo8_uniandes.solventa.domain.profile.SignOut
 import com.grupo8_uniandes.solventa.domain.region.Region
+import com.grupo8_uniandes.solventa.domain.region.formatRegionDate
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import java.time.LocalDate
 import com.grupo8_uniandes.solventa.ui.components.SolventaBottomSheet
 import com.grupo8_uniandes.solventa.ui.components.SolventaButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaButtonStyle
 import com.grupo8_uniandes.solventa.ui.components.SolventaIconButton
 import com.grupo8_uniandes.solventa.ui.components.SolventaListRow
+import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 import com.grupo8_uniandes.solventa.ui.consent.ConsentSheet
 import com.grupo8_uniandes.solventa.ui.consent.ConsentSurface
 import com.grupo8_uniandes.solventa.ui.consent.ConsentViewModel
@@ -53,10 +66,13 @@ import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionSheet
 import com.grupo8_uniandes.solventa.ui.region.IdiomaRegionViewModel
 import com.grupo8_uniandes.solventa.ui.region.RegionSurface
 import com.grupo8_uniandes.solventa.ui.region.findActivity
-import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
-import androidx.compose.foundation.layout.Row
-import androidx.compose.ui.Alignment
+import com.grupo8_uniandes.solventa.ui.login.DeviceBiometricPrompt
 import androidx.compose.ui.res.painterResource
+
+fun interface BiometricEnrollment {
+    /** False when the phone cannot run a biometric check. */
+    fun start(onResult: (DeviceUnlock) -> Unit): Boolean
+}
 
 @Composable
 fun PerfilScreen(
@@ -64,18 +80,27 @@ fun PerfilScreen(
     originationActive: Boolean = false,
     permissionReader: DevicePermissionReader? = null,
     onSignedOut: () -> Unit = {},
+    biometricEnrollment: BiometricEnrollment? = null,
+    reloadKey: Long = 0L,
+    profilingConsent: ProfilingConsentRepository? = null,
 ) {
     val context = LocalContext.current
+    val activity = context.findActivity()
     val repository = remember { SharedPrefsRegionRepository(context.applicationContext) }
     val registration = remember { SharedPrefsRegistrationRepository(context.applicationContext) }
-    var biometricOn by remember { mutableStateOf(registration.biometricUnlockEnabled()) }
-    val viewModel = remember {
+    var biometricOn by remember(reloadKey) { mutableStateOf(registration.biometricUnlockEnabled()) }
+    val promptTitle = stringResource(R.string.login_biometric_title)
+    val promptCancel = stringResource(R.string.action_secondary)
+    val enrollment = biometricEnrollment ?: remember(activity, promptTitle, promptCancel) {
+        deviceBiometricEnrollment(activity, promptTitle, promptCancel)
+    }
+    val viewModel = remember(reloadKey) {
         IdiomaRegionViewModel(repository = repository, surface = RegionSurface.Profile)
     }
     val state by viewModel.state.collectAsState()
     var sheetOpen by remember { mutableStateOf(false) }
     val consentRepository = remember { SharedPrefsConsentRepository(context.applicationContext) }
-    val consentViewModel = remember(consentRepository) {
+    val consentViewModel = remember(consentRepository, reloadKey) {
         ConsentViewModel(
             change = ChangeDataTreatment(consentRepository) { System.currentTimeMillis() },
             initial = consentRepository.read(),
@@ -85,13 +110,17 @@ fun PerfilScreen(
     val consent by consentViewModel.state.collectAsState()
     var consentSheetOpen by remember { mutableStateOf(false) }
     val profileViewModel: ProfileViewModel = viewModel(
-        key = "profile-$originationActive",
+        key = "profile-$originationActive-$reloadKey",
         factory = profileFactory(context, originationActive, permissionReader),
     )
     val hub by profileViewModel.state.collectAsState()
     val signedOut by profileViewModel.signedOut.collectAsState()
     var permissionKind by remember { mutableStateOf<PermissionKind?>(null) }
-    var profilingOpen by remember { mutableStateOf(false) }
+    val profilingViewModel: ProfilingConsentViewModel = viewModel(
+        key = "profiling-consent",
+        factory = profilingConsentFactory(context, profilingConsent),
+    )
+    val profiling by profilingViewModel.state.collectAsState()
     var signOutOpen by remember { mutableStateOf(false) }
     LaunchedEffect(signedOut) {
         if (signedOut) {
@@ -124,24 +153,59 @@ fun PerfilScreen(
                 sheetOpen = true
             },
         )
-        SolventaListRow(
-            label = stringResource(R.string.profile_biometric),
-            supporting = stringResource(R.string.profile_biometric_support),
-            testTag = "profile_biometric",
-            trailing = {
-                val label = stringResource(R.string.profile_biometric)
-                Switch(
-                    checked = biometricOn,
-                    onCheckedChange = { enabled ->
-                        registration.setBiometricUnlock(enabled)
-                        biometricOn = enabled
+        val biometricLabel = stringResource(R.string.profile_biometric)
+        Column(modifier = Modifier.fillMaxWidth().testTag("profile_biometric")) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = SolventaSpacing.minTouch)
+                .padding(horizontal = SolventaSpacing.gutter)
+                .toggleable(
+                    value = biometricOn,
+                    role = Role.Switch,
+                    onValueChange = { enabled ->
+                        if (!enabled) {
+                            registration.setBiometricUnlock(false)
+                            biometricOn = false
+                        } else {
+                            val started = enrollment.start { result ->
+                                val account = registration.read()
+                                if (
+                                    result == DeviceUnlock.Accepted &&
+                                    account != null &&
+                                    account.email.isNotBlank() &&
+                                    account.password.isNotEmpty()
+                                ) {
+                                    registration.rememberBiometricLogin(account.email, account.password)
+                                    registration.setBiometricUnlock(true)
+                                    biometricOn = true
+                                } else {
+                                    biometricOn = false
+                                }
+                            }
+                            if (!started) biometricOn = false
+                        }
                     },
-                    modifier = Modifier
-                        .semantics { contentDescription = label }
-                        .testTag("profile_biometric_switch"),
                 )
-            },
-        )
+                .semantics(mergeDescendants = true) {}
+                .testTag("profile_biometric_switch"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(biometricLabel, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.profile_biometric_support),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = biometricOn,
+                onCheckedChange = null,
+                modifier = Modifier.clearAndSetSemantics {},
+            )
+        }
+        }
         PermissionKind.entries.forEach { kind ->
             val published = hub.permissions.firstOrNull { it.kind == kind }?.published == true
             SolventaListRow(
@@ -168,11 +232,12 @@ fun PerfilScreen(
                 },
             )
         }
-        if (hub.originationActive) {
-            SolventaListRow(
-                label = stringResource(R.string.profile_profiling),
-                testTag = "profile_profiling",
-                onClick = { profilingOpen = true },
+        if (profiling.visible) {
+            ProfilingConsentRow(
+                state = profiling,
+                region = hub.region,
+                onOpen = profilingViewModel::open,
+                onGrant = profilingViewModel::openGrant,
             )
         }
         SolventaButton(
@@ -223,12 +288,17 @@ fun PerfilScreen(
         sheetTag = "sheet_permission",
         onClose = { permissionKind = null },
     )
-    StatusSheet(
-        visible = profilingOpen,
-        title = stringResource(R.string.profile_profiling),
-        detail = null,
-        sheetTag = "sheet_profiling",
-        onClose = { profilingOpen = false },
+    ProfilingConsentGrantSheet(
+        visible = profiling.grantSheetOpen,
+        granting = profiling.granting,
+        onGrant = profilingViewModel::grant,
+        onDecline = profilingViewModel::closeGrant,
+    )
+    ProfilingConsentSheet(
+        visible = profiling.sheetOpen,
+        revoking = profiling.revoking,
+        onRevoke = profilingViewModel::revoke,
+        onCancel = profilingViewModel::close,
     )
     SignOutSheet(
         visible = signOutOpen,
@@ -307,6 +377,23 @@ private fun StatusSheet(
     }
 }
 
+private fun deviceBiometricEnrollment(
+    activity: android.app.Activity?,
+    title: String,
+    negativeButtonText: String,
+): BiometricEnrollment {
+    if (activity == null) return BiometricEnrollment { _ -> false }
+    val prompt = DeviceBiometricPrompt(activity, title, negativeButtonText)
+    return BiometricEnrollment { onResult ->
+        if (!prompt.available()) {
+            false
+        } else {
+            prompt.authenticate(onResult)
+            true
+        }
+    }
+}
+
 @Composable
 private fun SignOutSheet(
     visible: Boolean,
@@ -345,6 +432,161 @@ private fun SignOutSheet(
                 testTag = "action_sign_out_cancel",
             )
         }
+    }
+}
+
+@Composable
+private fun ProfilingConsentRow(
+    state: ProfilingConsentUi,
+    region: Region,
+    onOpen: () -> Unit,
+    onGrant: () -> Unit,
+) {
+    val supporting = when (val consent = state.consent) {
+        is ProfilingConsent.Granted ->
+            stringResource(R.string.profiling_consent_granted, regionDay(consent.grantedAt, region))
+        is ProfilingConsent.Revoked ->
+            stringResource(R.string.profiling_consent_revoked, regionDay(consent.revokedAt, region))
+        ProfilingConsent.None -> stringResource(R.string.profiling_consent_none)
+        null -> null
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SolventaListRow(
+            label = stringResource(R.string.profile_profiling),
+            supporting = supporting,
+            testTag = "profile_profiling_consent",
+            onClick = onOpen,
+        )
+        if (state.grantable) {
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_grant),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onGrant,
+                enabled = !state.granting,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = SolventaSpacing.gutter),
+                testTag = "action_grant_profiling_consent",
+            )
+        }
+        if (state.failed) {
+            Text(
+                text = stringResource(
+                    if (state.grantable) R.string.profiling_consent_grant_error else R.string.profiling_consent_error,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(horizontal = SolventaSpacing.gutter)
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+                    .testTag("profile_profiling_consent_error"),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfilingConsentSheet(
+    visible: Boolean,
+    revoking: Boolean,
+    onRevoke: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    SolventaBottomSheet(visible = visible, onDismiss = onCancel) {
+        BackHandler(onBack = onCancel)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(SolventaSpacing.gutter)
+                .testTag("sheet_profiling_consent"),
+            verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+        ) {
+            Text(
+                text = stringResource(R.string.profiling_consent_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.profiling_consent_warning),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_revoke),
+                style = SolventaButtonStyle.Filled,
+                onClick = { if (!revoking) onRevoke() },
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_revoke_profiling_consent",
+            )
+            SolventaButton(
+                text = stringResource(R.string.action_close),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onCancel,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_profiling_consent_cancel",
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfilingConsentGrantSheet(
+    visible: Boolean,
+    granting: Boolean,
+    onGrant: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    SolventaBottomSheet(visible = visible, onDismiss = onDecline) {
+        BackHandler(onBack = onDecline)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(SolventaSpacing.gutter)
+                .testTag("sheet_grant_profiling_consent"),
+            verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s12),
+        ) {
+            Text(
+                text = stringResource(R.string.profiling_consent_grant_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.profiling_consent_grant_body),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(R.string.mortgage_consent_sources),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            SolventaButton(
+                text = stringResource(R.string.profiling_consent_grant),
+                style = SolventaButtonStyle.Filled,
+                onClick = { if (!granting) onGrant() },
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_confirm_grant_profiling_consent",
+            )
+            SolventaButton(
+                text = stringResource(R.string.mortgage_consent_decline),
+                style = SolventaButtonStyle.Outlined,
+                onClick = onDecline,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action_decline_grant_profiling_consent",
+            )
+        }
+    }
+}
+
+private fun regionDay(iso: String, region: Region): String =
+    runCatching { formatRegionDate(LocalDate.parse(iso.take(10)), region) }.getOrDefault(iso)
+
+private fun profilingConsentFactory(
+    context: android.content.Context,
+    repository: ProfilingConsentRepository?,
+): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        val source = repository ?: run {
+            startSolventaKoin(context)
+            GlobalContext.get().get<ProfilingConsentRepository>()
+        }
+        @Suppress("UNCHECKED_CAST")
+        return ProfilingConsentViewModel(source) as T
     }
 }
 

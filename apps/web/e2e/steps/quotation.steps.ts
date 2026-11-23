@@ -12,7 +12,7 @@ async function signInCustomer(world: PortalWorld): Promise<void> {
 }
 
 async function signInAdvisor(world: PortalWorld): Promise<void> {
-  world.clientes = clients(5);
+  world.clientes = [...clients(4), { clienteId: 'CLI-ANDRES', nombre: 'Andrés Gómez', documento: '1020334556', canal: 'web' as const, estado: 'activo' as const, consentimiento: 'habeas_data' as const }];
   await world.bff.serveClients(world.clientes);
   await world.bff.acceptSignIn(world.account.email, 'asesor');
   await world.login.open('backoffice');
@@ -41,17 +41,21 @@ Then(
   },
 );
 
-Then(
-  'the lines the core does not quote yet are disabled as Próximamente',
-  async function (this: PortalWorld) {
-    const lines = await this.cotizacion.lines();
-    assert.deepEqual(
-      lines.filter((line) => !line.disabled).map((line) => line.label),
-      ['Protección de dispositivo', 'SOAT motocicleta'],
-    );
-    assert.equal(lines.filter((line) => line.label.endsWith('· Próximamente')).length, 5);
-  },
-);
+Then('every line in the channel catalog can be chosen', async function (this: PortalWorld) {
+  const lines = await this.cotizacion.lines();
+  assert.deepEqual(
+    lines.map((line) => [line.label, line.disabled]),
+    [
+      ['Dispositivo', false],
+      ['SOAT motocicleta', false],
+      ['Vida', false],
+      ['Clima y vuelos', false],
+      ['Hipotecario', false],
+      ['Pagos', false],
+      ['Viaje', false],
+    ],
+  );
+});
 
 Then('"Cotizar" goes to the offer with premium and expiry', async function (this: PortalWorld) {
   await this.cotizacion.fillDevice();
@@ -66,6 +70,7 @@ Then('"Cotizar" goes to the offer with premium and expiry', async function (this
       modelo: 'iPhone 15',
       masDe12Meses: false,
     },
+    moneda: 'COP',
   });
 });
 
@@ -97,10 +102,22 @@ Then('consulting it again does not recalculate', async function (this: PortalWor
   assert.equal(this.bff.quotesRequested(), 0);
 });
 
+Given('an expired quote', async function (this: PortalWorld) {
+  this.offer = { ...offer(), venceEn: '2000-01-01T00:00:00Z' };
+  await this.bff.serveQuote('cliente', this.offer);
+  await signInCustomer(this);
+});
+
+Then('the customer cannot accept it', async function (this: PortalWorld) {
+  await this.page.getByTestId('oferta-vencida').waitFor({ state: 'visible' });
+  assert.equal(await this.page.getByTestId('oferta-aceptar').count(), 0);
+  assert.equal(await this.page.getByTestId('oferta-nueva').getAttribute('href'), '/cotizacion');
+});
+
 Then('"Aceptar" starts the issuance', async function (this: PortalWorld) {
   assert.equal(
     await this.cotizacion.acceptHref(),
-    `/emision?cotizacion=${this.offer.cotizacionId}`,
+    `/confirmacion-tarjeta?cotizacion=${this.offer.cotizacionId}&prima=${Number(this.offer.prima)}&moneda=${this.offer.moneda}`,
   );
 });
 
@@ -123,7 +140,7 @@ When('the asesor sends the product and the minimum risk data', async function (t
 Then('the asesor gets a quote id and sees the firm offer', async function (this: PortalWorld) {
   await this.cotizacion.expectOffer(this.offer);
   await this.cotizacion.expectOfferId(this.offer.cotizacionId);
-  assert.equal(this.bff.quoteBody()?.['clienteId'], '1020334556');
+  assert.equal(this.bff.quoteBody()?.['clienteId'], 'CLI-ANDRES');
 });
 
 // The advisor keeps the offer in the panel by its id; the core calculated it once.
@@ -160,7 +177,7 @@ Then(
   'the offer panel shows "Sin oferta" without losing the captured data',
   async function (this: PortalWorld) {
     await this.cotizacion.expectNoOffer();
-    assert.equal(await this.cotizacion.value('cliente-nombre'), 'Andrés Gómez');
+    assert.equal(await this.cotizacion.text('cliente-nombre'), 'Andrés Gómez');
     assert.equal(await this.cotizacion.value('riesgo-cilindraje_cc'), '2500');
   },
 );

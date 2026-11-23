@@ -14,6 +14,10 @@ data class SignupRecord(
     val correo: String,
     val pruebaDeVida: Liveness,
     val habeasData: Boolean,
+    val contrasena: String = "",
+    val tipoDocumento: String = "",
+    val ingresosMensuales: String = "",
+    val gastosMensuales: String = "",
 )
 
 data class ConsentRevocation(
@@ -24,4 +28,16 @@ interface SignupRepository {
     suspend fun register(record: SignupRecord): StandInAnswer<SignupRecord>
 
     suspend fun revokeConsent(): StandInAnswer<ConsentRevocation>
+}
+
+enum class LivenessCheck {
+    Passed,
+    Failed,
+    Unavailable,
+}
+
+interface LivenessRepository {
+    suspend fun check(photo: ByteArray): LivenessCheck
+
+    suspend fun record(result: Liveness): StandInAnswer<Liveness>
 }

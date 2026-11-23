@@ -58,6 +58,17 @@ variable "compartida_db_credentials" {
   sensitive   = true
 }
 
+variable "redis_cache_config" {
+  type = object({
+    host       = string
+    port       = number
+    auth_token = string
+  })
+  description = "Endpoint y token de ElastiCache (CacheOF / CacheOD). ElastiCache exige TLS y token, y la IP del nodo cambia en un failover, asi que ms-perfilamiento lee host y token de aqui por External Secrets en vez de llevarlos fijos en el values. When null, the secret is created empty (no version)."
+  default     = null
+  sensitive   = true
+}
+
 variable "seed_external_provider_placeholders" {
   type        = bool
   description = <<-EOT
@@ -77,6 +88,17 @@ variable "seed_external_provider_placeholders" {
     out-of-band step every time.
   EOT
   default     = true
+}
+
+variable "msk_bootstrap_brokers_sasl_iam" {
+  type        = string
+  description = "Brokers SASL/IAM de MSK. Se publican como MSK_BOOTSTRAP_BROKERS para los pods que no pueden leer terraform output."
+  default     = ""
+}
+
+variable "evidencias_bucket_name" {
+  type        = string
+  description = "Name of the claim evidence bucket (s3_evidencias module bucket_id). Published as S3_EVIDENCIAS_BUCKET in the siniestros-config secret."
 }
 
 variable "tags" {

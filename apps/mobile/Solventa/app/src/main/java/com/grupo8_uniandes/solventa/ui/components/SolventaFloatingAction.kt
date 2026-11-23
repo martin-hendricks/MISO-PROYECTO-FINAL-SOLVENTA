@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.grupo8_uniandes.solventa.ui.theme.SolventaSpacing
 
 @Composable
@@ -22,10 +24,13 @@ fun SolventaFloatingAction(
     modifier: Modifier = Modifier,
     containerColor: Color = FloatingActionButtonDefaults.containerColor,
     contentColor: Color = contentColorFor(containerColor),
+    testTag: String = "solventa_floating_action",
 ) {
     ExtendedFloatingActionButton(
         onClick = onClick,
-        modifier = modifier.testTag("solventa_floating_action"),
+        modifier = modifier
+            .testTag(testTag)
+            .semantics { contentDescription = label },
         containerColor = containerColor,
         contentColor = contentColor,
     ) {

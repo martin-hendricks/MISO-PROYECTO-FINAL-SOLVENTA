@@ -1,0 +1,40 @@
+.fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  background: var(--sv-surface-container-lowest);
+  color: var(--sv-on-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fila:focus-visible {
+  outline: 2px solid var(--sv-primary);
+  outline-offset: 2px;
+}
+
+.fila-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fila-titulo {
+  font-weight: 500;
+}
+
+.fila-detalle {
+  color: var(--sv-on-surface-variant);
+  font-size: 0.875rem;
+}
+
+.fila-chevron {
+  color: var(--sv-on-surface-variant);
+  font-size: 20px;
+}

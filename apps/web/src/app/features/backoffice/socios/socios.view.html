@@ -1,0 +1,240 @@
+<section data-testid="section-socios" [attr.data-state]="allowed ? vm.status() : 'no-permission'">
+  @if (!allowed) {
+    <h1>{{ 'backoffice.socios.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <div class="page-head">
+      <div>
+        <h1>{{ 'backoffice.socios.title' | translate }}</h1>
+        <p class="subtitle">{{ subject() }} · {{ 'backoffice.role.' + role() | translate }}</p>
+      </div>
+      @if (gestiona) {
+        <button type="button" class="filled" data-testid="socios-new" (click)="vm.abrirCrear()">
+          {{ 'backoffice.socios.new' | translate }}
+        </button>
+      }
+    </div>
+
+    @if (vm.claveNueva(); as clave) {
+      <div class="clave" role="status" data-testid="socios-clave">
+        <h2>{{ 'backoffice.socios.clave.title' | translate }} · {{ clave.nombre }}</h2>
+        <p class="advertencia">{{ 'backoffice.socios.clave.warning' | translate }}</p>
+        <code class="mono" data-testid="socios-clave-valor">{{ clave.apiKey }}</code>
+        <div class="acciones">
+          <span class="visually-hidden" role="status" data-testid="socios-copiado">{{
+            copiado() ? ('backoffice.socios.clave.copied' | translate) : ''
+          }}</span>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="socios-copiar"
+            (click)="copiar(clave.apiKey)"
+          >
+            {{
+              (copiado() ? 'backoffice.socios.clave.copied' : 'backoffice.socios.clave.copy')
+                | translate
+            }}
+          </button>
+          <button
+            type="button"
+            class="filled"
+            data-testid="socios-clave-cerrar"
+            (click)="cerrarClave()"
+          >
+            {{ 'backoffice.socios.clave.close' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (vm.formularioAbierto()) {
+      <form
+        class="ficha"
+        data-testid="socios-form"
+        (submit)="$event.preventDefault(); vm.guardar()"
+      >
+        <h2>{{ 'backoffice.socios.form.create' | translate }}</h2>
+        <label>
+          {{ 'backoffice.socios.form.nombre' | translate }}
+          <input
+            data-testid="socios-nombre"
+            aria-required="true"
+            [attr.maxlength]="nombreMaximo"
+            [value]="vm.nombre()"
+            (input)="vm.editarNombre($any($event.target).value)"
+          />
+        </label>
+        <fieldset>
+          <legend>{{ 'backoffice.socios.form.alcances' | translate }}</legend>
+          @for (alcance of alcances; track alcance) {
+            <label class="alcance">
+              <input
+                type="checkbox"
+                [attr.data-testid]="'socios-alcance-' + alcance"
+                [checked]="vm.alcances().includes(alcance)"
+                (change)="vm.alternarAlcance(alcance)"
+              />
+              <span class="mono">{{ alcance }}</span>
+              <span>{{ 'backoffice.socios.alcance.' + alcance | translate }}</span>
+            </label>
+          }
+        </fieldset>
+        <button
+          type="submit"
+          class="filled"
+          data-testid="socios-save"
+          [disabled]="!vm.puedeGuardar()"
+        >
+          {{ 'backoffice.socios.form.save' | translate }}
+        </button>
+        <button
+          type="button"
+          class="outlined"
+          data-testid="socios-cancel"
+          (click)="vm.cerrarFormulario()"
+        >
+          {{ 'backoffice.socios.form.cancel' | translate }}
+        </button>
+      </form>
+    }
+
+    @if (vm.mensaje(); as mensaje) {
+      <p role="alert" data-testid="socios-mensaje">{{ mensaje }}</p>
+    }
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="socios-loading">
+          {{ 'backoffice.socios.loading' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="socios-error">
+          <p>{{ 'backoffice.socios.error.body' | translate }}</p>
+          <button type="button" class="outlined" data-testid="socios-retry" (click)="vm.cargar()">
+            {{ 'backoffice.socios.error.retry' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <div class="empty-state" data-testid="socios-empty">
+          <h2>{{ 'backoffice.socios.empty.title' | translate }}</h2>
+          <p>{{ 'backoffice.socios.empty.body' | translate }}</p>
+        </div>
+      }
+      @default {
+        <table data-testid="socios-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.socios.title' | translate
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'backoffice.socios.column.nombre' | translate }}</th>
+              @if (gestiona) {
+                <th scope="col">{{ 'backoffice.socios.column.alcances' | translate }}</th>
+              }
+              <th scope="col">{{ 'backoffice.socios.column.estado' | translate }}</th>
+              <th scope="col">{{ 'backoffice.socios.column.creadoEn' | translate }}</th>
+              @if (gestiona) {
+                <th scope="col">{{ 'backoffice.socios.column.credenciales' | translate }}</th>
+                <th scope="col">{{ 'backoffice.socios.column.acciones' | translate }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (socio of vm.socios(); track socio.socioId) {
+              <tr [attr.data-testid]="'socio-' + socio.socioId">
+                <th scope="row">{{ socio.nombre }}</th>
+                @if (gestiona) {
+                  <td>
+                    @for (alcance of socio.alcances; track alcance) {
+                      <span class="mono alcance-item">{{ alcance }}</span>
+                    }
+                  </td>
+                }
+                <td>
+                  <span class="badge" [attr.data-estado]="socio.estado">{{
+                    'backoffice.socios.estado.' + socio.estado | translate
+                  }}</span>
+                </td>
+                <td>{{ socio.creadoEn | svDateTime }}</td>
+                @if (gestiona) {
+                  <td>
+                    <ul class="credenciales">
+                      @for (credencial of socio.credenciales; track credencial.credencialId) {
+                        <li [attr.data-testid]="'credencial-' + credencial.credencialId">
+                          <span class="mono">{{ corto(credencial.credencialId) }}</span>
+                          · {{ credencial.creadaEn | svDateTime }} ·
+                          @if (credencial.revocadaEn; as revocadaEn) {
+                            {{ 'backoffice.socios.credencial.revocada' | translate }}
+                            {{ revocadaEn | svDateTime }}
+                          } @else {
+                            {{ 'backoffice.socios.credencial.vigente' | translate }}
+                            @if (vm.admiteAcciones(socio)) {
+                              <button
+                                type="button"
+                                class="text"
+                                [attr.data-testid]="'revocar-credencial-' + credencial.credencialId"
+                                (click)="
+                                  vm.pedirRevocarCredencial(socio.socioId, credencial.credencialId)
+                                "
+                              >
+                                {{ 'backoffice.socios.revokeCredential' | translate }}
+                              </button>
+                            }
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </td>
+                  <td>
+                    @if (vm.admiteAcciones(socio)) {
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'rotar-' + socio.socioId"
+                        (click)="vm.rotar(socio)"
+                      >
+                        {{ 'backoffice.socios.rotate' | translate }}
+                      </button>
+                      <button
+                        type="button"
+                        class="text"
+                        [attr.data-testid]="'revocar-' + socio.socioId"
+                        (click)="vm.pedirRevocarSocio(socio.socioId)"
+                      >
+                        {{ 'backoffice.socios.revoke' | translate }}
+                      </button>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+
+    @if (vm.confirmando(); as confirmacion) {
+      <sv-confirm-dialog
+        [titulo]="
+          (confirmacion.tipo === 'socio'
+            ? 'backoffice.socios.revokeTitle'
+            : 'backoffice.socios.revokeCredentialTitle'
+          ) | translate
+        "
+        [advertencia]="
+          (confirmacion.tipo === 'socio'
+            ? 'backoffice.socios.revokeWarning'
+            : 'backoffice.socios.revokeCredentialWarning'
+          ) | translate
+        "
+        (cancelar)="vm.cancelarConfirmacion()"
+        (confirmar)="vm.confirmar()"
+      />
+    }
+  }
+</section>

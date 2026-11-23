@@ -1,0 +1,107 @@
+.acciones,
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips {
+  margin-bottom: 24px;
+}
+
+.chips button,
+.acciones button {
+  min-height: 44px;
+}
+
+.aviso {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--sv-on-secondary-container);
+  background: var(--sv-secondary-container);
+}
+
+.mapa-col .chips {
+  margin-bottom: 0;
+}
+
+.chips button {
+  padding: 8px 14px;
+  border: 1px solid var(--sv-outline);
+  border-radius: 999px;
+  color: var(--sv-on-surface);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chips button.selected {
+  border-color: transparent;
+  color: var(--sv-on-secondary-container);
+  background: var(--sv-secondary-container);
+}
+
+.chips button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.mapa-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lista button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--sv-outline-variant);
+  border-radius: 12px;
+  color: inherit;
+  background: var(--sv-surface-container-lowest);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lista a {
+  display: inline-block;
+  margin: 4px 0 12px 14px;
+}
+
+@media (max-width: 800px) {
+  .rejilla {
+    grid-template-columns: 1fr;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

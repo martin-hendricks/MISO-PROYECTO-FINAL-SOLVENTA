@@ -1,0 +1,125 @@
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from app.api.v1 import rutas
+from app.application.manejadores import CanalEmail
+from app.config import Settings
+from app.domain.errores import (
+    ErrorDominio,
+    NoEncontrado,
+    ReglaDeNegocioViolada,
+    ServicioExternoNoDisponible,
+    TransicionInvalida,
+)
+from app.infrastructure.email_ses import EnviadorSES
+from app.infrastructure.email_stub import EmailStub
+from app.infrastructure.identidad_http import ResolutorIdentidadHTTP
+from app.infrastructure.kafka_consumer import ConsumidorMSK
+from app.infrastructure.push_fcm import EnviadorFCM
+from app.infrastructure.push_stub import PushStub
+from app.infrastructure.sql import crear_motor, fabrica_unidad_de_trabajo
+from app.observabilidad import instrumentar
+
+ESTADO_HTTP = {
+    NoEncontrado: 404,
+    ReglaDeNegocioViolada: 422,
+    TransicionInvalida: 409,
+    ServicioExternoNoDisponible: 503,
+}
+
+
+def construir_push(config: Settings):
+    """Stub solo sin bus. Con MSK, o con proveedor fcm, exige credenciales reales."""
+    if config.push_proveedor == "fcm":
+        if not config.fcm_credenciales_json.strip():
+            raise RuntimeError("FCM_CREDENCIALES_JSON requerido cuando PUSH_PROVEEDOR=fcm")
+        return EnviadorFCM(config.fcm_credenciales_json)
+    if config.msk_bootstrap_brokers:
+        raise RuntimeError("PUSH_PROVEEDOR=stub no se permite con MSK_BOOTSTRAP_BROKERS")
+    return PushStub(config.push_stub_fallar)
+
+
+def construir_email(config: Settings) -> CanalEmail | None:
+    """Apagado por defecto. `ses` exige remitente, ms-identidad y secreto de servicio."""
+    if config.email_proveedor == "ses":
+        faltantes = [
+            nombre
+            for nombre, valor in (
+                ("EMAIL_REMITENTE", config.email_remitente),
+                ("MS_IDENTIDAD_URL", config.ms_identidad_url),
+                ("SOLVENTA_TOKEN_SECRET", config.solventa_token_secret),
+            )
+            if not valor.strip()
+        ]
+        if faltantes:
+            raise RuntimeError(f"EMAIL_PROVEEDOR=ses requiere {', '.join(faltantes)}")
+        return CanalEmail(
+            EnviadorSES(
+                config.aws_region or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1",
+                config.email_remitente,
+                config.ses_configuration_set,
+            ),
+            ResolutorIdentidadHTTP(config.ms_identidad_url, config.solventa_token_secret),
+        )
+    if config.email_proveedor == "stub":
+        if config.msk_bootstrap_brokers:
+            raise RuntimeError("EMAIL_PROVEEDOR=stub no se permite con MSK_BOOTSTRAP_BROKERS")
+        return CanalEmail(EmailStub(config.email_stub_fallar), _SinCorreo())
+    if config.email_proveedor:
+        raise RuntimeError(f"EMAIL_PROVEEDOR '{config.email_proveedor}' no soportado")
+    return None
+
+
+class _SinCorreo:
+    """Resolutor del stub: no hay ms-identidad en desarrollo."""
+
+    async def correo_de(self, usuario_id):
+        return f"{usuario_id}@stub.solventa.local"
+
+
+def crear_app(config: Settings | None = None) -> FastAPI:
+    config = config or Settings()
+    logging.basicConfig(level=config.log_level)
+    push = construir_push(config)
+    email = construir_email(config)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        motor = crear_motor(config)
+        app.state.motor = motor
+        app.state.fabrica_uow = fabrica_unidad_de_trabajo(motor)
+
+        # Sin brokers configurados no se arranca consumidor (tests y entornos sin bus).
+        consumidor = None
+        if config.msk_bootstrap_brokers:
+            consumidor = ConsumidorMSK(config, app.state.fabrica_uow, app.state.push, email)
+            await consumidor.iniciar()
+
+        try:
+            yield
+        finally:
+            if consumidor is not None:
+                await consumidor.detener()
+            await motor.dispose()
+
+    app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)
+    app.state.push = push
+    app.state.email = email
+    instrumentar(app)
+    app.include_router(rutas.router)
+
+    @app.exception_handler(ErrorDominio)
+    async def error_dominio(_: Request, exc: ErrorDominio):
+        return JSONResponse(
+            status_code=ESTADO_HTTP.get(type(exc), 400),
+            content={"codigo": exc.codigo, "mensaje": exc.mensaje},
+        )
+
+    return app
+
+
+app = crear_app()

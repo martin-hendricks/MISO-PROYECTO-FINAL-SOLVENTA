@@ -2,14 +2,27 @@ import { inject, Pipe, PipeTransform } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { defaultLocale } from './provide-i18n';
 
-/** Amount with its ISO 4217 code, e.g. `$ 42.300 COP` in es-CO. */
+/** Decimals each channel currency is shown with. Pinned here instead of
+ * trusting each browser's ICU data, which disagrees (Chrome shows COP with 0,
+ * Node with 2), so the same premium reads the same everywhere. COP and CLP
+ * are quoted without cents locally; others default to 2. */
+const DISPLAY_DECIMALS: Record<string, number> = { COP: 0, CLP: 0, MXN: 2, PEN: 2 };
+
+/** Amount with its ISO 4217 code, e.g. `$ 42.300 COP` in es-CO or
+ * `$1,234.56 MXN` in es-MX (HU-108). Cents show only when the amount has
+ * them; COP/CLP always round to whole units. */
 export function formatMoney(amount: number, currency: string, locale: string): string {
-  const value = new Intl.NumberFormat(locale, {
+  const decimals = DISPLAY_DECIMALS[currency] ?? 2;
+  // `trailingZeroDisplay` is ES2023 Intl; the project compiles against ES2022 typings.
+  const options: Intl.NumberFormatOptions & { trailingZeroDisplay: 'stripIfInteger' } = {
     style: 'currency',
     currency,
     currencyDisplay: 'narrowSymbol',
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    trailingZeroDisplay: 'stripIfInteger',
+  };
+  const value = new Intl.NumberFormat(locale, options).format(amount);
   return `${value} ${currency}`;
 }
 

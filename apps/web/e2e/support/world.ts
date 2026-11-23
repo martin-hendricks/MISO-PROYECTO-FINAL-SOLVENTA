@@ -1,13 +1,21 @@
 import { IWorldOptions, setWorldConstructor, World } from '@cucumber/cucumber';
 import { Browser, chromium, Page } from 'playwright';
+import { BilleteraPage } from '../pages/billetera.page';
+import { BoPrestadoresPage } from '../pages/bo-prestadores.page';
+import { PrestadoresPage } from '../pages/prestadores.page';
 import { BackofficePage } from '../pages/backoffice.page';
+import { NotificacionesPage } from '../pages/notificaciones.page';
 import { CotizacionPage } from '../pages/cotizacion.page';
 import { ConsentimientoPage } from '../pages/consentimiento.page';
+import { IdiomaRegionPage } from '../pages/idioma-region.page';
 import { LoginPage } from '../pages/login.page';
 import { InicioPage } from '../pages/inicio.page';
+import { PolizaBackofficePage } from '../pages/poliza-backoffice.page';
 import { PolizaDetallePage } from '../pages/poliza-detalle.page';
+import { PolizasAvisosPage } from '../pages/polizas-avisos.page';
 import { RegistroPage } from '../pages/registro.page';
 import { ShellPage } from '../pages/shell.page';
+import { VidaCrediticiaPage } from '../pages/vida-crediticia.page';
 import { Client, credentials, Credentials, Home, Offer, SignUp } from './data/generators';
 import { BffDoubles } from './doubles/bff';
 
@@ -20,9 +28,17 @@ export class PortalWorld extends World {
   registro!: RegistroPage;
   consentimiento!: ConsentimientoPage;
   backoffice!: BackofficePage;
+  notificaciones!: NotificacionesPage;
   inicio!: InicioPage;
+  billetera!: BilleteraPage;
+  prestadores!: PrestadoresPage;
+  boPrestadores!: BoPrestadoresPage;
   cotizacion!: CotizacionPage;
   polizaDetalle!: PolizaDetallePage;
+  idiomaRegion!: IdiomaRegionPage;
+  polizaBackoffice!: PolizaBackofficePage;
+  vidaCrediticia!: VidaCrediticiaPage;
+  polizasAvisos!: PolizasAvisosPage;
   account!: Credentials;
   alta!: SignUp;
   clientes: Client[] = [];
@@ -45,9 +61,17 @@ export class PortalWorld extends World {
     this.registro = new RegistroPage(this.page);
     this.consentimiento = new ConsentimientoPage(this.page);
     this.backoffice = new BackofficePage(this.page);
+    this.notificaciones = new NotificacionesPage(this.page);
     this.inicio = new InicioPage(this.page);
+    this.billetera = new BilleteraPage(this.page);
+    this.prestadores = new PrestadoresPage(this.page);
+    this.boPrestadores = new BoPrestadoresPage(this.page);
     this.cotizacion = new CotizacionPage(this.page);
     this.polizaDetalle = new PolizaDetallePage(this.page);
+    this.idiomaRegion = new IdiomaRegionPage(this.page);
+    this.polizaBackoffice = new PolizaBackofficePage(this.page);
+    this.vidaCrediticia = new VidaCrediticiaPage(this.page);
+    this.polizasAvisos = new PolizasAvisosPage(this.page);
     this.account = credentials();
   }
 

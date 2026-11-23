@@ -115,3 +115,10 @@ button:disabled {
   align-items: center;
   font-weight: 400;
 }
+
+:host.portal label,
+:host.portal .label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sv-on-surface-variant);
+}

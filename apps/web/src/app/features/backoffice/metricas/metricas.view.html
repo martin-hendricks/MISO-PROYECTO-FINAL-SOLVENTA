@@ -1,0 +1,61 @@
+<section data-testid="metricas" [attr.data-state]="allowed ? vm.status() : 'no-permission'">
+  @if (!allowed) {
+    <h1>{{ 'backoffice.metricas.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.noPermission.subtitle' | translate }}</p>
+    <sv-no-permission [current]="role()" [required]="required" />
+  } @else {
+    <h1>{{ 'backoffice.metricas.title' | translate }}</h1>
+    <p class="subtitle">{{ 'backoffice.metricas.subtitle' | translate }}</p>
+
+    @switch (vm.status()) {
+      @case ('loading') {
+        <p class="subtitle" role="status" data-testid="metricas-loading">
+          {{ 'backoffice.metricas.cargando' | translate }}
+        </p>
+      }
+      @case ('error') {
+        <div class="empty-state" role="alert" data-testid="metricas-error">
+          <p>{{ 'backoffice.metricas.error' | translate }}</p>
+          <button
+            type="button"
+            class="outlined"
+            data-testid="metricas-retry"
+            (click)="reintentar()"
+          >
+            {{ 'backoffice.reportes.generar' | translate }}
+          </button>
+        </div>
+      }
+      @case ('empty') {
+        <div class="empty-state" data-testid="metricas-empty">
+          <p>{{ 'backoffice.metricas.vacio' | translate }}</p>
+        </div>
+      }
+      @default {
+        <table class="metricas-table" data-testid="metricas-table">
+          <caption class="visually-hidden">
+            {{
+              'backoffice.metricas.title' | translate
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'backoffice.metricas.columna.tipo' | translate }}</th>
+              <th scope="col">{{ 'backoffice.metricas.columna.fecha' | translate }}</th>
+              <th scope="col">{{ 'backoffice.metricas.columna.cantidad' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (conteo of vm.conteos(); track conteo.tipo + conteo.fecha) {
+              <tr [attr.data-testid]="'conteo-' + conteo.tipo + '-' + conteo.fecha">
+                <td>{{ 'backoffice.metricas.tipo.' + conteo.tipo | translate }}</td>
+                <td>{{ conteo.fecha | svDate }}</td>
+                <td>{{ conteo.cantidad }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  }
+</section>

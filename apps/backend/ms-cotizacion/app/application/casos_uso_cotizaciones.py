@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -8,12 +9,15 @@ from typing import Any
 from uuid import UUID
 
 from app.config import Settings
-from app.domain.errores import NoEncontrado, ReglaDeNegocioViolada
+from app.domain.errores import ConsentimientoRevocado, NoEncontrado, ReglaDeNegocioViolada
 from app.domain.modelos import EstadoSolicitud, SolicitudCotizacion, solicitud_recibida
 from app.domain.oferta import ConsultaOferta, Oferta, oferta_aceptada, oferta_emitida
-from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima
+from app.domain.moneda import expresar_datos_riesgo, expresar_prima, validar_moneda
+from app.domain.rating import ReglaRating, ResultadoPrima, calcular_prima, evaluar_idoneidad
 from app.domain.riesgo import FactorRiesgo, OrigenFactorRiesgo, aplicar_factor_riesgo
+from app.metricas_negocio import COTIZACION_LATENCIA, OFERTAS
 from app.ports.catalogo import CatalogoProductos
+from app.ports.consentimiento import ConsentimientoPerfil
 from app.ports.persistencia import AceptacionConcurrente, ClaveIdempotenciaDuplicada, FabricaUnidadDeTrabajo
 from app.ports.riesgo import AdaptadorPerfilRiesgo
 from app.ports.suscripcion import DecisionSuscripcion, MotorSuscripcion
@@ -31,7 +35,7 @@ async def recibir_solicitud(
     idempotency_key: str,
     usuario_id: UUID,
     socio_id: UUID,
-    consentimiento_id: UUID,
+    consentimiento_id: UUID | None,
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
@@ -68,6 +72,7 @@ async def calcular_prima_solicitud(
         regla = await tx.reglas_rating.obtener_vigente(producto)
     if regla is None:
         raise ReglaDeNegocioViolada("regla_rating_no_configurada", f"No hay regla de rating vigente para '{producto}'")
+    evaluar_idoneidad(regla, datos_riesgo)
     resultado = calcular_prima(regla, datos_riesgo)
     return regla, resultado
 
@@ -116,63 +121,74 @@ async def cotizar(
     idempotency_key: str,
     usuario_id: UUID,
     socio_id: UUID,
-    consentimiento_id: UUID,
+    consentimiento_id: UUID | None,
     producto: str,
     canal: str,
     datos_riesgo: dict[str, Any],
     asesor_id: UUID | None = None,
     cliente_ref: str | None = None,
+    moneda: str | None = None,
 ) -> RegistroOferta:
     """Orquesta HU-96+HU-97+HU-98 en un único flujo: la oferta es la respuesta del mismo
     flujo de recibir_solicitud, sin exigir una segunda llamada."""
-    async with uow() as tx:
-        existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
-        if existente is not None:
-            oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
-            return RegistroOferta(existente, oferta_existente, creada=False)
+    inicio = time.perf_counter()
+    try:
+        validar_moneda(moneda)
+        async with uow() as tx:
+            existente = await tx.solicitudes.obtener_por_clave(idempotency_key)
+            if existente is not None:
+                oferta_existente = await tx.ofertas.obtener_por_solicitud(existente.id)
+                return RegistroOferta(existente, oferta_existente, creada=False)
 
-    solicitud = SolicitudCotizacion.crear(
-        idempotency_key,
-        usuario_id,
-        socio_id,
-        consentimiento_id,
-        producto,
-        canal,
-        datos_riesgo,
-        catalogo,
-        asesor_id=asesor_id,
-        cliente_ref=cliente_ref,
-    )
-    # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
-    # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
-    regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
-    resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
-    definicion = catalogo.obtener(producto)
-    oferta = Oferta.emitir(
-        solicitud,
-        regla,
-        resultado,
-        factor,
-        definicion.codigos_coberturas,
-        timedelta(minutes=config.oferta_vigencia_minutos),
-    )
-    solicitud.marcar_cotizada()
+        definicion = catalogo.obtener(producto)
+        datos_riesgo = expresar_datos_riesgo(
+            datos_riesgo, moneda, definicion.moneda if definicion is not None else "COP"
+        )
+        solicitud = SolicitudCotizacion.crear(
+            idempotency_key,
+            usuario_id,
+            socio_id,
+            consentimiento_id,
+            producto,
+            canal,
+            datos_riesgo,
+            catalogo,
+            asesor_id=asesor_id,
+            cliente_ref=cliente_ref,
+        )
+        # calcular_prima_solicitud y combinar_factor_riesgo abren su propia transacción de
+        # lectura (HU-97/HU-98, sin cambios); son lecturas y no participan del commit final.
+        regla, resultado = await calcular_prima_solicitud(uow, producto, datos_riesgo)
+        resultado, factor = await combinar_factor_riesgo(config, adaptador_riesgo, usuario_id, producto, resultado)
+        resultado = expresar_prima(resultado, moneda)
+        oferta = Oferta.emitir(
+            solicitud,
+            regla,
+            resultado,
+            factor,
+            definicion.codigos_coberturas,
+            timedelta(minutes=config.oferta_vigencia_minutos),
+        )
+        solicitud.marcar_cotizada()
 
-    async with uow() as tx:
-        await tx.solicitudes.agregar(solicitud)
-        await tx.ofertas.agregar(oferta)
-        await tx.outbox.agregar(solicitud_recibida(solicitud))
-        await tx.outbox.agregar(oferta_emitida(oferta))
-        try:
-            await tx.confirmar()
-            return RegistroOferta(solicitud, oferta, creada=True)
-        except ClaveIdempotenciaDuplicada:
-            pass
+        async with uow() as tx:
+            await tx.solicitudes.agregar(solicitud)
+            await tx.ofertas.agregar(oferta)
+            await tx.outbox.agregar(solicitud_recibida(solicitud))
+            await tx.outbox.agregar(oferta_emitida(oferta))
+            try:
+                await tx.confirmar()
+                OFERTAS.labels("creada").inc()
+                return RegistroOferta(solicitud, oferta, creada=True)
+            except ClaveIdempotenciaDuplicada:
+                pass
 
-    async with uow() as tx:
-        ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
-        ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
-    return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
+        async with uow() as tx:
+            ganador_solicitud = await tx.solicitudes.obtener_por_clave(idempotency_key)
+            ganador_oferta = await tx.ofertas.obtener_por_solicitud(ganador_solicitud.id)
+        return RegistroOferta(ganador_solicitud, ganador_oferta, creada=False)
+    finally:
+        COTIZACION_LATENCIA.observe(time.perf_counter() - inicio)
 
 
 @dataclass(frozen=True)
@@ -181,7 +197,16 @@ class ReconsultaOferta:
     consulta: ConsultaOferta
 
 
-async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -> ReconsultaOferta:
+def _exigir_dueno(solicitud: SolicitudCotizacion, usuario_id: UUID | None, socio_id: UUID | None = None) -> None:
+    if usuario_id is not None and solicitud.usuario_id != usuario_id:
+        raise NoEncontrado(f"Cotización {solicitud.id} no existe")
+    if socio_id is not None and solicitud.socio_id != socio_id:
+        raise NoEncontrado(f"Cotización {solicitud.id} no existe")
+
+
+async def reconsultar_oferta(
+    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, usuario_id: UUID | None = None, socio_id: UUID | None = None
+) -> ReconsultaOferta:
     """Lectura pura: no invoca calcular_prima_solicitud ni combinar_factor_riesgo ni el
     adaptador de perfil. 404 genérico sin distinguir el motivo (solicitud inexistente vs.
     sin oferta), para no filtrar si la cotización perteneció a otro cliente/socio."""
@@ -190,10 +215,13 @@ async def reconsultar_oferta(uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID) -
         oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
     if solicitud is None or oferta is None:
         raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+    _exigir_dueno(solicitud, usuario_id, socio_id)
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
 
 
-async def reconsultar_oferta_por_id(uow: FabricaUnidadDeTrabajo, oferta_id: UUID) -> ReconsultaOferta:
+async def reconsultar_oferta_por_id(
+    uow: FabricaUnidadDeTrabajo, oferta_id: UUID, usuario_id: UUID | None = None
+) -> ReconsultaOferta:
     """Igual que reconsultar_oferta, pero busca por el id de la Oferta en vez
     de por el id de la SolicitudCotizacion ("cotizacion_id"). ms-polizas solo
     guarda oferta_id (no cotizacion_id) en la póliza emitida -- este camino
@@ -205,6 +233,7 @@ async def reconsultar_oferta_por_id(uow: FabricaUnidadDeTrabajo, oferta_id: UUID
         solicitud = await tx.solicitudes.obtener(oferta.solicitud_id) if oferta is not None else None
     if oferta is None or solicitud is None:
         raise NoEncontrado(f"Oferta {oferta_id} no existe")
+    _exigir_dueno(solicitud, usuario_id)
     return ReconsultaOferta(solicitud, ConsultaOferta.desde(oferta))
 
 
@@ -247,6 +276,26 @@ async def listar_cotizaciones_asesor(
     return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
 
 
+async def listar_cotizaciones_usuario(
+    uow: FabricaUnidadDeTrabajo,
+    usuario_id: UUID,
+    pagina: int,
+    tamano: int,
+) -> PaginaPendientes:
+    """Cotizaciones del usuario que siguen en cotizada y con oferta vigente.
+    Se pide una fila de más para saber si hay otra página sin un COUNT."""
+    ahora = datetime.now(UTC)
+    async with uow() as tx:
+        filas = await tx.solicitudes.listar_por_usuario(
+            usuario_id,
+            ahora,
+            (pagina - 1) * tamano,
+            tamano + 1,
+        )
+    items = [PendienteAsesor(s, ConsultaOferta.desde(o, ahora)) for s, o in filas[:tamano]]
+    return PaginaPendientes(items, pagina, tamano, hay_mas=len(filas) > tamano)
+
+
 @dataclass(frozen=True)
 class Aceptacion:
     solicitud: SolicitudCotizacion
@@ -256,13 +305,17 @@ class Aceptacion:
 
 
 async def _registrar_aceptacion(
-    uow: FabricaUnidadDeTrabajo, cotizacion_id: UUID, aceptacion_key: str
+    uow: FabricaUnidadDeTrabajo,
+    cotizacion_id: UUID,
+    aceptacion_key: str,
+    usuario_id: UUID | None = None,
 ) -> tuple[SolicitudCotizacion, Oferta, bool]:
     async with uow() as tx:
         solicitud = await tx.solicitudes.obtener(cotizacion_id)
         oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
         if solicitud is None or oferta is None:
             raise NoEncontrado(f"Cotización {cotizacion_id} no existe")
+        _exigir_dueno(solicitud, usuario_id)
         if solicitud.aceptacion_key == aceptacion_key:
             return solicitud, oferta, False
 
@@ -282,18 +335,41 @@ async def _registrar_aceptacion(
     return ganadora, oferta, False
 
 
+async def _exigir_consentimiento_vigente(
+    uow: FabricaUnidadDeTrabajo, consentimientos: ConsentimientoPerfil, cotizacion_id: UUID, aceptacion_key: str
+) -> None:
+    async with uow() as tx:
+        solicitud = await tx.solicitudes.obtener(cotizacion_id)
+        oferta = await tx.ofertas.obtener_por_solicitud(cotizacion_id) if solicitud is not None else None
+    if solicitud is None or oferta is None or solicitud.aceptacion_key == aceptacion_key:
+        return
+    if not consentimientos.requiere(solicitud.producto):
+        return
+    if oferta.factor_riesgo_origen != OrigenFactorRiesgo.REAL:
+        return
+    if not await consentimientos.vigente(solicitud.usuario_id):
+        raise ConsentimientoRevocado(cotizacion_id)
+
+
 async def aceptar_oferta(
     uow: FabricaUnidadDeTrabajo,
     suscripciones: MotorSuscripcion,
+    consentimientos: ConsentimientoPerfil,
     cotizacion_id: UUID,
     aceptacion_key: str,
     perfil_id: UUID,
     score: Decimal,
+    usuario_id: UUID | None = None,
 ) -> Aceptacion:
     """HU-12: idempotente por cotizacionId + Idempotency-Key. La misma clave devuelve la
     aceptación original; otra clave sobre una cotización aceptada es oferta_ya_usada.
     La aceptación se confirma antes de encadenar HU-13: si ms-suscripcion falla, el
     reintento con la misma clave retoma la decisión sin volver a aceptar."""
-    solicitud, oferta, creada = await _registrar_aceptacion(uow, cotizacion_id, aceptacion_key)
+    await _exigir_consentimiento_vigente(uow, consentimientos, cotizacion_id, aceptacion_key)
+    solicitud, oferta, creada = await _registrar_aceptacion(
+        uow, cotizacion_id, aceptacion_key, usuario_id
+    )
+    if creada:
+        OFERTAS.labels("aceptada").inc()
     decision = await suscripciones.evaluar(solicitud.id, perfil_id, score)
     return Aceptacion(solicitud, oferta, decision, creada)

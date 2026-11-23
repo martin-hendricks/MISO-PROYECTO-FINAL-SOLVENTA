@@ -363,10 +363,39 @@ resource "aws_apigatewayv2_integration" "alb_proxy" {
   payload_format_version = "1.0"
 }
 
+# Mapeo explicito de URLs. Un path `/v1/cliente` genera `ANY /v1/cliente` y
+# `ANY /v1/cliente/{proxy+}` (el proxy greedy no incluye la raiz del path). Salen de la
+# misma variable que arma las reglas del ALB, asi que no hay una segunda lista que
+# mantener.
+locals {
+  rutas_mapeadas = toset(flatten([
+    for _, ruta in var.routes : [
+      for path in ruta.paths : ["ANY ${path}", "ANY ${path}/{proxy+}"]
+    ]
+  ]))
+}
+
+resource "aws_apigatewayv2_route" "mapeada" {
+  for_each = local.rutas_mapeadas
+
+  api_id    = aws_apigatewayv2_api.this.id
+  route_key = each.value
+  target    = "integrations/${aws_apigatewayv2_integration.alb_proxy.id}"
+}
+
+# Ruta comodin: con restringir_a_rutas_mapeadas = true desaparece y solo pasan los paths mapeados.
 resource "aws_apigatewayv2_route" "proxy" {
+  count = var.restringir_a_rutas_mapeadas ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.this.id
   route_key = "ANY /{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.alb_proxy.id}"
+}
+
+# La comodin pasa a tener indice; sin esto Terraform la destruiria y recrearia.
+moved {
+  from = aws_apigatewayv2_route.proxy
+  to   = aws_apigatewayv2_route.proxy[0]
 }
 
 resource "aws_cloudwatch_log_group" "apigw_access_logs" {

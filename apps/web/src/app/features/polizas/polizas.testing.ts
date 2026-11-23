@@ -1,4 +1,4 @@
-import { PolizaDetalle, PolizaResumen } from './polizas.gateway';
+import { AvisoPoliza, PolizaDetalle, PolizaResumen } from './polizas.gateway';
 
 /** Wallet shaped as the proposed `bff-web` contract (HU-149). For specs only. */
 export const POLIZAS: PolizaResumen[] = [
@@ -19,6 +19,16 @@ export const POLIZAS: PolizaResumen[] = [
     finVigencia: '2026-06-01',
     moneda: 'COP',
     primaTotal: 148900,
+  },
+];
+
+export const AVISOS: AvisoPoliza[] = [
+  {
+    numero: 'POL-2026-00088421',
+    ramo: 'Hogar',
+    descripcion: 'Hogar',
+    venceEn: '2027-03-12',
+    renovable: true,
   },
 ];
 

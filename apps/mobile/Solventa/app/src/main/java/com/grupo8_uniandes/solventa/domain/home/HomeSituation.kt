@@ -1,5 +1,6 @@
 package com.grupo8_uniandes.solventa.domain.home
 
+import com.grupo8_uniandes.solventa.domain.bff.mortgage.MortgageCredit
 import java.time.Instant
 
 /**
@@ -13,6 +14,8 @@ data class Quote(
     val consultable: Boolean,
     /** Compared only among consultable quotes. The latest one is the current offer. */
     val becameCurrentAt: Instant,
+    /** Line of business shown next to the quote id. Empty when the read did not include one. */
+    val ramo: String = "",
 )
 
 /**
@@ -45,6 +48,7 @@ data class ClaimCandidate(
 data class Origination(
     /** `true` shows the Vida Crediticia card on Inicio. `false` omits it. */
     val present: Boolean = false,
+    val credit: MortgageCredit? = null,
 )
 
 /**
@@ -66,7 +70,9 @@ data class HomeSituation(
  */
 data class HomePanel(
     val offerId: String? = null,
+    val offerRamo: String? = null,
     val policyId: String? = null,
     val claimId: String? = null,
     val vidaCrediticia: Boolean = false,
+    val mortgageCredit: MortgageCredit? = null,
 )

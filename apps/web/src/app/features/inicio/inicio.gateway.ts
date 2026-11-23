@@ -8,6 +8,9 @@ export interface OfertaVigente {
   cotizacionId: string;
   ramo: string;
   estado: string;
+  prima?: number;
+  moneda?: string;
+  venceEn: string;
 }
 
 export interface Poliza {
@@ -24,6 +27,7 @@ export interface SiniestroEnCurso {
 /** The Inicio aggregate of `bff-web` (contract HU-138). A `null` block draws no card. */
 export interface Inicio {
   ofertaVigente: OfertaVigente | null;
+  cotizacionesPendientes?: OfertaVigente[];
   poliza: Poliza | null;
   siniestroEnCurso: SiniestroEnCurso | null;
   /** Present only when there is a mortgage origination. */

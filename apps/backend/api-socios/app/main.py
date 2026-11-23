@@ -9,6 +9,7 @@ from app.api.v1 import rutas
 from app.clients.base import RechazoDelNucleo, RecursoNoEncontrado, ServicioNoDisponible
 from app.config import Settings
 from app.observabilidad import instrumentar
+from app.registro_socios import RegistroSociosIdentidad
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,17 @@ def crear_app(config: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        async with httpx.AsyncClient(base_url=config.ms_cotizacion_url, timeout=config.timeout_nucleo_s) as http:
-            app.state.http_ms_cotizacion = http
+        async with (
+            httpx.AsyncClient(base_url=config.ms_cotizacion_url, timeout=config.timeout_nucleo_s) as cotizacion,
+            httpx.AsyncClient(base_url=config.ms_identidad_url, timeout=config.timeout_nucleo_s) as identidad,
+            httpx.AsyncClient(base_url=config.ms_perfilamiento_url, timeout=config.timeout_nucleo_s) as perfilamiento,
+        ):
+            app.state.http_ms_cotizacion = cotizacion
+            app.state.http_ms_identidad = identidad
+            app.state.http_ms_perfilamiento = perfilamiento
+            app.state.registro_socios = RegistroSociosIdentidad(
+                identidad, config.solventa_token_secret, config.cache_socios_s
+            )
             yield
 
     app = FastAPI(title=config.service_name, version="1.0.0", lifespan=lifespan)

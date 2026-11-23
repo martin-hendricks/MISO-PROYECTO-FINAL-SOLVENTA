@@ -17,44 +17,86 @@
       <form class="form" novalidate (submit)="submit($event)">
         <fieldset>
           <legend>{{ 'backoffice.cotizacion.cliente' | translate }}</legend>
-          @for (campo of campos; track campo) {
-            @let issue = vm.issue(campo);
+          @if (vm.clienteSeleccionado()) {
+            <div class="cliente-elegido" data-testid="cliente-seleccionado">
+              <dl>
+                <dt>{{ 'backoffice.cotizacion.campo.nombre' | translate }}</dt>
+                <dd data-testid="cliente-nombre">{{ vm.nombre() }}</dd>
+                <dt>{{ 'backoffice.cotizacion.campo.documento' | translate }}</dt>
+                <dd class="mono" data-testid="cliente-documento">{{ vm.documento() }}</dd>
+              </dl>
+              <button
+                type="button"
+                class="outlined"
+                data-testid="cliente-cambiar"
+                (click)="vm.cambiarCliente()"
+              >
+                {{ 'backoffice.cotizacion.clienteCambiar' | translate }}
+              </button>
+            </div>
+          } @else {
             <div class="field">
-              <label [for]="'asesor-' + campo">{{
-                'backoffice.cotizacion.campo.' + campo | translate
+              <label for="asesor-cliente-busqueda">{{
+                'backoffice.cotizacion.clienteBuscar' | translate
               }}</label>
               <input
-                #field
-                [id]="'asesor-' + campo"
-                [attr.data-testid]="'cliente-' + campo"
-                [attr.inputmode]="campo === 'documento' ? 'numeric' : null"
-                [value]="vm[campo]()"
-                [attr.aria-invalid]="issue ? 'true' : null"
-                (input)="vm.edit(campo, field.value)"
-                (blur)="vm.touch(campo)"
+                #busqueda
+                id="asesor-cliente-busqueda"
+                type="search"
+                role="combobox"
+                autocomplete="off"
+                data-testid="cliente-busqueda"
+                aria-controls="asesor-cliente-resultados"
+                [attr.aria-expanded]="vm.resultados().length > 0"
+                [attr.placeholder]="'backoffice.cotizacion.clienteBuscarPlaceholder' | translate"
+                [value]="vm.busqueda()"
+                (input)="vm.buscar(busqueda.value)"
               />
-              @if (issue) {
-                <p class="field-error" [attr.data-testid]="'cliente-' + campo + '-error'">
-                  {{ 'backoffice.cotizacion.error.' + campo + '.' + issue | translate }}
+              @if (vm.resultados().length) {
+                <ul
+                  id="asesor-cliente-resultados"
+                  class="cliente-resultados"
+                  role="listbox"
+                  data-testid="cliente-resultados"
+                >
+                  @for (cliente of vm.resultados(); track cliente.usuarioId) {
+                    <li role="option" aria-selected="false">
+                      <button
+                        type="button"
+                        [attr.data-testid]="'cliente-opcion-' + cliente.documento"
+                        (click)="vm.seleccionar(cliente)"
+                      >
+                        <span>{{ cliente.nombre }} {{ cliente.apellidos }}</span>
+                        <span class="mono">{{ cliente.documento }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (vm.sinResultados()) {
+                <p class="field-hint" data-testid="cliente-sin-resultados">
+                  {{ 'backoffice.cotizacion.clienteSinResultados' | translate }}
                 </p>
               }
             </div>
           }
-          <div class="field">
-            <label for="asesor-vigencia">{{
-              'backoffice.cotizacion.campo.vigencia' | translate
-            }}</label>
-            <input
-              id="asesor-vigencia"
-              readonly
-              [value]="'backoffice.cotizacion.vigencia' | translate"
-            />
-          </div>
         </fieldset>
 
         <fieldset>
           <legend>{{ 'cotizacion.riesgo' | translate }}</legend>
           <sv-riesgo-fields [vm]="vm.form" prefix="asesor" />
+          @if (vm.esHipotecario()) {
+            <label class="check consentimiento">
+              <input
+                #consentimiento
+                type="checkbox"
+                data-testid="asesor-consentimiento"
+                [checked]="vm.consentimiento()"
+                (change)="vm.consentir(consentimiento.checked)"
+              />
+              {{ 'backoffice.cotizacion.campo.consentimiento' | translate }}
+            </label>
+          }
           @if (vm.pidePlaca()) {
             @let placaIssue = vm.issue('placa');
             <div class="field">
@@ -106,13 +148,27 @@
                 {{ oferta.expedicion | svMoney: oferta.moneda }}
               </dd>
             }
-            <dt>{{ 'backoffice.cotizacion.campo.vigencia' | translate }}</dt>
-            <dd>{{ 'backoffice.cotizacion.vigencia' | translate }}</dd>
             <dt>{{ 'cotizacion.oferta.venceEn' | translate }}</dt>
             <dd data-testid="oferta-vence">{{ oferta.venceEn | svDateTime }}</dd>
             <dt>{{ 'backoffice.cotizacion.oferta.id' | translate }}</dt>
             <dd class="mono" data-testid="oferta-id">{{ oferta.cotizacionId }}</dd>
           </dl>
+          @if (oferta.degradada) {
+            <p class="banner" role="status" data-testid="oferta-degradada">
+              {{ 'backoffice.cotizacion.oferta.degradada' | translate }}
+            </p>
+          }
+          @if (oferta.factores?.length) {
+            <p class="label">{{ 'backoffice.cotizacion.oferta.factores' | translate }}</p>
+            <dl data-testid="oferta-factores">
+              @for (item of oferta.factores; track item.factor) {
+                <dt>{{ factor(item.factor) }}</dt>
+                <dd [attr.data-impacto]="item.impacto">
+                  {{ 'vidaCrediticia.impacto.' + item.impacto | translate }}
+                </dd>
+              }
+            </dl>
+          }
           @if (vm.canContinue()) {
             <a
               class="filled"

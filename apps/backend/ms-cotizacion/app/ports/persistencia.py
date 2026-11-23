@@ -45,6 +45,17 @@ class RepositorioSolicitudes(Protocol):
         Con vigentes_desde, excluye en la consulta las ofertas con vence_en <= ese instante."""
         ...
 
+    async def listar_por_usuario(
+        self,
+        usuario_id: UUID,
+        vigentes_desde: datetime,
+        desplazamiento: int,
+        limite: int,
+    ) -> list[tuple[SolicitudCotizacion, Oferta]]:
+        """Cotizaciones del usuario en estado cotizada, con oferta aún vigente,
+        por creada_en descendente."""
+        ...
+
 
 class Outbox(Protocol):
     async def agregar(self, evento: EventoDominio) -> None: ...

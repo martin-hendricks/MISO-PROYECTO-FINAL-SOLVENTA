@@ -109,6 +109,7 @@ class LoadProfileTest {
             override fun stage(region: Region) = read()
             override fun confirmFirstLaunch() = read()
             override fun confirmFromProfile() = read()
+            override fun reopenFirstLaunch() = read()
         },
         permissions = DevicePermissionReader { permissions },
         consent = object : ConsentRepository {

@@ -28,6 +28,20 @@ variable "vpc_link_security_group_ids" {
   description = "Security group IDs attached to the VPC Link's ENIs (the vpc_link SG from the security_groups module, which is the only principal the ALB's security group allows in)."
 }
 
+variable "routes" {
+  type = map(object({
+    paths = list(string)
+  }))
+  description = "Mapeo de paths por servicio. Es la misma variable que recibe el ALB (alb_routes): cada path genera en el API Gateway las rutas `ANY <path>` y `ANY <path>/{proxy+}` hacia la misma integracion, sin tocar el ALB. Ante un path nuevo basta agregarlo a alb_routes y queda en los dos."
+  default     = {}
+}
+
+variable "restringir_a_rutas_mapeadas" {
+  type        = bool
+  description = "Si es true se quita la ruta comodin `ANY /{proxy+}` y el API Gateway solo deja pasar los paths de var.routes (el resto responde 404 en el borde y no llega al ALB). Con false, el valor por defecto, las rutas mapeadas existen pero la comodin sigue aceptando todo: el comportamiento no cambia."
+  default     = false
+}
+
 variable "spa_bucket_force_destroy" {
   type        = bool
   description = "Allows destroying the SPA bucket even if it still has objects. True by default so the environment stays destructible (HU-78)."
@@ -95,8 +109,8 @@ variable "cors_allow_methods" {
 
 variable "cors_allow_headers" {
   type        = list(string)
-  description = "Allowed request headers for the API Gateway CORS configuration."
-  default     = ["Content-Type", "Authorization"]
+  description = "Allowed request headers for the API Gateway CORS configuration. Idempotency-Key: the web portal sends it when reporting a claim (POST /v1/cliente/siniestros); without it the browser preflight fails and the POST is never sent. X-Auth-Retry: the web portal adds it when it retries a request after renewing an expired token (auth.interceptor.ts); without it the retry is blocked by the preflight."
+  default     = ["Content-Type", "Authorization", "Idempotency-Key", "X-Auth-Retry"]
 }
 
 variable "cors_max_age" {

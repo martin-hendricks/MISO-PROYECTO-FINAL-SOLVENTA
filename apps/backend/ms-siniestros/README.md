@@ -1,6 +1,6 @@
 # ms-siniestros
 
-Aviso, evaluación, aprobación y pago de siniestros; automatización de siniestros paramétricos.
+Aviso, evaluación, aprobación y pago de siniestros (asistido y paramétrico), con evidencia en S3 y aprobación asíncrona por motor de reglas.
 
 **Stack:** Python (FastAPI)
 **ASRs relevantes:** EC-LAT-11 (consulta de estado, p95 ≤ 150ms — ver `experiments/ha-08-lectura-siniestro`), EC-DISP-02
@@ -15,6 +15,10 @@ CQRS: separación comando/consulta pendiente de aplicar según el resultado del 
 | HU-32 · Recibir evento paramétrico (stub) | [SOLV-125](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-125) | `POST /v1/eventos-parametricos` ingiere un evento simulado (id + valor comparable) de forma idempotente por `evento_id`, persistido antes de evaluarse. |
 | HU-33 · Evaluar umbral paramétrico | [SOLV-126](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-126) | Compara el valor del evento contra un umbral que viaja en la misma solicitud; evaluación determinista, con el resultado (umbral, valor, decisión, motivo) siempre persistido. |
 | HU-34 · Disparar pago paramétrico (stub) | [SOLV-127](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-127) | Si el umbral se cumple, dispara un desembolso simulado sin intervención humana, idempotente por `evento_id`, y mueve el siniestro a `pagado`. |
+| HU-157 · Aviso de siniestro en el portal y back-office | [SOLV-256](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-256) | Alta del aviso asistido con evidencia en S3 (N5/N6), motor de reglas que aprueba y paga el bajo monto, rechaza lo objetivo o retiene para el operador (N15), cola del operador con decisión auditada (HU-26/27), perito (HU-28) y pago de bajo monto idempotente (HU-29). |
+| HU-160 · Lista de siniestros en el portal | [SOLV-259](https://uniandes-team-proyecto.atlassian.net/browse/SOLV-259) | `GET /v1/siniestros?usuario_id=` y `GET /v1/siniestros/{id}/detalle?usuario_id=` (el cliente nunca ve un siniestro ajeno). |
+| Billetera · depósitos recibidos | SOLV-144 / SOLV-145 | `GET /v1/pagos-recibidos` y `GET /v1/pagos-recibidos/{id}`: pagos ejecutados del cliente (asistido con intento `ejecutado`, o paramétrico pagado). El evento paramétrico acepta `usuario_id`, `ramo` (máx. 60), `poliza_numero` (máx. 60) y `descripcion` (máx. 200), todos opcionales. `pago_parametrico.comprobante` es `CMP-` + 10 hex y no cambia en una reingesta. |
+| Prestadores | SOLV-132 / SOLV-133 / SOLV-134 | `prestador` y `prestador_ramo` (migración 08, 60 filas de semilla). `GET /v1/prestadores` calcula la distancia (haversine, radio máximo 50 km). `GET /v1/siniestros/{id}/prestadores` fija el ramo del aviso. Alta, edición y estado son solo del operador. El cliente solo ve `activo`. La migración 09 agrega `ciudad_prestador` (12 ciudades de CO, MX, CL y PE), `prestador.pais` y 39 prestadores fuera de Colombia. `GET /v1/prestadores/ciudades?pais=` lista las ciudades del país (el cliente solo ve las que tienen prestadores activos). `GET /v1/prestadores` y la ruta del siniestro aceptan el área visible `norte, sur, este, oeste` con `limite` hasta 500 y devuelven `truncado`. Sin área, `limite` llega hasta 100 y `ciudad` sin `pais` se toma de Colombia. Códigos 422 nuevos: `pais_desconocido`, `ciudad_desconocida`, `area_invalida`, `limite_invalido`. |
 
 ### Estados del siniestro (HU-30)
 
@@ -25,6 +29,12 @@ recibido -> en_evaluacion -> decidido -> enrutado -> pagado
 ```
 
 No existe transición directa a `pagado` sin pasar por `decidido`, ni manera de retroceder a `recibido`. `Siniestro.cambiar_estado` valida antes de mutar: una transición inválida lanza `TransicionInvalida` sin dejar el agregado en un estado intermedio ni confirmar la transacción (`app/application/casos_uso.py::cambiar_estado_siniestro`). Cada transición queda en `siniestro_transicion` con `ocurrido_en` y `origen` (de quién/qué vino el cambio), reconstruyendo la traza completa.
+
+### Billetera (`GET /v1/pagos-recibidos`)
+
+Lectura de los depósitos ya ejecutados de un cliente. Entra un siniestro `pagado` con `pago_siniestro` y al menos un intento `ejecutado`, o un siniestro `pagado` con `pago_parametrico`. El monto es el del pago, nunca la reserva. El total es la suma en `Decimal` y el orden es `pagado_en` descendente. Un paramétrico sin `usuario_id` se paga igual y no aparece en ninguna billetera.
+
+`POST /v1/eventos-parametricos` acepta, opcionales, `usuario_id`, `ramo` (hasta 60), `poliza_numero` (hasta 60) y `descripcion` (hasta 200). El pago paramétrico guarda `comprobante` (`CMP-` y diez hex del id), único y estable ante una reingesta. Migración: `db/07_pago_parametrico_comprobante.sql`.
 
 ### Evento paramétrico (HU-32)
 
@@ -38,7 +48,60 @@ La evaluación es determinista: `EvaluacionUmbral.evaluar(evento, umbral, poliza
 
 ### Pago paramétrico (HU-34)
 
-Si la evaluación decide pagar, `disparar_pago_parametrico` dispara el desembolso **sin intervención humana** a través del puerto `AdaptadorDesembolso` (`app/ports/pagos.py`). La implementación provista, `AdaptadorDesembolsoStub` (`app/infrastructure/pagos.py`), es un stub sustituible: solo registra el desembolso en memoria, sin red de pagos real. Sustituir el stub por una pasarela real (p. ej. `ms-pagos`) no requiere cambiar `application/` ni `domain/`, solo cumplir el `Protocol`. El pago es idempotente por `evento_id` (`UNIQUE` en `pago_parametrico.evento_id`): reprocesar el mismo evento no genera un segundo desembolso, se conserva el original. Al pagar, el siniestro transiciona a `pagado` usando la máquina de estados de HU-30, con monto y marca de tiempo persistidos en `pago_parametrico`.
+Si la evaluación decide pagar, el desembolso sale **sin intervención humana** por el puerto `AdaptadorDesembolso` (`app/ports/pagos.py`). La implementación provista, `AdaptadorDesembolsoStub` (`app/infrastructure/pagos.py`), es un stub sustituible: registra el desembolso en memoria, sin red de pagos real. Sustituir el stub por una pasarela real (p. ej. `ms-pagos`) no cambia `application/` ni `domain/`; basta con cumplir el `Protocol`, que **exige idempotencia por clave**.
+
+La cadena va en dos pasos, con el efecto externo entre ellos (`recibir_evento_parametrico`):
+
+1. **Una transacción** registra el evento y el siniestro, lo evalúa y, si corresponde, deja el pago registrado con el siniestro en `enrutado`. Si algo falla antes del commit no queda nada, y la reingesta procesa desde cero.
+2. **Después del commit** se desembolsa y otra transacción cierra en `pagado`. Solo se desembolsa un pago ya confirmado, y `pagado` significa que el desembolso ocurrió.
+
+Si el proceso cae entre el commit y el desembolso, el siniestro queda en `enrutado` con el pago registrado; la reingesta del mismo `evento_id` completa el desembolso. La llamada al adaptador es al-menos-una-vez, siempre con la clave `evento_id`: una entrega concurrente que llega con el ganador aún en `enrutado` también la intenta, y la idempotencia del adaptador evita el pago doble. El pago es único por `evento_id` (`UNIQUE` en `pago_parametrico.evento_id`); la colisión de una ingesta concurrente salta en el `flush` del evento y se traduce a `ClaveIdempotenciaDuplicada`.
+
+`POST /v1/eventos-parametricos` es solo para `operador`: quien llama fija umbral y monto. Los proveedores entran por `ms-parametrico` y `TopicoTelemetria` (abajo).
+
+### Consumidor de TopicoTelemetria (:MotorParametrico)
+
+`app/infrastructure/consumidor_telemetria.py` consume el evento canónico que publica `ms-parametrico` (`:ApiTelemetria`) y lo lleva al mismo `recibir_evento_parametrico`, con origen `topico-telemetria` en la traza. Arranca solo si `MSK_BOOTSTRAP_BROKERS` está definido.
+
+- **Offset después de procesar** (commit manual). Si el pod cae a mitad, el mensaje se reentrega y la idempotencia por `evento_id` evita el segundo pago: entrega al-menos-una-vez más consumidor idempotente da efecto exactamente una vez (EC-ESC-04).
+- **Falla transitoria** (BD, pasarela): no avanza el offset y reintenta con backoff exponencial. La partición se detiene a propósito para no saltarse eventos.
+- **Mensaje inservible** (JSON corrupto, `version` desconocida, regla de negocio violada): se registra (`mensaje_telemetria_descartado`) y se avanza para no bloquear la partición. Aún no hay DLQ.
+- **No bloquea el arranque:** sin MSK solo se detiene el canal paramétrico; el aviso asistido y las consultas siguen.
+- Métrica `solventa_siniestros_telemetria_mensajes_total{resultado=procesado|duplicado|descartado|reintento}`.
+
+Las réplicas consumidoras están acotadas por las 12 particiones del tópico. Detalle, decisiones y evidencia E2E: `odd/tasks/telemetria-parametrica.md`.
+
+### Siniestro asistido (HU-157) — aprobación asíncrona
+
+Lectura del enunciado que aplica: §2.2 "pago de siniestros de **bajo monto** de forma automática"; §5.1 #3 "se evalúa, se aprueba y se paga **o se enruta a un perito**"; §6.4 / `EC-SEG-08` el caso marcado por el antifraude queda **retenido con traza**. No hay meta de latencia para aprobar (solo para consultar el estado), así que la decisión es asíncrona:
+
+```
+POST /v1/siniestros (multipart)  ->  S3 + siniestro RECIBIDO  ->  201 al instante
+worker (cada WORKER_INTERVALO_SEGUNDOS, FOR UPDATE SKIP LOCKED)
+  -> EN_EVALUACION -> motor de reglas (app/domain/motor_reglas.py)
+       aprobado  -> DECIDIDO[aprobado] -> pago stub idempotente -> PAGADO   (sin humano)
+       rechazado -> DECIDIDO[rechazado]   (póliza no vigente / hecho fuera de vigencia)
+       revision  -> EN_EVALUACION + requiere_revision  -> cola del operador
+operador: /decision (aprobar|rechazar con motivo) · /perito · /pago (bajo monto, HU-29)
+```
+
+- **Motor de reglas** (determinista, sin red, evalúa todas las reglas para la auditoría): `poliza_vigente` y `fecha_en_vigencia` rechazan; `ramo_parametrizado`, `evidencia_adjunta`, `sin_avisos_duplicados` (antifraude, ventana por ramo) y `monto_bajo_umbral` retienen. Si el motor falla, el caso queda retenido (nunca se pierde).
+- **Parametría** (`parametro_ramo`): reserva por ramo y umbral de aprobación automática. La reserva nunca supera la suma asegurada. Semilla: `proteccion-dispositivo` 420.000 (bajo el umbral de 500.000, se aprueba solo), `vida-crediticia` 3.200.000 y `soat-motocicleta` 890.000 (van a revisión).
+- **Estados**: se conserva el modelo único de HU-30 y se agrega `resultado` (aprobado/rechazado) dentro de `decidido`. Con `aprobado` vale `decidido -> pagado`; `rechazado` es terminal; `en_evaluacion -> enrutado` es el perito. Los paramétricos (sin `resultado`) siguen con la tabla original.
+- **Evidencia (N6)**: PNG, JPG, PDF o MP4, máx. 10 MB y 5 archivos. Primero se sube a S3 y después se confirma la transacción: si S3 falla, responde 503 y no queda aviso a medias. La llave es `siniestros/{siniestro_id}/{adjunto_id}` (no usa el nombre del cliente). La tabla `siniestro_adjunto` guarda bucket, llave, tipo, tamaño y SHA-256 ligados al usuario y al siniestro; las URLs de lectura se firman al consultar y expiran (`URL_EVIDENCIA_EXPIRA_SEGUNDOS`).
+- **Idempotencia**: `Idempotency-Key` en el alta (un reintento devuelve el mismo aviso con 200) y clave determinista del pago (un reintento devuelve el mismo comprobante y queda en `pago_siniestro_intento` como `reintento_idempotente`).
+- **Seguridad**: todas las rutas exigen el JWT que reenvía el BFF (`SOLVENTA_TOKEN_SECRET`). Solo un `cliente` avisa y solo a su nombre (`usuario_id` del cuerpo = `uid` del token); el cliente solo lista y consulta lo suyo (ajeno -> 404); decidir, perito, pago y forzar el motor son solo del `operador`, y la auditoría guarda el `sub` del token como actor.
+- **Póliza**: igual que HU-33, ms-siniestros no llama a ms-polizas; el BFF envía la foto de la póliza (dueño, vigencia, ramo) en el aviso.
+- **Eventos**: `AvisoSiniestroRecibido`, `SiniestroDecidido`, `SiniestroRetenido` y `PagoSiniestroRealizado` quedan en el outbox para el push de estado (N7) cuando exista el publicador del outbox (N12). El worker no depende de ese publicador.
+
+| Endpoint | Uso |
+| --- | --- |
+| `POST /v1/siniestros` | Alta multipart: parte `datos` (JSON `AvisoEntrada`) + parte `archivos`. |
+| `GET /v1/siniestros?usuario_id=&tipo=&estado=&resultado=&requiere_revision=` | Mis siniestros y chips de la cola. Sin filtros: lista completa (comportamiento previo). |
+| `GET /v1/siniestros/{id}/detalle[?usuario_id=]` | Detalle con evidencia firmada, decisiones auditadas, pago, intentos y `clave_pago`. |
+| `POST /v1/siniestros/{id}/decision` · `/perito` · `/pago` | Acciones del operador (HU-27/28/29). |
+| `POST /v1/siniestros/evaluaciones-pendientes` | Fuerza una pasada del motor sin esperar al worker (operación y E2E). |
+| `GET /v1/parametros-ramo` | Parametría vigente. |
 
 ## Estructura (hexagonal)
 
@@ -73,6 +136,15 @@ uvicorn app.main:app --reload                       # http://localhost:8000/docs
 | `DATABASE_URL` | `postgresql+asyncpg://postgres:postgres@localhost:5432/solventa` | Almacén propio del servicio |
 | `DB_POOL_SIZE` | `10` | Conexiones por réplica |
 | `LOG_LEVEL` | `INFO` | |
+| `S3_EVIDENCIAS_BUCKET` | vacío | Bucket de evidencia. Vacío = almacén en memoria (solo desarrollo). |
+| `AWS_REGION` | `us-east-1` | Región del bucket. En EKS las credenciales llegan por IRSA. |
+| `S3_ENDPOINT_URL` / `S3_ENDPOINT_PUBLICO` | — | Solo local: endpoint del doble de S3 y el que usa el navegador para las URLs firmadas. |
+| `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_CREAR_BUCKET` | — | Solo local (LocalStack). |
+| `WORKER_EVALUACION_HABILITADO` / `WORKER_INTERVALO_SEGUNDOS` | `true` / `2.0` | Worker asíncrono del motor. |
+| `MSK_BOOTSTRAP_BROKERS` | vacío | Brokers de `TopicoTelemetria`. Vacío = sin consumidor. |
+| `MSK_AUTH_MECHANISM` | `AWS_MSK_IAM` | `PLAINTEXT` contra el Kafka local. |
+| `MSK_TOPIC_TELEMETRIA` / `MSK_CONSUMER_GROUP_TELEMETRIA` | `TopicoTelemetria` / `ms-siniestros-telemetria` | Tópico y grupo (el grupo debe coincidir con el rol IRSA). |
+| `CONSUMIDOR_BACKOFF_INICIAL_SEGUNDOS` / `CONSUMIDOR_BACKOFF_MAXIMO_SEGUNDOS` | `0.5` / `30` | Reintento ante fallas transitorias. |
 
 ## Pruebas (HU-85)
 
@@ -98,11 +170,11 @@ docker build --target test -t ms-siniestros:test . && docker run --rm ms-siniest
 ## Ejecutar con Docker (HU-71)
 
 ```bash
-docker compose up --build          # servicio en :8080 + PostgreSQL 16 con el DDL de db/
+docker compose up --build          # servicio en :8080 + PostgreSQL 16 con el DDL de db/ + S3 local (LocalStack) en :4566
 ```
 
 La imagen fija el runtime (`python:3.12.7-slim-bookworm`, nunca `latest`) y corre con un usuario sin privilegios (uid 1000). El puerto 8080 y el uid son los que espera el chart `infra/k8s/charts/microservicio`; con `uvicorn` local sin Docker el servicio sigue en :8000.
 
 ## Despliegue
 
-Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/08_ms_siniestros.sql` (reclamación manual) y `db/schema/13_ms_siniestros_parametrico.sql` (extensión aditiva de HU-30/32/33/34) del repo; el schema `ms_siniestros` vive en la instancia compartida que provisiona Terraform. Sobre ella se aplican, en orden, los archivos de `db/` de este servicio.
+Imagen `runtime` del `Dockerfile` hacia EKS (vista de despliegue §1.1.3). El DDL oficial del servicio está en `db/schema/08_ms_siniestros.sql` (reclamación manual) y `db/schema/13_ms_siniestros_parametrico.sql` (extensión aditiva de HU-30/32/33/34) y `db/schema/14_ms_siniestros_aviso_asistido.sql` (siniestro asistido, HU-157; copia local `db/05_ms_siniestros_aviso_asistido.sql`) del repo; las tablas `reclamacion`/`evidencia_siniestro`/`evaluacion_siniestro` del DDL 08 quedan sin uso; el schema `ms_siniestros` vive en la instancia compartida que provisiona Terraform. Sobre ella se aplican, en orden, los archivos de `db/` de este servicio.

@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..clients.base import RechazoDelNucleo
+from ..clients.ms_consentimiento import ClienteMsConsentimiento
 from ..clients.ms_identidad import ClienteMsIdentidad
-from ..dependencies import issue_pair, obtener_cliente_identidad
+from ..dependencies import issue_pair, obtener_cliente_consentimiento, obtener_cliente_identidad
 
 router = APIRouter(prefix="/registro", tags=["registro"])
 
@@ -27,33 +29,46 @@ class Alta(BaseModel):
     correo: str = Field(min_length=1)
     contrasena: str = Field(min_length=1)
     habeasData: bool
+    ingresos_mensuales: Decimal = Field(gt=0)
+    gastos_mensuales: Decimal = Field(ge=0)
 
 
 ClienteIdentidad = Annotated[ClienteMsIdentidad, Depends(obtener_cliente_identidad)]
 
 
 @router.post("")
-async def alta(body: Alta, cliente_identidad: ClienteIdentidad) -> dict:
+async def alta(
+    body: Alta,
+    cliente_identidad: ClienteIdentidad,
+    cliente_consentimiento: Annotated[ClienteMsConsentimiento, Depends(obtener_cliente_consentimiento)],
+) -> dict:
     # El alta solo existe con habeas data: el consentimiento no se otorga despues desde Perfil.
     if not body.habeasData:
         raise HTTPException(status_code=422, detail="Consentimiento de datos requerido")
 
-    # ms-identidad persiste documento/correo/contrasena; nombre y apellidos
-    # no tienen todavia una tabla de perfil en el nucleo (el schema oficial
-    # de ms_identidad.usuario no los contempla), asi que bff-web los sigue
-    # devolviendo tal cual los recibio, sin persistirlos en ningun lado.
     try:
-        await cliente_identidad.crear_usuario(
+        usuario = await cliente_identidad.crear_usuario(
             tipo_documento=TIPO_DOCUMENTO_DEFECTO,
             numero_documento=body.documento,
             email=body.correo,
             password=body.contrasena,
+            nombre=body.nombre,
+            apellidos=body.apellidos,
+            ingresos_mensuales=body.ingresos_mensuales,
+            gastos_mensuales=body.gastos_mensuales,
         )
     except RechazoDelNucleo as exc:
-        raise HTTPException(status_code=409, detail="La cuenta ya existe") from exc
+        if exc.status == 409:
+            raise HTTPException(status_code=409, detail="La cuenta ya existe") from exc
+        # Cualquier otro rechazo (p. ej. KYC, HU-88: 422 identidad_no_verificada) conserva
+        # su estado y mensaje: no es una cuenta duplicada.
+        raise HTTPException(status_code=exc.status, detail=exc.mensaje) from exc
 
+    if usuario.get("estado") != "ACTIVO" or not usuario.get("usuario_id"):
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
+    await cliente_consentimiento.otorgar_consentimiento(str(usuario["usuario_id"]))
     return {
-        **issue_pair(body.correo, "cliente"),
+        **issue_pair(usuario.get("email") or body.correo, "cliente", str(usuario["usuario_id"])),
         "cliente": body.model_dump(include={"nombre", "apellidos", "documento", "correo"}),
         "consentimiento": {
             "habeasData": True,

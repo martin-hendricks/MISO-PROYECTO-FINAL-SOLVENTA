@@ -104,6 +104,7 @@ describe('AsesorEmisionView', () => {
     expect(element('emitir')).toBeNull();
     const request = http.expectOne(ISSUE_URL);
     expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ monedaInicio: 'COP' });
     request.flush(EMITIDA);
     fixture.detectChanges();
 
@@ -115,6 +116,8 @@ describe('AsesorEmisionView', () => {
     ]);
     expect(element('poliza-emitida')?.textContent).toContain('POL-2026-00090102');
     expect(element('poliza-emitida')?.textContent).toContain('16/09/2027');
+    expect(element('poliza-monedas')?.textContent).toContain('COP');
+    expect(element('poliza-monedas')?.textContent).toContain('PEN');
     expect(element('resumen-oferta')?.textContent).toContain('148.900');
     expect(element('emitir')).toBeNull();
   });

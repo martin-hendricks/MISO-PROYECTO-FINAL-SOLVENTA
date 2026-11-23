@@ -21,6 +21,7 @@ class ClienteMsCotizacion(ClienteServicio):
         datos_riesgo: dict[str, Any],
         asesor_id: UUID | None = None,
         cliente_ref: str | None = None,
+        moneda: str | None = None,
     ) -> dict[str, Any]:
         cuerpo = {
             "usuario_id": str(usuario_id),
@@ -30,6 +31,8 @@ class ClienteMsCotizacion(ClienteServicio):
             "canal": canal,
             "datos_riesgo": datos_riesgo,
         }
+        if moneda is not None:
+            cuerpo["moneda"] = moneda
         # HU-163: solo la venta asistida los envía; el canal cliente sigue
         # mandando el mismo cuerpo de antes.
         if asesor_id is not None:
@@ -60,8 +63,16 @@ class ClienteMsCotizacion(ClienteServicio):
             },
         )
 
-    async def reconsultar(self, cotizacion_id: str) -> dict[str, Any]:
-        return await self._pedir("GET", f"/v1/cotizaciones/{cotizacion_id}")
+    async def reconsultar(self, cotizacion_id: str, usuario_id: UUID | None = None) -> dict[str, Any]:
+        params = {"usuario_id": str(usuario_id)} if usuario_id is not None else None
+        return await self._pedir("GET", f"/v1/cotizaciones/{cotizacion_id}", params=params)
+
+    async def listar_por_usuario(self, usuario_id: UUID, tamano: int = 20) -> dict[str, Any]:
+        return await self._pedir(
+            "GET",
+            f"/v1/cotizaciones/por-usuario/{usuario_id}",
+            params={"tamano": tamano},
+        )
 
     async def obtener_producto(self, producto: str) -> dict[str, Any]:
         """Catálogo de un producto (HU-1/HU-2, SOLV-94/SOLV-95): coberturas y
@@ -82,10 +93,12 @@ class ClienteMsCotizacion(ClienteServicio):
         idempotency_key: str,
         perfil_id: UUID,
         score: Decimal,
+        usuario_id: UUID | None = None,
     ) -> dict[str, Any]:
         return await self._pedir(
             "POST",
             f"/v1/cotizaciones/{cotizacion_id}/aceptacion",
             json={"perfil_id": str(perfil_id), "score": str(score)},
+            params={"usuario_id": str(usuario_id)} if usuario_id is not None else None,
             cabeceras={"Idempotency-Key": idempotency_key},
         )
