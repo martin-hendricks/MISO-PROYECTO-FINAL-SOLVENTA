@@ -1,9 +1,15 @@
 package com.grupo8_uniandes.solventa.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -11,10 +17,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -32,6 +41,7 @@ fun SolventaChip(
     labelStyle: TextStyle? = null,
     showSelectionIcon: Boolean = true,
     enabled: Boolean = true,
+    dot: Color? = null,
 ) {
     if (!showSelectionIcon) {
         ChoiceChip(
@@ -42,6 +52,7 @@ fun SolventaChip(
             testTag = testTag,
             labelStyle = labelStyle,
             enabled = enabled,
+            dot = dot,
         )
         return
     }
@@ -75,6 +86,7 @@ private fun ChoiceChip(
     testTag: String,
     labelStyle: TextStyle?,
     enabled: Boolean,
+    dot: Color?,
 ) {
     val shape = RoundedCornerShape(9999.dp)
     val container = if (selected) {
@@ -111,10 +123,24 @@ private fun ChoiceChip(
             contentColor = content,
         ),
     ) {
-        if (labelStyle == null) {
-            Text(label)
-        } else {
-            Text(label, style = labelStyle)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (dot != null) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(dot)
+                        .clearAndSetSemantics {},
+                )
+            }
+            if (labelStyle == null) {
+                Text(label)
+            } else {
+                Text(label, style = labelStyle)
+            }
         }
     }
 }

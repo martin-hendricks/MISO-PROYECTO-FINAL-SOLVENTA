@@ -66,7 +66,7 @@ class AsistenciaSitioTest {
                         ),
                         onPermission = {},
                         onSelectCity = {},
-                        onSelectRamo = {},
+                        onSelectTipo = {},
                         onOpenProvider = { onCatalog = false },
                     )
                 } else {

@@ -406,6 +406,7 @@
     <string name="providers_pick_city">Elige una ciudad</string>
     <string name="providers_nearest">Más cercanos</string>
     <string name="providers_empty">No hay prestadores en este radio.</string>
+    <string name="providers_type_empty">No hay prestadores de este tipo en la zona.</string>
     <string name="providers_distance">A %1$s km</string>
     <string name="providers_distance_label">Distancia</string>
     <string name="providers_directions">Cómo llegar</string>

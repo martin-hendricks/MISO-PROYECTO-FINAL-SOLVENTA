@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -111,7 +112,7 @@ fun MapaPrestadoresScreen(
     state: MapaPrestadoresUi,
     onPermission: (Boolean) -> Unit,
     onSelectCity: (ProviderCity) -> Unit,
-    onSelectRamo: (String?) -> Unit,
+    onSelectTipo: (ProviderType?) -> Unit,
     onOpenProvider: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRetry: () -> Unit = {},
@@ -176,7 +177,7 @@ fun MapaPrestadoresScreen(
         ) {
             Header(state)
             if (state.phase != ProviderMapPhase.Loading && state.phase != ProviderMapPhase.CountryEmpty) {
-                RamoChips(state = state, onSelectRamo = onSelectRamo)
+                TypeChips(state = state, onSelectTipo = onSelectTipo)
             }
             if (showCities) {
                 CityPicker(cities = state.cities, marked = state.markedCity, onSelectCity = onSelectCity)
@@ -242,14 +243,21 @@ fun MapaPrestadoresScreen(
                             modifier = Modifier.testTag("providers_empty"),
                         )
                     }
-                    state.providers.isNotEmpty() && selected.isEmpty() -> {
+                    state.providers.isNotEmpty() && state.visible.isEmpty() && selected.isEmpty() -> {
+                        Text(
+                            text = stringResource(R.string.providers_type_empty),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.testTag("providers_type_empty"),
+                        )
+                    }
+                    state.visible.isNotEmpty() && selected.isEmpty() -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.background),
                         ) {
                             ProviderList(
-                                rows = state.providers,
+                                rows = state.visible,
                                 showDistance = showDistance,
                                 title = if (showDistance) stringResource(R.string.providers_nearest) else null,
                                 onOpenProvider = onOpenProvider,
@@ -271,7 +279,7 @@ fun MapaPrestadoresScreen(
                             .align(Alignment.BottomCenter)
                             .onSizeChanged { cardHeight = it.height },
                     )
-                } else if (showMap && state.providers.isNotEmpty()) {
+                } else if (showMap && state.visible.isNotEmpty()) {
                     ProviderSheet(
                         state = state,
                         showDistance = showDistance,
@@ -318,33 +326,30 @@ private fun Header(state: MapaPrestadoresUi) {
 }
 
 @Composable
-private fun RamoChips(state: MapaPrestadoresUi, onSelectRamo: (String?) -> Unit) {
-    val locked = state.ramoFijo
+private fun TypeChips(state: MapaPrestadoresUi, onSelectTipo: (ProviderType?) -> Unit) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(SolventaSpacing.s8),
     ) {
         SolventaChip(
             label = stringResource(R.string.claim_chip_todos),
-            selected = locked == null && state.ramo == null,
-            onClick = { onSelectRamo(null) },
+            selected = state.tipo == null,
+            onClick = { onSelectTipo(null) },
             modifier = Modifier.heightIn(min = SolventaSpacing.minTouch),
-            enabled = locked == null,
             showSelectionIcon = false,
             labelStyle = SolventaTypography.amount,
-            testTag = "ramo_todos",
+            testTag = "tipo_todos",
         )
-        providerRamos.forEach { (code, label) ->
-            val fixed = locked == code
+        ProviderType.entries.forEach { tipo ->
             SolventaChip(
-                label = stringResource(label),
-                selected = state.ramo == code || fixed,
-                onClick = { onSelectRamo(code) },
+                label = stringResource(providerTypeLabel(tipo)),
+                selected = state.tipo == tipo,
+                onClick = { onSelectTipo(tipo) },
                 modifier = Modifier.heightIn(min = SolventaSpacing.minTouch),
-                enabled = locked == null || fixed,
                 showSelectionIcon = false,
                 labelStyle = SolventaTypography.amount,
-                testTag = "ramo_$code",
+                dot = Color(providerTypeColor(tipo)),
+                testTag = "tipo_${tipo.code}",
             )
         }
     }
@@ -380,6 +385,9 @@ private fun MapNotices(state: MapaPrestadoresUi, onRetry: () -> Unit, modifier: 
     ) {
         if (state.truncado) Notice(stringResource(R.string.providers_truncated), "providers_truncated")
         if (state.phase == ProviderMapPhase.Empty) Notice(stringResource(R.string.providers_empty), "providers_empty")
+        if (state.providers.isNotEmpty() && state.visible.isEmpty()) {
+            Notice(stringResource(R.string.providers_type_empty), "providers_type_empty")
+        }
         if (state.loadFailed) {
             Surface(shape = RoundedCornerShape(12.dp), shadowElevation = 4.dp) {
                 Row(
@@ -436,7 +444,7 @@ private fun ProviderSheet(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(SolventaSpacing.s8)) {
             ProviderList(
-                rows = state.providers.take(3),
+                rows = state.visible.take(3),
                 showDistance = showDistance,
                 title = when {
                     showDistance -> stringResource(R.string.providers_nearest)
@@ -505,8 +513,8 @@ private fun ProviderGoogleMap(
             camera.animate(CameraUpdateFactory.scrollBy(0f, (point.y - limit).toFloat()))
         }
     }
-    val stacks = remember(state.providers, state.selectedIds) {
-        stackCoincident(state.providers).map { stack ->
+    val stacks = remember(state.visible, state.selectedIds) {
+        stackCoincident(state.visible).map { stack ->
             stack.copy(selected = stack.ids.any { it in state.selectedIds })
         }
     }

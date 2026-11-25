@@ -68,7 +68,7 @@ class MapaPrestadoresTest {
                     ),
                     onPermission = {},
                     onSelectCity = {},
-                    onSelectRamo = {},
+                    onSelectTipo = {},
                     onOpenProvider = {},
                 )
             }
@@ -102,7 +102,7 @@ class MapaPrestadoresTest {
                     state = state,
                     onPermission = {},
                     onSelectCity = {},
-                    onSelectRamo = {},
+                    onSelectTipo = {},
                     onOpenProvider = { opened = it },
                     onCloseCard = { state = state.copy(selectedIds = emptyList()) },
                     onDirections = { directions = it.id },

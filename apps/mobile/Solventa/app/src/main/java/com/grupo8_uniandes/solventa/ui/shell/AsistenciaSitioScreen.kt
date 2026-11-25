@@ -95,6 +95,7 @@ fun AsistenciaSitioScreen(
                 testTag = "field_lugar",
             )
         }
+        val noPolicy = policiesLoaded && policies.none { it.canReportClaim() }
         Column(
             modifier = Modifier.padding(
                 horizontal = SolventaSpacing.gutter,
@@ -106,6 +107,7 @@ fun AsistenciaSitioScreen(
                 text = stringResource(R.string.assistance_continue),
                 style = SolventaButtonStyle.Filled,
                 onClick = onContinue,
+                enabled = !noPolicy,
                 modifier = Modifier.fillMaxWidth(),
                 testTag = "action_continuar_evidencia",
             )

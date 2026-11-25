@@ -11,6 +11,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCenter
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import com.grupo8_uniandes.solventa.domain.bff.claim.DeviceLocator
 import com.grupo8_uniandes.solventa.domain.region.RegionRepository
 import kotlinx.coroutines.Job
@@ -66,9 +67,14 @@ data class MapaPrestadoresUi(
     val canRecenter: Boolean = false,
     val loadFailed: Boolean = false,
     val selectedIds: List<String> = emptyList(),
+    val tipo: ProviderType? = null,
 ) {
+    /** Loaded rows narrowed by the type chip. `null` keeps every type. */
+    val visible: List<Provider>
+        get() = if (tipo == null) providers else providers.filter { it.tipo == tipo }
+
     val selected: List<Provider>
-        get() = selectedIds.mapNotNull { id -> providers.firstOrNull { it.id == id } }
+        get() = selectedIds.mapNotNull { id -> visible.firstOrNull { it.id == id } }
 
     val distanceFromEvent: Boolean
         get() = placement == ProviderPlacement.Claim && !sinGeoetiqueta
@@ -150,6 +156,15 @@ class MapaPrestadoresViewModel(
     fun selectCity(city: ProviderCity) {
         job?.cancel()
         job = viewModelScope.launch { showCity(city) }
+    }
+
+    /** Narrows the pins already on screen. It does not ask the network again. */
+    fun selectTipo(tipo: ProviderType?) {
+        update {
+            val kept = if (tipo == null) providers else providers.filter { it.tipo == tipo }
+            val ids = kept.mapTo(hashSetOf()) { it.id }
+            copy(tipo = tipo, selectedIds = selectedIds.filter { it in ids })
+        }
     }
 
     fun selectRamo(ramo: String?) {
@@ -363,7 +378,9 @@ class MapaPrestadoresViewModel(
     }
 
     private fun MapaPrestadoresUi.withRows(rows: List<Provider>, truncado: Boolean): MapaPrestadoresUi {
-        val ids = rows.mapTo(hashSetOf()) { it.id }
+        val ids = rows.mapNotNullTo(hashSetOf()) { row ->
+            if (tipo == null || row.tipo == tipo) row.id else null
+        }
         return copy(
             providers = rows,
             truncado = truncado,
