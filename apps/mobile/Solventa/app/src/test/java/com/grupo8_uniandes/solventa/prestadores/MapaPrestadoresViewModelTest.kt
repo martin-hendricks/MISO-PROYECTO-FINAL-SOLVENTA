@@ -255,6 +255,25 @@ class MapaPrestadoresViewModelTest {
     }
 
     @Test
+    fun givenATypeFilter_whenTheAreaReloads_thenADifferentTypeLeavesTheCard() = runTest(dispatcher) {
+        val assistance = FakeAssistance()
+        val taller = sample("PRE-BOG-06", 0.9)
+        val grua = taller.copy(id = "PRE-GRUA", tipo = ProviderType.GRUA, nombre = "Grúa")
+        assistance.rows = { listOf(taller, grua) }
+        val viewModel = started(assistance, locator = BOGOTA_FIX)
+        viewModel.selectProviders(listOf(taller.id, grua.id))
+        viewModel.selectTipo(ProviderType.TALLER_MOTOS)
+
+        viewModel.onCameraIdle(AREA_A)
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertEquals(listOf(taller.id), state.visible.map { it.id })
+        assertEquals(listOf(taller.id, grua.id), state.providers.map { it.id })
+        assertEquals(listOf(taller.id), state.selectedIds)
+    }
+
+    @Test
     fun givenAnOpenCard_whenAnAreaAnswerKeepsOrDropsTheProvider_thenTheCardStaysOrCloses() = runTest(dispatcher) {
         val assistance = FakeAssistance()
         assistance.rows = { listOf(sample("PRE-BOG-12", 1.4)) }

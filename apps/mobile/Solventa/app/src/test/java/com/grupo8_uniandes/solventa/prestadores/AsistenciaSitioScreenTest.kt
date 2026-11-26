@@ -59,6 +59,42 @@ class AsistenciaSitioScreenTest {
         rule.onNodeWithTag("action_continuar_evidencia").assertIsEnabled()
     }
 
+    @Test
+    fun givenAnExpiredPolicy_whenAssistanceOpens_thenContinueStaysDisabled() {
+        rule.setContent {
+            SolventaTheme {
+                AsistenciaSitioScreen(
+                    form = FORM,
+                    policies = listOf(PolicyEntry("POL-1", "SOAT", "moto", "vencida", "2020-01-01")),
+                    policiesLoaded = true,
+                    onContinue = {},
+                    onCancel = {},
+                )
+            }
+        }
+
+        rule.onNodeWithTag("assistance_no_policy").assertIsDisplayed()
+        rule.onNodeWithTag("action_continuar_evidencia").assertIsNotEnabled()
+    }
+
+    @Test
+    fun givenPoliciesStillLoading_whenAssistanceOpens_thenContinueStaysEnabled() {
+        rule.setContent {
+            SolventaTheme {
+                AsistenciaSitioScreen(
+                    form = FORM,
+                    policies = emptyList(),
+                    policiesLoaded = false,
+                    onContinue = {},
+                    onCancel = {},
+                )
+            }
+        }
+
+        rule.onAllNodesWithTag("assistance_no_policy").assertCountEquals(0)
+        rule.onNodeWithTag("action_continuar_evidencia").assertIsEnabled()
+    }
+
     private companion object {
         val FORM = AssistanceForm(
             registration = "Registramos el pedido.",

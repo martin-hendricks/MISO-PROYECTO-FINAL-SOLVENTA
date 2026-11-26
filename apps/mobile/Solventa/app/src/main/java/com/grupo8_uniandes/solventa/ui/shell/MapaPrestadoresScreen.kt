@@ -243,7 +243,7 @@ fun MapaPrestadoresScreen(
                             modifier = Modifier.testTag("providers_empty"),
                         )
                     }
-                    state.providers.isNotEmpty() && state.visible.isEmpty() && selected.isEmpty() -> {
+                    state.providers.isNotEmpty() && state.visible.isEmpty() -> {
                         Text(
                             text = stringResource(R.string.providers_type_empty),
                             style = MaterialTheme.typography.bodyLarge,
