@@ -85,7 +85,8 @@ class MapaPrestadoresScreenTest {
         )
 
         rule.onNodeWithTag("providers_sheet").assertIsDisplayed()
-        rule.onNodeWithText("Grúa Laureles").assertIsDisplayed()
+        rule.onNodeWithTag("action_open_provider_0").performScrollTo().assertIsDisplayed()
+        rule.onAllNodesWithTag("action_open_provider_1").assertCountEquals(0)
         rule.onAllNodesWithText("Taller Moto Chapinero").assertCountEquals(0)
     }
 
