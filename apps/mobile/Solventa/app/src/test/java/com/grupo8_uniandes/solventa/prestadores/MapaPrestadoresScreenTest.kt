@@ -120,6 +120,7 @@ class MapaPrestadoresScreenTest {
         phase = ProviderMapPhase.NearMe,
         placement = ProviderPlacement.Near,
         mapsKey = mapsKey,
+        cameraTarget = if (mapsKey.isBlank()) null else CameraTarget(4.6432, -74.0631, 14f),
         providers = providers,
     )
 }
