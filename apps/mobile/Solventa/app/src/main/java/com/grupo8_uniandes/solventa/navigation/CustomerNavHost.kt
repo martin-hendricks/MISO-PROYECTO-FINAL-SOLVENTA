@@ -663,7 +663,7 @@ private fun ProviderMapRoute(
         state = state,
         onPermission = viewModel::onLocationPermission,
         onSelectCity = viewModel::selectCity,
-        onSelectRamo = viewModel::selectRamo,
+        onSelectTipo = viewModel::selectTipo,
         onOpenProvider = onOpenProvider,
         onRetry = viewModel::retry,
         onReport = onReport,

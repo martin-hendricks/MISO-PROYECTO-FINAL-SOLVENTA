@@ -330,7 +330,7 @@ class AvisoSiniestroScreenTest {
                     ),
                     onPermission = {},
                     onSelectCity = {},
-                    onSelectRamo = {},
+                    onSelectTipo = {},
                     onOpenProvider = {},
                     onReport = { reported = true },
                 )

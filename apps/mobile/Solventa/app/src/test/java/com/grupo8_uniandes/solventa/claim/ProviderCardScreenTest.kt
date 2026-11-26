@@ -117,7 +117,7 @@ class ProviderCardScreenTest {
                     state = state(),
                     onPermission = {},
                     onSelectCity = {},
-                    onSelectRamo = {},
+                    onSelectTipo = {},
                     onOpenProvider = onOpenProvider,
                     onCloseCard = onCloseCard,
                     onDirections = { onDirections(it.id) },

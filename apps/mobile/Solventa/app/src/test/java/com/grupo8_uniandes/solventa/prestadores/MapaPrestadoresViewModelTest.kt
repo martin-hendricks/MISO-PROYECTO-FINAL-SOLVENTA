@@ -11,6 +11,7 @@ import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCenter
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderCity
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderPage
 import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderQuery
+import com.grupo8_uniandes.solventa.domain.bff.assistance.ProviderType
 import com.grupo8_uniandes.solventa.domain.bff.claim.DeviceLocator
 import com.grupo8_uniandes.solventa.domain.bff.claim.GeoPoint
 import com.grupo8_uniandes.solventa.domain.region.Region
@@ -223,6 +224,53 @@ class MapaPrestadoresViewModelTest {
 
         viewModel.closeCard()
         assertTrue(viewModel.state.value.selectedIds.isEmpty())
+    }
+
+    @Test
+    fun givenLoadedProviders_whenATypeIsChosen_thenTheVisibleListFiltersWithoutAQuery() = runTest(dispatcher) {
+        val assistance = FakeAssistance()
+        val taller = sample("PRE-BOG-06", 0.9)
+        val grua = taller.copy(id = "PRE-GRUA", tipo = ProviderType.GRUA, nombre = "Grúa")
+        assistance.rows = { listOf(taller, grua) }
+        val viewModel = started(assistance, locator = BOGOTA_FIX)
+        val queries = assistance.queries.size
+        viewModel.selectProvider("PRE-GRUA")
+
+        viewModel.selectTipo(ProviderType.TALLER_MOTOS)
+
+        val filtered = viewModel.state.value
+        assertEquals(ProviderType.TALLER_MOTOS, filtered.tipo)
+        assertEquals(listOf("PRE-BOG-06"), filtered.visible.map { it.id })
+        assertEquals(listOf("PRE-BOG-06", "PRE-GRUA"), filtered.providers.map { it.id })
+        assertTrue(filtered.selectedIds.isEmpty())
+        assertTrue(filtered.selected.isEmpty())
+        assertEquals(queries, assistance.queries.size)
+
+        viewModel.selectTipo(null)
+
+        val restored = viewModel.state.value
+        assertNull(restored.tipo)
+        assertEquals(listOf("PRE-BOG-06", "PRE-GRUA"), restored.visible.map { it.id })
+        assertEquals(queries, assistance.queries.size)
+    }
+
+    @Test
+    fun givenATypeFilter_whenTheAreaReloads_thenADifferentTypeLeavesTheCard() = runTest(dispatcher) {
+        val assistance = FakeAssistance()
+        val taller = sample("PRE-BOG-06", 0.9)
+        val grua = taller.copy(id = "PRE-GRUA", tipo = ProviderType.GRUA, nombre = "Grúa")
+        assistance.rows = { listOf(taller, grua) }
+        val viewModel = started(assistance, locator = BOGOTA_FIX)
+        viewModel.selectProviders(listOf(taller.id, grua.id))
+        viewModel.selectTipo(ProviderType.TALLER_MOTOS)
+
+        viewModel.onCameraIdle(AREA_A)
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertEquals(listOf(taller.id), state.visible.map { it.id })
+        assertEquals(listOf(taller.id, grua.id), state.providers.map { it.id })
+        assertEquals(listOf(taller.id), state.selectedIds)
     }
 
     @Test
